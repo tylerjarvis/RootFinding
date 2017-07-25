@@ -1,4 +1,4 @@
-#RootFinding
+# RootFinding
 
 Root finding methods for multivariate polynomial equations.
 
