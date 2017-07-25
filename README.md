@@ -9,14 +9,16 @@ Root finding methods for multivariate polynomial equations.
 To contribute to this repository, clone the repository from github using the terminal or shell:
 `git clone https://github.com/tylerjarvis/RootFinding.git`
 
+***Branches***
 This repo uses two main branches.
 The most stable version of the code is in the branch `master`.
 The current code under development is in the branch `develop`.
-***Side note***: After the develop branch is stable with significant changes, the develop branch will be merged into the master branch, creating a new master branch. This represents upgrading the master branch to a new version (ie version 1.0 to version 2.0).
+Side note: After the develop branch is stable with significant changes, the develop branch will be merged into the master branch, creating a new master branch. This represents upgrading the master branch to a new version (ie version 1.0 to version 2.0).
 
 When you are contributing, you can see which branch you are on by running the following command in the terminal:
 `git branch`
 
+***Creating a new branch to work on***
 Before creating a new branch, switch to the develop branch by typing
 `git checkout develop`.
 Make sure it is up-to-date by typing
@@ -36,6 +38,7 @@ If you wanted to update monomial multiplication in a file called `multi_cheb.py`
 to create a new branch called `develop/monomial_multiplication`.
 This is good practice because it tells anyone else who sees this branch that you are changing old code based off of the develop branch.
 
+***Saving progress by pushing to github***
 To save your progress at the end of a work period (probably good to do hourly or so) you should commit your changes and push your branch up to github by doing the following (according to the above example)
 ```
 git add multi_cheb.py
@@ -43,6 +46,7 @@ git commit -m "Fixed some errors in the monomial multiplication code. Comments a
 git push origin develop/monomial_multiplication
 ```
 
+***Submitting a pull request***
 When you think your branch is ready to merge into develop, first make sure everything still passes the unit tests by typing
 `py.test`
 in the main RootFinding directory.
