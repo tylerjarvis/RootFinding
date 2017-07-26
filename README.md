@@ -46,6 +46,7 @@ $ git commit -m "Wrote the first unit test to check polynomial basis conversion.
 When you are done working, commit and push your branch to GitHub.
 
 ```
+$ git add test_convert.py
 $ git commit -m "Finished writing the third unit test for polynomial basis conversion."
 $ git push origin test/convert_poly
 ```
@@ -68,6 +69,11 @@ Your code is now visible on the GitHub page online.
 You can submit a pull request on the GitHub page.
 Although you can merge your own pull request into `develop`, it is best practice to have someone else complete the merge.
 Do not complete a merge if there are conflicts or if the code does not have proper documentation, including docstrings and comments.
+As soon as your pull request has been successfully merged into develop, you should delete the branch on your local machine.
+
+`$ git branch -D test/convert_poly`
+
+The person who completed the pull request should also delete the branch located on GitHub.
 
 **Solving a System of Polynomial Equations**
 
