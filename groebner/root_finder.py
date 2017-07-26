@@ -116,8 +116,8 @@ def multMatrix(poly, GB, basis):
     basis : list of tuples
         The monomials that make up a basis for the vector space A
 
-    return
-    ------
+    returns
+    -------
     multOperatorMatrix : square numpy array
         The matrix m_f
     '''
@@ -144,8 +144,8 @@ def vectorSpaceBasis(GB):
     GB: list
         polynomial objects that make up a Groebner basis for the ideal
 
-    return
-    ------
+    returns
+    -------
     basis : list
         tuples representing the monomials in the vector space basis
     var_to_pos_dict : dictionary
@@ -182,8 +182,8 @@ def coordinateVector(poly, GB, basis):
     basis : list of tuples
         The monomials that make up a basis for the vector space
 
-    return
-    ------
+    returns
+    -------
     coordinateVector : list
         The coordinate vector of the given polynomial's coset in
         A = C[x_1,...x_n]/I as a vector space over C
@@ -210,8 +210,8 @@ def divides(mon1, mon2):
     mon2 : tuple
         contains the exponents of the monomial dividend
 
-    return
-    ------
+    returns
+    -------
     boolean
         true if mon1 divides mon2, false otherwise
     '''
@@ -229,8 +229,8 @@ def reduce_poly(poly, divisors, permitted_round_error=1e-10):
     divisors : list of polynomial objects
         polynomials to divide poly by
 
-    return
-    ------
+    returns
+    -------
     polynomial object
         the remainder of poly / divisors
     '''
