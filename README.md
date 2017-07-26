@@ -2,80 +2,72 @@
 
 Root finding methods for multivariate polynomial equations.
 
-**For Contributors**
+## Getting Started
 
-***Git Workflow***
+Welcome to the team.
+Writing code as a team can be a challenge.
+The rest of this README will show you how to contribute to this project in a way that keeps things organized and working.
 
-To contribute to this repository, clone the repository from github using the terminal or shell:
+**An Example**
 
-`git clone https://github.com/tylerjarvis/RootFinding.git`
+First, clone the repository from GitHub using the terminal or shell:
 
-***Branches***
+`$ git clone https://github.com/tylerjarvis/RootFinding.git`
+
 This repo uses two main branches.
 The most stable version of the code is in the branch `master`.
 The current code under development is in the branch `develop`.
-Side note: After the develop branch is stable with significant changes, the develop branch will be merged into the master branch, creating a new master branch. This represents upgrading the master branch to a new version (ie version 1.0 to version 2.0).
+The `develop` branch will eventually be merged into the `master` branch, signifying that a new version of the package is available to use. You can see which branches are on your local machine and which branch you are currently on by running the following command in the terminal:
 
-When you are contributing, you can see which branch you are on by running the following command in the terminal:
+`$ git branch`
 
-`git branch`
+Suppose that at the last research meeting, you were assigned to test code that converts polynomials in the power basis to polynomials in the Chebyshev basis.
+You need to create a new branch off of the `develop` branch where you can safely make changes to the code.
+Switch to the `develop` branch, then make sure it is up-to-date with what is currently on GitHub:
 
-***Creating a new branch to work on***
-Before creating a new branch, switch to the develop branch by typing
+`$ git checkout develop`
 
-`git checkout develop`.
-
-Make sure it is up-to-date by typing
-
-`git pull origin develop`.
+`$ git pull origin develop`.
 
 Now you are ready to create a new branch and switch to it.
-To do this type
+You are supposed to a unit test that checks whether some code successfully converts polynomials between bases.
+Create a new branch off of develop called `test/convert_poly`.
 
-`git checkout -b branchname`
+`$ git checkout -b test/convert_poly develop`
 
-where `branchname` refers to a descriptive name of what you are working on.
-
-For example, if your job is to write code that converts power basis polynomials to chebyshev basis polynomials, you could run
-
-`git checkout -b feature/polynomial_converter`
-
-which creates a new branch called `feature/polynomial_converter`.
-This is good practice since it tells anyone else who sees this branch that you are developing a new feature.
-
-If you wanted to update monomial multiplication in a file called `multi_cheb.py`, you could run
-
-`git checkout -b feature/monomial_multiplication develop`
-
-to create a new branch called `feature/monomial_multiplication`.
-This is good practice because it tells anyone else who sees this branch that you are changing old code based off of the develop branch.
-
-***Saving progress by pushing to github***
-To save your progress at the end of a work period (probably good to do hourly or so) you should commit your changes and push your branch up to github by doing the following (according to the above example)
+As you modify the code, you should save your progress frequently by committing your code.
+You should commit your code anytime you make progress, which usually means a few times per hour.
 
 ```
-git add multi_cheb.py
-git commit -m "Fixed some errors in the monomial multiplication code. Comments and documentation is not yet written."
-git push origin feature/monomial_multiplication
+$ git add test_convert.py
+$ git commit -m "Wrote the first unit test to check polynomial basis conversion."
 ```
 
-***Submitting a pull request***
-When you think your branch is ready to merge into develop, first make sure everything still passes the unit tests by typing
-`py.test`
-in the main RootFinding directory.
-If all the tests pass, make sure someone else looks over your code.
-Make sure they understand what your code is doing and why the changes are needed.
-The reviewer should make sure that you have written good docstrings and have commented your code so that it is easy to follow.
-After making any last changes to the code (and making sure it still passes the unit tests), you can push your code directly to github by typing
+When you are done working, commit and push your branch to GitHub.
 
-`git push origin feature/monomial_multiplication`.
-This pushes your branch to github and can be visible on the github page online.
+```
+$ git commit -m "Finished writing the third unit test for polynomial basis conversion."
+$ git push origin test/convert_poly
+```
 
-You can then submit a pull request to merge your branch into the develop branch.
-Although you can merge your own pull request, it is best practice to have someone else to approve and merge in your pull request.
+**Submitting a pull request**
 
-**Organization of this Repository**
+When you are finished with the assignment, your branch should be ready to merge into develop.
+Run `py.test` from the main RootFinding directory to make sure the code still passes the unit tests.
+Next, commit and push your code.
 
+`$ py.test`
+
+```
+$ git add test_convert.py
+$ git commit -m "Polynomial basis conversion passes all 5 of the new unit tests."
+$ git push origin test/convert_poly
+```
+
+Your code is now visible on the GitHub page online.
+You can submit a pull request on the GitHub page.
+Although you can merge your own pull request into `develop`, it is best practice to have someone else complete the merge.
+Do not complete a merge if there are conflicts or if the code does not have proper documentation, including docstrings and comments.
 
 **Solving a System of Polynomial Equations**
 
