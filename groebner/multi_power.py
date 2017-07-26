@@ -2,8 +2,10 @@ from __future__ import division, print_function
 import numpy as np
 from scipy.signal import convolve, fftconvolve
 from groebner.polynomial import Polynomial
+from groebner.maxheap import Term
 import itertools
 import math
+import time
 
 """
 1/11/17
@@ -13,6 +15,9 @@ coefficents, and inculdes basic operations (+,*,scaler multip, etc.)
 Assumes GRevLex ordering, but should be extended.
 Mostly used for testing vs other solvers
 """
+
+times = dict()
+times["mon_mult_power"] = 0
 
 class MultiPower(Polynomial):
     """
@@ -30,10 +35,15 @@ class MultiPower(Polynomial):
         input- Current: list, current location in ordering
         output- the next step in ordering
     """
+    def printTime():
+        print(times)
+    
+    def clearTime():
+        times["mon_mult_power"] = 0
 
     def __init__(self, coeff, order='degrevlex', lead_term=None, clean_zeros = True):
         super(MultiPower, self).__init__(coeff, order, lead_term, clean_zeros)
-
+        
     def __add__(self,other):
         '''
         Here we add an addition class.
@@ -42,7 +52,10 @@ class MultiPower(Polynomial):
             new_self, new_other = self.match_size(self,other)
         else:
             new_self, new_other = self, other
-        return MultiPower(new_self.coeff + new_other.coeff)
+            
+        newLeadTerm = max(Term(self.lead_term), Term(other.lead_term))
+
+        return MultiPower(new_self.coeff + new_other.coeff, lead_term = newLeadTerm.val)
 
     def __sub__(self,other):
         '''
@@ -77,14 +90,20 @@ class MultiPower(Polynomial):
                 add_to_shape = len(B_shape) - len(A_shape)
                 for i in range(add_to_shape):
                     A_shape.insert(0,1)
-                a = A.reshape(A_shape)
-                a = MultiPower(a)
+                aCoeff = A.reshape(A_shape)
+                if a.lead_term is None:
+                    a = MultiPower(aCoeff)
+                else:
+                    a = MultiPower(aCoeff, lead_term = tuple(np.zeros(add_to_shape, dtype = int)) + a.lead_term)
             else:
                 add_to_shape = len(A_shape) - len(B_shape)
                 for i in range(add_to_shape):
                     B_shape.insert(0,1)
-                b = B.reshape(B_shape)
-                b = MultiPower(b)
+                bCoeff = B.reshape(B_shape)
+                if b.lead_term is None:
+                    b = MultiPower(bCoeff)
+                else:
+                    b = MultiPower(bCoeff, lead_term = tuple(np.zeros(add_to_shape, dtype = int)) + b.lead_term)
 
         new_shape = [max(i,j) for i,j in itertools.zip_longest(a.shape, b.shape, fillvalue = 0)] #finds the largest length in each dimmension
         # finds the difference between the largest length and the original shapes in each dimmension.
@@ -97,24 +116,9 @@ class MultiPower(Polynomial):
         add_a_list[:,1] = add_a
         add_b_list[:,1] = add_b
         #uses add_a_list and add_b_list to pad each polynomial appropriately.
-        a = MultiPower(np.pad(a.coeff,add_a_list.astype(int),'constant'), clean_zeros = False)
-        b = MultiPower(np.pad(b.coeff,add_b_list.astype(int),'constant'), clean_zeros = False)
+        a = MultiPower(np.pad(a.coeff,add_a_list.astype(int),'constant'), lead_term = a.lead_term, clean_zeros = False)
+        b = MultiPower(np.pad(b.coeff,add_b_list.astype(int),'constant'), lead_term = b.lead_term, clean_zeros = False)
         return a,b
-
-    def __eq__(self,other):
-        '''
-        check if coeff matrix is the same
-        '''
-        if self.shape != other.shape:
-            return False
-        else:
-            return np.allclose(self.coeff, other.coeff)
-
-    def __ne__(self,other):
-        '''
-        check if coeff matrix is not the same same
-        '''
-        return not (self == other)
 
     def mon_mult(self,M):
         '''
@@ -122,11 +126,17 @@ class MultiPower(Polynomial):
             Ex: x^3*y^4*z^2 would be input as (3,4,2)
         #P is the polynomial.
         '''
+        M = np.array(M)
+        start = time.time()
         tuple1 = []
         for i in M:
             list1 = (i,0)
             tuple1.append(list1)
-        return MultiPower(np.pad(self.coeff, tuple1, 'constant', constant_values = 0), clean_zeros = False)
+        poly = MultiPower(np.pad(self.coeff, tuple1, 'constant', constant_values = 0), 
+                          clean_zeros = False, lead_term = self.lead_term + M)
+        end = time.time()
+        times["mon_mult_power"] += (end-start)
+        return poly
 
     def evaluate_at(self, point):
         super(MultiPower, self).evaluate_at(point)
