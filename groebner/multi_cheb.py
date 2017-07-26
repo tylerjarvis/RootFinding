@@ -39,21 +39,21 @@ class MultiCheb(Polynomial):
         Here we add an addition method
         '''
         if self.shape != other.shape:
-            new_self, new_other = self.match_size(self,other)
+            new_self, new_other = self.match_size(self.coeff,other.coeff)
         else:
-            new_self, new_other = self, other
+            new_self, new_other = self.coeff, other.coeff
 
-        return MultiCheb(new_self.coeff + new_other.coeff)
+        return MultiCheb(new_self + new_other)
 
-    def __sub__(self,other):
+    def __sub__(self,other, scale = 1):
         '''
         Here we subtract the two polys coeffs
         '''
         if self.shape != other.shape:
-            new_self, new_other = self.match_size(self,other)
+            new_self, new_other = self.match_size(self.coeff,other.coeff)
         else:
-            new_self, new_other = self, other
-        return MultiCheb(new_self.coeff - new_other.coeff)
+            new_self, new_other = self.coeff, other.coeff
+        return MultiCheb((new_self - (scale*new_other)), clean_zeros = False)
 
     def _reverse_axes(self):
         """
@@ -143,7 +143,9 @@ class MultiCheb(Polynomial):
         '''
         # Check and see if same size
         if self.shape != other.shape:
-            new_self, new_other = self.match_size(self,other)
+            new_self, new_other = self.match_size(self.coeff,other.coeff)
+            new_self = MultiCheb(new_self)
+            new_other = MultiCheb(new_other)
         else:
             new_self, new_other = self, other
 
@@ -211,14 +213,7 @@ class MultiCheb(Polynomial):
 
         return sol
 
-    def mon_mult(self, idx):
-        for i in range(len(idx)):
-            idx_zeros = np.zeros(len(idx),dtype = int)
-            idx_zeros[i] = idx[i]
-            self = self.mon_mult1(idx_zeros)
-        return self
-
-    def mon_mult1(self,idx):
+    def mon_mult1(initial_matrix,idx):
         """
         Takes a polynomial and the index of a monomial and returns the result of the multiplication.
         """
@@ -226,38 +221,46 @@ class MultiCheb(Polynomial):
         #power = cheb2poly(self)
         #mult = power.mon_mult(idx)
         #return poly2cheb(mult)
-        
-        
-        
-        
         pad_values = list()
         for i in idx: #iterates through monomial and creates a tuple of pad values for each dimension
             pad_dim_i = (i,0)
             #In np.pad each dimension is a tuple of (i,j) where i is how many to pad in front and j is how many to pad after.
             pad_values.append(pad_dim_i)
-        p1 = MultiCheb(np.pad(self.coeff, (pad_values), 'constant', constant_values = 0))
+        p1 = np.pad(initial_matrix, (pad_values), 'constant')
 
-        solution_matrix = self.coeff
-
-        largest_idx = [i-1 for i in solution_matrix.shape]
+        largest_idx = [i-1 for i in initial_matrix.shape]
         new_shape = [max(i,j) for i,j in itertools.zip_longest(largest_idx, idx, fillvalue = 0)] #finds the largest length in each dimmension
         add_a = [i-j for i,j in itertools.zip_longest(new_shape, largest_idx, fillvalue = 0)]
         add_a_list = np.zeros((len(new_shape),2))
         #changes the second column to the values of add_a and add_b.
         add_a_list[:,1] = add_a
         #uses add_a_list and add_b_list to pad each polynomial appropriately.
-        solution_matrix = np.pad(solution_matrix,add_a_list.astype(int),'constant')
+        initial_matrix = np.pad(initial_matrix,add_a_list.astype(int),'constant')
 
-        number_of_dim = solution_matrix.ndim
-        shape_of_self = solution_matrix.shape
+        number_of_dim = initial_matrix.ndim
+        shape_of_self = initial_matrix.shape
 
         #Loop iterates through each dimension of the polynomial and folds in that dimension
         for i in range(number_of_dim):
-            solution_matrix = MultiCheb.fold_in_i_dir(solution_matrix, number_of_dim, i, shape_of_self[i], idx[i])
+            if idx[i] != 0:
+                initial_matrix = MultiCheb.fold_in_i_dir(initial_matrix, number_of_dim, i, shape_of_self[i], idx[i])
+        if p1.shape != initial_matrix.shape:
+            idx = [i-j for i,j in zip(p1.shape,initial_matrix.shape)]
+            pad_values = list()
+            for i in idx:
+                pad_dim_i = (0,i)
+                pad_values.append(pad_dim_i)
+            initial_matrix = np.pad(initial_matrix, (pad_values), 'constant')
+        Pf = p1 + initial_matrix
+        return .5*Pf
 
-        p2 = MultiCheb(solution_matrix)
-        Pf = (p1+p2)
-        return MultiCheb(.5*Pf.coeff) #Make
+    def mon_mult(self, idx):
+        initial_matrix = self.coeff
+        for i in range(len(idx)):
+            idx_zeros = np.zeros(len(idx),dtype = int)
+            idx_zeros[i] = idx[i]
+            initial_matrix = MultiCheb.mon_mult1(initial_matrix, idx_zeros)
+        return MultiCheb(initial_matrix, lead_term = self.lead_term + np.array(idx))
 
     def evaluate_at(self, point):
         super(MultiCheb, self).evaluate_at(point)
