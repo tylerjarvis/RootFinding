@@ -1,10 +1,11 @@
 # RootFinding
 
 Root finding methods for multivariate polynomial equations.
+Developed at Brigham Young University 2016-2017.
 
 ## Getting Started
 
-Welcome to the team.
+Welcome!
 Writing code as a team can be a challenge.
 The rest of this README will show you how to contribute to this project in a way that keeps things organized and working.
 
@@ -19,7 +20,24 @@ The rest of this README will show you how to contribute to this project in a way
 - `git pull origin branchname`: Grabs the most recent version of the branch called "branchname" from github.com and updates your local machine with any changes that exist in the online branch.
 - `git branch -D branchname`: Force git to delete the branch called "branchname" from your local machine.
 
-**An Example**
+**Issues**
+
+When you are assigned to write new code or modify existing code, you or someone on the team should create an issue on this GitHub page by clicking the new issue button at the top of this page.
+Give the issue a specific title that describes your assignment.
+Assign yourself to the issue and save it.
+This helps us keep track of who is responsible for which assignments.
+When you have finished resolving the issue (meaning your code has been successfully merged into develop) you can close the issue.
+
+**Test-Driven Development**
+
+When you are given an assignment, you should first write all the unit tests for the code you are about to write.
+Assuming the unit tests are correct, all you have to do is write or modify code until all the unit tests pass.
+This is called *test-driven development* and helps you avoid writing unnecessary or complicated code that doesn't directly contribute to the solution you intend to build.
+Writing the unit tests first also helps you fully understand the problem you are trying to solve before you code up the solution.
+This will help you avoid lots of errors that may go unnoticed for a long time.
+Save yourself the headache of debugging errors in your code by writing the unit tests first.
+
+**An Example for the Uninitiated**
 
 First, clone the repository from GitHub using the terminal or shell:
 
@@ -68,9 +86,10 @@ $ git push origin test/convert_poly
 
 When you are finished with the assignment, your branch should be ready to merge into develop.
 Run `py.test` from the main RootFinding directory to make sure the code still passes the unit tests.
-Next, commit and push your code.
 
 `$ py.test`
+
+Next, commit and push your code.
 
 ```
 $ git add test_convert.py
@@ -88,14 +107,3 @@ As soon as your pull request has been successfully merged into develop, you shou
 
 The person who completed the pull request should also delete the branch located on GitHub.
 
-**Solving a System of Polynomial Equations**
-
-Groebner bases can be used to find solutions to a system of polynomial equations.
-Unfortunately, computing Groebner bases is known to be unstable due to floating point error propagation.
-Polynomials in the power basis can be represented by a summation of Chebyshev polynomials, which are good for stable computation.
-Converting the polynomials to Chebyshev polynomials reduces the error significantly.
-Here's an example using the code from this repository:
-
-*Example*
-
-Developed at Brigham Young University 2016-2017
