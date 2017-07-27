@@ -39,31 +39,20 @@ class MultiPower(Polynomial):
         Here we add an addition class.
         '''
         if self.shape != other.shape:
-            new_self, new_other = self.match_size(self,other)
+            new_self, new_other = self.match_size(self.coeff,other.coeff)
         else:
-            new_self, new_other = self, other
-        return MultiPower(new_self.coeff + new_other.coeff)
+            new_self, new_other = self.coeff, other.coeff
+        return MultiPower((new_self + new_other), clean_zeros = False)
 
-    def __sub__(self,other):
+    def __sub__(self,other, scale = 1):
         '''
         Here we subtract the two polys
         '''
         if self.shape != other.shape:
-            new_self, new_other = self.match_size(self,other)
+            new_self, new_other = self.match_size(self.coeff,other.coeff)
         else:
-            new_self, new_other = self, other
-        return MultiPower(new_self.coeff - new_other.coeff)
-
-    def __mul__(self,other):
-        '''
-        here we add leading terms?
-        '''
-        if self.shape != other.shape:
-            new_self, new_other = self.match_size(self,other)
-        else:
-            new_self, new_other = self, other
-
-        return MultiPower(convolve(new_self.coeff, new_other.coeff))
+            new_self, new_other = self.coeff, other.coeff
+        return MultiPower((new_self - (scale*new_other)), clean_zeros = False)
 
     def match_size(self,a,b):
         '''
@@ -100,6 +89,17 @@ class MultiPower(Polynomial):
         a = MultiPower(np.pad(a.coeff,add_a_list.astype(int),'constant'), clean_zeros = False)
         b = MultiPower(np.pad(b.coeff,add_b_list.astype(int),'constant'), clean_zeros = False)
         return a,b
+
+    def __mul__(self,other):
+        '''
+        here we add leading terms?
+        '''
+        if self.shape != other.shape:
+            new_self, new_other = self.match_size(self.coeff,other.coeff)
+        else:
+            new_self, new_other = self.coeff, other.coeff
+
+        return MultiPower(convolve(new_self, new_other))
 
     def __eq__(self,other):
         '''
