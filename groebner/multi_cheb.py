@@ -3,8 +3,6 @@ from scipy.signal import fftconvolve, convolve
 import itertools
 from groebner.polynomial import Polynomial
 from numpy.polynomial import chebyshev as cheb
-from groebner.maxheap import Term
-import time
 
 '''
 08/31/17
@@ -14,8 +12,6 @@ coefficents, and inculdes basic operations (+,*,scalar multip, etc.)
 Assumes GRevLex ordering, but should be extended.
 '''
 
-times = dict()
-times["mon_mult_cheb"] = 0
 
 class MultiCheb(Polynomial):
     """
@@ -33,12 +29,6 @@ class MultiCheb(Polynomial):
         input- Current: list, current location in ordering
         output- the next step in ordering
     """
-    
-    def printTime():
-        print(times)
-    
-    def clearTime():
-        times["mon_mult_cheb"] = 0
 
     def __init__(self, coeff, order='degrevlex', lead_term=None, clean_zeros = True):
         super(MultiCheb, self).__init__(coeff, order, lead_term, clean_zeros)
@@ -49,27 +39,64 @@ class MultiCheb(Polynomial):
         Here we add an addition method
         '''
         if self.shape != other.shape:
-            new_self, new_other = self.match_size(self.coeff,other.coeff)
+            new_self, new_other = self.match_size(self,other)
         else:
-            new_self, new_other = self.coeff, other.coeff
+            new_self, new_other = self, other
 
-        return MultiCheb(new_self + new_other)
+        return MultiCheb(new_self.coeff + new_other.coeff)
 
-    def __sub__(self,other, scale = 1):
+    def __sub__(self,other):
         '''
         Here we subtract the two polys coeffs
         '''
         if self.shape != other.shape:
-            new_self, new_other = self.match_size(self.coeff,other.coeff)
+            new_self, new_other = self.match_size(self,other)
         else:
-            new_self, new_other = self.coeff, other.coeff
-        return MultiCheb((new_self - (scale*new_other)), clean_zeros = False)
+            new_self, new_other = self, other
+        return MultiCheb(new_self.coeff - new_other.coeff)
 
     def _reverse_axes(self):
         """
         Reverse the axes of the coeff tensor.
         """
         return self.coeff.flatten()[::-1].reshape(self.coeff.shape)
+
+    def match_size(self,a,b):
+        '''
+        Matches the shape of the polynomials
+        '''
+
+        A_shape, B_shape = list(a.shape), list(b.shape)
+        A, B = a.coeff, b.coeff
+        if len(A_shape) != len(B_shape):
+            add_to_shape = 0
+            if len(A_shape) < len(B_shape):
+                add_to_shape = len(B_shape) - len(A_shape)
+                for i in range(add_to_shape):
+                    A_shape.insert(0,1)
+                a = A.reshape(A_shape)
+                a = MultiCheb(a)
+            else:
+                add_to_shape = len(A_shape) - len(B_shape)
+                for i in range(add_to_shape):
+                    B_shape.insert(0,1)
+                b = B.reshape(B_shape)
+                b = MultiCheb(b)
+
+        new_shape = [max(i,j) for i,j in itertools.zip_longest(a.shape, b.shape, fillvalue = 0)] #finds the largest length in each dimmension
+        # finds the difference between the largest length and the original shapes in each dimmension.
+        add_a = [i-j for i,j in itertools.zip_longest(new_shape, a.shape, fillvalue = 0)]
+        add_b = [i-j for i,j in itertools.zip_longest(new_shape, b.shape, fillvalue = 0)]
+        #create 2 matrices with the number of rows equal to number of dimmensions and 2 columns
+        add_a_list = np.zeros((len(new_shape),2))
+        add_b_list = np.zeros((len(new_shape),2))
+        #changes the second column to the values of add_a and add_b.
+        add_a_list[:,1] = add_a
+        add_b_list[:,1] = add_b
+        #uses add_a_list and add_b_list to pad each polynomial appropriately.
+        a = MultiCheb(np.pad(a.coeff,add_a_list.astype(int),'constant'), clean_zeros = False)
+        b = MultiCheb(np.pad(b.coeff,add_b_list.astype(int),'constant'), clean_zeros = False)
+        return a,b
 
     def fold_for_reg_mult(temp, half, dim_to_fold, dim):
         """
@@ -102,6 +129,38 @@ class MultiCheb(Polynomial):
 
         return p2
 
+    def __mul__(self,other):
+        '''
+        Multiply by convolving intelligently
+        Formula T_n(x)T_m(x) = 1/2[T_n+m(x)+T_|n-m|(x)]
+        p1 = T_n+m(x)
+            Found by convolving the orginal polynomials.
+        p2 = T_|n-m|(x)
+            Found in 3 steps
+                1. Reverse the order of one polynomial.
+                2. Convolve reversed polynomial and remaining polynomial.
+                3. Fold around middle axis in each dimension.
+        '''
+        # Check and see if same size
+        if self.shape != other.shape:
+            new_self, new_other = self.match_size(self,other)
+        else:
+            new_self, new_other = self, other
+
+        p1 = MultiCheb(convolve(new_self.coeff,new_other.coeff)) #p1 is found by convolving the original polynomials.
+        c = new_other._reverse_axes() #reverses order of polynomial.
+        p2 = convolve(new_self.coeff,c) #p2 is found by convolving new_self and c.
+        shape_of_p2 = p2.shape #the shape is used to find the axis to fold around in each direction.
+        dim = p2.ndim #The dimension is needed for array slicing.
+        for i in range(dim): #Loop goes through each dimension and folds polynomial in that direction.
+            half = shape_of_p2[i]//2 #Take the length of each dimension and find the middle index in that dimmension
+            p2 = MultiCheb.fold_for_reg_mult(p2, half, i, dim) #Pass values into function for folding.
+
+        p2 = MultiCheb(p2)
+        Pf = (p1+p2)
+        return MultiCheb((.5*Pf.coeff), clean_zeros = True)
+        #TODO: You can use the lead_term kwarg to save some time
+
     def fold_in_i_dir(solution_matrix, dim, i, x, fold_idx):
         """
         Folds around a fold_inx and returns new solution.
@@ -111,9 +170,6 @@ class MultiCheb(Polynomial):
         x is the size of the solution matrix in the dimension being folded
         fold_idx is the index to fold around.
         """
-        if fold_idx == 0:
-            return solution_matrix
-
         sol = np.zeros_like(solution_matrix) #Matrix of zeroes used to insert the new values..
         slice_0 = slice(None, 1, None) # index to take first slice
         slice_1 = slice(fold_idx, fold_idx+1, None) # index to take slice that contains the axis folding around.
@@ -156,53 +212,52 @@ class MultiCheb(Polynomial):
         return sol
 
     def mon_mult(self, idx):
-        start = time.time()
-        
-        initial_matrix = self.coeff
         for i in range(len(idx)):
             idx_zeros = np.zeros(len(idx),dtype = int)
             idx_zeros[i] = idx[i]
-            initial_matrix = MultiCheb.mon_mult1(initial_matrix, idx_zeros)
-        end = time.time()
-        times["mon_mult_cheb"] += (end-start)
-        return MultiCheb(initial_matrix, lead_term = self.lead_term + np.array(idx), clean_zeros = False)
+            self = self.mon_mult1(idx_zeros)
+        return self
 
-    def mon_mult1(initial_matrix, idx):
+    def mon_mult1(self,idx):
         """
         Takes a polynomial and the index of a monomial and returns the result of the multiplication.
         """
+        #This is the cheating convert to power way.
+        #power = cheb2poly(self)
+        #mult = power.mon_mult(idx)
+        #return poly2cheb(mult)
+        
+        
+        
+        
         pad_values = list()
         for i in idx: #iterates through monomial and creates a tuple of pad values for each dimension
             pad_dim_i = (i,0)
             #In np.pad each dimension is a tuple of (i,j) where i is how many to pad in front and j is how many to pad after.
             pad_values.append(pad_dim_i)
-        p1 = np.pad(initial_matrix, (pad_values), 'constant')
+        p1 = MultiCheb(np.pad(self.coeff, (pad_values), 'constant', constant_values = 0))
 
-        largest_idx = [i-1 for i in initial_matrix.shape]
+        solution_matrix = self.coeff
+
+        largest_idx = [i-1 for i in solution_matrix.shape]
         new_shape = [max(i,j) for i,j in itertools.zip_longest(largest_idx, idx, fillvalue = 0)] #finds the largest length in each dimmension
         add_a = [i-j for i,j in itertools.zip_longest(new_shape, largest_idx, fillvalue = 0)]
         add_a_list = np.zeros((len(new_shape),2))
         #changes the second column to the values of add_a and add_b.
         add_a_list[:,1] = add_a
         #uses add_a_list and add_b_list to pad each polynomial appropriately.
-        initial_matrix = np.pad(initial_matrix,add_a_list.astype(int),'constant')
+        solution_matrix = np.pad(solution_matrix,add_a_list.astype(int),'constant')
 
-        number_of_dim = initial_matrix.ndim
-        shape_of_self = initial_matrix.shape
+        number_of_dim = solution_matrix.ndim
+        shape_of_self = solution_matrix.shape
 
         #Loop iterates through each dimension of the polynomial and folds in that dimension
         for i in range(number_of_dim):
-            if idx[i] != 0:
-                initial_matrix = MultiCheb.fold_in_i_dir(initial_matrix, number_of_dim, i, shape_of_self[i], idx[i])
-        if p1.shape != initial_matrix.shape:
-            idx = [i-j for i,j in zip(p1.shape,initial_matrix.shape)]
-            pad_values = list()
-            for i in idx:
-                pad_dim_i = (0,i)
-                pad_values.append(pad_dim_i)
-            initial_matrix = np.pad(initial_matrix, (pad_values), 'constant')
-        Pf = p1 + initial_matrix
-        return .5*Pf
+            solution_matrix = MultiCheb.fold_in_i_dir(solution_matrix, number_of_dim, i, shape_of_self[i], idx[i])
+
+        p2 = MultiCheb(solution_matrix)
+        Pf = (p1+p2)
+        return MultiCheb(.5*Pf.coeff) #Make
 
     def evaluate_at(self, point):
         super(MultiCheb, self).evaluate_at(point)
