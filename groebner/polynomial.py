@@ -3,46 +3,78 @@ import numpy as np
 from scipy.signal import fftconvolve, convolve
 import itertools
 from groebner.maxheap import Term
+import time
+
+times = dict()
+times["updateLeadTerm"] = 0
+times["monomialsList"] = 0
+times["leadTermCount"] = 0
+times["cleanCoeff"] = 0
+times["initialize"] = 0
 
 class Polynomial(object):
+    
+    def printTime():
+        print(times)
+    
+    def clearTime():
+        times["updateLeadTerm"] = 0
+        times["monomialsList"] = 0
+        times["leadTermCount"] = 0
+        times["cleanCoeff"] = 0
+        times["initialize"] = 0
+    
     def __init__(self, coeff, order='degrevlex', lead_term=None, clean_zeros = True):
         '''
         terms, int- number of chebyshev polynomials each variable can have. Each dimension will have term terms
         dim, int- number of different variables, how many dim our tensor will be
         order, string- how you want to order your polynomials. Grevlex is default
         '''
+        start = time.time()
         self.coeff = coeff
         if clean_zeros:
             self.clean_coeff()
         self.dim = self.coeff.ndim
-        self.terms = np.prod(self.coeff.shape)
         self.order = order
         self.shape = self.coeff.shape
-        self.max_term = np.max(self.shape) - 1
         if lead_term is None:
             self.update_lead_term()
         else:
             self.lead_term = lead_term
+            self.degree = sum(self.lead_term)
+            self.lead_coeff = self.coeff[tuple(self.lead_term)]
+            
+        end = time.time()
+        times["initialize"] += (end - start)
 
     def clean_coeff(self):
         """
         Gets rid of any 0's on the outside of the coeff matrix, not giving any info.
         """
-        sum_values = np.sum(abs(self.coeff))
-        if sum_values == 0:
-            return
+        start = time.time()
         for axis in range(self.coeff.ndim):
-            change = False
-            while not change:
-                temp = np.delete(self.coeff,-1,axis=axis)
-                sum_temp = np.sum(abs(temp))
-                if abs(sum_temp - sum_values) < 1.e-15:
-                    self.coeff = temp
-                else:
+            change = True
+            while change:
+                change = False
+                if self.coeff.shape[axis] == 1:
+                    continue
+                axisCount = 0
+                slices = list()
+                for i in self.coeff.shape:
+                    if axisCount == axis:
+                        s = slice(i-1,i)
+                    else:
+                        s = slice(0,i)
+                    slices.append(s)
+                    axisCount += 1
+                if np.sum(abs(self.coeff[slices])) == 0:
+                    self.coeff = np.delete(self.coeff,-1,axis=axis)
                     change = True
-                pass
             pass
+        end = time.time()
+        times["cleanCoeff"] += (end - start)
         pass
+<<<<<<< HEAD
 
 
     """
@@ -113,61 +145,44 @@ class Polynomial(object):
             return False
         else:
             return False
+=======
+>>>>>>> 31746bd7c94315f0cfa00bcfe2784160c46b31e4
 
-    def degrevlex_gen(self):
+    
+    def match_size(self,a,b):
         '''
-        yields grevlex ordering co-ordinates in order to find
-        the leading coefficent
-        Note - this is just meant to quickly find the leading coefficient. For trying to grab all the non-zero
-        terms     for i in zip(*np.where(poly.coeff != 0)):  will be much faster.
+        Matches the shape of the matrixes of two polynomials. This might not be the best place for it.
         '''
-        max_values = tuple(self.shape)-np.ones_like(self.shape)
-        base = max_values
-        #print("Base - ",base)
-        current = np.zeros(self.dim)
-        yield base-current
-        while True:
-            for i in range(1, sum(max_values)+1):
-                onward = True
-                #set the far right column to i
-                current = np.zeros(self.dim)
-                current[self.dim-1] = i
-                #This can't return false, as we start at the begenning. Always has enough room to spill over.
-                self.check_column_overload(max_values, current, self.dim-1)
-                #print("Current - ",current)
-                yield base - current
-                while onward:
-                    #Find the leftmost thing
-                    #left_most_spot = np.where(current != 0)[0][0]
-                    for j in range(0, self.dim):
-                        if(current[j] != 0):
-                            left_most_spot = j
-                            break
-                    if(left_most_spot != 0):
-                        #Slide it to the left
-                        current[left_most_spot] -= 1
-                        current[left_most_spot-1] += 1
-                        if self.check_column_overload(max_values, current, left_most_spot-1):
-                            onward = False
-                        else:
-                            #print("Current - ",current)
-                            yield base - current
-                    elif(current[j] == i):
-                        #Reset it for the next run
-                        current[0] = 0
-                        onward = False
-                        #THIS IS WRONG, THE CURRENT SPOT MIGHT BE ABLE TO HOLD MORE!
-                    else:
-                        #if I'm at the end push back everything to the next leftmost thing and slide it plus 1
-                        amount = current[0]
-                        for j in range(1,self.dim):
-                            if(current[j] != 0):
-                                next_left_most_spot = j
-                                break
-                        current[0] = 0
-                        current[next_left_most_spot] -= 1
-                        current[next_left_most_spot-1] += amount+1
+        a_shape, b_shape = list(a.shape), list(b.shape)
+        if len(a_shape) != len(b_shape):
+            add_to_shape = 0
+            if len(a_shape) < len(b_shape):
+                add_to_shape = len(b_shape) - len(a_shape)
+                for i in range(add_to_shape):
+                    a_shape.insert(0,1)
+                a = a.reshape(a_shape)
+            else:
+                add_to_shape = len(a_shape) - len(b_shape)
+                for i in range(add_to_shape):
+                    b_shape.insert(0,1)
+                b = b.reshape(b_shape)
 
+        new_shape = [max(i,j) for i,j in itertools.zip_longest(a.shape, b.shape, fillvalue = 0)] #finds the largest length in each dimension
+        # finds the difference between the largest length and the original shapes in each dimension.
+        add_a = [i-j for i,j in itertools.zip_longest(new_shape, a.shape, fillvalue = 0)]
+        add_b = [i-j for i,j in itertools.zip_longest(new_shape, b.shape, fillvalue = 0)]
+        #create 2 matrices with the number of rows equal to number of dimensions and 2 columns
+        add_a_list = np.zeros((len(new_shape),2))
+        add_b_list = np.zeros((len(new_shape),2))
+        #changes the second column to the values of add_a and add_b.
+        add_a_list[:,1] = add_a
+        add_b_list[:,1] = add_b
+        #uses add_a_list and add_b_list to pad each polynomial appropriately.
+        a = np.pad(a,add_a_list.astype(int),'constant')
+        b = np.pad(b,add_b_list.astype(int),'constant')
+        return a,b
+
+<<<<<<< HEAD
                         spot_to_check = next_left_most_spot-1
                         #Loops throught this until everything is balanced all right or we need to increase i
                         while(self.check_column_overload(max_values, current, spot_to_check)):
@@ -191,6 +206,8 @@ class Polynomial(object):
             return
 
     """
+=======
+>>>>>>> 31746bd7c94315f0cfa00bcfe2784160c46b31e4
     def monomialList(self):
         '''
         return
@@ -198,6 +215,7 @@ class Polynomial(object):
         monomials : list of tuples
             list of monomials that make up the polynomial in degrevlex order
         '''
+        start = time.time()
         monomialTerms = list()
         for i in zip(*np.where(self.coeff != 0)):
             monomialTerms.append(Term(i))
@@ -207,6 +225,7 @@ class Polynomial(object):
         for i in monomialTerms[::-1]:
             monomials.append(i.val)
 
+<<<<<<< HEAD
         #gen = self.degrevlex_gen()
         #for index in gen:
         #    index = tuple(map(lambda i: int(i), index))
@@ -214,12 +233,22 @@ class Polynomial(object):
         #        monomials.append(index)
         return monomials
 
-    def update_lead_term(self,start = None):
-        found = False
+=======
+        end = time.time()
+        times["monomialsList"] += (end - start)
+        self.sortedMonomials = monomials
+        return monomials
 
-        non_zeros = set()
+    def monSort(self):
+        self.sortedMonomials = self.monomialList()
+    
+>>>>>>> 31746bd7c94315f0cfa00bcfe2784160c46b31e4
+    def update_lead_term(self,start = None):
+        startTime = time.time()
+        
+        non_zeros = list()
         for i in zip(*np.where(self.coeff != 0)):
-            non_zeros.add(Term(i))
+            non_zeros.append(Term(i))
         if len(non_zeros) != 0:
             self.lead_term = max(non_zeros).val
             self.degree = sum(self.lead_term)
@@ -227,25 +256,11 @@ class Polynomial(object):
         else:
             self.lead_term = None
             self.lead_coeff = 0
-
-        """ THE GENERATOR IS BROKEN RIGHT NOW. UNTIL FIXED USE THIS NEW, ALTHOUGH POSSIBLY SLOWER CODE.
-        if self.order == 'degrevlex':
-            gen = self.degrevlex_gen()
-            for idx in gen:
-                print(idx)
-                idx = tuple(map(lambda i: int(i), idx))
-                if self.coeff[tuple(idx)] != 0:
-                    self.lead_term = idx
-                    self.lead_coeff = self.coeff[tuple(idx)]
-                    found = True
-                    break
-        if not found:
-            self.lead_term = None
-            self.lead_coeff = 0
-        """
-
-        #print('Leading Coeff is {}'.format(self.lead_term))
-
+        
+        endTime = time.time()
+        times["leadTermCount"] += 1
+        times["updateLeadTerm"] += (endTime - startTime)
+        
     def evaluate_at(self, point):
         '''
         Evaluates the polynomial at the given point.
@@ -263,3 +278,18 @@ class Polynomial(object):
         if len(point) != len(self.coeff.shape):
             raise ValueError('Cannot evaluate polynomial in {} variables at point {}'\
             .format(self.dim, point))
+
+    def __eq__(self,other):
+        '''
+        check if coeff matrix is the same
+        '''
+        if self.shape != other.shape:
+            return False
+        return np.allclose(self.coeff, other.coeff)
+
+    def __ne__(self,other):
+        '''
+        check if coeff matrix is not the same same
+        '''
+        return not (self == other)
+

@@ -262,7 +262,7 @@ def add_r_to_matrix(new_polys,old_polys,items):
     while len(items['monheap']) > 0:
         m = list(items['monheap'].heappop().val)
         r = calc_r(m,new_polys,old_polys,items)
-        if not r.lead_term==None:
+        if not r.lead_term is None:
             items = _add_poly_to_matrix([r],items,adding_r = True)
     items = sort_matrix(items)
     
