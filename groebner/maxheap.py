@@ -46,6 +46,27 @@ class Term(object):
                     if i > j:
                         return False
                 return False
+        elif order == 'eriks': #Make single variable ones higher for Macaualy
+            if sum(self.val) < sum(other.val):
+                return True
+            elif sum(self.val) > sum(other.val):
+                return False
+            selfSingle = (len(np.where(np.array(self.val) != 0)[0]) == 1)
+            otherSingle = (len(np.where(np.array(other.val) != 0)[0]) == 1)
+            if otherSingle and not selfSingle:
+                return True
+            elif selfSingle and not otherSingle:
+                return False
+            else:
+                for i,j in zip(self.val,other.val):
+                    if i<j:
+                        return True
+                    if i > j:
+                        return False
+                return False            
+
+
+
 
 
     # Define the other relations in grevlex order   
