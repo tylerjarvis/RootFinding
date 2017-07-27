@@ -77,11 +77,9 @@ def roots(polys, method = 'Groebner'):
 
     # Get left eigenvectors
     e = np.linalg.eig(m_f.T)
-    print("eigenvalues:\n", e[0])
     eig = e[1]
     num_vectors = eig.shape[1]
     eig_vectors = [eig[:,i].tolist() for i in range(num_vectors)] # columns of eig
-    print("eigenvectors:\n", eig_vectors)
 
     roots = []
     for v in eig_vectors:
@@ -103,8 +101,6 @@ def roots(polys, method = 'Groebner'):
                 var_value = GB_poly.evaluate_at(root) * -1
                 root[pos] = var_value
         roots.append(root)
-
-    print("f(p) for p in roots:\n", [f.evaluate_at(root) for root in roots])
 
     return roots
 
