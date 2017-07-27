@@ -398,11 +398,11 @@ def test_sorted_polys_coeff():
                          [4,2,5,9,0,3,2,-1,-3,-3],
                          [3,-3,-5,-2,0,4,-2,2,1,-6]]))
     grob = Groebner([A,B])
-    assert(list((B,A)) == grob.sorted_polys_coeff())
+    assert(list((A,B)) == grob.sorted_polys_coeff())
     
     C = MultiPower(np.array([[1]]))
     grob = Groebner([A,B,C])
-    assert(list((B,A,C)) == grob.sorted_polys_coeff())
+    assert(list((A,B,C)) == grob.sorted_polys_coeff())
 
     
     

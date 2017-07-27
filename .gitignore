@@ -1,0 +1,8 @@
+*.pyc
+*.swp
+*.py~ 
+*.ipynb
+pytest/htmlcov
+pytest/.cache
+.cache/
+groebner/.DS_Store
