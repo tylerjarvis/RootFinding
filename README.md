@@ -13,7 +13,7 @@ The rest of this README will show you how to contribute to this project in a way
 - `git branch`: Shows you which branch you are currently working on.
 - `git checkout branchname`: Switch your working branch to the branch called "branchname".
 - `git add filename`: Tells git to keep track of the changes you make to a file called "filename" on your local machine.
-- `git commit -m "descriptive message": Stores the changes you have made to files that are being tracked on your local machine along with a message describing what changes you made to the files.
+- `git commit -m "descriptive message"`: Stores the changes you have made to files that are being tracked on your local machine along with a message describing what changes you made to the files.
 - `git push origin branchname`: Send the changes made on the current branch to github.com to be stored on the repository website under the branch called "branchname".
 - `git pull origin branchname`: Grabs the most recent version of the branch called "branchname" from github.com and updates your local machine with any changes that exist in the online branch.
 - `git branch -D branchname`: Force git to delete the branch called "branchname" from your local machine.
