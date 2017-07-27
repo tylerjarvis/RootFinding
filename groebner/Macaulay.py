@@ -12,10 +12,10 @@ from groebner.maxheap import Term
 import matplotlib.pyplot as plt
 import time
 from collections import defaultdict
-import gc
 
 #What we determine to be zero throughout the code
 global_accuracy = 1.e-10
+
 #If clean is true then at a couple of places (end of rrqr_reduce and end of add r to matrix) things close to 0 will be made 0.
 #Might make it more stable, might make it less stable. Not sure.
 clean = True
@@ -62,10 +62,10 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     #print(len(poly_list))
     
     startCreate = time.time()
-    matrix, matrix_terms = create_matrix2(poly_list)
+    matrix, matrix_terms = create_matrix(poly_list)
     endCreate = time.time()
     times["create matrix"] = (endCreate - startCreate)
-    print(matrix.shape)
+    #print(matrix.shape)
         
     #plt.matshow([i==0 for i in matrix])
             
@@ -95,12 +95,12 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     endGetPolys = time.time()
     times["get polys"] = (endGetPolys - startGetPolys)
     
-    endTime = time.time()
-    print("Macaulay run time is {} seconds".format(endTime-startTime))
-    print(times)
-    MultiCheb.printTime()
-    MultiPower.printTime()
-    Polynomial.printTime()
+    #endTime = time.time()
+    #print("Macaulay run time is {} seconds".format(endTime-startTime))
+    #print(times)
+    #MultiCheb.printTime()
+    #MultiPower.printTime()
+    #Polynomial.printTime()
     #for poly in final_polys:
     #    print(poly.lead_term)
     return final_polys
@@ -252,11 +252,6 @@ def get_good_rows(matrix, matrix_terms):
         for i in toRemove:
             keys.remove(i)
         spot += 1
-    #print("LMS AND KEYS")
-    #print(rowLMs)
-    #print(keys)
-    #print(len(keys))
-    #print("CLOSE LMS AND KEYS")
     return keys
 
 def find_degree(poly_list):
@@ -386,7 +381,6 @@ def create_matrix(polys):
     
     #Make the matrix
     matrix = np.vstack(flat_polys[::-1])
-    #matrix = matrix.todense()
 
     #Makes matrix_terms, a list of all the terms in the matrix.
     startTerms = time.time()
@@ -395,7 +389,7 @@ def create_matrix(polys):
         terms[i] = Term(i)
     matrix_terms = terms.ravel()
     endTerms = time.time()
-    print(endTerms - startTerms)
+    #print(endTerms - startTerms)
     
     #Gets rid of any columns that are all 0.
     matrix, matrix_terms = clean_matrix(matrix, matrix_terms)
@@ -543,4 +537,3 @@ def rrqr_reduce2(matrix, clean = True, global_accuray = 1.e-10):
         else:
             return reduced_matrix
     pass
-

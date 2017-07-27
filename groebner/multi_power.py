@@ -49,76 +49,46 @@ class MultiPower(Polynomial):
         Here we add an addition class.
         '''
         if self.shape != other.shape:
-            new_self, new_other = self.match_size(self,other)
+            new_self, new_other = self.match_size(self.coeff,other.coeff)
         else:
-            new_self, new_other = self, other
-            
-        newLeadTerm = max(Term(self.lead_term), Term(other.lead_term))
+            new_self, new_other = self.coeff, other.coeff
+        return MultiPower((new_self + new_other), clean_zeros = False)
 
-        return MultiPower(new_self.coeff + new_other.coeff, lead_term = newLeadTerm.val)
-
-    def __sub__(self,other):
+    def __sub__(self,other, scale = 1):
         '''
         Here we subtract the two polys
         '''
         if self.shape != other.shape:
-            new_self, new_other = self.match_size(self,other)
+            new_self, new_other = self.match_size(self.coeff,other.coeff)
         else:
-            new_self, new_other = self, other
-        return MultiPower(new_self.coeff - new_other.coeff)
+            new_self, new_other = self.coeff, other.coeff
+        return MultiPower((new_self - (scale*new_other)), clean_zeros = False)
 
     def __mul__(self,other):
         '''
         here we add leading terms?
         '''
         if self.shape != other.shape:
-            new_self, new_other = self.match_size(self,other)
+            new_self, new_other = self.match_size(self.coeff,other.coeff)
         else:
-            new_self, new_other = self, other
+            new_self, new_other = self.coeff, other.coeff
 
-        return MultiPower(convolve(new_self.coeff, new_other.coeff))
+        return MultiPower(convolve(new_self, new_other))
 
-    def match_size(self,a,b):
+    def __eq__(self,other):
         '''
-        Matches the shape of the polynomials
+        check if coeff matrix is the same
         '''
-        A_shape, B_shape = list(a.shape), list(b.shape)
-        A, B = a.coeff, b.coeff
-        if len(A_shape) != len(B_shape):
-            add_to_shape = 0
-            if len(A_shape) < len(B_shape):
-                add_to_shape = len(B_shape) - len(A_shape)
-                for i in range(add_to_shape):
-                    A_shape.insert(0,1)
-                aCoeff = A.reshape(A_shape)
-                if a.lead_term is None:
-                    a = MultiPower(aCoeff)
-                else:
-                    a = MultiPower(aCoeff, lead_term = tuple(np.zeros(add_to_shape, dtype = int)) + a.lead_term)
-            else:
-                add_to_shape = len(A_shape) - len(B_shape)
-                for i in range(add_to_shape):
-                    B_shape.insert(0,1)
-                bCoeff = B.reshape(B_shape)
-                if b.lead_term is None:
-                    b = MultiPower(bCoeff)
-                else:
-                    b = MultiPower(bCoeff, lead_term = tuple(np.zeros(add_to_shape, dtype = int)) + b.lead_term)
+        if self.shape != other.shape:
+            return False
+        else:
+            return np.allclose(self.coeff, other.coeff)
 
-        new_shape = [max(i,j) for i,j in itertools.zip_longest(a.shape, b.shape, fillvalue = 0)] #finds the largest length in each dimmension
-        # finds the difference between the largest length and the original shapes in each dimmension.
-        add_a = [i-j for i,j in itertools.zip_longest(new_shape, a.shape, fillvalue = 0)]
-        add_b = [i-j for i,j in itertools.zip_longest(new_shape, b.shape, fillvalue = 0)]
-        #create 2 matrices with the number of rows equal to number of dimmensions and 2 columns
-        add_a_list = np.zeros((len(new_shape),2))
-        add_b_list = np.zeros((len(new_shape),2))
-        #changes the second column to the values of add_a and add_b.
-        add_a_list[:,1] = add_a
-        add_b_list[:,1] = add_b
-        #uses add_a_list and add_b_list to pad each polynomial appropriately.
-        a = MultiPower(np.pad(a.coeff,add_a_list.astype(int),'constant'), lead_term = a.lead_term, clean_zeros = False)
-        b = MultiPower(np.pad(b.coeff,add_b_list.astype(int),'constant'), lead_term = b.lead_term, clean_zeros = False)
-        return a,b
+    def __ne__(self,other):
+        '''
+        check if coeff matrix is not the same same
+        '''
+        return not (self == other)
 
     def mon_mult(self,M):
         '''

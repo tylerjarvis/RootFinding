@@ -6,6 +6,7 @@ import pytest
 import pdb
 import random
 
+
 def test_add():
     """Test Multivariate Chebyshev polynomial addition."""
     t = np.arange(27).reshape((3,3,3))
