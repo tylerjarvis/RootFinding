@@ -71,7 +71,6 @@ class Groebner(object):
         self.lead_term_set = set()
         self.original_lms = set()
         self.matrix_polys = list()
-        pass
 
     def divides(self,a,b):
         '''
@@ -128,7 +127,6 @@ class Groebner(object):
             lms = defaultdict(list)
             for p in polys:
                 lms[p.lead_term].append(p)
-                pass
 
             polys_with_unique_lm = list()
 
@@ -153,8 +151,6 @@ class Groebner(object):
                     self._add_poly_to_matrix(i)
                     self._add_poly_to_matrix(j.mon_mult(tuple(a-b for a,b in zip(i.lead_term,j.lead_term))))
 
-                pass
-
             for i in polys_with_unique_lm:
                 if i not in divides_out:
                     self._add_poly_to_matrix(i)
@@ -167,7 +163,6 @@ class Groebner(object):
 
         endTime = time.time()
         times["initialize"] += (endTime - startTime)
-        pass
 
     def solve(self, qr_reduction = True, reducedGroebner = True):
         '''
@@ -226,7 +221,6 @@ class Groebner(object):
         for poly in self.old_polys:
             poly.coeff[abs(poly.coeff) < global_accuracy] = 0
         self.groebner_basis = self.old_polys
-        pass
 
     def get_groebner(self):
         '''
@@ -241,7 +235,6 @@ class Groebner(object):
                 return
             poly.coeff[np.where(abs(poly.coeff) < global_accuracy)] = 0
             self.groebner_basis.append(poly)
-        pass
 
     def sort_matrix(self):
         '''
@@ -252,7 +245,6 @@ class Groebner(object):
         self.np_matrix = self.np_matrix[:,argsort_list]
         end = time.time()
         times["sort"] += (end-start)
-        pass
 
     def argsort(self, index_list):
         '''
@@ -278,7 +270,6 @@ class Groebner(object):
 
         end = time.time()
         times["clean"] += (end-start)
-        pass
 
     def get_polys_from_matrix(self,rows,reduced_matrix):
         '''
@@ -601,7 +592,6 @@ class Groebner(object):
 
         endTime = time.time()
         times["create_matrix"] += (endTime - startTime)
-        pass
 
     def reduce_matrix(self, qr_reduction=True, triangular_solve = False):
         '''
@@ -776,7 +766,6 @@ class Groebner(object):
                 return self.clean_zeros_from_matrix(reduced_matrix)
             else:
                 return reduced_matrix
-        pass
 
     '''
 
@@ -922,7 +911,6 @@ class Groebner(object):
                 if(i == matrix.shape[1]):
                     i = -1
                     break
-                pass
 
             if(i != -1):
                 sub_matrix = matrix[first_zero: , i:]
@@ -939,4 +927,3 @@ class Groebner(object):
             return self.clean_zeros_from_matrix(matrix)
         else:
             return self.clean_zeros_from_matrix(matrix)
-        pass
