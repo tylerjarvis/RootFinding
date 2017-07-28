@@ -43,18 +43,18 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
         print([type(p) == MultiPower for p in initial_poly_list])
         raise ValueError('Bad polynomials in list')
 
-    poly_list = []
+    poly_coeff_list = []
     degree = find_degree(initial_poly_list)
     
     startAdding = time.time()
     for i in initial_poly_list:
-        poly_list = add_polys(degree, i, poly_list)
+        poly_coeff_list = add_polys(degree, i, poly_coeff_list)
     endAdding = time.time()
     times["adding polys"] = (endAdding - startAdding)
     
     
     startCreate = time.time()
-    matrix, matrix_terms = create_matrix(poly_list)
+    matrix, matrix_terms = create_matrix(poly_coeff_list)
     endCreate = time.time()
     times["create matrix"] = (endCreate - startCreate)
     #print(matrix.shape)
@@ -62,8 +62,8 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     #plt.matshow([i==0 for i in matrix])
             
     startReduce = time.time()
-    #RRQR_reduce2 currently appears to be the most stable
-    matrix = rrqr_reduce2(matrix, clean = False, global_accuracy = global_accuracy)
+    #rrqr_reduce2 and rrqr_reduce same pretty matched on stability, though I feel like 2 should be better.
+    matrix = rrqr_reduce2(matrix, global_accuracy = global_accuracy)
     matrix = clean_zeros_from_matrix(matrix)
     non_zero_rows = np.sum(abs(matrix),axis=1) != 0
     matrix = matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
@@ -259,21 +259,21 @@ def mon_combos(mon, numLeft, spot = 0):
         answers += mon_combos(temp, numLeft-i, spot+1)
     return answers
 
-def add_polys(degree, poly, poly_list):
+def add_polys(degree, poly, poly_coeff_list):
     """
     Take each polynomial and adds it to a poly_list
     Then uses monomial multiplication and adds all polynomials with degree less than
         or equal to the total degree needed.
     Returns a list of polynomials.
     """
-    poly_list.append(poly)
+    poly_coeff_list.append(poly.coeff)
     deg = degree - poly.degree
     dim = poly.dim
     mons = mon_combos(np.zeros(dim, dtype = int),deg)
     mons = mons[1:]
     for i in mons:
-        poly_list.append(poly.mon_mult(i))
-    return poly_list
+        poly_coeff_list.append(poly.mon_mult(i, returnType = 'Matrix'))
+    return poly_coeff_list
 
 def row_swap_matrix(matrix):
     '''
@@ -332,19 +332,19 @@ def clean_matrix(matrix, matrix_terms):
     matrix_terms = matrix_terms[non_zero_monomial] #Only keeps the non_zero_monomials
     return matrix, matrix_terms
 
-def create_matrix(polys):
+def create_matrix(polys_coeffs):
     '''
     Takes a list of polynomial objects (polys) and uses them to create a matrix. That is ordered by the monomial
     ordering. Returns the matrix and the matrix_terms, a list of the monomials corresponding to the rows of the matrix.
     '''
     #Gets an empty polynomial whose lm all other polynomial divide into.
-    bigShape = np.maximum.reduce([p.shape for p in polys])
+    bigShape = np.maximum.reduce([coeff.shape for coeff in polys_coeffs])
     #Gets a list of all the flattened polynomials.
     flat_polys = list()
-    for poly in polys:
+    for coeff in polys_coeffs:
         #Gets a matrix that is padded so it is the same size as biggest, and flattens it. This is so
         #all flattened polynomials look the same.
-        newMatrix = fill_size(bigShape, poly.coeff)
+        newMatrix = fill_size(bigShape, coeff)
         flat_polys.append(newMatrix.ravel())
     
     #Make the matrix
@@ -406,7 +406,7 @@ def create_matrix2(polys):
     return matrix, matrix_terms
 
 
-def rrqr_reduce(matrix, clean = False, global_accuracy = 1.e-10):
+def rrqr_reduce(matrix, clean = True, global_accuracy = 1.e-10): #Appears to work best when clean = True
     '''
     Recursively reduces the matrix using rrqr reduction so it returns a reduced matrix, where each row has
     a unique leading monomial.
@@ -450,6 +450,7 @@ def rrqr_reduce(matrix, clean = False, global_accuracy = 1.e-10):
     reduced_matrix = np.hstack((A,B))
     return reduced_matrix
 
+
 def inverse_P(p):
     P = np.eye(len(p))[:,p]
     return np.where(P==1)[1]
@@ -486,7 +487,7 @@ def fullRank(matrix, global_accuracy = 1.e-10):
         return independentRows,dependentRows,Q
     pass
 
-def rrqr_reduce2(matrix, clean = False, global_accuracy = 1.e-10):
+def rrqr_reduce2(matrix, clean = False, global_accuracy = 1.e-10): #Appears to work best when clean = False
     '''
     This function does the same thing as rrqr_reduce. It is an attempt at higher stability, appears slighlty more stable.
     '''
@@ -500,10 +501,7 @@ def rrqr_reduce2(matrix, clean = False, global_accuracy = 1.e-10):
     if nullSpaceSize == 0: #A is full rank
         #print("FULL RANK")
         Q,R = qr(matrix)
-        if clean:
-            return clean_zeros_from_matrix(R)
-        else:
-            return R
+        return R
     else: #A is not full rank
         #print("NOT FULL RANK")
         #sub1 is the independentRows of the matrix, we will recursively reduce this
@@ -515,8 +513,6 @@ def rrqr_reduce2(matrix, clean = False, global_accuracy = 1.e-10):
         bottom = matrix[dependentRows]
         sub3 = bottom[:,height:]
         sub3 = Q.T[-nullSpaceSize:]@B
-        if clean:
-            sub3 = clean_zeros_from_matrix(sub3)
         sub3 = rrqr_reduce2(sub3)
 
         sub1 = matrix[independentRows]
@@ -526,8 +522,5 @@ def rrqr_reduce2(matrix, clean = False, global_accuracy = 1.e-10):
         sub2[:] = np.zeros_like(sub2)
 
         reduced_matrix = np.vstack((sub1,np.hstack((sub2,sub3))))
-        if clean:
-            return clean_zeros_from_matrix(reduced_matrix)
-        else:
-            return reduced_matrix
+        return reduced_matrix
     pass
