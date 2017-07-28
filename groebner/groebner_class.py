@@ -584,7 +584,7 @@ class Groebner(object):
         for poly in self.matrix_polys:
             startFill = time.time()
             newMatrix = self.fill_size(biggest.coeff, poly.coeff)
-            flat_polys.append(newMatrix.ravel())
+            flat_polys.append(newMatrix.flatten())
             endFill = time.time()
             times["fill"] += (endFill - startFill)
         
