@@ -30,13 +30,13 @@ def roots(polys, method = 'Groebner'):
     list of numpy arrays
         the common roots of the polynomials
     '''
-    
+
     times["reducePoly"] = 0
     times["buildMatrix"] = 0
     Polynomial.clearTime()
-    
+
     startTime = time.time()
-    
+
     # Determine polynomial type
     poly_type = ''
     if (all(type(p) == MultiCheb for p in polys)):
@@ -76,7 +76,7 @@ def roots(polys, method = 'Groebner'):
     VB, var_dict = vectorSpaceBasis(GB)
     endVectorBasis = time.time()
     times["vectorBasis"] = (endVectorBasis - startVectorBasis)
-    
+
     startMultMatrix = time.time()
     m_f = multMatrix(f, GB, VB)
     endMultMatrix = time.time()
@@ -100,7 +100,8 @@ def roots(polys, method = 'Groebner'):
         vnib = True
 
     # Get left eigenvectors
-    eig = np.linalg.eig(m_f.T)[1]
+    e = np.linalg.eig(m_f.T)
+    eig = e[1]
     num_vectors = eig.shape[1]
     eig_vectors = [eig[:,i].tolist() for i in range(num_vectors)] # columns of eig
 
@@ -128,7 +129,7 @@ def roots(polys, method = 'Groebner'):
     times["endStuff"] = (endEndStuff - startEndStuff)
     endTime = time.time()
     totalTime = (endTime - startTime)
-    
+
     print("Total run time for roots is {}".format(totalTime))
     print(times)
     #MultiCheb.printTime()
@@ -154,20 +155,20 @@ def multMatrix(poly, GB, basisList):
     basis : list of tuples
         The monomials that make up a basis for the vector space A
 
-    return
-    ------
+    returns
+    -------
     multOperatorMatrix : square numpy array
         The matrix m_f
-    ''' 
+    '''
     basisSet = set(basisList)
-    
+
     # All polys in GB will be in the same dimension, so just match poly with
     # the first Groebner basis element
     poly = _match_poly_dim(poly, GB[0])[0]
 
     dim = len(basisList) # Dimension of the vector space basis
     multMatrix = np.zeros((dim, dim))
-        
+
     for i in range(dim):
         monomial = basisList[i]
         poly_ = poly.mon_mult(monomial)
@@ -182,8 +183,8 @@ def vectorSpaceBasis(GB):
     GB: list
         polynomial objects that make up a Groebner basis for the ideal
 
-    return
-    ------
+    returns
+    -------
     basis : list
         tuples representing the monomials in the vector space basis
     var_to_pos_dict : dictionary
@@ -220,14 +221,14 @@ def coordinateVector(poly, GB, basisList, basisSet):
         The monomials that make up a basis for the vector space
     leadTermDict: A dictionary of the leadTerms in GB to the polynomials in GB.
 
-    return
-    ------
+    returns
+    -------
     coordinateVector : list
         The coordinate vector of the given polynomial's coset in
         A = C[x_1,...x_n]/I as a vector space over C
     '''
     dim = len(basisList) # Dimension of vector space basis
-    
+
     poly_coeff = reduce_poly(poly, GB, basisSet)
 
     coordinateVector = [0] * dim
@@ -248,8 +249,8 @@ def divides(mon1, mon2):
     mon2 : tuple
         contains the exponents of the monomial dividend
 
-    return
-    ------
+    returns
+    -------
     boolean
         true if mon1 divides mon2, false otherwise
     '''
@@ -269,22 +270,22 @@ def reduce_poly(poly, divisors, basisSet, permitted_round_error=1e-10):
         polynomials to divide poly by
     leadTermDict: A dictionary of the leadTerms in GB to the polynomials in GB.
 
-    return
-    ------
+    returns
+    -------
     polynomial object
         the remainder of poly / divisors
-    '''    
+    '''
     startTime = time.time()
-    
+
     remainder_shape = np.maximum.reduce([p.shape for p in divisors])
     remainder = np.zeros(remainder_shape)
-    
+
     for term in zip(*np.where(poly.coeff != 0)):
         if term in basisSet:
             remainder[term] += poly.coeff[term]
             poly.coeff[term] = 0
     poly.__init__(poly.coeff, clean_zeros = False)
-        
+
     # while poly is not the zero polynomial
     while np.any(poly.coeff):
         divisible = False
@@ -295,22 +296,22 @@ def reduce_poly(poly, divisors, basisSet, permitted_round_error=1e-10):
             if divides(divisor.lead_term, poly.lead_term):
                 # Get the quotient LT(poly)/LT(divisor)
                 LT_quotient = np.subtract(poly.lead_term, divisor.lead_term)
-                
+
                 poly_to_subtract_coeff = divisor.mon_mult(LT_quotient, returnType = 'Matrix')
-                                
+
                 # Match sizes of poly_to_subtract and poly so
                 # poly_to_subtract.coeff can be subtracted from poly.coeff
                 poly_coeff, poly_to_subtract_coeff = poly.match_size(poly.coeff, poly_to_subtract_coeff)
                 new_coeff = poly_coeff - \
                     (poly.lead_coeff/poly_to_subtract_coeff[tuple(divisor.lead_term+LT_quotient)])*poly_to_subtract_coeff
-                
+
                 new_coeff[np.where(abs(new_coeff) < permitted_round_error)]=0
-                                
+
                 for term in zip(*np.where(new_coeff != 0)):
                     if term in basisSet:
                         remainder[term] += new_coeff[term]
                         new_coeff[term] = 0
-                
+
                 poly.__init__(new_coeff, clean_zeros = False)
                 divisible = True
                 break
