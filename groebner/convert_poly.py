@@ -1,6 +1,7 @@
 import numpy as np
-from groebner.polynomial import Polynomial
 from numpy.polynomial import chebyshev as C
+
+from groebner.polynomial import Polynomial
 from groebner.multi_cheb import MultiCheb
 from groebner.multi_power import MultiPower
 
