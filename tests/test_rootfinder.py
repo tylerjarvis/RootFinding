@@ -53,16 +53,21 @@ def test_vectorSpaceBasis_2():
 def testReducePoly():
     poly = MultiPower(np.array([[-3],[2],[-4],[1]]))
     g = MultiPower(np.array([[2],[1]]))
+    basisSet = set()
+    basisSet.add((0,0))
 
-    reduced = rf.reduce_poly(poly, [g])
-    assert(reduced.coeff == np.array([[-31.]]))
+    reduced = rf.reduce_poly(poly, [g], basisSet)
+    assert(MultiPower(reduced).coeff == np.array([[-31.]]))
 
 def testReducePoly_2():
     poly = MultiPower(np.array([[-7],[2],[-13],[4]]))
     g = MultiPower(np.array([[-2],[3],[1]]))
+    basisSet = set()
+    basisSet.add((0,0))
+    basisSet.add((1,0))
 
-    reduced = rf.reduce_poly(poly, [g])
-    assert(np.all(reduced.coeff == np.array([[-57.],[85.]])))
+    reduced = rf.reduce_poly(poly, [g], basisSet)
+    assert(np.all(MultiPower(reduced).coeff == np.array([[-57.],[85.]])))
 
 def testReducePoly_3():
     poly = MultiPower(np.array([[0,-1,0,1],
@@ -78,30 +83,44 @@ def testReducePoly_3():
                          [3,0,0,0],
                          [0,0,0,0],
                          [0,0,0,0]]))
-
-    reduced = rf.reduce_poly(poly, [g1, g2])
-    assert(np.all(reduced.coeff == np.array([[0,0,0],[1,2,2]])))
+    basisSet = set()
+    basisSet.add((0,0))
+    basisSet.add((0,1))
+    basisSet.add((0,2))
+    basisSet.add((1,0))
+    basisSet.add((1,1))
+    basisSet.add((1,2))
+    
+    reduced = rf.reduce_poly(poly, [g1, g2], basisSet)
+    assert(np.all(MultiPower(reduced).coeff == np.array([[0,0,0],[1,2,2]])))
 
 def testReducePoly_4():
     poly = MultiPower(np.array([[[-1,2,0],[0,0,0],[-3,0,0]],
                            [[0,0,0],[2,0,0],[0,0,0]],
                            [[0,0,0],[0,0,1],[0,0,0]]]))
-    d1 = MultiPower(np.array([[0,-3,0],
+    d1 = MultiPower(np.array([[[0,-3,0],
                           [0,0,0],
-                          [1,0,0]]))
-    d2 = MultiPower(np.array([[0,0,0,1],
-                         [4,0,0,0]]))
-    d3 = MultiPower(np.array([[[-1,1]]]))
+                          [1,0,0]]]))
+    d2 = MultiPower(np.array([[[0,0,0,1],
+                         [4,0,0,0]]]))
+    d3 = MultiPower(np.array([[[-1]],[[1]]]))
 
-    reduced = rf.reduce_poly(poly, [d1, d2, d3])
-    assert(np.all(reduced.coeff == np.array([[[1],[0]],[[0],[2]]])))
+    basisSet = set()
+    for i in range(2):
+        for j in range(3):
+            for k in range(1):
+                basisSet.add((k,i,j))
+
+    reduced = rf.reduce_poly(poly, [d1, d2, d3], basisSet)
+
+    assert(np.all(MultiPower(reduced).coeff == np.array([[[-1,-7,0],[2,0,1]]])))
 
 def testCoordinateVector():
     poly = MultiCheb(np.array([[0,1,0],[0,0,1],[1,0,0]]))
     VB = [(2,0),(1,2),(0,1),(1,0)]
     GB = [MultiCheb(np.array([[0,0,0],[0,0,0],[0,0,1]]))] # LT is big so nothing gets reduced
 
-    cv = rf.coordinateVector(poly, GB, VB)
+    cv = rf.coordinateVector(poly, GB, VB, set(VB))
     assert(cv == [1,1,1,0])
 
 def testMultMatrix():

@@ -33,10 +33,10 @@ class MultiCheb(Polynomial):
         input- Current: list, current location in ordering
         output- the next step in ordering
     """
-    
+
     def printTime():
         print(times)
-    
+
     def clearTime():
         times["mon_mult_cheb"] = 0
 
@@ -155,29 +155,36 @@ class MultiCheb(Polynomial):
 
         return sol
 
-    def mon_mult(self, idx):
+    def mon_mult(self, idx, returnType = 'Poly'):
         """
         Multiplies a Chebyshev polynomial by a monomial
         -------
         Parameters:
             self: A MultiCheb object
-            idx: The index of the monomial to multiply self by. 
+            idx: The index of the monomial to multiply self by.
+            returnType: if 'Poly' then returns a polynomial object
         -------
         Returns:
-            MultiCheb object.
+            MultiCheb object or a matrix if returnType is not 'Poly'
         -------
         """
-        
+
         start = time.time()
-        
+
         initial_matrix = self.coeff
         for i in range(len(idx)):
             idx_zeros = np.zeros(len(idx),dtype = int)
             idx_zeros[i] = idx[i]
-            initial_matrix = MultiCheb.mon_mult1(initial_matrix, idx_zeros, i)
-        end = time.time()
-        times["mon_mult_cheb"] += (end-start)
-        return MultiCheb(initial_matrix, lead_term = self.lead_term + np.array(idx), clean_zeros = False)
+            initial_matrix = MultiCheb.mon_mult1(initial_matrix, idx_zeros)
+        if returnType == 'Poly':
+            poly = MultiCheb(initial_matrix, lead_term = self.lead_term + np.array(idx), clean_zeros = False)
+            end = time.time()
+            times["mon_mult_cheb"] += (end-start)
+            return poly
+        elif returnType == 'Matrix':
+            end = time.time()
+            times["mon_mult_cheb"] += (end-start)
+            return initial_matrix
 
     def mon_mult1(initial_matrix, idx, dim_mult):
         """
