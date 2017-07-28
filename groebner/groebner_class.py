@@ -462,7 +462,6 @@ class Groebner(object):
             times["phi_criterion"] += (endTime - startTime)
             return True
 
-
     def _build_maxheap(self):
         '''
         Builds a maxheap for use in r polynomial calculation
@@ -637,8 +636,6 @@ class Groebner(object):
             P,L,U = lu(self.np_matrix)
             reduced_matrix = U
             #reduced_matrix = self.fully_reduce(reduced_matrix, qr_reduction = False)
-
-
         #Get the new polynomials
         new_poly_spots = list()
         old_poly_spots = list()
@@ -820,7 +817,6 @@ class Groebner(object):
         else:
             return self.clean_zeros_from_matrix(reduced_matrix)
 
-
     def inverse_P(self,p):
         '''
         Takes in the one dimentional array of column switching.
@@ -889,8 +885,6 @@ class Groebner(object):
         else:
         # The case where the matrix passed in is a square matrix
             return np.eye(m)
-
-
 
     def fully_reduce(self, matrix, qr_reduction = True):
         '''
