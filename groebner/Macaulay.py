@@ -52,23 +52,23 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
 
     poly_list = []
     degree = find_degree(initial_poly_list)
-    
+
     startAdding = time.time()
     for i in initial_poly_list:
         poly_list = add_polys(degree, i, poly_list)
     endAdding = time.time()
     times["adding polys"] = (endAdding - startAdding)
-    
+
     #print(len(poly_list))
-    
+
     startCreate = time.time()
     matrix, matrix_terms = create_matrix(poly_list)
     endCreate = time.time()
     times["create matrix"] = (endCreate - startCreate)
     #print(matrix.shape)
-        
+
     #plt.matshow([i==0 for i in matrix])
-            
+
     startReduce = time.time()
     matrix = rrqr_reduce(matrix)
     matrix = clean_zeros_from_matrix(matrix)
@@ -76,25 +76,25 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     matrix = matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
     endReduce = time.time()
     times["reduce matrix"] = (endReduce - startReduce)
-    
+
     #print("REDUCED")
-    
+
     #plt.matshow([i==0 for i in matrix])
-    
+
     startTri = time.time()
     matrix = triangular_solve(matrix)
     matrix = clean_zeros_from_matrix(matrix)
     endTri = time.time()
     times["triangular solve"] = (endTri - startTri)
-    
+
     #plt.matshow([i==0 for i in matrix])
-    
+
     startGetPolys = time.time()
     rows = get_good_rows(matrix, matrix_terms)
     final_polys = get_poly_from_matrix(rows,matrix,matrix_terms,Power)
     endGetPolys = time.time()
     times["get polys"] = (endGetPolys - startGetPolys)
-    
+
     #endTime = time.time()
     #print("Macaulay run time is {} seconds".format(endTime-startTime))
     #print(times)
@@ -108,7 +108,7 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
 def fullRank(matrix):
     '''
     Finds the full rank of a matrix.
-    Returns independentRows - a list of rows that have full rank, and 
+    Returns independentRows - a list of rows that have full rank, and
     dependentRows - rows that can be removed without affecting the rank
     Q - The Q matrix used in RRQR reduction in finding the rank
     '''
@@ -378,7 +378,7 @@ def create_matrix(polys):
         #all flattened polynomials look the same.
         newMatrix = fill_size(bigShape, poly.coeff)
         flat_polys.append(newMatrix.ravel())
-    
+
     #Make the matrix
     matrix = np.vstack(flat_polys[::-1])
 
@@ -390,7 +390,7 @@ def create_matrix(polys):
     matrix_terms = terms.ravel()
     endTerms = time.time()
     #print(endTerms - startTerms)
-    
+
     #Gets rid of any columns that are all 0.
     matrix, matrix_terms = clean_matrix(matrix, matrix_terms)
 
@@ -424,7 +424,7 @@ def create_matrix2(polys):
     for i in range(len(matrix_terms)):
         termSpots[matrix_terms[i].val] = i
     matrix = np.random.rand(0,len(matrix_terms))
-    
+
     start = time.time()
     for poly in polys:
         matrix = np.vstack((matrix, np.zeros(matrix.shape[1])))
@@ -432,7 +432,7 @@ def create_matrix2(polys):
             matrix[-1,termSpots[term]] = poly.coeff[term]
     end = time.time()
     print(end-start)
-    
+
     #Sorts the rows of the matrix so it is close to upper triangular.
     matrix = row_swap_matrix(matrix)
     return matrix, matrix_terms
@@ -526,7 +526,7 @@ def rrqr_reduce2(matrix, clean = True, global_accuray = 1.e-10):
         sub3 = rrqr_reduce2(sub3)
 
         sub1 = matrix[independentRows]
-        sub1 = rrqr_reduce2(sub1)            
+        sub1 = rrqr_reduce2(sub1)
 
         sub2 = bottom[:,:height]
         sub2[:] = np.zeros_like(sub2)
