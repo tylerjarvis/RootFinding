@@ -162,7 +162,9 @@ class Polynomial(object):
 
     def evaluate_at(self, point):
         '''
-        Evaluates the polynomial at the given point.
+        Evaluates the polynomial at the given point. This method is overridden
+        by the MultiPower and MultiCheb classes, so this definition only
+        checks if the polynomial can be evaluated at the given point.
 
         parameters
         ----------
@@ -188,6 +190,6 @@ class Polynomial(object):
 
     def __ne__(self,other):
         '''
-        check if coeff matrix is not the same same
+        check if coeff matrix is not the same
         '''
         return not (self == other)

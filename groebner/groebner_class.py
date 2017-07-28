@@ -390,21 +390,20 @@ class Groebner(object):
         # Index_oldnew iterates the tuple of every combination of new and old polynomials
         index_oldnew = itertools.product(range(len(self.new_polys)),range(len(self.new_polys),
                                                len(self.old_polys)+len(self.new_polys)))
-        B = set(itertools.chain(index_new,index_oldnew))
+        all_index_combinations = set(itertools.chain(index_new,index_oldnew))
 
         # Iterating through both possible combinations.
-        while B:
-            i,j = B.pop()
-            if self.phi_criterion(i,j,B,phi)== True:
+        new_and_old_polys = self.new_polys + self.old_polys
+        while all_index_combinations:
+            i,j = all_index_combinations.pop()
+            if self.phi_criterion(i,j,all_index_combinations,phi) == True:
                 #calculate the phi's.
-                poly = self.new_polys + self.old_polys
-                p_a , p_b = self.calc_phi(poly[i],poly[j])
+                phi_a , phi_b = self.calc_phi(new_and_old_polys[i],new_and_old_polys[j])
                 # add the phi's on to the Groebner Matrix.
-                self._add_poly_to_matrix(p_a)
-                self._add_poly_to_matrix(p_b)
+                self._add_poly_to_matrix(phi_a)
+                self._add_poly_to_matrix(phi_b)
         endTime = time.time()
         times["calc_phi"] += (endTime - startTime)
-        pass
 
     def phi_criterion(self,i,j,B,phi):
         # Need to run tests
@@ -484,7 +483,6 @@ class Groebner(object):
                 self.monheap.heappush(mon)
         endTime = time.time()
         times["buildHeap"] += (endTime - startTime)
-        pass
 
     def sorted_polys_coeff(self):
         '''
@@ -509,18 +507,17 @@ class Groebner(object):
         Returns the polynomial.
         '''
         for p in sorted_polys:
-                l = list(p.lead_term)
-                if all([i<=j for i,j in zip(l,m)]) and len(l) == len(m): #Checks to see if l divides m
-                    c = [j-i for i,j in zip(l,m)]
-                    if not l == m: #Make sure c isn't all 0
-                        return p.mon_mult(c)
-        pass
+            LT_p = list(p.lead_term)
+            if all([i<=j for i,j in zip(LT_p,m)]) and len(LT_p) == len(m): #Checks to see if l divides m
+                c = [j-i for i,j in zip(LT_p,m)]
+                if not LT_p == m: #Make sure c isn't all 0
+                    return p.mon_mult(c)
 
     def add_r_to_matrix(self):
         '''
         Finds the r polynomials and adds them to the matrix.
-        First makes Heap out of all potential monomials, then finds polynomials with leading terms that divide it and
-        add them to the matrix.
+        First makes Heap out of all potential monomials, then finds polynomials
+        with leading terms that divide it and add them to the matrix.
         '''
         startTime = time.time()
         self._build_maxheap()
@@ -533,7 +530,6 @@ class Groebner(object):
 
         endTime = time.time()
         times["calc_r"] += (endTime - startTime)
-        pass
 
     def row_swap_matrix(self, matrix):
         '''
