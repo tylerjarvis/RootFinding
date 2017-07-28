@@ -156,20 +156,41 @@ class MultiCheb(Polynomial):
         return sol
 
     def mon_mult(self, idx):
+        """
+        Multiplies a Chebyshev polynomial by a monomial
+        -------
+        Parameters:
+            self: A MultiCheb object
+            idx: The index of the monomial to multiply self by. 
+        -------
+        Returns:
+            MultiCheb object.
+        -------
+        """
+        
         start = time.time()
         
         initial_matrix = self.coeff
         for i in range(len(idx)):
             idx_zeros = np.zeros(len(idx),dtype = int)
             idx_zeros[i] = idx[i]
-            initial_matrix = MultiCheb.mon_mult1(initial_matrix, idx_zeros)
+            initial_matrix = MultiCheb.mon_mult1(initial_matrix, idx_zeros, i)
         end = time.time()
         times["mon_mult_cheb"] += (end-start)
         return MultiCheb(initial_matrix, lead_term = self.lead_term + np.array(idx), clean_zeros = False)
 
-    def mon_mult1(initial_matrix, idx):
+    def mon_mult1(initial_matrix, idx, dim_mult):
         """
-        Takes a polynomial and the index of a monomial and returns the result of the multiplication.
+        Executes monomial multiplication in one dimension
+        -------
+        Parameters:
+            initial_matrix: matrix of coefficients that represents a Chebyshev polynomial
+            idx: the index of a monomial of one variable to multiply the Chebyshev polynomial by
+            dim_mult: the location of the non-zero value in idx.
+        -------
+        Returns:
+            matrix of coeff that is the result of the one dimensial monomial multiplication.
+        -------
         """
         pad_values = list()
         for i in idx: #iterates through monomial and creates a tuple of pad values for each dimension
@@ -180,12 +201,13 @@ class MultiCheb(Polynomial):
 
         largest_idx = [i-1 for i in initial_matrix.shape]
         new_shape = [max(i,j) for i,j in itertools.zip_longest(largest_idx, idx, fillvalue = 0)] #finds the largest length in each dimmension
-        add_a = [i-j for i,j in itertools.zip_longest(new_shape, largest_idx, fillvalue = 0)]
-        add_a_list = np.zeros((len(new_shape),2))
-        #changes the second column to the values of add_a and add_b.
-        add_a_list[:,1] = add_a
-        #uses add_a_list and add_b_list to pad each polynomial appropriately.
-        initial_matrix = np.pad(initial_matrix,add_a_list.astype(int),'constant')
+        if initial_matrix.shape[dim_mult] <= idx[dim_mult]:
+            add_a = [i-j for i,j in itertools.zip_longest(new_shape, largest_idx, fillvalue = 0)]
+            add_a_list = np.zeros((len(new_shape),2))
+            #changes the second column to the values of add_a and add_b.
+            add_a_list[:,1] = add_a
+            #uses add_a_list and add_b_list to pad each polynomial appropriately.
+            initial_matrix = np.pad(initial_matrix,add_a_list.astype(int),'constant')
 
         number_of_dim = initial_matrix.ndim
         shape_of_self = initial_matrix.shape
