@@ -13,6 +13,13 @@ import matplotlib.pyplot as plt
 import time
 from collections import defaultdict
 
+#What we determine to be zero throughout the code
+global_accuracy = 1.e-10
+
+#If clean is true then at a couple of places (end of rrqr_reduce and end of add r to matrix) things close to 0 will be made 0.
+#Might make it more stable, might make it less stable. Not sure.
+clean = True
+
 def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     """
     Macaulay will take a list of polynomials and use them to construct a Macaulay matrix.
@@ -51,14 +58,9 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
         poly_list = add_polys(degree, i, poly_list)
     endAdding = time.time()
     times["adding polys"] = (endAdding - startAdding)
-<<<<<<< HEAD
 
     #print(len(poly_list))
 
-=======
-    
-    
->>>>>>> 5220ebf3d939b6eaccfd1ca8b2508cff6847f45d
     startCreate = time.time()
     matrix, matrix_terms = create_matrix(poly_list)
     endCreate = time.time()
@@ -68,26 +70,20 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     #plt.matshow([i==0 for i in matrix])
 
     startReduce = time.time()
-    #RRQR_reduce2 currently appears to be the most stable
-    matrix = rrqr_reduce2(matrix, clean = False, global_accuracy = global_accuracy)
+    matrix = rrqr_reduce(matrix)
     matrix = clean_zeros_from_matrix(matrix)
     non_zero_rows = np.sum(abs(matrix),axis=1) != 0
     matrix = matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
     endReduce = time.time()
     times["reduce matrix"] = (endReduce - startReduce)
-<<<<<<< HEAD
 
     #print("REDUCED")
 
-=======
-    
-    
->>>>>>> 5220ebf3d939b6eaccfd1ca8b2508cff6847f45d
     #plt.matshow([i==0 for i in matrix])
 
     startTri = time.time()
     matrix = triangular_solve(matrix)
-    #matrix = clean_zeros_from_matrix(matrix)
+    matrix = clean_zeros_from_matrix(matrix)
     endTri = time.time()
     times["triangular solve"] = (endTri - startTri)
 
@@ -98,13 +94,8 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     final_polys = get_poly_from_matrix(rows,matrix,matrix_terms,Power)
     endGetPolys = time.time()
     times["get polys"] = (endGetPolys - startGetPolys)
-<<<<<<< HEAD
 
     #endTime = time.time()
-=======
-    
-    endTime = time.time()
->>>>>>> 5220ebf3d939b6eaccfd1ca8b2508cff6847f45d
     #print("Macaulay run time is {} seconds".format(endTime-startTime))
     #print(times)
     #MultiCheb.printTime()
@@ -114,7 +105,6 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     #    print(poly.lead_term)
     return final_polys
 
-<<<<<<< HEAD
 def fullRank(matrix):
     '''
     Finds the full rank of a matrix.
@@ -139,8 +129,6 @@ def fullRank(matrix):
         return independentRows,dependentRows,Q
     pass
 
-=======
->>>>>>> 5220ebf3d939b6eaccfd1ca8b2508cff6847f45d
 def triangular_solve(matrix):
     " Reduces the upper block triangular matrix. "
     m,n = matrix.shape
@@ -382,7 +370,7 @@ def create_matrix(polys):
     ordering. Returns the matrix and the matrix_terms, a list of the monomials corresponding to the rows of the matrix.
     '''
     #Gets an empty polynomial whose lm all other polynomial divide into.
-    bigShape = np.maximum.reduce([p.shape for p in polys])
+    bigShape = np.maximum.reduce([p.coeff.shape for p in polys])
     #Gets a list of all the flattened polynomials.
     flat_polys = list()
     for poly in polys:
@@ -395,12 +383,12 @@ def create_matrix(polys):
     matrix = np.vstack(flat_polys[::-1])
 
     #Makes matrix_terms, a list of all the terms in the matrix.
-    #startTerms = time.time()
+    startTerms = time.time()
     terms = np.zeros(bigShape, dtype = Term)
     for i,j in np.ndenumerate(terms):
         terms[i] = Term(i)
     matrix_terms = terms.ravel()
-    #endTerms = time.time()
+    endTerms = time.time()
     #print(endTerms - startTerms)
 
     #Gets rid of any columns that are all 0.
@@ -505,49 +493,22 @@ def clean_zeros_from_matrix(matrix, global_accuracy = 1.e-10):
     matrix[np.where(np.abs(matrix) < global_accuracy)]=0
     return matrix
 
-def fullRank(matrix, global_accuracy = 1.e-10):
+def rrqr_reduce2(matrix, clean = True, global_accuray = 1.e-10):
     '''
-    Finds the full rank of a matrix.
-    Returns independentRows - a list of rows that have full rank, and 
-    dependentRows - rows that can be removed without affecting the rank
-    Q - The Q matrix used in RRQR reduction in finding the rank
-    '''
-    height = matrix.shape[0]
-    Q,R,P = qr(matrix, pivoting = True)
-    diagonals = np.diagonal(R) #Go along the diagonals to find the rank
-    #print(diagonals)
-    rank = np.sum(np.abs(diagonals)>global_accuracy)
-    numMissing = height - rank
-    if numMissing == 0: #Full Rank. All rows independent
-        return [i for i in range(height)],[],None
-    else:
-        #Find the rows we can take out. These are ones that are non-zero in the last rows of Q transpose, as QT*A=R.
-        #To find multiple, we find the pivot columns of Q.T
-        QMatrix = Q.T[-numMissing:]
-        Q1,R1,P1 = qr(QMatrix, pivoting = True)
-        independentRows = P1[R1.shape[0]:] #Other Columns
-        dependentRows = P1[:R1.shape[0]] #Pivot Columns
-        return independentRows,dependentRows,Q
-    pass
-
-def rrqr_reduce2(matrix, clean = False, global_accuracy = 1.e-10):
-    '''
-    This function does the same thing as rrqr_reduce. It is an attempt at higher stability, appears slighlty more stable.
+    This function does the same thing as rrqr_reduce. It is an attempt at higher stability, although currenlty rrqr_reduce
+    appears to be more stable to it is being used instead.
     '''
     if matrix.shape[0] <= 1 or matrix.shape[0]==1 or  matrix.shape[1]==0:
         return matrix
     height = matrix.shape[0]
     A = matrix[:height,:height] #Get the square submatrix
     B = matrix[:,height:] #The rest of the matrix to the right
-    independentRows, dependentRows, Q = fullRank(A, global_accuracy = global_accuracy)
+    independentRows, dependentRows, Q = fullRank(A)
     nullSpaceSize = len(dependentRows)
     if nullSpaceSize == 0: #A is full rank
         #print("FULL RANK")
         Q,R = qr(matrix)
-        if clean:
-            return clean_zeros_from_matrix(R)
-        else:
-            return R
+        return clean_zeros_from_matrix(R)
     else: #A is not full rank
         #print("NOT FULL RANK")
         #sub1 is the independentRows of the matrix, we will recursively reduce this
@@ -557,8 +518,9 @@ def rrqr_reduce2(matrix, clean = False, global_accuracy = 1.e-10):
         if clean:
             Q[np.where(abs(Q) < global_accuracy)]=0
         bottom = matrix[dependentRows]
+        BCopy = B.copy()
         sub3 = bottom[:,height:]
-        sub3 = Q.T[-nullSpaceSize:]@B
+        sub3 = Q.T[-nullSpaceSize:]@BCopy
         if clean:
             sub3 = clean_zeros_from_matrix(sub3)
         sub3 = rrqr_reduce2(sub3)
