@@ -90,7 +90,7 @@ class MultiPower(Polynomial):
         '''
         return not (self == other)
 
-    def mon_mult(self,M):
+    def mon_mult(self, M, returnType = 'Poly'):
         '''
         M is a tuple of the powers in the monomial.
             Ex: x^3*y^4*z^2 would be input as (3,4,2)
@@ -106,7 +106,17 @@ class MultiPower(Polynomial):
                           clean_zeros = False, lead_term = self.lead_term + M)
         end = time.time()
         times["mon_mult_power"] += (end-start)
-        return poly
+        if returnType == 'Poly':
+            poly = MultiPower(np.pad(self.coeff, tuple1, 'constant', constant_values = 0), 
+                          clean_zeros = False, lead_term = self.lead_term + M)
+            end = time.time()
+            times["mon_mult_power"] += (end-start)
+            return poly
+        elif returnType == 'Matrix':
+            matrix = np.pad(self.coeff, tuple1, 'constant', constant_values = 0)
+            end = time.time()
+            times["mon_mult_power"] += (end-start)
+        return matrix
 
     def evaluate_at(self, point):
         super(MultiPower, self).evaluate_at(point)

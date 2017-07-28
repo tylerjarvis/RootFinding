@@ -155,7 +155,7 @@ class MultiCheb(Polynomial):
 
         return sol
 
-    def mon_mult(self, idx):
+    def mon_mult(self, idx, returnType = 'Poly'):
         start = time.time()
         
         initial_matrix = self.coeff
@@ -163,9 +163,15 @@ class MultiCheb(Polynomial):
             idx_zeros = np.zeros(len(idx),dtype = int)
             idx_zeros[i] = idx[i]
             initial_matrix = MultiCheb.mon_mult1(initial_matrix, idx_zeros)
-        end = time.time()
-        times["mon_mult_cheb"] += (end-start)
-        return MultiCheb(initial_matrix, lead_term = self.lead_term + np.array(idx), clean_zeros = False)
+        if returnType == 'Poly':
+            poly = MultiCheb(initial_matrix, lead_term = self.lead_term + np.array(idx), clean_zeros = False)
+            end = time.time()
+            times["mon_mult_cheb"] += (end-start)
+            return poly
+        elif returnType == 'Matrix':
+            end = time.time()
+            times["mon_mult_cheb"] += (end-start)
+            return initial_matrix
 
     def mon_mult1(initial_matrix, idx):
         """
