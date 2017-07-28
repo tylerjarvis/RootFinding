@@ -131,11 +131,24 @@ def roots(polys, method = 'Groebner'):
     
     print("Total run time for roots is {}".format(totalTime))
     print(times)
-    #MultiCheb.printTime()
-    #MultiPower.printTime()
-    #Polynomial.printTime()
-    #print((times["basis"]+times["multMatrix"])/totalTime)
+    MultiCheb.printTime()
+    MultiPower.printTime()
+    Polynomial.printTime()
+    print((times["basis"]+times["multMatrix"])/totalTime)
     return roots
+
+def sorted_polys_coeff(polys):
+    '''
+    Sorts the polynomials by how much bigger the leading coefficient is than the rest of the coeff matrix.
+    '''
+    lead_coeffs = list()
+    for poly in polys:
+        lead_coeffs.append(abs(poly.lead_coeff)/np.sum(np.abs(poly.coeff))) #The lead_coeff to other stuff ratio.
+    argsort_list = sorted(range(len(lead_coeffs)), key=lead_coeffs.__getitem__)[::-1]
+    sorted_polys = list()
+    for i in argsort_list:
+        sorted_polys.append(polys[i])
+    return sorted_polys
 
 def multMatrix(poly, GB, basisList):
     '''
@@ -160,7 +173,8 @@ def multMatrix(poly, GB, basisList):
         The matrix m_f
     ''' 
     basisSet = set(basisList)
-    
+    GB = sorted_polys_coeff(GB)
+
     # All polys in GB will be in the same dimension, so just match poly with
     # the first Groebner basis element
     poly = _match_poly_dim(poly, GB[0])[0]
