@@ -14,13 +14,13 @@ times["initialize"] = 0
 times["match_size"] = 0
 
 class Polynomial(object):
-    
+
     def printTime():
         print(times)
-        
+
     def printLeadTermCount():
         print(times["leadTermCount"])
-    
+
     def clearTime():
         times["updateLeadTerm"] = 0
         times["monomialsList"] = 0
@@ -28,7 +28,7 @@ class Polynomial(object):
         times["cleanCoeff"] = 0
         times["initialize"] = 0
         times["match_size"] = 0
-    
+
     def __init__(self, coeff, order='degrevlex', lead_term=None, clean_zeros = True):
         '''
         terms, int- number of chebyshev polynomials each variable can have. Each dimension will have term terms
@@ -48,7 +48,7 @@ class Polynomial(object):
             self.lead_term = tuple(lead_term)
             self.degree = sum(self.lead_term)
             self.lead_coeff = self.coeff[self.lead_term]
-        
+
         end = time.time()
         times["initialize"] += (end - start)
 
@@ -80,7 +80,7 @@ class Polynomial(object):
         times["cleanCoeff"] += (end - start)
         pass
 
-    
+
     def match_size(self,a,b):
         '''
         Matches the shape of the matrixes of two polynomials. This might not be the best place for it.
@@ -141,10 +141,10 @@ class Polynomial(object):
 
     def monSort(self):
         self.sortedMonomials = self.monomialList()
-    
+
     def update_lead_term(self):
         startTime = time.time()
-        
+
         non_zeros = list()
         for i in zip(*np.where(self.coeff != 0)):
             non_zeros.append(Term(i))
@@ -155,14 +155,16 @@ class Polynomial(object):
         else:
             self.lead_term = None
             self.lead_coeff = 0
-        
+
         endTime = time.time()
         times["leadTermCount"] += 1
         times["updateLeadTerm"] += (endTime - startTime)
-        
+
     def evaluate_at(self, point):
         '''
-        Evaluates the polynomial at the given point.
+        Evaluates the polynomial at the given point. This method is overridden
+        by the MultiPower and MultiCheb classes, so this definition only
+        checks if the polynomial can be evaluated at the given point.
 
         parameters
         ----------
@@ -188,7 +190,6 @@ class Polynomial(object):
 
     def __ne__(self,other):
         '''
-        check if coeff matrix is not the same same
+        check if coeff matrix is not the same
         '''
         return not (self == other)
-

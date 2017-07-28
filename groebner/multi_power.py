@@ -37,13 +37,13 @@ class MultiPower(Polynomial):
     """
     def printTime():
         print(times)
-    
+
     def clearTime():
         times["mon_mult_power"] = 0
 
     def __init__(self, coeff, order='degrevlex', lead_term=None, clean_zeros = True):
         super(MultiPower, self).__init__(coeff, order, lead_term, clean_zeros)
-        
+
     def __add__(self,other):
         '''
         Here we add an addition class.
