@@ -16,7 +16,6 @@ def test_add():
     result = (S.coeff == (poly1.coeff + poly2.coeff))
     assert result.all()
 
-<<<<<<< HEAD
 def test_mult():
     """Test Multivariate Chebyshev polynomial multiplication."""
     test1 = np.array([[0,1],[2,1]])
@@ -39,8 +38,6 @@ def test_mult_diff():
     assert np.allclose(p.coeff,truth.coeff)
 """
 
-=======
->>>>>>> 31746bd7c94315f0cfa00bcfe2784160c46b31e4
 def test_mon_mult():
     """
     Tests monomial multiplication using normal polynomial multiplication.

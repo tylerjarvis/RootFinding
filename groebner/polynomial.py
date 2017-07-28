@@ -13,17 +13,17 @@ times["cleanCoeff"] = 0
 times["initialize"] = 0
 
 class Polynomial(object):
-    
+
     def printTime():
         print(times)
-    
+
     def clearTime():
         times["updateLeadTerm"] = 0
         times["monomialsList"] = 0
         times["leadTermCount"] = 0
         times["cleanCoeff"] = 0
         times["initialize"] = 0
-    
+
     def __init__(self, coeff, order='degrevlex', lead_term=None, clean_zeros = True):
         '''
         terms, int- number of chebyshev polynomials each variable can have. Each dimension will have term terms
@@ -43,7 +43,7 @@ class Polynomial(object):
             self.lead_term = lead_term
             self.degree = sum(self.lead_term)
             self.lead_coeff = self.coeff[tuple(self.lead_term)]
-            
+
         end = time.time()
         times["initialize"] += (end - start)
 
@@ -74,81 +74,8 @@ class Polynomial(object):
         end = time.time()
         times["cleanCoeff"] += (end - start)
         pass
-<<<<<<< HEAD
 
 
-    """
-    def match_size(self,a,b):
-        '''
-        Matches the shape of the polynomials
-        '''
-        a_shape, b_shape = list(a.shape), list(b.shape)
-        if len(a_shape) != len(b_shape):
-            add_to_shape = 0
-            if len(a_shape) < len(b_shape):
-                add_to_shape = len(b_shape) - len(a_shape)
-                for i in range(add_to_shape):
-                    a_shape.insert(0,1)
-                a = a.reshape(a_shape)
-            else:
-                add_to_shape = len(a_shape) - len(b_shape)
-                for i in range(add_to_shape):
-                    b_shape.insert(0,1)
-                b = b.reshape(b_shape)
-
-        new_shape = [max(i,j) for i,j in itertools.zip_longest(a.shape, b.shape, fillvalue = 0)] #finds the largest length in each dimension
-        # finds the difference between the largest length and the original shapes in each dimension.
-        add_a = [i-j for i,j in itertools.zip_longest(new_shape, a.shape, fillvalue = 0)]
-        add_b = [i-j for i,j in itertools.zip_longest(new_shape, b.shape, fillvalue = 0)]
-        #create 2 matrices with the number of rows equal to number of dimensions and 2 columns
-        add_a_list = np.zeros((len(new_shape),2))
-        add_b_list = np.zeros((len(new_shape),2))
-        #changes the second column to the values of add_a and add_b.
-        add_a_list[:,1] = add_a
-        add_b_list[:,1] = add_b
-        #uses add_a_list and add_b_list to pad each polynomial appropriately.
-        a = np.pad(a,add_a_list.astype(int),'constant')
-        b = np.pad(b,add_b_list.astype(int),'constant')
-        return a,b
-    """
-
-    """
-    def check_column_overload(self, max_values, current, column):
-        '''
-        Checks to make sure that we aren't going into the negatives, aka the current value can't ever be greater
-        than the max_values value. We check at the column where we have just added stuff and might have an
-        overflow
-        Return true if the whole thing is full and needs to increment i again. False otherwise.
-        '''
-        initial_column = column
-        if(current[column] > max_values[column]):
-            initial_amount = current[column]
-            extra = current[column] - max_values[column]
-            current[column] = max_values[column]
-            while(extra>0):
-                if(column==0):
-                    current[0] += extra
-                    #Sets all the stuff back in the initial row, needed if the while loop is used.
-                    for i in range(0, initial_column):
-                        current[i+1] += current[i]
-                        current[i] = 0
-                    return True
-                else:
-                    column -=1
-                    allowed = max_values[column] - current[column]
-                    if(allowed > extra):
-                        current[column] += extra
-                        extra = 0
-                    else:
-                        current[column] += allowed
-                        extra -= allowed
-            return False
-        else:
-            return False
-=======
->>>>>>> 31746bd7c94315f0cfa00bcfe2784160c46b31e4
-
-    
     def match_size(self,a,b):
         '''
         Matches the shape of the matrixes of two polynomials. This might not be the best place for it.
@@ -182,32 +109,6 @@ class Polynomial(object):
         b = np.pad(b,add_b_list.astype(int),'constant')
         return a,b
 
-<<<<<<< HEAD
-                        spot_to_check = next_left_most_spot-1
-                        #Loops throught this until everything is balanced all right or we need to increase i
-                        while(self.check_column_overload(max_values, current, spot_to_check)):
-                            new_spot_to_check = -1
-                            for j in range(spot_to_check+1, self.dim):
-                                if(current[j] != 0):
-                                    new_spot_to_check = j
-                                    break
-                            if(new_spot_to_check == -1):
-                                onward = False
-                                break
-                            else:
-                                amount = current[spot_to_check]
-                                current[spot_to_check] = 0
-                                current[new_spot_to_check] -=1
-                                current[new_spot_to_check-1] += (amount+1)
-                                spot_to_check = new_spot_to_check-1
-                        if(onward):
-                            #print("Current - ",current)
-                            yield base-current
-            return
-
-    """
-=======
->>>>>>> 31746bd7c94315f0cfa00bcfe2784160c46b31e4
     def monomialList(self):
         '''
         return
@@ -225,15 +126,6 @@ class Polynomial(object):
         for i in monomialTerms[::-1]:
             monomials.append(i.val)
 
-<<<<<<< HEAD
-        #gen = self.degrevlex_gen()
-        #for index in gen:
-        #    index = tuple(map(lambda i: int(i), index))
-        #    if (self.coeff[index] != 0):
-        #        monomials.append(index)
-        return monomials
-
-=======
         end = time.time()
         times["monomialsList"] += (end - start)
         self.sortedMonomials = monomials
@@ -241,11 +133,10 @@ class Polynomial(object):
 
     def monSort(self):
         self.sortedMonomials = self.monomialList()
-    
->>>>>>> 31746bd7c94315f0cfa00bcfe2784160c46b31e4
+
     def update_lead_term(self,start = None):
         startTime = time.time()
-        
+
         non_zeros = list()
         for i in zip(*np.where(self.coeff != 0)):
             non_zeros.append(Term(i))
@@ -256,11 +147,11 @@ class Polynomial(object):
         else:
             self.lead_term = None
             self.lead_coeff = 0
-        
+
         endTime = time.time()
         times["leadTermCount"] += 1
         times["updateLeadTerm"] += (endTime - startTime)
-        
+
     def evaluate_at(self, point):
         '''
         Evaluates the polynomial at the given point.
@@ -292,4 +183,3 @@ class Polynomial(object):
         check if coeff matrix is not the same same
         '''
         return not (self == other)
-

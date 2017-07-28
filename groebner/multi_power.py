@@ -37,13 +37,13 @@ class MultiPower(Polynomial):
     """
     def printTime():
         print(times)
-    
+
     def clearTime():
         times["mon_mult_power"] = 0
 
     def __init__(self, coeff, order='degrevlex', lead_term=None, clean_zeros = True):
         super(MultiPower, self).__init__(coeff, order, lead_term, clean_zeros)
-        
+
     def __add__(self,other):
         '''
         Here we add an addition class.
@@ -63,20 +63,6 @@ class MultiPower(Polynomial):
         else:
             new_self, new_other = self.coeff, other.coeff
         return MultiPower((new_self - (scale*new_other)), clean_zeros = False)
-<<<<<<< HEAD
-=======
-
-    def __mul__(self,other):
-        '''
-        here we add leading terms?
-        '''
-        if self.shape != other.shape:
-            new_self, new_other = self.match_size(self.coeff,other.coeff)
-        else:
-            new_self, new_other = self.coeff, other.coeff
->>>>>>> 31746bd7c94315f0cfa00bcfe2784160c46b31e4
-
-        return MultiPower(convolve(new_self, new_other))
 
     def __mul__(self,other):
         '''
@@ -116,7 +102,7 @@ class MultiPower(Polynomial):
         for i in M:
             list1 = (i,0)
             tuple1.append(list1)
-        poly = MultiPower(np.pad(self.coeff, tuple1, 'constant', constant_values = 0), 
+        poly = MultiPower(np.pad(self.coeff, tuple1, 'constant', constant_values = 0),
                           clean_zeros = False, lead_term = self.lead_term + M)
         end = time.time()
         times["mon_mult_power"] += (end-start)

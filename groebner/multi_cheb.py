@@ -33,10 +33,10 @@ class MultiCheb(Polynomial):
         input- Current: list, current location in ordering
         output- the next step in ordering
     """
-    
+
     def printTime():
         print(times)
-    
+
     def clearTime():
         times["mon_mult_cheb"] = 0
 
@@ -102,43 +102,6 @@ class MultiCheb(Polynomial):
 
         return p2
 
-<<<<<<< HEAD
-    def __mul__(self,other):
-        '''
-        Multiply by convolving intelligently
-        Formula T_n(x)T_m(x) = 1/2[T_n+m(x)+T_|n-m|(x)]
-        p1 = T_n+m(x)
-            Found by convolving the orginal polynomials.
-        p2 = T_|n-m|(x)
-            Found in 3 steps
-                1. Reverse the order of one polynomial.
-                2. Convolve reversed polynomial and remaining polynomial.
-                3. Fold around middle axis in each dimension.
-        '''
-        # Check and see if same size
-        if self.shape != other.shape:
-            new_self, new_other = self.match_size(self.coeff,other.coeff)
-            new_self = MultiCheb(new_self)
-            new_other = MultiCheb(new_other)
-        else:
-            new_self, new_other = self, other
-
-        p1 = MultiCheb(convolve(new_self.coeff,new_other.coeff)) #p1 is found by convolving the original polynomials.
-        c = new_other._reverse_axes() #reverses order of polynomial.
-        p2 = convolve(new_self.coeff,c) #p2 is found by convolving new_self and c.
-        shape_of_p2 = p2.shape #the shape is used to find the axis to fold around in each direction.
-        dim = p2.ndim #The dimension is needed for array slicing.
-        for i in range(dim): #Loop goes through each dimension and folds polynomial in that direction.
-            half = shape_of_p2[i]//2 #Take the length of each dimension and find the middle index in that dimmension
-            p2 = MultiCheb.fold_for_reg_mult(p2, half, i, dim) #Pass values into function for folding.
-
-        p2 = MultiCheb(p2)
-        Pf = (p1+p2)
-        return MultiCheb((.5*Pf.coeff), clean_zeros = True)
-        #TODO: You can use the lead_term kwarg to save some time
-
-=======
->>>>>>> 31746bd7c94315f0cfa00bcfe2784160c46b31e4
     def fold_in_i_dir(solution_matrix, dim, i, x, fold_idx):
         """
         Folds around a fold_inx and returns new solution.
@@ -192,19 +155,9 @@ class MultiCheb(Polynomial):
 
         return sol
 
-<<<<<<< HEAD
-    def mon_mult1(initial_matrix,idx):
-        """
-        Takes a polynomial and the index of a monomial and returns the result of the multiplication.
-        """
-        #This is the cheating convert to power way.
-        #power = cheb2poly(self)
-        #mult = power.mon_mult(idx)
-        #return poly2cheb(mult)
-=======
     def mon_mult(self, idx):
         start = time.time()
-        
+
         initial_matrix = self.coeff
         for i in range(len(idx)):
             idx_zeros = np.zeros(len(idx),dtype = int)
@@ -218,7 +171,6 @@ class MultiCheb(Polynomial):
         """
         Takes a polynomial and the index of a monomial and returns the result of the multiplication.
         """
->>>>>>> 31746bd7c94315f0cfa00bcfe2784160c46b31e4
         pad_values = list()
         for i in idx: #iterates through monomial and creates a tuple of pad values for each dimension
             pad_dim_i = (i,0)
@@ -251,17 +203,6 @@ class MultiCheb(Polynomial):
             initial_matrix = np.pad(initial_matrix, (pad_values), 'constant')
         Pf = p1 + initial_matrix
         return .5*Pf
-<<<<<<< HEAD
-
-    def mon_mult(self, idx):
-        initial_matrix = self.coeff
-        for i in range(len(idx)):
-            idx_zeros = np.zeros(len(idx),dtype = int)
-            idx_zeros[i] = idx[i]
-            initial_matrix = MultiCheb.mon_mult1(initial_matrix, idx_zeros)
-        return MultiCheb(initial_matrix, lead_term = self.lead_term + np.array(idx))
-=======
->>>>>>> 31746bd7c94315f0cfa00bcfe2784160c46b31e4
 
     def evaluate_at(self, point):
         super(MultiCheb, self).evaluate_at(point)
