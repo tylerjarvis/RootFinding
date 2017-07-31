@@ -6,3 +6,4 @@ pytest/htmlcov
 pytest/.cache
 .cache/
 groebner/.DS_Store
+__pycache__/
