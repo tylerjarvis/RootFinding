@@ -130,12 +130,12 @@ def roots(polys, method = 'Groebner'):
     endTime = time.time()
     totalTime = (endTime - startTime)
 
-    print("Total run time for roots is {}".format(totalTime))
-    print(times)
-    MultiCheb.printTime()
-    MultiPower.printTime()
-    Polynomial.printTime()
-    print((times["basis"]+times["multMatrix"])/totalTime)
+    #print("Total run time for roots is {}".format(totalTime))
+    #print(times)
+    #MultiCheb.printTime()
+    #MultiPower.printTime()
+    #Polynomial.printTime()
+    #print((times["basis"]+times["multMatrix"])/totalTime)
     return roots
 
 def sorted_polys_coeff(polys):
