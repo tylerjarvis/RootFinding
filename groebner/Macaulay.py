@@ -6,7 +6,7 @@ import math
 from groebner.multi_cheb import MultiCheb
 from groebner.multi_power import MultiPower
 from groebner.polynomial import Polynomial
-from scipy.linalg import lu, qr, solve_triangular
+from scipy.linalg import lu, qr, solve_triangular, inv, solve
 from scipy.sparse import csc_matrix, vstack
 from groebner.maxheap import Term
 import matplotlib.pyplot as plt
@@ -60,7 +60,9 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     #print(matrix.shape)
         
     #plt.matshow([i==0 for i in matrix])
-            
+    
+    original = matrix
+    
     startReduce = time.time()
     #rrqr_reduce2 and rrqr_reduce same pretty matched on stability, though I feel like 2 should be better.
     matrix = rrqr_reduce2(matrix, global_accuracy = global_accuracy)
@@ -70,15 +72,29 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     endReduce = time.time()
     times["reduce matrix"] = (endReduce - startReduce)
     
-    
     #plt.matshow([i==0 for i in matrix])
     
     startTri = time.time()
-    matrix = triangular_solve(matrix)
+    triangle, order = triangular_solve(matrix)
     #matrix = clean_zeros_from_matrix(matrix)
     endTri = time.time()
     times["triangular solve"] = (endTri - startTri)
     
+    #plt.matshow([i==0 for i in matrix])
+    
+    #return original, triangle, matrix_terms, order
+    
+    P = inverse_P(order)
+    original = original[:,P]
+    x = original.shape[0]
+    square = original[:x,:x]
+    Q = square
+    R = triangle[:,x:]
+    M = original[:,x:]
+    newR = np.linalg.solve(Q,M)
+    #newR = solve(Q,M)
+    triangle[:,x:] = newR
+    matrix = triangle[:,order]
     #plt.matshow([i==0 for i in matrix])
     
     startGetPolys = time.time()
@@ -145,10 +161,14 @@ def triangular_solve(matrix):
         order = inverse_P(order_c+order_d)
 
         # Reverse the columns back.
-        solver = solver[:,order]
+        
+        
+        #solver = solver[:,order] #PUT THIS BACK IN WHEN DONE TESTING
+        
+        
         # Temporary checker. Plots the non-zero part of the matrix.
         #plt.matshow(~np.isclose(solver,0))
-        return solver
+        return solver, order #JUST RETURN SOLVER WHEN DONE TESTING
 
     else:
         # The case where the matrix passed in is a square matrix
@@ -462,6 +482,43 @@ def clean_zeros_from_matrix(matrix, global_accuracy = 1.e-10):
     matrix[np.where(np.abs(matrix) < global_accuracy)]=0
     return matrix
 
+def varyCoeff(QMatrix, M, inc = 1.e-17):
+    length = M.shape[1]
+    rows = list()
+    for row in QMatrix:
+        S = np.sum(np.abs(row@M))
+        #print("STARTING AT {}".format(S))
+        change = True
+        while change:
+            change = False
+            for i in range(length):
+                improve = True
+                while improve:
+                    improve = False
+                    row[i] += inc
+                    S2 = np.sum(np.abs(row@M))
+                    if S2 < S:
+                        #print(S2)
+                        improve = True
+                        change = True
+                        S = S2
+                    else:
+                        row[i] -= inc
+                improve = True
+                while improve:
+                    improve = False
+                    row[i] -= inc
+                    S2 = np.sum(np.abs(row@M))
+                    if S2 < S:
+                        #print(S2)
+                        improve = True
+                        change = True
+                        S = S2
+                    else:
+                        row[i] += inc
+        rows.append(row)
+    return np.vstack(rows)
+
 def fullRank(matrix, global_accuracy = 1.e-10):
     '''
     Finds the full rank of a matrix.
@@ -484,8 +541,31 @@ def fullRank(matrix, global_accuracy = 1.e-10):
         Q1,R1,P1 = qr(QMatrix, pivoting = True)
         independentRows = P1[R1.shape[0]:] #Other Columns
         dependentRows = P1[:R1.shape[0]] #Pivot Columns
-        return independentRows,dependentRows,Q
+        #QMatrix = varyCoeff(QMatrix, matrix, inc = 1.e-17) #TO TRY AND MAKE QMATRIX MORE ACCURATE, Appears to be worse
+        return independentRows, dependentRows, QMatrix
     pass
+
+def newton(Q,R,M):
+    E = Q@R - M
+    A = -Q.T@E
+    return R+A
+
+def bestNewton(Q,R,M):
+    bestR = R
+    bestSum = np.sum(np.abs(Q@R-M))
+    for i in range(2):
+        R = newton(Q,R,M)
+        
+        P,L,U = lu(R)
+        R = U
+        Q = Q@L
+
+        #R[np.where(np.abs(R) < 1.e-15)] = 0
+        Sum = np.sum(np.abs(Q@R-M))
+        if Sum < bestSum:
+            bestSum = Sum
+            bestR = R
+    return bestR
 
 def rrqr_reduce2(matrix, clean = False, global_accuracy = 1.e-10): #Appears to work best when clean = False
     '''
@@ -496,23 +576,23 @@ def rrqr_reduce2(matrix, clean = False, global_accuracy = 1.e-10): #Appears to w
     height = matrix.shape[0]
     A = matrix[:height,:height] #Get the square submatrix
     B = matrix[:,height:] #The rest of the matrix to the right
-    independentRows, dependentRows, Q = fullRank(A, global_accuracy = global_accuracy)
+    independentRows, dependentRows, QMatrix = fullRank(A, global_accuracy = global_accuracy)
     nullSpaceSize = len(dependentRows)
     if nullSpaceSize == 0: #A is full rank
-        #print("FULL RANK")
         Q,R = qr(matrix)
         return R
+        #return bestNewton(Q,R,matrix)
     else: #A is not full rank
-        #print("NOT FULL RANK")
         #sub1 is the independentRows of the matrix, we will recursively reduce this
         #sub2 is the dependentRows of A, we will set this all to 0
         #sub3 is the dependentRows of Q.T@B, we will recursively reduce this.
         #We then return sub1 stacked on top of sub2+sub3
         if clean:
-            Q[np.where(abs(Q) < global_accuracy)]=0
+            QMatrix[np.where(abs(QMatrix) < global_accuracy)]=0
         bottom = matrix[dependentRows]
         sub3 = bottom[:,height:]
-        sub3 = Q.T[-nullSpaceSize:]@B
+        sub3 = QMatrix@B
+        
         sub3 = rrqr_reduce2(sub3)
 
         sub1 = matrix[independentRows]
