@@ -1,15 +1,10 @@
 import numpy as np
 from scipy.signal import fftconvolve, convolve
 import itertools
-from groebner.maxheap import Term
+from groebner.utils import Term
 import time
 from numpy.polynomial import chebyshev as cheb
 import math
-
-from groebner.polynomial import Polynomial
-from groebner.multi_cheb import MultiCheb
-from groebner.multi_power import MultiPower
-
 
 
 times = dict()
