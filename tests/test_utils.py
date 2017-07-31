@@ -1,6 +1,6 @@
 import numpy as np
 import os, sys
-from groebner.maxheap import MaxHeap, Term
+from groebner.utils import MaxHeap, Term
 import pytest
 
 

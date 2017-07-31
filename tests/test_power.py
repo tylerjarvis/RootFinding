@@ -1,6 +1,6 @@
 import numpy as np
 import os,sys
-from groebner.multi_power import MultiPower
+from groebner.polynomial import MultiPower
 import pytest
 import random
 

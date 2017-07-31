@@ -1,11 +1,9 @@
 import numpy as np
-from groebner.multi_power import MultiPower
-from groebner.multi_cheb import MultiCheb
-from groebner.polynomial import Polynomial
+from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 import itertools
 from groebner.groebner_class import Groebner
 from groebner.Macaulay import Macaulay
-from groebner.maxheap import Term
+from groebner.utils import Term
 import time
 
 times = {}

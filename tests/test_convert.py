@@ -1,8 +1,6 @@
 import numpy as np
 import os, sys
-from groebner.multi_cheb import MultiCheb
-from groebner.multi_power import MultiPower
-from groebner.convert_poly import cheb2poly, poly2cheb
+from groebner.polynomial import MultiCheb, MultiPower, cheb2poly, poly2cheb
 import pytest
 import pdb
 import random
