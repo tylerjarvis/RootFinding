@@ -3,7 +3,7 @@ import itertools
 import numpy as np
 from groebner.utils import MaxHeap
 import math
-from groebner.polynomial import MultiCheb, MultiPower
+from groebner.polynomial import MultiCheb, MultiPower, Polynomial
 from scipy.linalg import lu, qr, solve_triangular
 from groebner.utils import Term
 import matplotlib.pyplot as plt
