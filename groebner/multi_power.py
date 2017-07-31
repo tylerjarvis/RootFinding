@@ -102,10 +102,6 @@ class MultiPower(Polynomial):
         for i in M:
             list1 = (i,0)
             tuple1.append(list1)
-        poly = MultiPower(np.pad(self.coeff, tuple1, 'constant', constant_values = 0),
-                          clean_zeros = False, lead_term = self.lead_term + M)
-        end = time.time()
-        times["mon_mult_power"] += (end-start)
         if returnType == 'Poly':
             poly = MultiPower(np.pad(self.coeff, tuple1, 'constant', constant_values = 0), 
                           clean_zeros = False, lead_term = self.lead_term + M)

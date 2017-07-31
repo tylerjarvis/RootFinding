@@ -132,11 +132,45 @@ def roots(polys, method = 'Groebner'):
 
     print("Total run time for roots is {}".format(totalTime))
     print(times)
-    #MultiCheb.printTime()
-    #MultiPower.printTime()
-    #Polynomial.printTime()
-    #print((times["basis"]+times["multMatrix"])/totalTime)
+    MultiCheb.printTime()
+    MultiPower.printTime()
+    Polynomial.printTime()
+    print((times["basis"]+times["multMatrix"])/totalTime)
     return roots
+
+def sorted_polys_coeff(polys):
+    '''
+    Sorts the polynomials by how much bigger the leading coefficient is than the rest of the coeff matrix.
+    '''
+    lead_coeffs = list()
+    for poly in polys:
+        lead_coeffs.append(abs(poly.lead_coeff)/np.sum(np.abs(poly.coeff))) #The lead_coeff to other stuff ratio.
+    argsort_list = sorted(range(len(lead_coeffs)), key=lead_coeffs.__getitem__)[::-1]
+    sorted_polys = list()
+    for i in argsort_list:
+        sorted_polys.append(polys[i])
+    return sorted_polys
+
+def clean_matrix(matrix, matrix_terms, basisSet):
+    '''
+    Gets rid of rows in the matrix that are all zero and returns it and the updated matrix_terms.
+    '''
+    non_zero_row = [(i in basisSet) for i in matrix_terms]
+    matrix = matrix[non_zero_row] #Only keeps the non_zero_monomials
+    matrix_terms = matrix_terms[non_zero_row] #Only keeps the non_zero_monomials
+    return matrix, matrix_terms
+
+def sort_matrix(matrix, matrix_terms, basisList):
+    '''
+    Takes a matrix and matrix_terms (holding the terms in each row of the matrix), and sorts the matrix so
+    the terms are in the same order as in basisList.
+    Returns the sorted matrix.
+    '''
+    matrix_terms = list(matrix_terms)
+    order = np.zeros(len(basisList), dtype = int)
+    for i in range(len(basisList)):
+        order[i] = matrix_terms.index(basisList[i])
+    return matrix[order]
 
 def multMatrix(poly, GB, basisList):
     '''
@@ -161,19 +195,31 @@ def multMatrix(poly, GB, basisList):
         The matrix m_f
     '''
     basisSet = set(basisList)
+    
+    GB = sorted_polys_coeff(GB)
 
     # All polys in GB will be in the same dimension, so just match poly with
     # the first Groebner basis element
     poly = _match_poly_dim(poly, GB[0])[0]
 
     dim = len(basisList) # Dimension of the vector space basis
-    multMatrix = np.zeros((dim, dim))
-
+    matrix_coeffs = list()
+    
     for i in range(dim):
         monomial = basisList[i]
         poly_ = poly.mon_mult(monomial)
-        multMatrix[:,i] = coordinateVector(poly_, GB, basisList, basisSet)
-
+        matrix_coeffs.append(coordinateVector(poly_, GB, basisList, basisSet).flatten())
+    multMatrix = np.vstack(matrix_coeffs)
+    multMatrix = multMatrix.T
+    
+    remainder_shape = np.maximum.reduce([p.shape for p in GB])
+    terms = np.zeros(remainder_shape, dtype = tuple)
+    for i,j in np.ndenumerate(terms):
+        terms[i] = tuple(i)
+    matrix_terms = terms.ravel()
+    
+    multMatrix, matrix_terms = clean_matrix(multMatrix, matrix_terms, basisSet)
+    multMatrix = sort_matrix(multMatrix, matrix_terms, basisList)
     return multMatrix
 
 def vectorSpaceBasis(GB):
@@ -230,15 +276,7 @@ def coordinateVector(poly, GB, basisList, basisSet):
     dim = len(basisList) # Dimension of vector space basis
 
     poly_coeff = reduce_poly(poly, GB, basisSet)
-
-    coordinateVector = [0] * dim
-    start = time.time()
-    for monomial in zip(*np.where(poly_coeff != 0)):
-        coordinateVector[basisList.index(monomial)] = \
-            poly_coeff[monomial]
-    end = time.time()
-    times["buildMatrix"] += (end - start)
-    return coordinateVector
+    return poly_coeff
 
 def divides(mon1, mon2):
     '''
@@ -279,7 +317,7 @@ def reduce_poly(poly, divisors, basisSet, permitted_round_error=1e-10):
 
     remainder_shape = np.maximum.reduce([p.shape for p in divisors])
     remainder = np.zeros(remainder_shape)
-
+    
     for term in zip(*np.where(poly.coeff != 0)):
         if term in basisSet:
             remainder[term] += poly.coeff[term]
@@ -298,7 +336,6 @@ def reduce_poly(poly, divisors, basisSet, permitted_round_error=1e-10):
                 LT_quotient = np.subtract(poly.lead_term, divisor.lead_term)
 
                 poly_to_subtract_coeff = divisor.mon_mult(LT_quotient, returnType = 'Matrix')
-
                 # Match sizes of poly_to_subtract and poly so
                 # poly_to_subtract.coeff can be subtracted from poly.coeff
                 poly_coeff, poly_to_subtract_coeff = poly.match_size(poly.coeff, poly_to_subtract_coeff)
@@ -306,7 +343,7 @@ def reduce_poly(poly, divisors, basisSet, permitted_round_error=1e-10):
                     (poly.lead_coeff/poly_to_subtract_coeff[tuple(divisor.lead_term+LT_quotient)])*poly_to_subtract_coeff
 
                 new_coeff[np.where(abs(new_coeff) < permitted_round_error)]=0
-
+                
                 for term in zip(*np.where(new_coeff != 0)):
                     if term in basisSet:
                         remainder[term] += new_coeff[term]

@@ -168,22 +168,19 @@ class MultiCheb(Polynomial):
             MultiCheb object or a matrix if returnType is not 'Poly'
         -------
         """
-
         start = time.time()
-
         initial_matrix = self.coeff
         for i in range(len(idx)):
             idx_zeros = np.zeros(len(idx),dtype = int)
             idx_zeros[i] = idx[i]
             initial_matrix = MultiCheb.mon_mult1(initial_matrix, idx_zeros, i)
         if returnType == 'Poly':
-            poly = MultiCheb(initial_matrix, lead_term = self.lead_term + np.array(idx), clean_zeros = False)
             end = time.time()
-            times["mon_mult_cheb"] += (end-start)
-            return poly
+            times["mon_mult_cheb"] += (end - start)
+            return MultiCheb(initial_matrix, lead_term = self.lead_term + np.array(idx), clean_zeros = False)
         elif returnType == 'Matrix':
             end = time.time()
-            times["mon_mult_cheb"] += (end-start)
+            times["mon_mult_cheb"] += (end - start)
             return initial_matrix
 
     def mon_mult1(initial_matrix, idx, dim_mult):

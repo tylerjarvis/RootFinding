@@ -5,6 +5,7 @@ from groebner import maxheap
 import math
 from groebner.multi_cheb import MultiCheb
 from groebner.multi_power import MultiPower
+from groebner.polynomial import Polynomial
 from scipy.linalg import lu, qr, solve_triangular
 from groebner.maxheap import Term
 import matplotlib.pyplot as plt
@@ -169,6 +170,7 @@ class Groebner(object):
         The main function. Initializes the matrix, adds the phi's and r's, and then reduces it. Repeats until the reduction
         no longer adds any more polynomials to the matrix. Print statements let us see the progress of the code.
         '''
+        Polynomial.clearTime()
         MultiCheb.clearTime()
         MultiPower.clearTime()
         startTime = time.time()
@@ -182,7 +184,7 @@ class Groebner(object):
             self.add_phi_to_matrix()
             self.add_r_to_matrix()
             self.create_matrix()
-            #print(self.np_matrix.shape)
+            print(self.np_matrix.shape)
             polys_were_added = self.reduce_matrix(qr_reduction = qr_reduction, triangular_solve = False) #Get rid of triangular solve when done testing
             i+=1
 
@@ -198,6 +200,7 @@ class Groebner(object):
         print(times)
         MultiCheb.printTime()
         MultiPower.printTime()
+        Polynomial.printTime()
         #print("Basis - ")
         #for poly in self.groebner_basis:
         #    print(poly.coeff)
@@ -482,8 +485,8 @@ class Groebner(object):
         polys = self.new_polys+self.old_polys
         lead_coeffs = list()
         for poly in polys:
-            lead_coeffs.append(poly.lead_coeff/np.sum(np.abs(poly.coeff))) #The lead_coeff to other stuff ratio.
-        argsort_list = sorted(range(len(lead_coeffs)), key=lead_coeffs.__getitem__)[::]
+            lead_coeffs.append(abs(poly.lead_coeff)/np.sum(np.abs(poly.coeff))) #The lead_coeff to other stuff ratio.
+        argsort_list = sorted(range(len(lead_coeffs)), key=lead_coeffs.__getitem__)[::-1]
         sorted_polys = list()
         for i in argsort_list:
             sorted_polys.append(polys[i])
@@ -584,8 +587,8 @@ class Groebner(object):
         times["terms"] += (endTerms - startTerms)
 
         self.matrix_terms = terms.flatten()
-        self.sort_matrix()
         self.clean_matrix()
+        self.sort_matrix()
 
         self.np_matrix = self.row_swap_matrix(self.np_matrix)
 
@@ -604,7 +607,9 @@ class Groebner(object):
             fullRankMatrix = self.np_matrix[independentRows]
 
             startRRQR = time.time()
-            reduced_matrix = self.rrqr_reduce(fullRankMatrix)
+
+            reduced_matrix = self.rrqr_reduce2(fullRankMatrix)
+            reduced_matrix = self.clean_zeros_from_matrix(reduced_matrix)
 
             non_zero_rows = np.sum(abs(reduced_matrix),axis=1) != 0
 
@@ -718,10 +723,9 @@ class Groebner(object):
             return True
         else:
             print(rank,height)
-            return False
-
-    '''
-    def rrqr_reduce(self, matrix): #My new sort of working one. Still appears to have some problems. Possibly from fullRank.
+            return False    
+    
+    def rrqr_reduce2(self, matrix): #My new sort of working one. Still appears to have some problems. Possibly from fullRank.
         if matrix.shape[0] <= 1 or matrix.shape[0]==1 or  matrix.shape[1]==0:
             return matrix
         height = matrix.shape[0]
@@ -731,25 +735,18 @@ class Groebner(object):
         nullSpaceSize = len(dependentRows)
         if nullSpaceSize == 0: #A is full rank
             #print("FULL RANK")
-            Q,R = np.linalg.qr(matrix)
-            if clean:
-                return self.clean_zeros_from_matrix(R)
-            else:
-                return R
+            Q,R = qr(matrix)
+            return R
         else: #A is not full rank
             #print("NOT FULL RANK")
             #sub1 is the independentRows of the matrix, we will recursively reduce this
             #sub2 is the dependentRows of A, we will set this all to 0
             #sub3 is the dependentRows of Q.T@B, we will recursively reduce this.
             #We then return sub1 stacked on top of sub2+sub3
-
-            Q[np.where(abs(Q) < global_accuracy)]=0
             bottom = matrix[dependentRows]
             BCopy = B.copy()
             sub3 = bottom[:,height:]
             sub3 = Q.T[-nullSpaceSize:]@BCopy
-            if clean:
-                sub3 = self.clean_zeros_from_matrix(sub3)
             sub3 = self.rrqr_reduce(sub3)
 
             sub1 = matrix[independentRows]
@@ -759,13 +756,8 @@ class Groebner(object):
             sub2[:] = np.zeros_like(sub2)
 
             reduced_matrix = np.vstack((sub1,np.hstack((sub2,sub3))))
-            if clean:
-                return self.clean_zeros_from_matrix(reduced_matrix)
-            else:
-                return reduced_matrix
-
-    '''
-
+            return reduced_matrix
+        
     def rrqr_reduce(self, matrix): #Original One. Seems to be the more stable one from testing.
         if matrix.shape[0]==0 or matrix.shape[1]==0:
             return matrix
