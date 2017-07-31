@@ -130,12 +130,12 @@ def roots(polys, method = 'Groebner'):
     endTime = time.time()
     totalTime = (endTime - startTime)
 
-    print("Total run time for roots is {}".format(totalTime))
-    print(times)
-    MultiCheb.printTime()
-    MultiPower.printTime()
-    Polynomial.printTime()
-    print((times["basis"]+times["multMatrix"])/totalTime)
+    #print("Total run time for roots is {}".format(totalTime))
+    #print(times)
+    #MultiCheb.printTime()
+    #MultiPower.printTime()
+    #Polynomial.printTime()
+    #print((times["basis"]+times["multMatrix"])/totalTime)
     return roots
 
 def sorted_polys_coeff(polys):
@@ -155,9 +155,10 @@ def clean_matrix(matrix, matrix_terms, basisSet):
     '''
     Gets rid of rows in the matrix that are all zero and returns it and the updated matrix_terms.
     '''
-    non_zero_row = [(i in basisSet) for i in matrix_terms]
+    non_zero_row = np.array([(i in basisSet) for i in matrix_terms])
     matrix = matrix[non_zero_row] #Only keeps the non_zero_monomials
     matrix_terms = matrix_terms[non_zero_row] #Only keeps the non_zero_monomials
+    print(matrix_terms)
     return matrix, matrix_terms
 
 def sort_matrix(matrix, matrix_terms, basisList):
