@@ -1,12 +1,11 @@
 from operator import itemgetter
 import itertools
 import numpy as np
-from groebner import maxheap
+from groebner.utils import MaxHeap
 import math
-from groebner.multi_cheb import MultiCheb
-from groebner.multi_power import MultiPower
+from groebner.polynomial import MultiCheb, MultiPower
 from scipy.linalg import lu, qr, solve_triangular
-from groebner.maxheap import Term
+from groebner.utils import Term
 import matplotlib.pyplot as plt
 import time
 from collections import defaultdict
@@ -478,7 +477,7 @@ class Groebner(object):
         Builds a maxheap for use in r polynomial calculation
         '''
         startTime = time.time()
-        self.monheap = maxheap.MaxHeap()
+        self.monheap = MaxHeap()
         for mon in self.term_set:
             if mon not in self.lead_term_set: #Adds every monomial that isn't a lead term to the heap
                 self.monheap.heappush(mon)

@@ -67,10 +67,6 @@ class Term(object):
                         return False
                 return False            
 
-
-
-
-
     # Define the other relations in grevlex order   
         
     def __eq__(self, other):

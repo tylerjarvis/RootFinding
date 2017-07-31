@@ -10,11 +10,8 @@ import time
 from collections import defaultdict
 
 # From the groebner module
-from groebner import maxheap
-from groebner.multi_cheb import MultiCheb
-from groebner.multi_power import MultiPower
-from groebner.polynomial import Polynomial
-from groebner.maxheap import Term
+from groebner.polynomial import Polynomial, MultiCheb, MultiPower
+from groebner.utils import Term, MaxHeap
 
     def __init__(self,polys):
         '''
@@ -419,7 +416,7 @@ from groebner.maxheap import Term
         Builds a maxheap for use in r polynomial calculation
         '''
         startTime = time.time()
-        self.monheap = maxheap.MaxHeap()
+        self.monheap = MaxHeap()
         for mon in self.term_set:
             if mon not in self.lead_term_set: #Adds every monomial that isn't a lead term to the heap
                 self.monheap.heappush(mon)
