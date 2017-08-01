@@ -32,7 +32,6 @@ class Groebner(object):
         self.original_lms - The leading Terms of the original polynomials (not phi's or r's). Keep these as old_polys.
         self.original_lm_dict - A dictionary of the leading terms to their polynomials
         self.not_needed_lms - The leading terms that have another leading term that divided them. We won't keep these.
-        self.duplicate_lms - The leading terms that occur multiple times. Keep these as old_polys
         '''
         times["initialize"] = 0
         times["sort"] = 0
@@ -127,12 +126,19 @@ class Groebner(object):
             for p in polys:
                 lms[p.lead_term].append(p)
 
+            # This list will contain one polynomial for each leading term,
+            # so all the leading terms will be unique
             polys_with_unique_lm = list()
 
             for i in lms:
-                if len(lms[i]) > 1: #It's duplicated
-                    #self.duplicate_lms.add(Term(i))
+                # If there are multiple polynomials with the same leading term
+                # we add just one of them to polys_with_unique_lm and add the
+                # rest to the matrix for reduction.
+                if len(lms[i]) > 1:
+                    # Why is this next line happening??
                     self.new_polys.append(lms[i][0])
+                    # Removing ^ still passes all tests so....
+
                     polys_with_unique_lm.append(lms[i][0])
                     lms[i].remove(lms[i][0])
                     self._add_polys(lms[i]) #Still lets stuff be reduced if a poly reduces all of them.
@@ -141,15 +147,22 @@ class Groebner(object):
 
             divides_out = list()
 
+            # Checks if anything in old_polys or new_polys can divide each other
+            # Example: if f1 divides f2, then f2 and  LT(f2)/LT(f1) * f1 are
+            # added to the matrix
             for i,j in itertools.permutations(polys_with_unique_lm,2):
                 if i in divides_out:
                     continue
                 if self.divides(i,j): # j divides into i
-                    startStuff = time.time()
                     divides_out.append(i)
                     self._add_poly_to_matrix(i)
                     self._add_poly_to_matrix(j.mon_mult(tuple(a-b for a,b in zip(i.lead_term,j.lead_term))))
 
+            # Now add everything that couldn't be divided out to the matrix,
+            # and put them back in either self.old_polys or self.new_polys,
+            # whichever they belonged to before. This means that the ones
+            # that got divided out are essentially removed from the list they
+            # belonged to.
             for i in polys_with_unique_lm:
                 if i not in divides_out:
                     self._add_poly_to_matrix(i)
@@ -721,8 +734,8 @@ class Groebner(object):
             return True
         else:
             print(rank,height)
-            return False    
-    
+            return False
+
     def rrqr_reduce2(self, matrix): #My new sort of working one. Still appears to have some problems. Possibly from fullRank.
         if matrix.shape[0] <= 1 or matrix.shape[0]==1 or  matrix.shape[1]==0:
             return matrix
@@ -755,7 +768,7 @@ class Groebner(object):
 
             reduced_matrix = np.vstack((sub1,np.hstack((sub2,sub3))))
             return reduced_matrix
-        
+
     def rrqr_reduce(self, matrix): #Original One. Seems to be the more stable one from testing.
         if matrix.shape[0]==0 or matrix.shape[1]==0:
             return matrix
