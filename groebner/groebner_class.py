@@ -160,9 +160,11 @@ class Groebner(object):
 
             # Now add everything that couldn't be divided out to the matrix,
             # and put them back in either self.old_polys or self.new_polys,
-            # whichever they belonged to before. This means that the ones
-            # that got divided out are essentially removed from the list they
-            # belonged to.
+            # whichever they belonged to before.
+            #
+            # This means that the ones that got divided out are essentially
+            # removed from the list they belonged to, so they won't be
+            # used for phi or r calculations.
             for i in polys_with_unique_lm:
                 if i not in divides_out:
                     self._add_poly_to_matrix(i)
@@ -372,7 +374,17 @@ class Groebner(object):
         return np.maximum(a.lead_term, b.lead_term)
 
     def calc_phi(self,a,b):
-        '''Calculates the phi-polynomial's of the polynomials a and b.
+        '''
+        Calculates the phi-polynomial's of the polynomials a and b.
+
+        Phi polynomials are defined to be:
+        (lcm(LT(a), LT(b)) / LT(a)) * a and
+        (lcm(LT(a), LT(b)) / LT(b)) * b
+
+        The reasoning behind this definition is that both phis will have the
+        same leading term so they can be linearly reduced to produce a new,
+        smaller polynomial in the ideal.
+
         Returns:
             A tuple of the calculated phi's.
         '''
@@ -398,12 +410,12 @@ class Groebner(object):
         all_index_combinations = set(itertools.chain(index_new,index_oldnew))
 
         # Iterating through both possible combinations.
-        new_and_old_polys = self.new_polys + self.old_polys
+        all_polys = self.new_polys + self.old_polys
         while all_index_combinations:
             i,j = all_index_combinations.pop()
-            if self.phi_criterion(i,j,all_index_combinations,phi) == True:
+            if self.phi_criterion(i,j,all_index_combinations,phi):
                 #calculate the phi's.
-                phi_a , phi_b = self.calc_phi(new_and_old_polys[i],new_and_old_polys[j])
+                phi_a , phi_b = self.calc_phi(all_polys[i],all_polys[j])
                 # add the phi's on to the Groebner Matrix.
                 self._add_poly_to_matrix(phi_a)
                 self._add_poly_to_matrix(phi_b)
@@ -507,12 +519,21 @@ class Groebner(object):
 
     def calc_r(self, m, sorted_polys):
         '''
-        Finds the r polynomial that has a leading monomial m
+        Finds the r polynomial that has a leading monomial m.
+
+        The r polynomials are defined as follows:
+            First look at all monomials that are not leading terms. For each one
+            of those monomials m, if there is a polynoial p that divides it,
+            calculate r = (m / LT(p)) * p. This is the r polynomial
+            corresponding to m.
+            The reason we use r polynomials is because now any polynomial with
+            m in it will be linearly reduced even further. 
+
         Returns the polynomial.
         '''
         for p in sorted_polys:
             LT_p = list(p.lead_term)
-            if all([i<=j for i,j in zip(LT_p,m)]) and len(LT_p) == len(m): #Checks to see if l divides m
+            if all([i<=j for i,j in zip(LT_p,m)]) and len(LT_p) == len(m): #Checks to see if LT_p divides m
                 c = [j-i for i,j in zip(LT_p,m)]
                 if not LT_p == m: #Make sure c isn't all 0
                     return p.mon_mult(c)
