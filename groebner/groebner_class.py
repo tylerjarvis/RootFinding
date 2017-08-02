@@ -195,7 +195,6 @@ class Groebner(object):
             self.add_phi_to_matrix()
             self.add_r_to_matrix()
             self.create_matrix()
-            print(self.np_matrix.shape)
             polys_were_added = self.reduce_matrix(qr_reduction = qr_reduction, triangular_solve = False) #Get rid of triangular solve when done testing
             i+=1
 
@@ -263,7 +262,7 @@ class Groebner(object):
 
     def clean_matrix(self):
         '''
-        Gets rid of rows and columns in the np_matrix that are all zero.
+        Gets rid of columns in the np_matrix that are all zero.
         '''
         start = time.time()
         ##This would replace all small values in the matrix with 0.
@@ -567,7 +566,8 @@ class Groebner(object):
     def fill_size(self,bigMatrix,smallMatrix):
         '''
         Fits the small matrix inside of the big matrix and returns it.
-        Returns just the coeff matrix as that is all we need in the Groebner create_matrix code.
+        Returns just the coeff matrix as that is all we need in the Groebner
+        create_matrix code.
         '''
         if smallMatrix.shape == bigMatrix.shape:
             return smallMatrix
@@ -581,6 +581,12 @@ class Groebner(object):
         return matrix
 
     def create_matrix(self):
+        '''
+        Creates the matrix from the polynomials in self.matrix_polys, which
+        at this point contains all of self.new_polys, self.old_polys, the
+        phi's and the r's. Each column of the matrix corresponds to a specific
+        monomial, and each row corresponds to a polynomial.
+        '''
         startTime = time.time()
 
         biggest_shape = np.maximum.reduce([p.coeff.shape for p in self.matrix_polys])
@@ -595,13 +601,19 @@ class Groebner(object):
         flat_polys = list()
         for poly in self.matrix_polys:
             startFill = time.time()
+
             newMatrix = self.fill_size(biggest.coeff, poly.coeff)
             flat_polys.append(newMatrix.ravel())
+
             endFill = time.time()
             times["fill"] += (endFill - startFill)
 
         self.np_matrix = np.vstack(flat_polys[::-1])
 
+        # Note that 'terms' is an array of Term objects. We then flatten this
+        # to become 'self.matrix_terms'. The position of each monomial in
+        # 'self.matrix_terms' is the same as the column corresponding to that
+        # monomial. 
         terms = np.zeros(biggest_shape, dtype = Term)
         startTerms = time.time()
         for i,j in np.ndenumerate(terms):

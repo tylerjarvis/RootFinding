@@ -496,7 +496,7 @@ def clean_zeros_from_matrix(matrix, global_accuracy = 1.e-10):
 def rrqr_reduce2(matrix, clean = True, global_accuray = 1.e-10):
     '''
     This function does the same thing as rrqr_reduce. It is an attempt at higher stability, although currenlty rrqr_reduce
-    appears to be more stable to it is being used instead.
+    appears to be more stable so it is being used instead.
     '''
     if matrix.shape[0] <= 1 or matrix.shape[0]==1 or  matrix.shape[1]==0:
         return matrix
