@@ -1,14 +1,11 @@
 from operator import itemgetter
 import itertools
 import numpy as np
-from groebner import maxheap
 import math
-from groebner.multi_cheb import MultiCheb
-from groebner.multi_power import MultiPower
-from groebner.polynomial import Polynomial
+from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 from scipy.linalg import lu, qr, solve_triangular
 from scipy.sparse import csc_matrix, vstack
-from groebner.maxheap import Term
+from groebner.utils import Term
 import matplotlib.pyplot as plt
 import time
 from collections import defaultdict
