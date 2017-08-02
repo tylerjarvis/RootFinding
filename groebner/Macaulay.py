@@ -6,7 +6,8 @@ import math
 from groebner.multi_cheb import MultiCheb
 from groebner.multi_power import MultiPower
 from groebner.polynomial import Polynomial
-from scipy.linalg import lu, qr, solve_triangular, inv, solve
+from scipy.linalg import lu, qr, solve_triangular, inv, solve, svd
+from numpy.linalg import cond
 from scipy.sparse import csc_matrix, vstack
 from groebner.maxheap import Term
 import matplotlib.pyplot as plt
@@ -58,7 +59,9 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     endCreate = time.time()
     times["create matrix"] = (endCreate - startCreate)
     #print(matrix.shape)
-        
+    
+    return matrix, matrix_terms   #Take this out when done with Testing!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    
     #plt.matshow([i==0 for i in matrix])
     
     original = matrix
@@ -79,29 +82,63 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     #matrix = clean_zeros_from_matrix(matrix)
     endTri = time.time()
     times["triangular solve"] = (endTri - startTri)
-    
+    '''
     #plt.matshow([i==0 for i in matrix])
     
-    #return original, triangle, matrix_terms, order
+    #return original, triangle, matrix_terms, order #This is for notebook testing
     
     P = inverse_P(order)
     original = original[:,P]
     x = original.shape[0]
-    square = original[:x,:x]
-    Q = square
-    R = triangle[:,x:]
-    M = original[:,x:]
-    newR = np.linalg.solve(Q,M)
-    #newR = solve(Q,M)
+    M1 = original[:x,:x]
+    M2 = original[:,x:]
+    
+    #Shift the rows and columns to try and make it better
+    length = M1.shape[1]
+    rowChange = np.eye(length)
+    #diag = np.eye(length)
+    #diag = varDiag(M1)
+    print(cond(M1),cond(M2))
+    diag = np.diag(M1.diagonal())
+    #rowChange = varDiag2(M1@diag)
+    #diag = inv(np.diag(triangle.diagonal()))
+    M1 = rowChange@M1@diag
+    M2 = rowChange@M2
+    
+    #inverse = inv(M1)
+    #M1 = inverse@M1
+    #M2 = inverse@M2
+    
+    print(cond(M1),cond(M2))
+    
+    #newR = solve(M1,M2)
+    newR = np.linalg.solve(M1,M2)
+    
+    #rows = get_good_rows(matrix, matrix_terms)
+    
+    #i = rows[::-1][0]
+    #j = np.where(M1[:,i:i+1] != 0)[0][::-1][0] + 1
+    #M1new = M1[j:,j:]
+    #M2new = M2[j:]
+    #newRnew = solve(M1new,M2new)
+    #newR[j:] = newRnew
+    
     triangle[:,x:] = newR
     matrix = triangle[:,order]
-    #plt.matshow([i==0 for i in matrix])
+    #return M1,newR,M2
+    #matrix = np.hstack((inv(diag), newR))[:,order]
+
+    #matrix = clean_zeros_from_matrix(matrix)
+    '''
+    matrix = triangle[:,order]
     
     startGetPolys = time.time()
     rows = get_good_rows(matrix, matrix_terms)
     final_polys = get_poly_from_matrix(rows,matrix,matrix_terms,Power)
     endGetPolys = time.time()
     times["get polys"] = (endGetPolys - startGetPolys)
+    
+    #return M1,newR,M2,rows
     
     endTime = time.time()
     #print("Macaulay run time is {} seconds".format(endTime-startTime))
@@ -112,6 +149,86 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     #for poly in final_polys:
     #    print(poly.lead_term)
     return final_polys
+
+def varDiag2(matrix, inc = 1.e-1):
+    '''
+    Tries to reduce the cond of a matrix by multiplying it by a diagonal of varied coefficients.
+    This one scales the rows.
+    '''
+    values = np.ones(matrix.shape[0])
+    C = cond(matrix)
+    print(C)
+    change = True
+    while change:
+        change = False
+        for i in range(len(values)):
+            #print(i)
+            improve = True
+            while improve:
+                improve = False
+                values[i] += inc
+                if abs(values[i]) < inc/2:
+                    values[i] += inc
+                newC = cond(np.diag(values)@matrix)
+                if newC < C:
+                    C = newC
+                    #print(C)
+                    improve = True
+                    #change = True
+                else:
+                    values[i] -= inc
+                    if abs(values[i]) < inc/2:
+                        values[i] -= inc
+            improve = True
+            while improve:
+                improve = False
+                values[i] -= inc
+                if abs(values[i]) < inc/2:
+                    values[i] -= inc
+                newC = cond(np.diag(values)@matrix)
+                if newC < C and values[i] != 0:
+                    C = newC
+                    #print(C)
+                    improve = True
+                    #change = True
+                else:
+                    values[i] += inc
+                    if abs(values[i]) < inc/2:
+                        values[i] += inc
+    print(C)
+    return np.diag(values)
+
+def varDiag(matrix, inc = 1.e-1):
+    '''
+    Tries to reduce the cond of a matrix by multiplying it by a diagonal of varied coefficients.
+    This one scales the columns.
+    '''
+    values = np.ones(matrix.shape[0])
+    C = cond(matrix)
+    print(C)
+    for i in range(len(values)):
+        improve = True
+        while improve:
+            improve = False
+            values[i] += inc
+            newC = cond(matrix@np.diag(values))
+            if newC < C:
+                C = newC
+                improve = True
+            else:
+                values[i] -= inc
+        improve = True
+        while improve:
+            improve = False
+            values[i] -= inc
+            newC = cond(matrix@np.diag(values))
+            if newC < C and values[i] != 0:
+                C = newC
+                improve = True
+            else:
+                values[i] += inc
+    print(C)
+    return np.diag(values)
 
 def triangular_solve(matrix):
     " Reduces the upper block triangular matrix. "
@@ -152,6 +269,7 @@ def triangular_solve(matrix):
             k+=1
 
         # Solve for the CX = D
+        #return np.hstack((C,D)), inverse_P(order_c+order_d) #Just for testing?
         X = solve_triangular(C,D)
 
         # Add I to X. [I|X]
@@ -383,7 +501,7 @@ def create_matrix(polys_coeffs):
     matrix, matrix_terms = clean_matrix(matrix, matrix_terms)
 
     #Sorts the matrix and matrix_terms by term order.
-    matrix, matrix_terms = sort_matrix(matrix, matrix_terms)
+    #matrix, matrix_terms = sort_matrix(matrix, matrix_terms)
 
     #Sorts the rows of the matrix so it is close to upper triangular.
     matrix = row_swap_matrix(matrix)

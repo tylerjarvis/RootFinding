@@ -130,7 +130,7 @@ def roots(polys, method = 'Groebner'):
     endTime = time.time()
     totalTime = (endTime - startTime)
 
-    #print("Total run time for roots is {}".format(totalTime))
+    print("Total run time for roots is {}".format(totalTime))
     #print(times)
     #MultiCheb.printTime()
     #MultiPower.printTime()
@@ -158,7 +158,6 @@ def clean_matrix(matrix, matrix_terms, basisSet):
     non_zero_row = np.array([(i in basisSet) for i in matrix_terms])
     matrix = matrix[non_zero_row] #Only keeps the non_zero_monomials
     matrix_terms = matrix_terms[non_zero_row] #Only keeps the non_zero_monomials
-    print(matrix_terms)
     return matrix, matrix_terms
 
 def sort_matrix(matrix, matrix_terms, basisList):
