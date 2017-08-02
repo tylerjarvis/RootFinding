@@ -191,8 +191,6 @@ class Groebner(object):
         polys_were_added = True
         i=1 #Tracks what loop we are on.
         while polys_were_added:
-            #print("Starting Loop #"+str(i))
-            #print("Num Polys - ", len(self.new_polys + self.old_polys))
             self.initialize_np_matrix()
             self.add_phi_to_matrix()
             self.add_r_to_matrix()
@@ -201,23 +199,16 @@ class Groebner(object):
             polys_were_added = self.reduce_matrix(qr_reduction = qr_reduction, triangular_solve = False) #Get rid of triangular solve when done testing
             i+=1
 
-        #print("Basis found!")
-
         self.get_groebner()
         if reducedGroebner:
             self.reduce_groebner_basis()
 
         endTime = time.time()
-        #print("WE WIN")
         print("Run time was {} seconds".format(endTime - startTime))
         print(times)
         MultiCheb.printTime()
         MultiPower.printTime()
         Polynomial.printTime()
-        #print("Basis - ")
-        #for poly in self.groebner_basis:
-        #    print(poly.coeff)
-            #break #print just one
 
         return self.groebner_basis
 
@@ -527,7 +518,7 @@ class Groebner(object):
             calculate r = (m / LT(p)) * p. This is the r polynomial
             corresponding to m.
             The reason we use r polynomials is because now any polynomial with
-            m in it will be linearly reduced even further. 
+            m in it will be linearly reduced even further.
 
         Returns the polynomial.
         '''
