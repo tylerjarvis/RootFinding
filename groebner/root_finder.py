@@ -49,9 +49,9 @@ def roots(polys, method = 'Groebner'):
         G = Groebner(polys)
         GB = G.solve()
     elif method == 'TelenVanBarel':
-        GB = Macaulay(polys, TelenVanBarel = True)
+        GB, VB = Macaulay(polys, TelenVanBarel = True)
     else:
-        GB = Macaulay(polys)
+        GB, VB = Macaulay(polys)
     endBasis = time.time()
     times["basis"] = (endBasis - startBasis)
 
@@ -71,14 +71,20 @@ def roots(polys, method = 'Groebner'):
     endRandPoly = time.time()
     times["randPoly"] = (endRandPoly - startRandPoly)
 
-    # Get multiplication matrix
     startVectorBasis = time.time()
-    VB, var_dict = vectorSpaceBasis(GB)
+    if method == 'TelenVanBarel':
+        #make varDict
+    else:
+        # Get multiplication matrix
+        VB, var_dict = vectorSpaceBasis(GB)
     endVectorBasis = time.time()
     times["vectorBasis"] = (endVectorBasis - startVectorBasis)
 
     startMultMatrix = time.time()
-    m_f = multMatrix(f, GB, VB)
+    if method == 'TelenVanBarel':
+        #new mult matrix function
+    else:
+        m_f = multMatrix(f, GB, VB)
     endMultMatrix = time.time()
     times["multMatrix"] = (endMultMatrix - startMultMatrix)
 
