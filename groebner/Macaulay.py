@@ -41,12 +41,12 @@ def Macaulay(initial_poly_list, TelenVanBarel = False, global_accuracy = 1.e-10)
         print([type(p) == MultiPower for p in initial_poly_list])
         raise ValueError('Bad polynomials in list')
 
-    poly_list = []
+    poly_coeff_list = []
     degree = find_degree(initial_poly_list)
 
     startAdding = time.time()
     for i in initial_poly_list:
-        poly_list = add_polys(degree, i, poly_list)
+        poly_coeff_list = add_polys(degree, i, poly_coeff_list)
     endAdding = time.time()
     times["adding polys"] = (endAdding - startAdding)
 
@@ -100,7 +100,7 @@ def Macaulay(initial_poly_list, TelenVanBarel = False, global_accuracy = 1.e-10)
     #    print(poly.lead_term)
     return final_polys
 
-def fullRank(matrix):
+def fullRank(matrix, global_accuracy = 1.e-10):
     '''
     Finds the full rank of a matrix.
     Returns independentRows - a list of rows that have full rank, and
@@ -283,21 +283,21 @@ def mon_combos(mon, numLeft, spot = 0):
         answers += mon_combos(temp, numLeft-i, spot+1)
     return answers
 
-def add_polys(degree, poly, poly_list):
+def add_polys(degree, poly, poly_coeff_list):
     """
     Take each polynomial and adds it to a poly_list
     Then uses monomial multiplication and adds all polynomials with degree less than
         or equal to the total degree needed.
     Returns a list of polynomials.
     """
-    poly_list.append(poly)
+    poly_coeff_list.append(poly.coeff)
     deg = degree - poly.degree
     dim = poly.dim
     mons = mon_combos(np.zeros(dim, dtype = int),deg)
     mons = mons[1:]
     for i in mons:
-        poly_list.append(poly.mon_mult(i))
-    return poly_list
+        poly_coeff_list.append(poly.mon_mult(i, returnType = 'Matrix'))
+    return poly_coeff_list
 
 def row_swap_matrix(matrix):
     '''
@@ -409,13 +409,13 @@ def create_matrix(polys_coeffs, num_initial_polys, TelenVanBarel):
     ordering. Returns the matrix and the matrix_terms, a list of the monomials corresponding to the rows of the matrix.
     '''
     #Gets an empty polynomial whose lm all other polynomial divide into.
-    bigShape = np.maximum.reduce([p.coeff.shape for p in polys])
+    bigShape = np.maximum.reduce([p.shape for p in polys_coeffs])
     #Gets a list of all the flattened polynomials.
     flat_polys = list()
-    for poly in polys:
+    for coeff in polys_coeffs:
         #Gets a matrix that is padded so it is the same size as biggest, and flattens it. This is so
         #all flattened polynomials look the same.
-        newMatrix = fill_size(bigShape, poly.coeff)
+        newMatrix = fill_size(bigShape, coeff)
         flat_polys.append(newMatrix.ravel())
 
     #Make the matrix
@@ -535,7 +535,7 @@ def clean_zeros_from_matrix(matrix, global_accuracy = 1.e-10):
     matrix[np.where(np.abs(matrix) < global_accuracy)]=0
     return matrix
 
-def rrqr_reduce2(matrix, clean = True, global_accuray = 1.e-10):
+def rrqr_reduce2(matrix, clean = True, global_accuracy = 1.e-10):
     '''
     This function does the same thing as rrqr_reduce. It is an attempt at higher stability, although currenlty rrqr_reduce
     appears to be more stable so it is being used instead.
@@ -545,7 +545,7 @@ def rrqr_reduce2(matrix, clean = True, global_accuray = 1.e-10):
     height = matrix.shape[0]
     A = matrix[:height,:height] #Get the square submatrix
     B = matrix[:,height:] #The rest of the matrix to the right
-    independentRows, dependentRows, Q = fullRank(A)
+    independentRows, dependentRows, Q = fullRank(A, global_accuracy = global_accuracy)
     nullSpaceSize = len(dependentRows)
     if nullSpaceSize == 0: #A is full rank
         #print("FULL RANK")
