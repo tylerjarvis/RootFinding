@@ -1,7 +1,6 @@
 import numpy as np
 from groebner import root_finder as rf
-from groebner.multi_power import MultiPower
-from groebner.multi_cheb import MultiCheb
+from groebner.polynomial import MultiPower, MultiCheb
 from groebner.groebner_class import Groebner
 import pytest
 import pdb

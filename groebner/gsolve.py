@@ -1,24 +1,17 @@
+# Dependencies
 from operator import itemgetter
 import itertools
 import numpy as np
-from groebner.utils import MaxHeap
 import math
-from groebner.polynomial import MultiCheb, MultiPower, Polynomial
 from scipy.linalg import lu, qr, solve_triangular
-from groebner.utils import Term
+from scipy.sparse import csc_matrix, vstack
 import matplotlib.pyplot as plt
 import time
 from collections import defaultdict
 
-#What we determine to be zero throughout the code
-global_accuracy = 1.e-10
-#If clean is true then at a couple of places (end of rrqr_reduce and end of add r to matrix) things close to 0 will be made 0.
-#Might make it more stable, might make it less stable. Not sure.
-clean = False
-
-times = {} #Global dictionary to track the run times of each part of the code.
-
-class Groebner(object):
+# From the groebner module
+from groebner.polynomial import Polynomial, MultiCheb, MultiPower
+from groebner.utils import Term, MaxHeap
 
     def __init__(self,polys):
         '''
@@ -34,26 +27,7 @@ class Groebner(object):
         self.not_needed_lms - The leading terms that have another leading term that divided them. We won't keep these.
         self.duplicate_lms - The leading terms that occur multiple times. Keep these as old_polys
         '''
-        times["initialize"] = 0
-        times["sort"] = 0
-        times["clean"] = 0
-        times["get_poly_from_matrix"] = 0
-        times["_add_poly_to_matrix"] = 0
-        times["calc_phi"] = 0
-        times["phi_criterion"] = 0
-        times["calc_r"] = 0
-        times["reduce_matrix"] = 0
-        times["create_matrix"] = 0
-        times["terms"] = 0
-        times["fill"] = 0
-        times["looking"] = 0
-        times["triangular_solve"] = 0
-        times["rrqr_reduce"] = 0
-        times["fullRank"] = 0
-        times["matrixStuff"] = 0
-        times["sorted_polys_coeff"] = 0
-        times["buildHeap"] = 0
-
+       
         # Check polynomial types
         if all([type(p) == MultiPower for p in polys]):
             self.power = True
@@ -70,45 +44,27 @@ class Groebner(object):
         self.lead_term_set = set()
         self.original_lms = set()
         self.matrix_polys = list()
+    
 
-    def divides(self,a,b):
-        '''
-        Takes two polynomials, a and b. Returns True if the lm of b divides the lm of a. False otherwise.
-        '''
-        diff = tuple(i-j for i,j in zip(a.lead_term,b.lead_term))
-        return all(i >= 0 for i in diff)
-
-    def sorted_polys_monomial(self, polys):
-        '''
-        Sorts the polynomials by the number of monomials they have, the ones with the least amount first.
-        '''
-        num_monomials = list()
-        for poly in polys:
-            num_monomials.append(len(np.where(poly.coeff != 0)[0]))
-        argsort_list = sorted(range(len(num_monomials)), key=num_monomials.__getitem__)[::]
-        sorted_polys = list()
-        for i in argsort_list:
-            sorted_polys.append(polys[i])
-        return sorted_polys
 
     def initialize_np_matrix(self, final_time = False):
         '''
         Initialzes self.np_matrix to having just old_polys and new_polys in it
         matrix_terms is the header of the matrix, it lines up each column with a monomial
-
+        
         Now it sorts through the polynomials and if a polynomial is going to be reduced this time through
         it adds it and it's reducer to the matrix but doesn't use it for phi or r calculations.
         This makes the code WAY faster.
         '''
         startTime = time.time()
-
+        
         self.matrix_terms = []
         self.np_matrix = np.array([])
         self.term_set = set()
         self.lead_term_set = set()
         self.original_lms = set()
         self.matrix_polys = list()
-
+        
         if final_time:
             self._add_polys(self.new_polys + self.old_polys)
             for poly in self.new_polys + self.old_polys:
@@ -149,7 +105,8 @@ class Groebner(object):
                     divides_out.append(i)
                     self._add_poly_to_matrix(i)
                     self._add_poly_to_matrix(j.mon_mult(tuple(a-b for a,b in zip(i.lead_term,j.lead_term))))
-
+                    
+            
             for i in polys_with_unique_lm:
                 if i not in divides_out:
                     self._add_poly_to_matrix(i)
@@ -159,7 +116,7 @@ class Groebner(object):
                         self.new_polys.append(i)
                     else:
                         raise ValueError("Where did this poly come from?")
-
+        
         endTime = time.time()
         times["initialize"] += (endTime - startTime)
 
@@ -168,11 +125,10 @@ class Groebner(object):
         The main function. Initializes the matrix, adds the phi's and r's, and then reduces it. Repeats until the reduction
         no longer adds any more polynomials to the matrix. Print statements let us see the progress of the code.
         '''
-        Polynomial.clearTime()
         MultiCheb.clearTime()
         MultiPower.clearTime()
         startTime = time.time()
-
+        
         polys_were_added = True
         i=1 #Tracks what loop we are on.
         while polys_were_added:
@@ -182,28 +138,27 @@ class Groebner(object):
             self.add_phi_to_matrix()
             self.add_r_to_matrix()
             self.create_matrix()
-            print(self.np_matrix.shape)
+            #print(self.np_matrix.shape)
             polys_were_added = self.reduce_matrix(qr_reduction = qr_reduction, triangular_solve = False) #Get rid of triangular solve when done testing
             i+=1
 
-        #print("Basis found!")
-
+        #print("Basis found!")    
+        
         self.get_groebner()
         if reducedGroebner:
             self.reduce_groebner_basis()
-
+        
         endTime = time.time()
         #print("WE WIN")
         print("Run time was {} seconds".format(endTime - startTime))
         print(times)
         MultiCheb.printTime()
         MultiPower.printTime()
-        Polynomial.printTime()
         #print("Basis - ")
         #for poly in self.groebner_basis:
         #    print(poly.coeff)
             #break #print just one
-
+        
         return self.groebner_basis
 
     def reduce_groebner_basis(self):
@@ -222,7 +177,7 @@ class Groebner(object):
         for poly in self.old_polys:
             poly.coeff[abs(poly.coeff) < global_accuracy] = 0
         self.groebner_basis = self.old_polys
-
+        
     def get_groebner(self):
         '''
         Checks to see if our basis includes 1. If so, that is the basis. Also, removes 0 polynomials. Then makes an
@@ -242,18 +197,10 @@ class Groebner(object):
         Sorts the matrix into degrevlex order.
         '''
         start = time.time()
-        argsort_list, self.matrix_terms = self.argsort(self.matrix_terms)
+        argsort_list, self.matrix_terms = self.argsort(self.matrix_terms)        
         self.np_matrix = self.np_matrix[:,argsort_list]
         end = time.time()
         times["sort"] += (end-start)
-
-    def argsort(self, index_list):
-        '''
-        Returns an argsort list for the index, as well as sorts the list in place
-        '''
-        argsort_list = sorted(range(len(index_list)), key=index_list.__getitem__)[::-1]
-        index_list.sort()
-        return argsort_list, index_list[::-1]
 
     def clean_matrix(self):
         '''
@@ -314,7 +261,7 @@ class Groebner(object):
         '''
         Saves the polynomial to the set of polynomials that will be used in create_matrix.
         Also updates the list of leading terms and monomials in the matrix with the new values.
-
+        
         adding_r is only true when the r's are being added, this way it knows to keep adding new monomials to the heap
         for further r calculation
         '''
@@ -325,7 +272,7 @@ class Groebner(object):
             return
         self.matrix_polys.append(p)
         self.lead_term_set.add(Term(p.lead_term))
-
+        
         for idx in zip(*np.where(p.coeff != 0)):
             idx_term = Term(tuple(idx)) #Get a term object
             if idx_term not in self.term_set:
@@ -382,18 +329,18 @@ class Groebner(object):
         # Index_oldnew iterates the tuple of every combination of new and old polynomials
         index_oldnew = itertools.product(range(len(self.new_polys)),range(len(self.new_polys),
                                                len(self.old_polys)+len(self.new_polys)))
-        all_index_combinations = set(itertools.chain(index_new,index_oldnew))
+        B = set(itertools.chain(index_new,index_oldnew))
 
         # Iterating through both possible combinations.
-        new_and_old_polys = self.new_polys + self.old_polys
-        while all_index_combinations:
-            i,j = all_index_combinations.pop()
-            if self.phi_criterion(i,j,all_index_combinations,phi) == True:
+        while B:
+            i,j = B.pop()
+            if self.phi_criterion(i,j,B,phi)== True:
                 #calculate the phi's.
-                phi_a , phi_b = self.calc_phi(new_and_old_polys[i],new_and_old_polys[j])
+                poly = self.new_polys + self.old_polys
+                p_a , p_b = self.calc_phi(poly[i],poly[j])
                 # add the phi's on to the Groebner Matrix.
-                self._add_poly_to_matrix(phi_a)
-                self._add_poly_to_matrix(phi_b)
+                self._add_poly_to_matrix(p_a)
+                self._add_poly_to_matrix(p_b)
         endTime = time.time()
         times["calc_phi"] += (endTime - startTime)
 
@@ -418,8 +365,8 @@ class Groebner(object):
         if phi == False:
             endTime = time.time()
             times["phi_criterion"] += (endTime - startTime)
-            return True
-
+            return True        
+        
         # List of new and old polynomials.
         polys = self.new_polys+self.old_polys
 
@@ -427,8 +374,8 @@ class Groebner(object):
         if all([a*b == 0 for a,b in zip(polys[i].lead_term,polys[j].lead_term)]):
             endTime = time.time()
             times["phi_criterion"] += (endTime - startTime)
-            return False
-
+            return False        
+        
         # Another criterion
         else:
             for l in range(len(polys)):
@@ -463,6 +410,7 @@ class Groebner(object):
             times["phi_criterion"] += (endTime - startTime)
             return True
 
+
     def _build_maxheap(self):
         '''
         Builds a maxheap for use in r polynomial calculation
@@ -474,7 +422,7 @@ class Groebner(object):
                 self.monheap.heappush(mon)
         endTime = time.time()
         times["buildHeap"] += (endTime - startTime)
-
+    
     def sorted_polys_coeff(self):
         '''
         Sorts the polynomials by how much bigger the leading coefficient is than the rest of the coeff matrix.
@@ -483,32 +431,20 @@ class Groebner(object):
         polys = self.new_polys+self.old_polys
         lead_coeffs = list()
         for poly in polys:
-            lead_coeffs.append(abs(poly.lead_coeff)/np.sum(np.abs(poly.coeff))) #The lead_coeff to other stuff ratio.
-        argsort_list = sorted(range(len(lead_coeffs)), key=lead_coeffs.__getitem__)[::-1]
+            lead_coeffs.append(poly.lead_coeff/np.sum(np.abs(poly.coeff))) #The lead_coeff to other stuff ratio.
+        argsort_list = sorted(range(len(lead_coeffs)), key=lead_coeffs.__getitem__)[::]
         sorted_polys = list()
         for i in argsort_list:
             sorted_polys.append(polys[i])
         endTime = time.time()
         times["sorted_polys_coeff"] += (endTime - startTime)
         return sorted_polys
-
-    def calc_r(self, m, sorted_polys):
-        '''
-        Finds the r polynomial that has a leading monomial m
-        Returns the polynomial.
-        '''
-        for p in sorted_polys:
-            LT_p = list(p.lead_term)
-            if all([i<=j for i,j in zip(LT_p,m)]) and len(LT_p) == len(m): #Checks to see if l divides m
-                c = [j-i for i,j in zip(LT_p,m)]
-                if not LT_p == m: #Make sure c isn't all 0
-                    return p.mon_mult(c)
-
+        
     def add_r_to_matrix(self):
         '''
         Finds the r polynomials and adds them to the matrix.
-        First makes Heap out of all potential monomials, then finds polynomials
-        with leading terms that divide it and add them to the matrix.
+        First makes Heap out of all potential monomials, then finds polynomials with leading terms that divide it and
+        add them to the matrix.
         '''
         startTime = time.time()
         self._build_maxheap()
@@ -521,75 +457,44 @@ class Groebner(object):
 
         endTime = time.time()
         times["calc_r"] += (endTime - startTime)
-
-    def row_swap_matrix(self, matrix):
-        '''
-        rearange the rows of matrix so it starts close to upper traingular
-        '''
-        rows, columns = np.where(matrix != 0)
-        lms = {}
-        last_i = -1
-        lms = list()
-        for i,j in zip(rows,columns):
-            if i == last_i:
-                continue
-            else:
-                lms.append(j)
-                last_i = i
-        argsort_list = sorted(range(len(lms)), key=lms.__getitem__)[::]
-        return matrix[argsort_list]
-
-    def fill_size(self,bigMatrix,smallMatrix):
-        '''
-        Fits the small matrix inside of the big matrix and returns it.
-        Returns just the coeff matrix as that is all we need in the Groebner create_matrix code.
-        '''
-        if smallMatrix.shape == bigMatrix.shape:
-            return smallMatrix
-        matrix = np.zeros_like(bigMatrix) #Even though bigMatrix is all zeros, use this because it makes a copy
-
-        slices = list()
-        for i in smallMatrix.shape:
-            s = slice(0,i)
-            slices.append(s)
-        matrix[slices] = smallMatrix
-        return matrix
-
+    
+   
+   
     def create_matrix(self):
         startTime = time.time()
-
+        
         biggest_shape = np.maximum.reduce([p.coeff.shape for p in self.matrix_polys])
-
+        
         if self.power:
             biggest = MultiPower(np.zeros(biggest_shape), clean_zeros = False)
         else:
             biggest = MultiCheb(np.zeros(biggest_shape), clean_zeros = False)
         self.np_matrix = biggest.coeff.flatten()
         self.np_matrix = np.array(self.np_matrix, dtype = np.longdouble)
-
+        
         flat_polys = list()
         for poly in self.matrix_polys:
             startFill = time.time()
             newMatrix = self.fill_size(biggest.coeff, poly.coeff)
-            flat_polys.append(newMatrix.ravel())
+            flat_polys.append(newMatrix.flatten())
             endFill = time.time()
             times["fill"] += (endFill - startFill)
-
+        
         self.np_matrix = np.vstack(flat_polys[::-1])
-
+                
         terms = np.zeros(biggest_shape, dtype = Term)
         startTerms = time.time()
         for i,j in np.ndenumerate(terms):
             terms[i] = Term(i)
         endTerms = time.time()
         times["terms"] += (endTerms - startTerms)
-
+        
         self.matrix_terms = terms.flatten()
-        self.clean_matrix()
         self.sort_matrix()
+        self.clean_matrix()
 
         self.np_matrix = self.row_swap_matrix(self.np_matrix)
-
+                
         endTime = time.time()
         times["create_matrix"] += (endTime - startTime)
 
@@ -600,21 +505,19 @@ class Groebner(object):
         Returns-True if new polynomials were found, False otherwise.
         '''
         startTime = time.time()
-        if qr_reduction:
+        if qr_reduction:            
             independentRows, dependentRows, Q = self.fullRank(self.np_matrix)
             fullRankMatrix = self.np_matrix[independentRows]
-
+            
             startRRQR = time.time()
-
-            reduced_matrix = self.rrqr_reduce2(fullRankMatrix)
-            reduced_matrix = self.clean_zeros_from_matrix(reduced_matrix)
-
+            reduced_matrix = self.rrqr_reduce(fullRankMatrix)
+            
             non_zero_rows = np.sum(abs(reduced_matrix),axis=1) != 0
-
+            
             reduced_matrix = reduced_matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
             endRRQR = time.time()
             times["rrqr_reduce"] += (endRRQR - startRRQR)
-
+            
             '''
             #If I decide to use the fully reduce method.
             Q,R = qr(self.np_matrix)
@@ -622,7 +525,7 @@ class Groebner(object):
             non_zero_rows = np.sum(abs(reduced_matrix),axis=1)>0 ##Increasing this will get rid of small things.
             reduced_matrix = reduced_matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
             '''
-
+            
             startTri = time.time()
             if triangular_solve:
                 reduced_matrix = self.triangular_solve(reduced_matrix)
@@ -639,6 +542,8 @@ class Groebner(object):
             P,L,U = lu(self.np_matrix)
             reduced_matrix = U
             #reduced_matrix = self.fully_reduce(reduced_matrix, qr_reduction = False)
+
+        
         #Get the new polynomials
         new_poly_spots = list()
         old_poly_spots = list()
@@ -657,17 +562,17 @@ class Groebner(object):
                 new_poly_spots.append(i) #This row gives a new leading monomial
         endLooking = time.time()
         times["looking"] += (endLooking - startLooking)
-
-
+        
+        
         if triangular_solve:
             self.old_polys = self.get_polys_from_matrix(old_poly_spots, reduced_matrix)
         else:
             self.old_polys = self.new_polys + self.old_polys
         self.new_polys = self.get_polys_from_matrix(new_poly_spots, reduced_matrix)
-
+        
         endTime = time.time()
         times["reduce_matrix"] += (endTime - startTime)
-
+        
         if len(self.old_polys+self.new_polys) == 0:
             print("ERROR ERROR ERROR ERROR ERROR NOT GOOD NO POLYNOMIALS IN THE BASIS FIX THIS ASAP!!!!!!!!!!!!!")
             print(reduced_matrix)
@@ -676,54 +581,10 @@ class Groebner(object):
 
         return len(self.new_polys) > 0
 
-    def clean_zeros_from_matrix(self,matrix):
-        '''
-        Sets all points in the matrix less than the gloabal accuracy to 0.
-        '''
-        matrix[np.where(np.abs(matrix) < global_accuracy)]=0
-        return matrix
-
-    def fullRank(self, matrix):
-        '''
-        Finds the full rank of a matrix.
-        Returns independentRows - a list of rows that have full rank, and
-        dependentRows - rows that can be removed without affecting the rank
-        Q - The Q matrix used in RRQR reduction in finding the rank
-        '''
-        height = matrix.shape[0]
-        Q,R,P = qr(matrix, pivoting = True)
-        diagonals = np.diagonal(R) #Go along the diagonals to find the rank
-        rank = np.sum(np.abs(diagonals)>global_accuracy)
-        numMissing = height - rank
-        if numMissing == 0: #Full Rank. All rows independent
-            return [i for i in range(height)],[],None
-        else:
-            #Find the rows we can take out. These are ones that are non-zero in the last rows of Q transpose, as QT*A=R.
-            #To find multiple, we find the pivot columns of Q.T
-            QMatrix = Q.T[-numMissing:]
-            Q1,R1,P1 = qr(QMatrix, pivoting = True)
-            independentRows = P1[R1.shape[0]:] #Other Columns
-            dependentRows = P1[:R1.shape[0]] #Pivot Columns
-            return independentRows,dependentRows,Q
-
-    def hasFullRank(self, matrix):
-        height = matrix.shape[0]
-        if height == 0:
-            return True
-        try:
-            Q,R,P = qr(matrix, pivoting = True)
-        except ValueError:
-            print("VALUE ERROR")
-            print(matrix)
-        diagonals = np.diagonal(R) #Go along the diagonals to find the rank
-        rank = np.sum(np.abs(diagonals)>global_accuracy)
-        if rank == height:
-            return True
-        else:
-            print(rank,height)
-            return False    
-    
-    def rrqr_reduce2(self, matrix): #My new sort of working one. Still appears to have some problems. Possibly from fullRank.
+   
+   
+    '''
+    def rrqr_reduce(self, matrix): #My new sort of working one. Still appears to have some problems. Possibly from fullRank.
         if matrix.shape[0] <= 1 or matrix.shape[0]==1 or  matrix.shape[1]==0:
             return matrix
         height = matrix.shape[0]
@@ -733,28 +594,40 @@ class Groebner(object):
         nullSpaceSize = len(dependentRows)
         if nullSpaceSize == 0: #A is full rank
             #print("FULL RANK")
-            Q,R = qr(matrix)
-            return R
+            Q,R = np.linalg.qr(matrix)
+            if clean:
+                return self.clean_zeros_from_matrix(R)
+            else:
+                return R
         else: #A is not full rank
             #print("NOT FULL RANK")
             #sub1 is the independentRows of the matrix, we will recursively reduce this
             #sub2 is the dependentRows of A, we will set this all to 0
             #sub3 is the dependentRows of Q.T@B, we will recursively reduce this.
             #We then return sub1 stacked on top of sub2+sub3
+            
+            Q[np.where(abs(Q) < global_accuracy)]=0
             bottom = matrix[dependentRows]
             BCopy = B.copy()
             sub3 = bottom[:,height:]
             sub3 = Q.T[-nullSpaceSize:]@BCopy
+            if clean:
+                sub3 = self.clean_zeros_from_matrix(sub3)
             sub3 = self.rrqr_reduce(sub3)
-
+            
             sub1 = matrix[independentRows]
-            sub1 = self.rrqr_reduce(sub1)
-
+            sub1 = self.rrqr_reduce(sub1)            
+            
             sub2 = bottom[:,:height]
             sub2[:] = np.zeros_like(sub2)
-
+            
             reduced_matrix = np.vstack((sub1,np.hstack((sub2,sub3))))
-            return reduced_matrix
+            if clean:
+                return self.clean_zeros_from_matrix(reduced_matrix)
+            else:
+                return reduced_matrix
+    
+    '''
         
     def rrqr_reduce(self, matrix): #Original One. Seems to be the more stable one from testing.
         if matrix.shape[0]==0 or matrix.shape[1]==0:
@@ -767,7 +640,7 @@ class Groebner(object):
         startMatrix = time.time()
         Q,R,P = qr(A, pivoting = True) #rrqr reduce it
         endMatrix = time.time()
-        times["matrixStuff"] += (endMatrix - startMatrix)
+        times["matrixStuff"] += (endMatrix - startMatrix)        
         PT = self.inverse_P(P)
         diagonals = np.diagonal(R) #Go along the diagonals to find the rank
         rank = np.sum(np.abs(diagonals)>global_accuracy)
@@ -806,80 +679,14 @@ class Groebner(object):
             return reduced_matrix
         else:
             return self.clean_zeros_from_matrix(reduced_matrix)
+    
 
-    def inverse_P(self,p):
-        '''
-        Takes in the one dimentional array of column switching.
-        Returns the one dimentional array of switching it back.
-        '''
-        # The elementry matrix that flips the columns of given matrix.
-        P = np.eye(len(p))[:,p]
-        # This finds the index that equals 1 of each row of P.
-        #(This is what we want since we want the index of 1 at each column of P.T)
-        return np.where(P==1)[1]
 
-    def triangular_solve(self,matrix):
-        " Reduces the upper block triangular matrix. "
-        m,n = matrix.shape
-        j = 0  # The row index.
-        k = 0  # The column index.
-        c = [] # It will contain the columns that make an upper triangular matrix.
-        d = [] # It will contain the rest of the columns.
-        order_c = [] # List to keep track of original index of the columns in c.
-        order_d = [] # List to keep track of the original index of the columns in d.
 
-        # Checks if the given matrix is not a square matrix.
-        if m != n:
-            # Makes sure the indicies are within the matrix.
-            while j < m and k < n:
-                if matrix[j,k]!= 0:
-                    c.append(matrix[:,k])
-                    order_c.append(k)
-                    # Move to the diagonal if the index is non-zero.
-                    j+=1
-                    k+=1
-                else:
-                    d.append(matrix[:,k])
-                    order_d.append(k)
-                    # Check the next column in the same row if index is zero.
-                    k+=1
-            # C will be the square matrix that is upper triangular with no zeros on the diagonals.
-            C = np.vstack(c).T
-            # If d is not empty, add the rest of the columns not checked into the matrix.
-            if d:
-                D = np.vstack(d).T
-                D = np.hstack((D,matrix[:,k:]))
-            else:
-                D = matrix[:,k:]
-            # Append the index of the rest of the columns to the order_d list.
-            for i in range(n-k):
-                order_d.append(k)
-                k+=1
-
-            # Solve for the CX = D
-            X = solve_triangular(C,D)
-
-            # Add I to X. [I|X]
-            solver = np.hstack((np.eye(X.shape[0]),X))
-
-            # Find the order to reverse the columns back.
-            order = self.inverse_P(order_c+order_d)
-
-            # Reverse the columns back.
-            solver = solver[:,order]
-            # Temporary checker. Plots the non-zero part of the matrix.
-            #plt.matshow(~np.isclose(solver,0))
-
-            return solver
-
-        else:
-        # The case where the matrix passed in is a square matrix
-            return np.eye(m)
-
-    def fully_reduce(self, matrix, qr_reduction = True):
+    def fully_reduce(self, matrix, qr_reduction = True): 
         '''
         This function isn't really used any more as it seems less stable. But it's good for testing purposes.
-
+        
         Fully reduces the matrix by making sure all submatrices formed by taking out columns of zeros are
         also in upper triangular form. Does this recursively. Returns the reduced matrix.
         '''
@@ -911,3 +718,38 @@ class Groebner(object):
             return self.clean_zeros_from_matrix(matrix)
         else:
             return self.clean_zeros_from_matrix(matrix)
+    
+    
+
+###############################################################################
+###############################################################################
+
+
+
+#What we determine to be zero throughout the code
+global_accuracy = 1.e-10
+#If clean is true then at a couple of places (end of rrqr_reduce and end of add r to matrix) things close to 0 will be made 0.
+#Might make it more stable, might make it less stable. Not sure.
+clean = False
+
+times = {} #Global dictionary to track the run times of each part of the code.
+times["initialize"] = 0
+times["sort"] = 0
+times["clean"] = 0
+times["get_poly_from_matrix"] = 0
+times["_add_poly_to_matrix"] = 0
+times["calc_phi"] = 0
+times["phi_criterion"] = 0
+times["calc_r"] = 0
+times["reduce_matrix"] = 0
+times["create_matrix"] = 0
+times["terms"] = 0
+times["fill"] = 0
+times["looking"] = 0
+times["triangular_solve"] = 0
+times["rrqr_reduce"] = 0
+times["fullRank"] = 0
+times["matrixStuff"] = 0
+times["sorted_polys_coeff"] = 0
+times["buildHeap"] = 0
+ 

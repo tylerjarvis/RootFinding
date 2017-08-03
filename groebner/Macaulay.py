@@ -1,20 +1,20 @@
+# Dependencies
 from operator import itemgetter
 import itertools
 import numpy as np
-from groebner import maxheap
 import math
-from groebner.multi_cheb import MultiCheb
-from groebner.multi_power import MultiPower
-from groebner.polynomial import Polynomial
 from scipy.linalg import lu, qr, solve_triangular, inv, solve, svd
 from numpy.linalg import cond
 from scipy.sparse import csc_matrix, vstack
-from groebner.maxheap import Term
 import matplotlib.pyplot as plt
 import time
 from collections import defaultdict
 
-def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
+# groebner module imports
+from groebner.utils import Term
+from groebner.polynomial import Polynomial, MultiCheb, MultiPower
+
+def Macaulay(initial_poly_list, TelenVanBarel = False, global_accuracy = 1.e-10):
     """
     Macaulay will take a list of polynomials and use them to construct a Macaulay matrix.
 
@@ -55,20 +55,23 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     
     
     startCreate = time.time()
-    matrix, matrix_terms = create_matrix(poly_coeff_list)
+    matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list, len(initial_poly_list), TelenVanBarel = TelenVanBarel)
     endCreate = time.time()
     times["create matrix"] = (endCreate - startCreate)
     #print(matrix.shape)
     
-    return matrix, matrix_terms   #Take this out when done with Testing!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    #return matrix, matrix_terms, degree   #Take this out when done with Testing!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     
-    #plt.matshow([i==0 for i in matrix])
+    plt.matshow([i==0 for i in matrix])
     
     original = matrix
     
     startReduce = time.time()
-    #rrqr_reduce2 and rrqr_reduce same pretty matched on stability, though I feel like 2 should be better.
-    matrix = rrqr_reduce2(matrix, global_accuracy = global_accuracy)
+    if TelenVanBarel:
+        matrix, matrix_terms = rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, global_accuracy = global_accuracy)
+    else:
+        #rrqr_reduce2 and rrqr_reduce same pretty matched on stability, though I feel like 2 should be better.
+        matrix = rrqr_reduce2(matrix, global_accuracy = global_accuracy)
     matrix = clean_zeros_from_matrix(matrix)
     non_zero_rows = np.sum(abs(matrix),axis=1) != 0
     matrix = matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
@@ -79,7 +82,7 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     
     startTri = time.time()
     triangle, order = triangular_solve(matrix)
-    #matrix = clean_zeros_from_matrix(matrix)
+    matrix = clean_zeros_from_matrix(matrix)
     endTri = time.time()
     times["triangular solve"] = (endTri - startTri)
     '''
@@ -133,7 +136,11 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     matrix = triangle[:,order]
     
     startGetPolys = time.time()
-    rows = get_good_rows(matrix, matrix_terms)
+    if TelenVanBarel:
+        rows = list(np.arange(matrix_shape_stuff[0]))
+        #rows = list(np.arange(matrix.shape[0]))
+    else:
+        rows = get_good_rows(matrix, matrix_terms)
     final_polys = get_poly_from_matrix(rows,matrix,matrix_terms,Power)
     endGetPolys = time.time()
     times["get polys"] = (endGetPolys - startGetPolys)
@@ -141,20 +148,20 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     #return M1,newR,M2,rows
     
     endTime = time.time()
-    #print("Macaulay run time is {} seconds".format(endTime-startTime))
-    #print(times)
+    print("Macaulay run time is {} seconds".format(endTime-startTime))
+    print(times)
     #MultiCheb.printTime()
     #MultiPower.printTime()
     #Polynomial.printTime()
     #for poly in final_polys:
     #    print(poly.lead_term)
     return final_polys
-
+'''
 def varDiag2(matrix, inc = 1.e-1):
-    '''
+    """
     Tries to reduce the cond of a matrix by multiplying it by a diagonal of varied coefficients.
     This one scales the rows.
-    '''
+    """
     values = np.ones(matrix.shape[0])
     C = cond(matrix)
     print(C)
@@ -199,10 +206,10 @@ def varDiag2(matrix, inc = 1.e-1):
     return np.diag(values)
 
 def varDiag(matrix, inc = 1.e-1):
-    '''
+    """
     Tries to reduce the cond of a matrix by multiplying it by a diagonal of varied coefficients.
     This one scales the columns.
-    '''
+    """
     values = np.ones(matrix.shape[0])
     C = cond(matrix)
     print(C)
@@ -229,7 +236,7 @@ def varDiag(matrix, inc = 1.e-1):
                 values[i] += inc
     print(C)
     return np.diag(values)
-
+'''
 def triangular_solve(matrix):
     " Reduces the upper block triangular matrix. "
     m,n = matrix.shape
@@ -322,12 +329,11 @@ def get_poly_from_matrix(rows,matrix,matrix_terms,power):
             p_list.append(poly)
     return p_list
 
-def divides(a,b):
+def divides(mon1, mon2):
     '''
-    Takes two terms, a and b. Returns True if b divides a. False otherwise.
+    true if mon1 divides mon2, false otherwise
     '''
-    diff = tuple(i-j for i,j in zip(a.val,b.val))
-    return all(i >= 0 for i in diff)
+    return all(np.subtract(mon2, mon1) >= 0)
 
 def get_good_rows(matrix, matrix_terms):
     '''
@@ -353,7 +359,7 @@ def get_good_rows(matrix, matrix_terms):
         toRemove = list()
         for i in range(spot+1, len(keys)):
             term2 = rowLMs[keys[i]]
-            if divides(term2,term1):
+            if divides(term1.val,term2.val):
                 toRemove.append(keys[i])
         for i in toRemove:
             keys.remove(i)
@@ -461,6 +467,53 @@ def sort_matrix(matrix, matrix_terms):
     matrix = matrix[:,argsort_list]
     return matrix, matrix_terms[::-1]
 
+def in_basis(highest, term):
+    '''
+    Returns True if term divides one of highest. False otherwise.
+    '''
+    for mon in highest:
+        if divides(term.val,mon.val):
+            return True
+    return False
+
+def sort_matrixTelenVanBarel(matrix, matrix_terms, num_initial_polys):
+    '''
+    Takes a matrix and matrix_terms (holding the terms in each column of the matrix), and sorts them both
+    by the term order needed for TelenVanBarel reduction. So the highest terms come first, the x monomials last.
+    Returns the sorted matrix and matrix_terms.
+    '''
+    highest = set()
+    for term in matrix_terms:
+        if in_basis(highest, term):
+            continue
+        else:
+            to_remove = set()
+            for mon in highest:
+                if divides(mon.val,term.val):
+                    to_remove.add(mon)
+            for mon in to_remove:
+                highest.remove(mon)
+            highest.add(term)
+    xs = set()
+    for i in range(num_initial_polys+1):
+        for term in matrix_terms:
+            xmon = np.zeros_like(term.val)
+            xmon[0] = i
+            xmon = tuple(xmon)
+            if term.val == xmon:
+                xs.add(term)
+    others = set()
+    for term in matrix_terms:
+        if term not in xs and term not in highest:
+            others.add(term)
+    sorted_matrix_terms = list(highest) + list(others) + list(xs)
+
+    order = np.zeros(len(matrix_terms), dtype = int)
+    matrix_termsList = list(matrix_terms)
+    for i in range(len(matrix_terms)):
+        order[i] = matrix_termsList.index(sorted_matrix_terms[i])
+    return matrix[:,order], sorted_matrix_terms, tuple([len(highest),len(others),len(xs)])
+
 def clean_matrix(matrix, matrix_terms):
     '''
     Gets rid of columns in the matrix that are all zero and returns it and the updated matrix_terms.
@@ -470,7 +523,7 @@ def clean_matrix(matrix, matrix_terms):
     matrix_terms = matrix_terms[non_zero_monomial] #Only keeps the non_zero_monomials
     return matrix, matrix_terms
 
-def create_matrix(polys_coeffs):
+def create_matrix(polys_coeffs, num_initial_polys, TelenVanBarel):
     '''
     Takes a list of polynomial objects (polys) and uses them to create a matrix. That is ordered by the monomial
     ordering. Returns the matrix and the matrix_terms, a list of the monomials corresponding to the rows of the matrix.
@@ -501,11 +554,14 @@ def create_matrix(polys_coeffs):
     matrix, matrix_terms = clean_matrix(matrix, matrix_terms)
 
     #Sorts the matrix and matrix_terms by term order.
-    #matrix, matrix_terms = sort_matrix(matrix, matrix_terms)
-
+    if TelenVanBarel:
+        matrix, matrix_terms, matrix_shape_stuff = sort_matrixTelenVanBarel(matrix, matrix_terms, num_initial_polys)
+    else:
+        matrix, matrix_terms = sort_matrix(matrix, matrix_terms)
+        matrix_shape_stuff = None
     #Sorts the rows of the matrix so it is close to upper triangular.
     matrix = row_swap_matrix(matrix)
-    return matrix, matrix_terms
+    return matrix, matrix_terms, matrix_shape_stuff
 
 def create_matrix2(polys):
     '''
@@ -661,3 +717,36 @@ def rrqr_reduce2(matrix, clean = False, global_accuracy = 1.e-10): #Appears to w
         reduced_matrix = np.vstack((sub1,np.hstack((sub2,sub3))))
         return reduced_matrix
     pass
+
+def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, clean = False, global_accuracy = 1.e-10):
+    '''
+    Reduces a Telen Van Barel Macaulay matrix.
+    '''
+    highest_num = matrix_shape_stuff[0]
+    others_num = matrix_shape_stuff[1]
+    xs_num = matrix_shape_stuff[2]
+        
+    highest = matrix_terms[:highest_num]
+    others = matrix_terms[highest_num:highest_num+others_num]
+    xs = matrix_terms[highest_num+others_num:]
+    
+    A = matrix[:,:highest_num+others_num]
+    
+    Mhigh = matrix[:highest_num,highest_num+others_num:]
+    Mlow = matrix[highest_num:,highest_num+others_num:]
+    
+    B = A[:highest_num,:highest_num]
+    C = A[:highest_num,highest_num:]
+    D = A[highest_num:,:highest_num]
+    E = A[highest_num:,highest_num:]
+    
+    Q,R,P = qr(E, pivoting = True)
+    Q1,R1,P1 = qr(B, pivoting = True)
+    
+    matrix = np.vstack((np.hstack((R1, Q1.T@(C[:,P]), Q1.T@Mhigh)), np.hstack((np.zeros_like(D), R, Q.T@Mlow))))
+    
+    highest = list(np.array(highest)[P1])
+    others = list(np.array(others)[P])
+    matrix_terms = highest+others+xs
+    
+    return matrix, matrix_terms

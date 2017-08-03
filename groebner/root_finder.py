@@ -1,11 +1,9 @@
 import numpy as np
-from groebner.multi_power import MultiPower
-from groebner.multi_cheb import MultiCheb
-from groebner.polynomial import Polynomial
+from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 import itertools
 from groebner.groebner_class import Groebner
 from groebner.Macaulay import Macaulay
-from groebner.maxheap import Term
+from groebner.utils import Term
 import time
 
 times = {}
@@ -39,9 +37,9 @@ def roots(polys, method = 'Groebner'):
 
     # Determine polynomial type
     poly_type = ''
-    if (all(type(p) == MultiCheb for p in polys)):
+    if (all(isinstance(p,MultiCheb) for p in polys)):
         poly_type = 'MultiCheb'
-    elif (all(type(p) == MultiPower for p in polys)):
+    elif (all(isinstance(p,MultiPower) for p in polys)):
         poly_type = 'MultiPower'
     else:
         raise ValueError('All polynomials must be the same type')
@@ -50,6 +48,8 @@ def roots(polys, method = 'Groebner'):
     if method == 'Groebner':
         G = Groebner(polys)
         GB = G.solve()
+    elif method == 'TelenVanBarel':
+        GB = Macaulay(polys, TelenVanBarel = True)
     else:
         GB = Macaulay(polys)
     endBasis = time.time()
@@ -131,7 +131,7 @@ def roots(polys, method = 'Groebner'):
     totalTime = (endTime - startTime)
 
     print("Total run time for roots is {}".format(totalTime))
-    #print(times)
+    print(times)
     #MultiCheb.printTime()
     #MultiPower.printTime()
     #Polynomial.printTime()
