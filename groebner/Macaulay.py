@@ -58,10 +58,7 @@ def Macaulay(initial_poly_list, TelenVanBarel = False, global_accuracy = 1.e-10)
     matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list, len(initial_poly_list), TelenVanBarel = TelenVanBarel)
     endCreate = time.time()
     times["create matrix"] = (endCreate - startCreate)
-    #print(matrix.shape)
-    
-    #return matrix, matrix_terms, degree   #Take this out when done with Testing!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    
+        
     plt.matshow([i==0 for i in matrix])
     
     original = matrix
@@ -81,59 +78,10 @@ def Macaulay(initial_poly_list, TelenVanBarel = False, global_accuracy = 1.e-10)
     #plt.matshow([i==0 for i in matrix])
     
     startTri = time.time()
-    triangle, order = triangular_solve(matrix)
+    matrix = triangular_solve(matrix)
     matrix = clean_zeros_from_matrix(matrix)
     endTri = time.time()
     times["triangular solve"] = (endTri - startTri)
-    '''
-    #plt.matshow([i==0 for i in matrix])
-    
-    #return original, triangle, matrix_terms, order #This is for notebook testing
-    
-    P = inverse_P(order)
-    original = original[:,P]
-    x = original.shape[0]
-    M1 = original[:x,:x]
-    M2 = original[:,x:]
-    
-    #Shift the rows and columns to try and make it better
-    length = M1.shape[1]
-    rowChange = np.eye(length)
-    #diag = np.eye(length)
-    #diag = varDiag(M1)
-    print(cond(M1),cond(M2))
-    diag = np.diag(M1.diagonal())
-    #rowChange = varDiag2(M1@diag)
-    #diag = inv(np.diag(triangle.diagonal()))
-    M1 = rowChange@M1@diag
-    M2 = rowChange@M2
-    
-    #inverse = inv(M1)
-    #M1 = inverse@M1
-    #M2 = inverse@M2
-    
-    print(cond(M1),cond(M2))
-    
-    #newR = solve(M1,M2)
-    newR = np.linalg.solve(M1,M2)
-    
-    #rows = get_good_rows(matrix, matrix_terms)
-    
-    #i = rows[::-1][0]
-    #j = np.where(M1[:,i:i+1] != 0)[0][::-1][0] + 1
-    #M1new = M1[j:,j:]
-    #M2new = M2[j:]
-    #newRnew = solve(M1new,M2new)
-    #newR[j:] = newRnew
-    
-    triangle[:,x:] = newR
-    matrix = triangle[:,order]
-    #return M1,newR,M2
-    #matrix = np.hstack((inv(diag), newR))[:,order]
-
-    #matrix = clean_zeros_from_matrix(matrix)
-    '''
-    matrix = triangle[:,order]
     
     startGetPolys = time.time()
     if TelenVanBarel:
@@ -144,9 +92,7 @@ def Macaulay(initial_poly_list, TelenVanBarel = False, global_accuracy = 1.e-10)
     final_polys = get_poly_from_matrix(rows,matrix,matrix_terms,Power)
     endGetPolys = time.time()
     times["get polys"] = (endGetPolys - startGetPolys)
-    
-    #return M1,newR,M2,rows
-    
+        
     endTime = time.time()
     print("Macaulay run time is {} seconds".format(endTime-startTime))
     print(times)
@@ -156,87 +102,7 @@ def Macaulay(initial_poly_list, TelenVanBarel = False, global_accuracy = 1.e-10)
     #for poly in final_polys:
     #    print(poly.lead_term)
     return final_polys
-'''
-def varDiag2(matrix, inc = 1.e-1):
-    """
-    Tries to reduce the cond of a matrix by multiplying it by a diagonal of varied coefficients.
-    This one scales the rows.
-    """
-    values = np.ones(matrix.shape[0])
-    C = cond(matrix)
-    print(C)
-    change = True
-    while change:
-        change = False
-        for i in range(len(values)):
-            #print(i)
-            improve = True
-            while improve:
-                improve = False
-                values[i] += inc
-                if abs(values[i]) < inc/2:
-                    values[i] += inc
-                newC = cond(np.diag(values)@matrix)
-                if newC < C:
-                    C = newC
-                    #print(C)
-                    improve = True
-                    #change = True
-                else:
-                    values[i] -= inc
-                    if abs(values[i]) < inc/2:
-                        values[i] -= inc
-            improve = True
-            while improve:
-                improve = False
-                values[i] -= inc
-                if abs(values[i]) < inc/2:
-                    values[i] -= inc
-                newC = cond(np.diag(values)@matrix)
-                if newC < C and values[i] != 0:
-                    C = newC
-                    #print(C)
-                    improve = True
-                    #change = True
-                else:
-                    values[i] += inc
-                    if abs(values[i]) < inc/2:
-                        values[i] += inc
-    print(C)
-    return np.diag(values)
 
-def varDiag(matrix, inc = 1.e-1):
-    """
-    Tries to reduce the cond of a matrix by multiplying it by a diagonal of varied coefficients.
-    This one scales the columns.
-    """
-    values = np.ones(matrix.shape[0])
-    C = cond(matrix)
-    print(C)
-    for i in range(len(values)):
-        improve = True
-        while improve:
-            improve = False
-            values[i] += inc
-            newC = cond(matrix@np.diag(values))
-            if newC < C:
-                C = newC
-                improve = True
-            else:
-                values[i] -= inc
-        improve = True
-        while improve:
-            improve = False
-            values[i] -= inc
-            newC = cond(matrix@np.diag(values))
-            if newC < C and values[i] != 0:
-                C = newC
-                improve = True
-            else:
-                values[i] += inc
-    print(C)
-    return np.diag(values)
-'''
 def triangular_solve(matrix):
     " Reduces the upper block triangular matrix. "
     m,n = matrix.shape
@@ -276,7 +142,6 @@ def triangular_solve(matrix):
             k+=1
 
         # Solve for the CX = D
-        #return np.hstack((C,D)), inverse_P(order_c+order_d) #Just for testing?
         X = solve_triangular(C,D)
 
         # Add I to X. [I|X]
@@ -286,14 +151,8 @@ def triangular_solve(matrix):
         order = inverse_P(order_c+order_d)
 
         # Reverse the columns back.
-        
-        
-        #solver = solver[:,order] #PUT THIS BACK IN WHEN DONE TESTING
-        
-        
-        # Temporary checker. Plots the non-zero part of the matrix.
-        #plt.matshow(~np.isclose(solver,0))
-        return solver, order #JUST RETURN SOLVER WHEN DONE TESTING
+        solver = solver[:,order]
+        return solver
 
     else:
         # The case where the matrix passed in is a square matrix
