@@ -48,7 +48,7 @@ def roots(polys, method = 'Groebner'):
         raise ValueError('All polynomials must be the same type')
 
     if method == 'TVB':
-        m_f, var_list, var_dict = TVBMultMatrix(polys, poly_type)
+        m_f, var_dict = TVBMultMatrix(polys, poly_type)
     else:
         GB, m_f, var_dict = groebnerMultMatrix(polys, poly_type, method)
 
@@ -117,7 +117,7 @@ def roots(polys, method = 'Groebner'):
 
 def groebnerMultMatrix(polys, poly_type, method):
     '''
-    Called my the main roots function to calculate the multiplication matrix
+    Called by the main roots function to calculate the multiplication matrix
     if we are using the f4 Groebner or Macaulay implementation. It returns
     everything that the roots function needs to proceed with the root finding
     calculations.
