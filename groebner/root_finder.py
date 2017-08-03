@@ -74,6 +74,7 @@ def roots(polys, method = 'Groebner'):
     startVectorBasis = time.time()
     if method == 'TelenVanBarel':
         #make varDict
+        pass
     else:
         # Get multiplication matrix
         VB, var_dict = vectorSpaceBasis(GB)
@@ -83,6 +84,7 @@ def roots(polys, method = 'Groebner'):
     startMultMatrix = time.time()
     if method == 'TelenVanBarel':
         #new mult matrix function
+        pass
     else:
         m_f = multMatrix(f, GB, VB)
     endMultMatrix = time.time()
