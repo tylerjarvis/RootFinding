@@ -54,7 +54,7 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     matrix, matrix_terms = create_matrix(poly_coeff_list)
     endCreate = time.time()
     times["create matrix"] = (endCreate - startCreate)
-    
+
     startReduce = time.time()
     #rrqr_reduce2 and rrqr_reduce same pretty matched on stability, though I feel like 2 should be better.
     matrix = rrqr_reduce2(matrix, global_accuracy = global_accuracy)
@@ -77,7 +77,7 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     final_polys = get_poly_from_matrix(rows,matrix,matrix_terms,Power)
     endGetPolys = time.time()
     times["get polys"] = (endGetPolys - startGetPolys)
-        
+
     endTime = time.time()
     print("Macaulay run time is {} seconds".format(endTime-startTime))
     print(times)
@@ -245,7 +245,7 @@ def create_matrix(polys_coeffs):
     for i,j in np.ndenumerate(terms):
         terms[i] = Term(i)
     matrix_terms = terms.ravel()
-    
+
     print(matrix_terms)
 
     #Gets rid of any columns that are all 0.
@@ -253,7 +253,7 @@ def create_matrix(polys_coeffs):
 
     #Sorts the matrix and matrix_terms by term order.
     matrix, matrix_terms = sort_matrix(matrix, matrix_terms)
-    
+
     #Sorts the rows of the matrix so it is close to upper triangular.
     matrix = row_swap_matrix(matrix)
     return matrix, matrix_terms
