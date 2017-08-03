@@ -1,18 +1,15 @@
-# Dependencies
 from operator import itemgetter
 import itertools
 import numpy as np
 import math
 from scipy.linalg import lu, qr, solve_triangular, inv, solve, svd
 from numpy.linalg import cond
+from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 from scipy.sparse import csc_matrix, vstack
+from groebner.utils import Term
 import matplotlib.pyplot as plt
 import time
 from collections import defaultdict
-
-# groebner module imports
-from groebner.utils import Term
-from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 
 def Macaulay(initial_poly_list, TelenVanBarel = False, global_accuracy = 1.e-10):
     """
@@ -44,28 +41,26 @@ def Macaulay(initial_poly_list, TelenVanBarel = False, global_accuracy = 1.e-10)
         print([type(p) == MultiPower for p in initial_poly_list])
         raise ValueError('Bad polynomials in list')
 
-    poly_coeff_list = []
+    poly_list = []
     degree = find_degree(initial_poly_list)
-    
+
     startAdding = time.time()
     for i in initial_poly_list:
-        poly_coeff_list = add_polys(degree, i, poly_coeff_list)
+        poly_list = add_polys(degree, i, poly_list)
     endAdding = time.time()
     times["adding polys"] = (endAdding - startAdding)
-    
-    
+
+    #print(len(poly_list))
+
     startCreate = time.time()
     matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list, len(initial_poly_list), TelenVanBarel = TelenVanBarel)
     endCreate = time.time()
     times["create matrix"] = (endCreate - startCreate)
-        
-    plt.matshow([i==0 for i in matrix])
-    
-    original = matrix
     
     startReduce = time.time()
     if TelenVanBarel:
-        matrix, matrix_terms = rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, global_accuracy = global_accuracy)
+        matrix, matrix_terms = rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, 
+                                                        global_accuracy = global_accuracy)
     else:
         #rrqr_reduce2 and rrqr_reduce same pretty matched on stability, though I feel like 2 should be better.
         matrix = rrqr_reduce2(matrix, global_accuracy = global_accuracy)
@@ -74,15 +69,17 @@ def Macaulay(initial_poly_list, TelenVanBarel = False, global_accuracy = 1.e-10)
     matrix = matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
     endReduce = time.time()
     times["reduce matrix"] = (endReduce - startReduce)
-    
+
+    #print("REDUCED")
+
     #plt.matshow([i==0 for i in matrix])
-    
+
     startTri = time.time()
     matrix = triangular_solve(matrix)
     matrix = clean_zeros_from_matrix(matrix)
     endTri = time.time()
     times["triangular solve"] = (endTri - startTri)
-    
+
     startGetPolys = time.time()
     if TelenVanBarel:
         rows = list(np.arange(matrix_shape_stuff[0]))
@@ -102,6 +99,30 @@ def Macaulay(initial_poly_list, TelenVanBarel = False, global_accuracy = 1.e-10)
     #for poly in final_polys:
     #    print(poly.lead_term)
     return final_polys
+
+def fullRank(matrix):
+    '''
+    Finds the full rank of a matrix.
+    Returns independentRows - a list of rows that have full rank, and
+    dependentRows - rows that can be removed without affecting the rank
+    Q - The Q matrix used in RRQR reduction in finding the rank
+    '''
+    height = matrix.shape[0]
+    Q,R,P = qr(matrix, pivoting = True)
+    diagonals = np.diagonal(R) #Go along the diagonals to find the rank
+    rank = np.sum(np.abs(diagonals)>global_accuracy)
+    numMissing = height - rank
+    if numMissing == 0: #Full Rank. All rows independent
+        return [i for i in range(height)],[],None
+    else:
+        #Find the rows we can take out. These are ones that are non-zero in the last rows of Q transpose, as QT*A=R.
+        #To find multiple, we find the pivot columns of Q.T
+        QMatrix = Q.T[-numMissing:]
+        Q1,R1,P1 = qr(QMatrix, pivoting = True)
+        independentRows = P1[R1.shape[0]:] #Other Columns
+        dependentRows = P1[:R1.shape[0]] #Pivot Columns
+        return independentRows,dependentRows,Q
+    pass
 
 def triangular_solve(matrix):
     " Reduces the upper block triangular matrix. "
@@ -244,7 +265,7 @@ def mon_combos(mon, numLeft, spot = 0):
     This function finds all the monomials up to a given degree (here numLeft) and returns them.
     mon is a tuple that starts as all 0's and gets changed as needed to get all the monomials.
     numLeft starts as the dimension, but as the code goes is how much can still be added to mon.
-    spot is the place in mon we are currently adding things too.
+    spot is the place in mon we are currently adding things to.
     Returns a list of all the possible monomials.
     '''
     answers = list()
@@ -262,21 +283,21 @@ def mon_combos(mon, numLeft, spot = 0):
         answers += mon_combos(temp, numLeft-i, spot+1)
     return answers
 
-def add_polys(degree, poly, poly_coeff_list):
+def add_polys(degree, poly, poly_list):
     """
     Take each polynomial and adds it to a poly_list
     Then uses monomial multiplication and adds all polynomials with degree less than
         or equal to the total degree needed.
     Returns a list of polynomials.
     """
-    poly_coeff_list.append(poly.coeff)
+    poly_list.append(poly)
     deg = degree - poly.degree
     dim = poly.dim
     mons = mon_combos(np.zeros(dim, dtype = int),deg)
     mons = mons[1:]
     for i in mons:
-        poly_coeff_list.append(poly.mon_mult(i, returnType = 'Matrix'))
-    return poly_coeff_list
+        poly_list.append(poly.mon_mult(i))
+    return poly_list
 
 def row_swap_matrix(matrix):
     '''
@@ -388,27 +409,27 @@ def create_matrix(polys_coeffs, num_initial_polys, TelenVanBarel):
     ordering. Returns the matrix and the matrix_terms, a list of the monomials corresponding to the rows of the matrix.
     '''
     #Gets an empty polynomial whose lm all other polynomial divide into.
-    bigShape = np.maximum.reduce([coeff.shape for coeff in polys_coeffs])
+    bigShape = np.maximum.reduce([p.coeff.shape for p in polys])
     #Gets a list of all the flattened polynomials.
     flat_polys = list()
-    for coeff in polys_coeffs:
+    for poly in polys:
         #Gets a matrix that is padded so it is the same size as biggest, and flattens it. This is so
         #all flattened polynomials look the same.
-        newMatrix = fill_size(bigShape, coeff)
+        newMatrix = fill_size(bigShape, poly.coeff)
         flat_polys.append(newMatrix.ravel())
-    
+
     #Make the matrix
     matrix = np.vstack(flat_polys[::-1])
 
     #Makes matrix_terms, a list of all the terms in the matrix.
-    #startTerms = time.time()
+    startTerms = time.time()
     terms = np.zeros(bigShape, dtype = Term)
     for i,j in np.ndenumerate(terms):
         terms[i] = Term(i)
     matrix_terms = terms.ravel()
-    #endTerms = time.time()
+    endTerms = time.time()
     #print(endTerms - startTerms)
-    
+
     #Gets rid of any columns that are all 0.
     matrix, matrix_terms = clean_matrix(matrix, matrix_terms)
 
@@ -445,7 +466,7 @@ def create_matrix2(polys):
     for i in range(len(matrix_terms)):
         termSpots[matrix_terms[i].val] = i
     matrix = np.random.rand(0,len(matrix_terms))
-    
+
     start = time.time()
     for poly in polys:
         matrix = np.vstack((matrix, np.zeros(matrix.shape[1])))
@@ -453,13 +474,13 @@ def create_matrix2(polys):
             matrix[-1,termSpots[term]] = poly.coeff[term]
     end = time.time()
     print(end-start)
-    
+
     #Sorts the rows of the matrix so it is close to upper triangular.
     matrix = row_swap_matrix(matrix)
     return matrix, matrix_terms
 
 
-def rrqr_reduce(matrix, clean = True, global_accuracy = 1.e-10): #Appears to work best when clean = True
+def rrqr_reduce(matrix, clean = False, global_accuracy = 1.e-10):
     '''
     Recursively reduces the matrix using rrqr reduction so it returns a reduced matrix, where each row has
     a unique leading monomial.
@@ -503,7 +524,6 @@ def rrqr_reduce(matrix, clean = True, global_accuracy = 1.e-10): #Appears to wor
     reduced_matrix = np.hstack((A,B))
     return reduced_matrix
 
-
 def inverse_P(p):
     P = np.eye(len(p))[:,p]
     return np.where(P==1)[1]
@@ -515,66 +535,49 @@ def clean_zeros_from_matrix(matrix, global_accuracy = 1.e-10):
     matrix[np.where(np.abs(matrix) < global_accuracy)]=0
     return matrix
 
-def fullRank(matrix, global_accuracy = 1.e-10):
+def rrqr_reduce2(matrix, clean = True, global_accuray = 1.e-10):
     '''
-    Finds the full rank of a matrix.
-    Returns independentRows - a list of rows that have full rank, and 
-    dependentRows - rows that can be removed without affecting the rank
-    Q - The Q matrix used in RRQR reduction in finding the rank
-    '''
-    height = matrix.shape[0]
-    Q,R,P = qr(matrix, pivoting = True)
-    diagonals = np.diagonal(R) #Go along the diagonals to find the rank
-    #print(diagonals)
-    rank = np.sum(np.abs(diagonals)>global_accuracy)
-    numMissing = height - rank
-    if numMissing == 0: #Full Rank. All rows independent
-        return [i for i in range(height)],[],None
-    else:
-        #Find the rows we can take out. These are ones that are non-zero in the last rows of Q transpose, as QT*A=R.
-        #To find multiple, we find the pivot columns of Q.T
-        QMatrix = Q.T[-numMissing:]
-        Q1,R1,P1 = qr(QMatrix, pivoting = True)
-        independentRows = P1[R1.shape[0]:] #Other Columns
-        dependentRows = P1[:R1.shape[0]] #Pivot Columns
-        return independentRows, dependentRows, QMatrix
-    pass
-
-def rrqr_reduce2(matrix, clean = False, global_accuracy = 1.e-10): #Appears to work best when clean = False
-    '''
-    This function does the same thing as rrqr_reduce. It is an attempt at higher stability, appears slighlty more stable.
+    This function does the same thing as rrqr_reduce. It is an attempt at higher stability, although currenlty rrqr_reduce
+    appears to be more stable so it is being used instead.
     '''
     if matrix.shape[0] <= 1 or matrix.shape[0]==1 or  matrix.shape[1]==0:
         return matrix
     height = matrix.shape[0]
     A = matrix[:height,:height] #Get the square submatrix
     B = matrix[:,height:] #The rest of the matrix to the right
-    independentRows, dependentRows, QMatrix = fullRank(A, global_accuracy = global_accuracy)
+    independentRows, dependentRows, Q = fullRank(A)
     nullSpaceSize = len(dependentRows)
     if nullSpaceSize == 0: #A is full rank
+        #print("FULL RANK")
         Q,R = qr(matrix)
-        return R
+        return clean_zeros_from_matrix(R)
     else: #A is not full rank
+        #print("NOT FULL RANK")
         #sub1 is the independentRows of the matrix, we will recursively reduce this
         #sub2 is the dependentRows of A, we will set this all to 0
         #sub3 is the dependentRows of Q.T@B, we will recursively reduce this.
         #We then return sub1 stacked on top of sub2+sub3
         if clean:
-            QMatrix[np.where(abs(QMatrix) < global_accuracy)]=0
+            Q[np.where(abs(Q) < global_accuracy)]=0
         bottom = matrix[dependentRows]
+        BCopy = B.copy()
         sub3 = bottom[:,height:]
-        sub3 = QMatrix@B
-        
+        sub3 = Q.T[-nullSpaceSize:]@BCopy
+        if clean:
+            sub3 = clean_zeros_from_matrix(sub3)
         sub3 = rrqr_reduce2(sub3)
 
         sub1 = matrix[independentRows]
-        sub1 = rrqr_reduce2(sub1)            
+        sub1 = rrqr_reduce2(sub1)
 
         sub2 = bottom[:,:height]
         sub2[:] = np.zeros_like(sub2)
 
         reduced_matrix = np.vstack((sub1,np.hstack((sub2,sub3))))
-        return reduced_matrix
+        if clean:
+            return clean_zeros_from_matrix(reduced_matrix)
+        else:
+            return reduced_matrix
     pass
 
 def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, clean = False, global_accuracy = 1.e-10):
