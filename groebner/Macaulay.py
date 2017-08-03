@@ -86,7 +86,7 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     #Polynomial.printTime()
     #for poly in final_polys:
     #    print(poly.lead_term)
-    return final_polys, None
+    return final_polys
 
 def get_poly_from_matrix(rows,matrix,matrix_terms,power):
     '''

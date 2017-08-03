@@ -51,7 +51,7 @@ def TelenVanBarel(initial_poly_list, global_accuracy = 1.e-10):
     times["adding polys"] = (endAdding - startAdding)
 
     startCreate = time.time()
-    matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list, len(initial_poly_list))
+    matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list, initial_poly_list)
     endCreate = time.time()
     times["create matrix"] = (endCreate - startCreate)
     
@@ -146,6 +146,24 @@ def mon_combos(mon, numLeft, spot = 0):
         answers += mon_combos(temp, numLeft-i, spot+1)
     return answers
 
+def mon_combosFull(mon, numLeft, spot = 0):
+    '''
+    Same as mon_combos but returns only monomials OF the degree, not those less than it.
+    '''
+    answers = list()
+    if len(mon) == spot+1: #We are at the end of mon, no more recursion.
+        mon[spot] = numLeft
+        answers.append(mon.copy())
+        return answers
+    if numLeft == 0: #Nothing else can be added.
+        answers.append(mon.copy())
+        return answers
+    temp = mon.copy() #Quicker than copying every time inside the loop.
+    for i in range(numLeft+1): #Recursively add to mon further down.
+        temp[spot] = i
+        answers += mon_combosFull(temp, numLeft-i, spot+1)
+    return answers
+
 def add_polys(degree, poly, poly_coeff_list):
     """
     Take each polynomial and adds it to a poly_list
@@ -171,32 +189,33 @@ def in_basis(highest, term):
             return True
     return False
 
-def sort_matrix(matrix, matrix_terms, num_initial_polys):
+def sort_matrix(matrix, matrix_terms, initial_polys):
     '''
     Takes a matrix and matrix_terms (holding the terms in each column of the matrix), and sorts them both
     by the term order needed for TelenVanBarel reduction. So the highest terms come first, the x,y,z etc monomials last.
     Returns the sorted matrix and matrix_terms.
     '''
+    degree = find_degree(initial_polys)
+    num_initial_polys = len(initial_polys)
     highest = set()
-    for term in matrix_terms:
-        if in_basis(highest, term):
-            continue
-        else:
-            to_remove = set()
-            for mon in highest:
-                if divides(mon,term):
-                    to_remove.add(mon)
-            for mon in to_remove:
-                highest.remove(mon)
-            highest.add(term)
+    
+    for poly in initial_polys:
+        degree_needed = poly.degree - degree
+        dim = poly.dim
+        mons = mon_combosFull(np.zeros(dim, dtype = int),degree_needed)
+        for term in zip(*np.where(poly.coeff != 0)):
+            for mon in mons:
+                highest.add(mon+term)
+
     xs = set()
     for i in range(num_initial_polys+1):
         for term in matrix_terms:
-            xmon = np.zeros_like(term)
-            xmon[0] = i
-            xmon = tuple(xmon)
-            if term == xmon:
-                xs.add(term)
+            for spot in range(dim):
+                mon = np.zeros_like(term)
+                mon[spot] = i
+                mon = tuple(mon)
+                if term == mon:
+                    xs.add(term)
     others = set()
     for term in matrix_terms:
         if term not in xs and term not in highest:
@@ -218,7 +237,7 @@ def clean_matrix(matrix, matrix_terms):
     matrix_terms = matrix_terms[non_zero_monomial] #Only keeps the non_zero_monomials
     return matrix, matrix_terms
 
-def create_matrix(polys_coeffs, num_initial_polys):
+def create_matrix(polys_coeffs, initial_polys):
     '''
     Takes a list of polynomial objects (polys) and uses them to create a matrix. That is ordered by the monomial
     ordering. Returns the matrix and the matrix_terms, a list of the monomials corresponding to the rows of the matrix.
