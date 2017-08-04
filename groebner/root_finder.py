@@ -3,6 +3,7 @@ from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 import itertools
 from groebner.groebner_class import Groebner
 from groebner.Macaulay import Macaulay
+from groebner.TelenVanBarel import TelenVanBarel
 from groebner.utils import Term
 import time
 
@@ -72,6 +73,9 @@ def roots(polys, method = 'Groebner'):
 
     vnib = False
     if len(vars_not_in_basis) != 0:
+        if method == 'TVB':
+            print("This isn't working yet...")
+            return -1
         vnib = True
 
     # Get left eigenvectors
@@ -89,7 +93,7 @@ def roots(polys, method = 'Groebner'):
         for i in range(dim):
             x_i_pos = var_indexes[i]
             if x_i_pos != -1:
-                root[i] = v[x_i_pos]/v[0]
+                root[i] = v[x_i_pos]/v[var_dict[tuple(0 for i in range(dim))]]
         if vnib:
             # Go through the indexes of variables not in the basis in
             # decreasing order. It must be done in decreasing order for the
@@ -166,9 +170,40 @@ def groebnerMultMatrix(polys, poly_type, method):
 
 def TVBMultMatrix(polys, poly_type):
     startBasis = time.time()
-    GB, VB = Macaulay(polys, TelenVanBarel=True)
+    basisDict, VB = TelenVanBarel(polys)
+    print("non-basis vars:\n", basisDict.keys())
+    print("VB:\n", VB)
     endBasis = time.time()
     times["basis"] = (endBasis - startBasis)
+
+    dim = max(f.dim for f in polys)
+
+    f = _random_poly(poly_type, dim)[0]
+
+    remainder_shape = np.maximum.reduce([mon for mon in VB])
+    remainder_shape += np.ones_like(remainder_shape)
+
+    m_f_coeffs = list()
+    for mon in VB:
+        f_new = f.mon_mult(mon)
+        remainder = np.zeros(remainder_shape)
+        for term in zip(*np.where(f_new.coeff != 0)):
+            if term in VB:
+                remainder[term] = f_new.coeff[term]
+            else:
+                remainder -= basisDict[term]
+        m_f_coeffs.append(remainder.flatten())
+
+    m_f = np.vstack(m_f_coeffs).T
+
+    # Construct var_dict
+    var_dict = {}
+    for i in range(len(VB)):
+        mon = VB[i]
+        if sum(mon) == 1 or sum(mon) == 0:
+            var_dict[mon] = i
+
+    return m_f, var_dict
 
 def _finitelyManySolutions(GB, var_list):
     '''Returns true if the number of solutions N satisfies 1 <= N < infinity'''
@@ -267,9 +302,6 @@ def multMatrix(poly, GB, basisList):
     multMatrix = sort_matrix(multMatrix, matrix_terms, basisList)
     return multMatrix
 
-def multMatrixTVB():
-    pass
-
 def vectorSpaceBasis(GB):
     '''
     parameters
@@ -297,7 +329,7 @@ def vectorSpaceBasis(GB):
                  break
         if not divisible:
             basis.append(mon)
-            if (sum(mon) == 1):
+            if (sum(mon) == 1) or (sum(mon) == 0):
                 var_to_pos_dict[mon] = basis.index(mon)
 
     return basis, var_to_pos_dict
