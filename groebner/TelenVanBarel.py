@@ -51,10 +51,10 @@ def TelenVanBarel(initial_poly_list, global_accuracy = 1.e-10):
     times["adding polys"] = (endAdding - startAdding)
 
     startCreate = time.time()
-    matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list, len(initial_poly_list))
+    matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list, initial_poly_list)
     endCreate = time.time()
     times["create matrix"] = (endCreate - startCreate)
-    
+            
     startReduce = time.time()
     matrix, matrix_terms = rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, 
                                                         global_accuracy = global_accuracy)
@@ -63,9 +63,6 @@ def TelenVanBarel(initial_poly_list, global_accuracy = 1.e-10):
     matrix = matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
     endReduce = time.time()
     times["reduce matrix"] = (endReduce - startReduce)
-    print(matrix_terms)
-
-    #print("REDUCED")
 
     #plt.matshow([i==0 for i in matrix])
 
@@ -74,21 +71,17 @@ def TelenVanBarel(initial_poly_list, global_accuracy = 1.e-10):
     matrix = clean_zeros_from_matrix(matrix)
     endTri = time.time()
     times["triangular solve"] = (endTri - startTri)
-
-    startGetPolys = time.time()
+    
+    startBasisDict = time.time()
     VB = matrix_terms[matrix.shape[0]:]
     basisDict = makeBasisDict(matrix, matrix_terms, VB)
-    endGetPolys = time.time()
-    times["get polys"] = (endGetPolys - startGetPolys)
-        
+    endBasisDict = time.time()
+    times["basisDict"] = (endBasisDict - startBasisDict)
+    
     endTime = time.time()
-    print("Macaulay run time is {} seconds".format(endTime-startTime))
+    print("TelenVanBarel run time is {} seconds".format(endTime-startTime))
     print(times)
-    #MultiCheb.printTime()
-    #MultiPower.printTime()
-    #Polynomial.printTime()
-    #for poly in final_polys:
-    #    print(poly.lead_term)
+    Polynomial.printTime()
     return basisDict, VB
 
 def makeBasisDict(matrix, matrix_terms, VB):
@@ -104,7 +97,6 @@ def makeBasisDict(matrix, matrix_terms, VB):
         row = matrix[i]
         pivotSpot = matrix_terms[i]
         row[i] = 0
-        remainder = np.zeros(remainder_shape)
         for spot in np.where(row != 0)[0]:
             remainder[matrix_terms[spot]] = row[spot]
         basisDict[pivotSpot] = remainder
@@ -146,6 +138,24 @@ def mon_combos(mon, numLeft, spot = 0):
         answers += mon_combos(temp, numLeft-i, spot+1)
     return answers
 
+def mon_combosFull(mon, numLeft, spot = 0):
+    '''
+    Same as mon_combos but returns only monomials OF the degree, not those less than it.
+    '''
+    answers = list()
+    if len(mon) == spot+1: #We are at the end of mon, no more recursion.
+        mon[spot] = numLeft
+        answers.append(mon.copy())
+        return answers
+    if numLeft == 0: #Nothing else can be added.
+        answers.append(mon.copy())
+        return answers
+    temp = mon.copy() #Quicker than copying every time inside the loop.
+    for i in range(numLeft+1): #Recursively add to mon further down.
+        temp[spot] = i
+        answers += mon_combosFull(temp, numLeft-i, spot+1)
+    return answers
+
 def add_polys(degree, poly, poly_coeff_list):
     """
     Take each polynomial and adds it to a poly_list
@@ -171,32 +181,40 @@ def in_basis(highest, term):
             return True
     return False
 
-def sort_matrix(matrix, matrix_terms, num_initial_polys):
+def sort_matrix(matrix, matrix_terms, initial_polys):
     '''
     Takes a matrix and matrix_terms (holding the terms in each column of the matrix), and sorts them both
     by the term order needed for TelenVanBarel reduction. So the highest terms come first, the x,y,z etc monomials last.
     Returns the sorted matrix and matrix_terms.
     '''
+    degree = find_degree(initial_polys)
+    num_initial_polys = len(initial_polys)
     highest = set()
+    #Get a better way to determine highest stuff. Those that when multiplied by x,y,z etc don't fit a mon we have.
+    dim = None
+    '''
+    for poly in initial_polys:
+        degree_needed = poly.degree - degree
+        dim = poly.dim
+        mons = mon_combosFull(np.zeros(dim, dtype = int),degree_needed)
+        for term in zip(*np.where(poly.coeff != 0)):
+            for mon in mons:
+                highest.add(mon+term)
+    '''
     for term in matrix_terms:
-        if in_basis(highest, term):
-            continue
-        else:
-            to_remove = set()
-            for mon in highest:
-                if divides(mon,term):
-                    to_remove.add(mon)
-            for mon in to_remove:
-                highest.remove(mon)
+        if sum(term) == degree:
             highest.add(term)
+    
+    
     xs = set()
     for i in range(num_initial_polys+1):
         for term in matrix_terms:
-            xmon = np.zeros_like(term)
-            xmon[0] = i
-            xmon = tuple(xmon)
-            if term == xmon:
-                xs.add(term)
+            for spot in range(len(term)):
+                mon = np.zeros_like(term)
+                mon[spot] = i
+                mon = tuple(mon)
+                if term == mon:
+                    xs.add(term)
     others = set()
     for term in matrix_terms:
         if term not in xs and term not in highest:
@@ -218,7 +236,7 @@ def clean_matrix(matrix, matrix_terms):
     matrix_terms = matrix_terms[non_zero_monomial] #Only keeps the non_zero_monomials
     return matrix, matrix_terms
 
-def create_matrix(polys_coeffs, num_initial_polys):
+def create_matrix(polys_coeffs, initial_polys):
     '''
     Takes a list of polynomial objects (polys) and uses them to create a matrix. That is ordered by the monomial
     ordering. Returns the matrix and the matrix_terms, a list of the monomials corresponding to the rows of the matrix.
@@ -246,7 +264,7 @@ def create_matrix(polys_coeffs, num_initial_polys):
     matrix, matrix_terms = clean_matrix(matrix, matrix_terms)
     
     #Sorts the matrix and matrix_terms by term order.
-    matrix, matrix_terms, matrix_shape_stuff = sort_matrix(matrix, matrix_terms, num_initial_polys)
+    matrix, matrix_terms, matrix_shape_stuff = sort_matrix(matrix, matrix_terms, initial_polys)
 
     #Sorts the rows of the matrix so it is close to upper triangular.
     matrix = row_swap_matrix(matrix)
@@ -278,6 +296,9 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, clean = F
     Q1,R1,P1 = qr(B, pivoting = True)
     
     matrix = np.vstack((np.hstack((R1, Q1.T@(C[:,P]), Q1.T@Mhigh)), np.hstack((np.zeros_like(D), R, Q.T@Mlow))))
+    
+    non_zero_rows = np.sum(abs(matrix),axis=1) > global_accuracy
+    matrix = matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
     
     highest = list(np.array(highest)[P1])
     others = list(np.array(others)[P])
