@@ -54,9 +54,7 @@ def TelenVanBarel(initial_poly_list, global_accuracy = 1.e-10):
     matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list, initial_poly_list)
     endCreate = time.time()
     times["create matrix"] = (endCreate - startCreate)
-    
-    print(matrix.shape)
-        
+            
     startReduce = time.time()
     matrix, matrix_terms = rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, 
                                                         global_accuracy = global_accuracy)
