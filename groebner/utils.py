@@ -276,6 +276,15 @@ def fill_size(bigShape,smallPolyCoeff):
     matrix[slices] = smallPolyCoeff
     return matrix
 
+def get_var_list(dim):
+    '''Returns a list of the variables [x_1, x_2, ..., x_n] as tuples.'''
+    _vars = []
+    for i in range(dim):
+        var = np.zeros(dim, dtype=int)
+        var[i] = 1
+        _vars.append(tuple(var))
+    return _vars
+
 def clean_zeros_from_matrix(matrix, global_accuracy=1.e-10):
     '''
     Sets all points in the matrix less than the gloabal accuracy to 0.

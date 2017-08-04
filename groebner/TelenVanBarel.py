@@ -10,6 +10,7 @@ from groebner.utils import Term, row_swap_matrix, fill_size, clean_zeros_from_ma
 import matplotlib.pyplot as plt
 import time
 from collections import defaultdict
+import utils
 
 def TelenVanBarel(initial_poly_list, global_accuracy = 1.e-10):
     """
@@ -205,7 +206,6 @@ def sort_matrix(matrix, matrix_terms, initial_polys):
         if sum(term) == degree:
             highest.add(term)
 
-
     xs = set()
     for i in range(num_initial_polys+1):
         for term in matrix_terms:
@@ -215,6 +215,7 @@ def sort_matrix(matrix, matrix_terms, initial_polys):
                 mon = tuple(mon)
                 if term == mon:
                     xs.add(term)
+    xs = set()
     others = set()
     for term in matrix_terms:
         if term not in xs and term not in highest:
