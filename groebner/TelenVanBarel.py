@@ -63,9 +63,6 @@ def TelenVanBarel(initial_poly_list, global_accuracy = 1.e-10):
     matrix = matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
     endReduce = time.time()
     times["reduce matrix"] = (endReduce - startReduce)
-    print(matrix_terms)
-
-    #print("REDUCED")
 
     #plt.matshow([i==0 for i in matrix])
 
@@ -198,7 +195,7 @@ def sort_matrix(matrix, matrix_terms, initial_polys):
     degree = find_degree(initial_polys)
     num_initial_polys = len(initial_polys)
     highest = set()
-    
+    #Get a better way to determine highest stuff. Those that when multiplied by x,y,z etc don't fit a mon we have.
     for poly in initial_polys:
         degree_needed = poly.degree - degree
         dim = poly.dim
@@ -297,6 +294,9 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, clean = F
     Q1,R1,P1 = qr(B, pivoting = True)
     
     matrix = np.vstack((np.hstack((R1, Q1.T@(C[:,P]), Q1.T@Mhigh)), np.hstack((np.zeros_like(D), R, Q.T@Mlow))))
+    
+    non_zero_rows = np.sum(abs(matrix),axis=1) > global_accuracy
+    matrix = matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
     
     highest = list(np.array(highest)[P1])
     others = list(np.array(others)[P])
