@@ -170,24 +170,21 @@ class MinHeap(MaxHeap):
         return('A min heap of {} unique terms with the DegRevLex term order.'.format(len(self)))
 
 
-def divides(a,b):
+def divides(mon1, mon2):
     '''
-    Returns True if the leading monomial of b divides the leading monomial of a.
+    parameters
+    ----------
+    mon1 : tuple
+        contains the exponents of the monomial divisor
+    mon2 : tuple
+        contains the exponents of the monomial dividend
 
-    Args:
-        a (MultiPower or MultiCheb)
-        b (MultiPower or MultiCheb)
-
-    Returns:
-        bool
-
+    returns
+    -------
+    boolean
+        true if mon1 divides mon2, false otherwise
     '''
-
-    # possibly more concise?
-    # return all([(i-j) >= 0 for i,j in zip(a.lead_term, b.lead_term)])
-    diff = tuple(i-j for i,j in zip(a.lead_term,b.lead_term))
-    return all(i >= 0 for i in diff)
-
+    return all(np.subtract(mon2, mon1) >= 0)
 
 def sorted_polys_monomial(polys):
     '''
@@ -262,48 +259,38 @@ def row_swap_matrix(matrix):
     return matrix[argsort_list]
 
 
-def fill_size(bigMatrix, smallMatrix):
+def fill_size(bigShape,smallPolyCoeff):
     '''
-    Fits the small matrix inside of the big matrix and returns it.
-    Returns just the coeff matrix as that is all we need in the Groebner create_matrix code.
-
+    Pads the smallPolyCoeff so it has the same shape as bigShape. Does this by making a matrix with the shape of
+    bigShape and then dropping smallPolyCoeff into the top of it with slicing.
+    Returns the padded smallPolyCoeff.
     '''
-
-    if smallMatrix.shape == bigMatrix.shape:
-        return smallMatrix
-
-    matrix = np.zeros_like(bigMatrix) #Even though bigMatrix is all zeros, use this because it makes a copy
+    if (smallPolyCoeff.shape == bigShape).all():
+        return smallPolyCoeff
+    matrix = np.zeros(bigShape)
 
     slices = list()
-    for i in smallMatrix.shape:
+    for i in smallPolyCoeff.shape:
         s = slice(0,i)
         slices.append(s)
-
-    matrix[slices] = smallMatrix
-
-    # The coefficient matrix
+    matrix[slices] = smallPolyCoeff
     return matrix
 
-
-def clean_zeros_from_matrix(matrix, global_accuracy=10e-5):
+def clean_zeros_from_matrix(matrix, global_accuracy=1.e-10):
     '''
     Sets all points in the matrix less than the gloabal accuracy to 0.
 
     '''
-
     matrix[np.where(np.abs(matrix) < global_accuracy)] = 0
     return matrix
 
-
-def fullRank(matrix):
+def fullRank(matrix, global_accuracy = 1.e-10):
     '''
     Finds the full rank of a matrix.
     Returns independentRows - a list of rows that have full rank, and
     dependentRows - rows that can be removed without affecting the rank
     Q - The Q matrix used in RRQR reduction in finding the rank
-
     '''
-
     height = matrix.shape[0]
     Q,R,P = qr(matrix, pivoting = True)
     diagonals = np.diagonal(R) #Go along the diagonals to find the rank
@@ -319,31 +306,7 @@ def fullRank(matrix):
         independentRows = P1[R1.shape[0]:] #Other Columns
         dependentRows = P1[:R1.shape[0]] #Pivot Columns
         return independentRows,dependentRows,Q
-
-
-def hasFullRank(matrix, global_accuracy=10e-5):
-    """
-    !!! fullRank() vs hasFullRank(): which one are we using?
-
-    """
-
-    height = matrix.shape[0]
-    if height == 0:
-        return True
-    try:
-        Q,R,P = qr(matrix, pivoting = True)
-    except:
-        raise ValueError("Problem with matrix %s" % str(matrix))
-
-    diagonals = np.diagonal(R) #Go along the diagonals to find the rank
-    rank = np.sum(np.abs(diagonals)>global_accuracy)
-
-    if rank == height:
-        return True
-    else:
-        print(rank,height)
-        return False
-
+    pass
 
 def inverse_P(p):
     '''
@@ -351,7 +314,6 @@ def inverse_P(p):
     Returns the one dimentional array of switching it back.
 
     '''
-
     # The elementry matrix that flips the columns of given matrix.
     P = np.eye(len(p))[:,p]
     # This finds the index that equals 1 of each row of P.
@@ -359,12 +321,10 @@ def inverse_P(p):
     return np.where(P==1)[1]
 
 
-def triangular_solve(self,matrix):
+def triangular_solve(matrix):
     """
     Reduces the upper block triangular matrix.
-
     """
-
     m,n = matrix.shape
     j = 0  # The row index.
     k = 0  # The column index.
@@ -408,7 +368,7 @@ def triangular_solve(self,matrix):
         solver = np.hstack((np.eye(X.shape[0]),X))
 
         # Find the order to reverse the columns back.
-        order = self.inverse_P(order_c+order_d)
+        order = inverse_P(order_c+order_d)
 
         # Reverse the columns back.
         solver = solver[:,order]
