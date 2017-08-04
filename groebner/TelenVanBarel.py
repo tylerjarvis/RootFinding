@@ -55,6 +55,8 @@ def TelenVanBarel(initial_poly_list, global_accuracy = 1.e-10):
     endCreate = time.time()
     times["create matrix"] = (endCreate - startCreate)
     
+    print(matrix.shape)
+        
     startReduce = time.time()
     matrix, matrix_terms = rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, 
                                                         global_accuracy = global_accuracy)
@@ -71,21 +73,17 @@ def TelenVanBarel(initial_poly_list, global_accuracy = 1.e-10):
     matrix = clean_zeros_from_matrix(matrix)
     endTri = time.time()
     times["triangular solve"] = (endTri - startTri)
-
-    startGetPolys = time.time()
+    
+    startBasisDict = time.time()
     VB = matrix_terms[matrix.shape[0]:]
     basisDict = makeBasisDict(matrix, matrix_terms, VB)
-    endGetPolys = time.time()
-    times["get polys"] = (endGetPolys - startGetPolys)
-        
+    endBasisDict = time.time()
+    times["basisDict"] = (endBasisDict - startBasisDict)
+    
     endTime = time.time()
-    print("Macaulay run time is {} seconds".format(endTime-startTime))
+    print("TelenVanBarel run time is {} seconds".format(endTime-startTime))
     print(times)
-    #MultiCheb.printTime()
-    #MultiPower.printTime()
-    #Polynomial.printTime()
-    #for poly in final_polys:
-    #    print(poly.lead_term)
+    Polynomial.printTime()
     return basisDict, VB
 
 def makeBasisDict(matrix, matrix_terms, VB):
@@ -101,7 +99,6 @@ def makeBasisDict(matrix, matrix_terms, VB):
         row = matrix[i]
         pivotSpot = matrix_terms[i]
         row[i] = 0
-        remainder = np.zeros(remainder_shape)
         for spot in np.where(row != 0)[0]:
             remainder[matrix_terms[spot]] = row[spot]
         basisDict[pivotSpot] = remainder
@@ -196,6 +193,8 @@ def sort_matrix(matrix, matrix_terms, initial_polys):
     num_initial_polys = len(initial_polys)
     highest = set()
     #Get a better way to determine highest stuff. Those that when multiplied by x,y,z etc don't fit a mon we have.
+    dim = None
+    '''
     for poly in initial_polys:
         degree_needed = poly.degree - degree
         dim = poly.dim
@@ -203,11 +202,16 @@ def sort_matrix(matrix, matrix_terms, initial_polys):
         for term in zip(*np.where(poly.coeff != 0)):
             for mon in mons:
                 highest.add(mon+term)
-
+    '''
+    for term in matrix_terms:
+        if sum(term) == degree:
+            highest.add(term)
+    
+    
     xs = set()
     for i in range(num_initial_polys+1):
         for term in matrix_terms:
-            for spot in range(dim):
+            for spot in range(len(term)):
                 mon = np.zeros_like(term)
                 mon[spot] = i
                 mon = tuple(mon)
@@ -262,7 +266,7 @@ def create_matrix(polys_coeffs, initial_polys):
     matrix, matrix_terms = clean_matrix(matrix, matrix_terms)
     
     #Sorts the matrix and matrix_terms by term order.
-    matrix, matrix_terms, matrix_shape_stuff = sort_matrix(matrix, matrix_terms, num_initial_polys)
+    matrix, matrix_terms, matrix_shape_stuff = sort_matrix(matrix, matrix_terms, initial_polys)
 
     #Sorts the rows of the matrix so it is close to upper triangular.
     matrix = row_swap_matrix(matrix)
