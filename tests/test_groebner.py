@@ -1,8 +1,6 @@
 import numpy as np
 from itertools import permutations
-from groebner import maxheap
-from groebner.multi_power import MultiPower
-from groebner.multi_cheb import MultiCheb
+from groebner.polynomial import MultiCheb, MultiPower
 from groebner.groebner_class import Groebner
 import pytest
 from scipy.linalg import qr
@@ -402,7 +400,7 @@ def test_sorted_polys_coeff():
     
     C = MultiPower(np.array([[1]]))
     grob = Groebner([A,B,C])
-    assert(list((A,B,C)) == grob.sorted_polys_coeff())
+    assert(list((C,A,B)) == grob.sorted_polys_coeff())
 
     
     
