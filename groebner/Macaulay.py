@@ -57,7 +57,7 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
 
     startReduce = time.time()
     #rrqr_reduce2 and rrqr_reduce same pretty matched on stability, though I feel like 2 should be better.
-    matrix = rrqr_reduce2(matrix, global_accuracy = global_accuracy)
+    matrix = rrqr_reduce(matrix, global_accuracy = global_accuracy)
     matrix = clean_zeros_from_matrix(matrix)
     non_zero_rows = np.sum(abs(matrix),axis=1) != 0
     matrix = matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
@@ -74,13 +74,13 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
 
     startGetPolys = time.time()
     rows = get_good_rows(matrix, matrix_terms)
-    final_polys = get_poly_from_matrix(rows,matrix,matrix_terms,Power)
+    final_polys = get_polys_from_matrix(rows,matrix,matrix_terms,Power)
     endGetPolys = time.time()
     times["get polys"] = (endGetPolys - startGetPolys)
 
     endTime = time.time()
-    print("Macaulay run time is {} seconds".format(endTime-startTime))
-    print(times)
+    #print("Macaulay run time is {} seconds".format(endTime-startTime))
+    #print(times)
     #MultiCheb.printTime()
     #MultiPower.printTime()
     #Polynomial.printTime()
@@ -88,7 +88,7 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     #    print(poly.lead_term)
     return final_polys
 
-def get_poly_from_matrix(rows,matrix,matrix_terms,power):
+def get_polys_from_matrix(rows,matrix,matrix_terms,power):
     '''
     Takes a list of indicies corresponding to the rows of the reduced matrix and
     returns a list of polynomial objects
