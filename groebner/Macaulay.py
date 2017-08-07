@@ -150,12 +150,17 @@ def get_good_rows(matrix, matrix_terms):
 
 def find_degree(poly_list):
     """
-    Takes a list of polynomials and finds the degree needed for a Macaulay matrix.
-    Adds the degree of each polynomial and then subtracts the total number of polynomials and adds one.
-
+    Finds the degree needed for the Macaulay matrix
+    -------
+    Parameters:
+        poly_list: polynomials that will be used to construct the matrix
+    -------
+    Returns:
+        Integer value that is the degree needed.
+    -------
     Example:
         For polynomials [P1,P2,P3] with degree [d1,d2,d3] the function returns d1+d2+d3-3+1
-
+    -------
     """
     degree_needed = 0
     for poly in poly_list:
