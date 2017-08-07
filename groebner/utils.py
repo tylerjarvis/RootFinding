@@ -48,25 +48,7 @@ class Term(object):
                     if i > j:
                         return False
                 return False
-        elif order == 'eriks': #Make single variable ones higher for Macaualy
-            if sum(self.val) < sum(other.val):
-                return True
-            elif sum(self.val) > sum(other.val):
-                return False
-            selfSingle = (len(np.where(np.array(self.val) != 0)[0]) == 1)
-            otherSingle = (len(np.where(np.array(other.val) != 0)[0]) == 1)
-            if otherSingle and not selfSingle:
-                return True
-            elif selfSingle and not otherSingle:
-                return False
-            else:
-                for i,j in zip(self.val,other.val):
-                    if i < j:
-                        return True
-                    if i > j:
-                        return False
-                return False
-
+    
     # Define the other relations in grevlex order
 
     def __eq__(self, other):
@@ -143,9 +125,7 @@ class MaxHeap(object):
 class MinHeap(MaxHeap):
     '''
     Implementation of a set min-priorioty queue.
-
     '''
-
     def heappush(self,x):
         ## Same as MaxHeap push, except that the term order is not inverted
         if not x in self._set:
@@ -155,15 +135,15 @@ class MinHeap(MaxHeap):
             pass
 
     def heappop(self):
-        """ Same as MaxHeap pop except that the term itself IS the underlying term.
-        """
+        ''' Same as MaxHeap pop except that the term itself IS the underlying term.
+        '''
         term = heapq.heappop(self.h)
         self._set.discard(term.val)
         return term
 
     def __getitem__(self, i):
-        """ Same as MaxHeap getitem except that the term itself IS the underlying term.
-        """
+        ''' Same as MaxHeap getitem except that the term itself IS the underlying term.
+        '''
         return self.h[i]
 
     def __repr__(self):
@@ -244,9 +224,7 @@ def calc_r(m, sorted_polys):
 def row_swap_matrix(matrix):
     '''
     rearange the rows of matrix so it starts close to upper traingular
-
     '''
-
     rows, columns = np.where(matrix != 0)
     last_i = -1
     lms = list() # !!! What does lms stand for?
@@ -320,8 +298,15 @@ def inverse_P(p):
     #(This is what we want since we want the index of 1 at each column of P.T)
     return np.where(P==1)[1]
 
+def get_var_list(dim):
+    _vars = [] # list of the variables: [x_1, x_2, ..., x_n]
+    for i in range(dim):
+        var = np.zeros(dim, dtype=int)
+        var[i] = 1
+        _vars.append(tuple(var))
+    return _vars
 
-def triangular_solve(matrix):
+def triangular_solve(matrix, matrix_terms = None, reorder = True):
     """
     Reduces the upper block triangular matrix.
     """
@@ -371,11 +356,16 @@ def triangular_solve(matrix):
         order = inverse_P(order_c+order_d)
 
         # Reverse the columns back.
-        solver = solver[:,order]
-        # Temporary checker. Plots the non-zero part of the matrix.
-        #plt.matshow(~np.isclose(solver,0))
-
-        return solver
+        if reorder:
+            solver = solver[:,order]
+            return solver
+        else:
+            matrix_termsTemp = np.array(matrix_terms)[order_c+order_d]
+            #I need matrix_terms to have tuples but the above code makes it nd arrays. Annoying, but this flips it back.
+            matrix_terms = list()
+            for i in matrix_termsTemp:
+                matrix_terms.append(tuple(i))
+            return solver, matrix_terms
 
     else:
     # The case where the matrix passed in is a square matrix

@@ -190,7 +190,7 @@ def testRoots():
                    [f2.evaluate_at(root) for root in roots],
                    [f3.evaluate_at(root) for root in roots]])
 
-    assert(np.all(values_at_roots==0))
+    assert(np.all(np.isclose(values_at_roots,0)))
 
 def testRoots_2():
     f1 = MultiPower(np.array([[[5,0,0],[0,0,0],[0,0,0]],
@@ -211,7 +211,7 @@ def testRoots_2():
                     [f2.evaluate_at(root) for root in roots],
                     [f3.evaluate_at(root) for root in roots]])
 
-    assert(np.all(abs(values_at_roots)<1.e-5))
+    assert(np.all(np.isclose(values_at_roots,0)))
 
 def testRoots_3():
     # roots of [x^2-y, x^3-y+1]
@@ -223,7 +223,7 @@ def testRoots_3():
     values_at_roots = np.array([[f1.evaluate_at(root) for root in roots],
                                 [f2.evaluate_at(root) for root in roots]])
 
-    assert(np.all(values_at_roots==0))
+    assert(np.all(np.isclose(values_at_roots,0)))
 
 def testRoots_4():
     f1 = MultiPower(np.array([[5,-1],[1,0]]))
