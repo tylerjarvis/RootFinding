@@ -4,7 +4,7 @@ import itertools
 from groebner.groebner_class import Groebner
 from groebner.Macaulay import Macaulay
 from groebner.TelenVanBarel import TelenVanBarel
-from groebner.utils import Term
+from groebner.utils import Term, get_var_list
 import time
 
 times = {}
@@ -62,11 +62,11 @@ def roots(polys, method = 'Groebner'):
     if type(m_f) == int:
         return -1
 
-    startEndStuff = time.time()
+    startEigen = time.time()
     # Get list of indexes of single variables and store vars that were not
     # in the vector space basis.
     dim = max(f.dim for f in polys)
-    var_list = _get_var_list(dim)
+    var_list = get_var_list(dim)
     var_indexes = np.array([-1 for i in range(dim)])
     vars_not_in_basis = {}
     for i in range(len(var_list)):
@@ -90,6 +90,10 @@ def roots(polys, method = 'Groebner'):
     num_vectors = eig.shape[1]
     eig_vectors = [eig[:,i].tolist() for i in range(num_vectors)] # columns of eig
 
+    endEigen = time.time()
+    times["Eigen"] = (endEigen - startEigen)
+    
+    startEndStuff = time.time()
     roots = []
     for v in eig_vectors:
         root = np.zeros(dim, dtype=complex)
@@ -117,8 +121,7 @@ def roots(polys, method = 'Groebner'):
 
     print("Total run time for roots is {}".format(totalTime))
     print(times)
-    Polynomial.printTime()
-    #print((times["basis"]+times["multMatrix"])/totalTime)
+    #Polynomial.printTime()
     return roots
 
 def groebnerMultMatrix(polys, poly_type, method):
@@ -180,6 +183,7 @@ def TVBMultMatrix(polys, poly_type):
     endBasis = time.time()
     times["basis"] = (endBasis - startBasis)
 
+    startMultMatrix = time.time()
     dim = max(f.dim for f in polys)
 
     f = _random_poly(poly_type, dim)[0]
@@ -207,13 +211,15 @@ def TVBMultMatrix(polys, poly_type):
 
     m_f, matrix_terms = clean_matrix(m_f, matrix_terms, VB)
     m_f = sort_matrix(m_f, matrix_terms, VB)
-
+    
     # Construct var_dict
     var_dict = {}
     for i in range(len(VB)):
         mon = VB[i]
         if sum(mon) == 1 or sum(mon) == 0:
             var_dict[mon] = i
+    endMultMatrix = time.time()
+    times["multMatrix"] = (endMultMatrix - startMultMatrix)
     return m_f, var_dict
 
 def _finitelyManySolutions(GB, var_list):
@@ -443,21 +449,13 @@ def reduce_poly(poly, divisors, basisSet, permitted_round_error=1e-10):
     times["reducePoly"] += (endTime - startTime)
     return remainder
 
-def _get_var_list(dim):
-    _vars = [] # list of the variables: [x_1, x_2, ..., x_n]
-    for i in range(dim):
-        var = np.zeros(dim, dtype=int)
-        var[i] = 1
-        _vars.append(tuple(var))
-    return _vars
-
 def _random_poly(_type, dim):
     '''
     Generates a random polynomial that has the form
     c_1x_1 + c_2x_2 + ... + c_nx_n where n = dim and each c_i is a randomly
     chosen integer between 0 and 1000.
     '''
-    _vars = _get_var_list(dim)
+    _vars = get_var_list(dim)
 
     random_poly_shape = [2 for i in range(dim)]
 
