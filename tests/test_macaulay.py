@@ -42,16 +42,7 @@ def test_Macaulay():
         poly1 = MultiPower(np.array([[3,0,1],[0,0,0],[0,0,1]]))
         poly2 = MultiPower(np.array([[3,0],[1,1],[0,1]]))
 
-def test_fullRank():
-    raise NotImplementedError
-
-def test_triangular_solve():
-    raise NotImplementedError
-
 def test_get_poly_from_matrix():
-    raise NotImplementedError
-
-def test_divides():
     raise NotImplementedError
 
 def test_get_good_rows():
@@ -158,19 +149,7 @@ def test_mon_combos():
 def test_add_polys():
     raise NotImplementedError
 
-def test_row_swap_matrix():
-    raise NotImplementedError
-
-def test_fill_size():
-    raise NotImplementedError
-
 def test_sort_matrix():
-    raise NotImplementedError
-
-def test_in_basis():
-    raise NotImplementedError
-
-def test_sort_matrixTelenVanBarel():
     raise NotImplementedError
 
 def test_clean_matrix():
@@ -185,14 +164,5 @@ def test_create_matrix2():
 def test_rrqr_reduce():
     raise NotImplementedError
 
-def test_inverse_P():
-    raise NotImplementedError
-
-def test_clean_zeros_from_matrix():
-    raise NotImplementedError
-
 def test_rrqr_reduce2():
-    raise NotImplementedError
-
-def test_rrqr_reduceTelenVanBarel():
     raise NotImplementedError
