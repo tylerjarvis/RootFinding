@@ -1,47 +1,24 @@
 import numpy as np
 from scipy.signal import fftconvolve, convolve
 import itertools
-from groebner.utils import Term
-import time
+from groebner.utils import Term, makePolyCoeffMatrix
 from numpy.polynomial import chebyshev as cheb
 from numpy.polynomial import polynomial as poly
 import math
 
-
-times = dict()
-times["mon_mult_power"] = 0
-times["mon_mult_cheb"] = 0
-times["updateLeadTerm"] = 0
-times["monomialsList"] = 0
-times["leadTermCount"] = 0
-times["cleanCoeff"] = 0
-times["initialize"] = 0
-times["match_size"] = 0
-
 class Polynomial(object):
-
-    def printTime():
-        print(times)
-
-    def printLeadTermCount():
-        print(times["leadTermCount"])
-
-    def clearTime():
-        times["updateLeadTerm"] = 0
-        times["monomialsList"] = 0
-        times["leadTermCount"] = 0
-        times["cleanCoeff"] = 0
-        times["initialize"] = 0
-        times["match_size"] = 0
-
     def __init__(self, coeff, order='degrevlex', lead_term=None, clean_zeros = True):
         '''
         terms, int- number of chebyshev polynomials each variable can have. Each dimension will have term terms
         dim, int- number of different variables, how many dim our tensor will be
         order, string- how you want to order your polynomials. Grevlex is default
         '''
-        start = time.time()
-        self.coeff = coeff
+        if isinstance(coeff,np.ndarray):
+            self.coeff = coeff
+        elif isinstance(coeff,str):
+            self.coeff = makePolyCoeffMatrix(coeff)
+        else:
+            raise ValueError('coeff must be an np.array or a string!')
         if clean_zeros:
             self.clean_coeff()
         self.dim = self.coeff.ndim
@@ -53,15 +30,11 @@ class Polynomial(object):
             self.lead_term = tuple(lead_term)
             self.degree = sum(self.lead_term)
             self.lead_coeff = self.coeff[self.lead_term]
-
-        end = time.time()
-        times["initialize"] += (end - start)
-
+        
     def clean_coeff(self):
         """
         Gets rid of any 0's on the outside of the coeff matrix, not giving any info.
         """
-        start = time.time()
         for axis in range(self.coeff.ndim):
             change = True
             while change:
@@ -80,17 +53,11 @@ class Polynomial(object):
                 if np.sum(abs(self.coeff[slices])) == 0:
                     self.coeff = np.delete(self.coeff,-1,axis=axis)
                     change = True
-            pass
-        end = time.time()
-        times["cleanCoeff"] += (end - start)
-        pass
-
 
     def match_size(self,a,b):
         '''
         Matches the shape of the matrixes of two polynomials. This might not be the best place for it.
         '''
-        start = time.time()
         a_shape, b_shape = list(a.shape), list(b.shape)
         if len(a_shape) != len(b_shape):
             add_to_shape = 0
@@ -118,8 +85,6 @@ class Polynomial(object):
         #uses add_a_list and add_b_list to pad each polynomial appropriately.
         a = np.pad(a,add_a_list.astype(int),'constant')
         b = np.pad(b,add_b_list.astype(int),'constant')
-        end = time.time()
-        times["match_size"] += (end-start)
         return a,b
 
     def monomialList(self):
@@ -129,7 +94,6 @@ class Polynomial(object):
         monomials : list of tuples
             list of monomials that make up the polynomial in degrevlex order
         '''
-        start = time.time()
         monomialTerms = list()
         for i in zip(*np.where(self.coeff != 0)):
             monomialTerms.append(Term(i))
@@ -139,8 +103,6 @@ class Polynomial(object):
         for i in monomialTerms[::-1]:
             monomials.append(i.val)
 
-        end = time.time()
-        times["monomialsList"] += (end - start)
         self.sortedMonomials = monomials
         return monomials
 
@@ -148,8 +110,6 @@ class Polynomial(object):
         self.sortedMonomials = self.monomialList()
 
     def update_lead_term(self):
-        startTime = time.time()
-
         non_zeros = list()
         for i in zip(*np.where(self.coeff != 0)):
             non_zeros.append(Term(i))
@@ -160,10 +120,6 @@ class Polynomial(object):
         else:
             self.lead_term = None
             self.lead_coeff = 0
-
-        endTime = time.time()
-        times["leadTermCount"] += 1
-        times["updateLeadTerm"] += (endTime - startTime)
 
     def evaluate_at(self, point):
         '''
@@ -220,13 +176,6 @@ class MultiCheb(Polynomial):
         input- Current: list, current location in ordering
         output- the next step in ordering
     """
-
-    def printTime():
-        print(times)
-
-    def clearTime():
-        times["mon_mult_cheb"] = 0
-
     def __init__(self, coeff, order='degrevlex', lead_term=None, clean_zeros = True):
         super(MultiCheb, self).__init__(coeff, order, lead_term, clean_zeros)
 
@@ -355,19 +304,14 @@ class MultiCheb(Polynomial):
             MultiCheb object or a matrix if returnType is not 'Poly'
         -------
         """
-        start = time.time()
         initial_matrix = self.coeff
         for i in range(len(idx)):
             idx_zeros = np.zeros(len(idx),dtype = int)
             idx_zeros[i] = idx[i]
             initial_matrix = MultiCheb.mon_mult1(initial_matrix, idx_zeros, i)
         if returnType == 'Poly':
-            end = time.time()
-            times["mon_mult_cheb"] += (end - start)
             return MultiCheb(initial_matrix, lead_term = self.lead_term + np.array(idx), clean_zeros = False)
         elif returnType == 'Matrix':
-            end = time.time()
-            times["mon_mult_cheb"] += (end - start)
             return initial_matrix
 
     def mon_mult1(initial_matrix, idx, dim_mult):
@@ -461,12 +405,6 @@ class MultiPower(Polynomial):
         input- Current: list, current location in ordering
         output- the next step in ordering
     """
-    def printTime():
-        print(times)
-
-    def clearTime():
-        times["mon_mult_power"] = 0
-
     def __init__(self, coeff, order='degrevlex', lead_term=None, clean_zeros = True):
         super(MultiPower, self).__init__(coeff, order, lead_term, clean_zeros)
 
@@ -523,7 +461,6 @@ class MultiPower(Polynomial):
         #P is the polynomial.
         '''
         M = np.array(M)
-        start = time.time()
         tuple1 = []
         for i in M:
             list1 = (i,0)
@@ -531,14 +468,9 @@ class MultiPower(Polynomial):
         if returnType == 'Poly':
             poly = MultiPower(np.pad(self.coeff, tuple1, 'constant', constant_values = 0), 
                           clean_zeros = False, lead_term = self.lead_term + M)
-            end = time.time()
-            times["mon_mult_power"] += (end-start)
             return poly
         elif returnType == 'Matrix':
-            matrix = np.pad(self.coeff, tuple1, 'constant', constant_values = 0)
-            end = time.time()
-            times["mon_mult_power"] += (end-start)
-        return matrix
+            return np.pad(self.coeff, tuple1, 'constant', constant_values = 0)
 
     def evaluate_at(self, point):
         super(MultiPower, self).evaluate_at(point)

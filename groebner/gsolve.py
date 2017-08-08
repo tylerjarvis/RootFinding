@@ -10,7 +10,6 @@ import math
 from scipy.linalg import lu, qr, solve_triangular
 from scipy.sparse import csc_matrix, vstack
 import matplotlib.pyplot as plt
-import time
 from collections import defaultdict
 
 global_accuracy = 1.e-10
@@ -84,7 +83,7 @@ def create_matrix(polys):
     matrix = row_swap_matrix(matrix)
     return matrix, matrix_terms
 
-def divides(a,b):
+def divides(a,b): #This is not the divides used in utils.
     '''
     Takes two terms, a and b. Returns True if b divides a. False otherwise.
     '''
