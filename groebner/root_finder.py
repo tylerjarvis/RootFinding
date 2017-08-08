@@ -407,7 +407,6 @@ def divides(mon1, mon2):
     '''
     return all(np.subtract(mon2, mon1) >= 0)
 
-
 def reduce_poly(poly, divisors, basisSet, permitted_round_error=1e-10):
     '''
     Divides a polynomial by a set of divisor polynomials using the standard
