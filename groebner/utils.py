@@ -332,6 +332,19 @@ def get_var_list(dim):
         _vars.append(tuple(var))
     return _vars
 
+def sorted_polys_monomial(polys):
+    '''
+    Sorts the polynomials by the number of monomials they have, the ones with the least amount first.
+    '''
+    num_monomials = list()
+    for poly in polys:
+        num_monomials.append(len(np.where(poly.coeff != 0)[0]))
+    argsort_list = sorted(range(len(num_monomials)), key=num_monomials.__getitem__)[::]
+    sorted_polys = list()
+    for i in argsort_list:
+        sorted_polys.append(polys[i])
+    return sorted_polys
+
 def triangular_solve(matrix, matrix_terms = None, reorder = True):
     """
     Reduces the upper block triangular matrix.

@@ -1,7 +1,7 @@
 from operator import itemgetter
 import itertools
 import numpy as np
-from groebner.utils import MaxHeap, divides, fullRank
+import groebner.utils as utils
 import math
 from groebner.polynomial import MultiCheb, MultiPower, Polynomial
 from scipy.linalg import lu, qr, solve_triangular
@@ -70,19 +70,6 @@ class Groebner(object):
         self.original_lms = set()
         self.matrix_polys = list()
 
-    def sorted_polys_monomial(self, polys):
-        '''
-        Sorts the polynomials by the number of monomials they have, the ones with the least amount first.
-        '''
-        num_monomials = list()
-        for poly in polys:
-            num_monomials.append(len(np.where(poly.coeff != 0)[0]))
-        argsort_list = sorted(range(len(num_monomials)), key=num_monomials.__getitem__)[::]
-        sorted_polys = list()
-        for i in argsort_list:
-            sorted_polys.append(polys[i])
-        return sorted_polys
-
     def initialize_np_matrix(self, final_time = False):
         '''
         Initialzes self.np_matrix to having just old_polys and new_polys in it
@@ -110,7 +97,7 @@ class Groebner(object):
             new_polys = self.new_polys
             polys = old_polys + new_polys
 
-            polys = self.sorted_polys_monomial(polys)
+            polys = utils.sorted_polys_monomial(polys)
 
             self.old_polys = list()
             self.new_polys = list()
@@ -146,7 +133,7 @@ class Groebner(object):
             for i,j in itertools.permutations(polys_with_unique_lm,2):
                 if i in divides_out:
                     continue
-                if divides(j.lead_term,i.lead_term): # j divides into i
+                if utils.divides(j.lead_term,i.lead_term): # j divides into i
                     divides_out.append(i)
                     self._add_poly_to_matrix(i)
                     self._add_poly_to_matrix(j.mon_mult(tuple(a-b for a,b in zip(i.lead_term,j.lead_term))))
@@ -476,7 +463,7 @@ class Groebner(object):
         Builds a maxheap for use in r polynomial calculation
         '''
         startTime = time.time()
-        self.monheap = MaxHeap()
+        self.monheap = utils.MaxHeap()
         for mon in self.term_set:
             if mon not in self.lead_term_set: #Adds every monomial that isn't a lead term to the heap
                 self.monheap.heappush(mon)
@@ -631,7 +618,7 @@ class Groebner(object):
         '''
         startTime = time.time()
         if qr_reduction:
-            independentRows, dependentRows, Q = fullRank(self.np_matrix)
+            independentRows, dependentRows, Q = utils.fullRank(self.np_matrix)
             fullRankMatrix = self.np_matrix[independentRows]
 
             startRRQR = time.time()
@@ -736,7 +723,7 @@ class Groebner(object):
         height = matrix.shape[0]
         A = matrix[:height,:height] #Get the square submatrix
         B = matrix[:,height:] #The rest of the matrix to the right
-        independentRows, dependentRows, Q = fullRank(A)
+        independentRows, dependentRows, Q = utils.fullRank(A)
         nullSpaceSize = len(dependentRows)
         if nullSpaceSize == 0: #A is full rank
             #print("FULL RANK")
