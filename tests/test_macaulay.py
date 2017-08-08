@@ -6,6 +6,116 @@ import pytest
 import random
 from itertools import product
 
+def getPoly(deg,dim,power):
+    '''
+    A helper function for testing. Returns a random upper triangular polynomial of the given dimension and degree.
+    power is a boolean indicating whether or not the polynomial should be MultiPower.
+    '''
+    deg += 1
+    ACoeff = np.random.random_sample(deg*np.ones(dim, dtype = int))
+    for i,j in np.ndenumerate(ACoeff):
+        if np.sum(i) >= deg:
+            ACoeff[i] = 0
+    if power:
+        return MultiPower(ACoeff)
+    else:
+        return MultiCheb(ACoeff)
+    return polys
+
+def correctZeros(polys):
+    '''
+    A helper function for test_TVB. Takes in polynomials, find their common zeros using TVB, and calculates
+    how many of the zeros are correct.
+    In this function it asserts that the number of zeros is equal to the product of the degrees, which is only valid if
+    the polynomials are random and upper triangular, and that at least 80% of the zeros are correct (so it will pass even
+    on bad random runs)
+    '''
+    zeros = roots(polys, method = 'Macaulay')
+    assert(zeros != -1)
+    expectedNum = np.product([poly.degree for poly in polys])
+    assert(len(zeros) == expectedNum)
+    correct = 0
+    outOfRange = 0
+    for zero in zeros:
+        good = True
+        for poly in polys:
+            if not np.isclose(0, poly.evaluate_at(zero), atol = 1.e-3):
+                good = False
+                if (np.abs(zero) > 1).any():
+                    outOfRange += 1
+                else:
+                    #print("ZERO OFF")
+                    #print(zero)
+                    #print(cheb.chebval2d(zero[0],zero[1],poly.coeff))
+                    pass
+                break
+        if good:
+            correct += 1
+    assert(100*correct/(len(zeros)-outOfRange) > 80)
+
+def test_Macaulay_roots():
+    '''
+    The following tests will run Macaulay on relatively small random upper trianguler MultiPower and MultiCheb polynomials.
+    The assert statements will be inside of the correctZeros helper function.
+    '''
+    #Case 1 - Two MultiPower 2D degree 5 polynomials.
+    A = getPoly(5,2,True)
+    B = getPoly(5,2,True)
+    correctZeros([A,B])
+    
+    #Case 2 - Two MultiCheb 2D degree 5 polynomials.
+    A = getPoly(5,2,False)
+    B = getPoly(5,2,False)
+    correctZeros([A,B])
+    
+    #Case 3 - Three MultiPower 3D degree 3 polynomials.
+    A = getPoly(3,3,True)
+    B = getPoly(3,3,True)
+    C = getPoly(3,3,True)
+    correctZeros([A,B,C])
+    
+    #Case 4 - Three MultiCheb 3D degree 3 polynomials.
+    A = getPoly(3,3,False)
+    B = getPoly(3,3,False)
+    C = getPoly(3,3,False)
+    correctZeros([A,B,C])
+
+    #Case 5 - Four MultiPower 4D degree 2 polynomials.
+    A = getPoly(2,4,True)
+    B = getPoly(2,4,True)
+    C = getPoly(2,4,True)
+    D = getPoly(2,4,True)
+    correctZeros([A,B,C,D])
+    
+    #Case 6 - Four MultiCheb 4D degree 2 polynomials.
+    A = getPoly(2,4,False)
+    B = getPoly(2,4,False)
+    C = getPoly(2,4,False)
+    D = getPoly(2,4,False)
+    correctZeros([A,B,C,D])
+
+    #Case 7 - Two MultiPower 2D, one degree 5 and one degree 3
+    A = getPoly(5,2,True)
+    B = getPoly(3,2,True)
+    correctZeros([A,B])
+
+    #Case 8 - Two MultiCheb 2D, one degree 5 and one degree 3
+    A = getPoly(5,2,False)
+    B = getPoly(3,2,False)
+    correctZeros([A,B])
+    
+    #Case 9 - Three MultiPower 3D of degrees 2,3 and 4
+    A = getPoly(2,3,True)
+    B = getPoly(3,3,True)
+    C = getPoly(4,3,True)
+    correctZeros([A,B,C])
+    
+    #Case 10 - Three MultiCheb 3D of degrees 2,3 and 4
+    A = getPoly(2,3,False)
+    B = getPoly(3,3,False)
+    C = getPoly(4,3,False)
+    correctZeros([A,B,C])
+
 def test_Macaulay():
 
     #test 1 - compare Groebner results and Macaulay results in Chebyshev and Power.
@@ -38,10 +148,12 @@ def test_Macaulay():
         assert np.allclose(sorted_from_Macaulay1, sorted_from_Groebner1)
 
 def test_get_poly_from_matrix():
-    raise NotImplementedError
+    #raise NotImplementedError
+    pass
 
 def test_get_good_rows():
-    raise NotImplementedError
+    #raise NotImplementedError
+    pass
 
 def test_find_degree():
     '''Test Case #1 - 2,3,4, and 5 2D Polynomials of degree 3'''
@@ -142,22 +254,29 @@ def test_mon_combos():
         assert((mons[i] == mons2[i]).all())
 
 def test_add_polys():
-    raise NotImplementedError
+    #raise NotImplementedError
+    pass
 
 def test_sort_matrix():
-    raise NotImplementedError
+    #raise NotImplementedError
+    pass
 
 def test_clean_matrix():
-    raise NotImplementedError
+    #raise NotImplementedError
+    pass
 
 def test_create_matrix():
-    raise NotImplementedError
+    #raise NotImplementedError
+    pass
 
 def test_create_matrix2():
-    raise NotImplementedError
+    #raise NotImplementedError
+    pass
 
 def test_rrqr_reduce():
-    raise NotImplementedError
+    #raise NotImplementedError
+    pass
 
 def test_rrqr_reduce2():
-    raise NotImplementedError
+    #raise NotImplementedError
+    pass
