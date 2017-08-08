@@ -1,7 +1,7 @@
 from operator import itemgetter
 import itertools
 import numpy as np
-from groebner.utils import MaxHeap
+from groebner.utils import MaxHeap, divides
 import math
 from groebner.polynomial import MultiCheb, MultiPower, Polynomial
 from scipy.linalg import lu, qr, solve_triangular
@@ -69,13 +69,6 @@ class Groebner(object):
         self.lead_term_set = set()
         self.original_lms = set()
         self.matrix_polys = list()
-
-    def divides(self,a,b):
-        '''
-        Takes two polynomials, a and b. Returns True if the lm of b divides the lm of a. False otherwise.
-        '''
-        diff = tuple(i-j for i,j in zip(a.lead_term,b.lead_term))
-        return all(i >= 0 for i in diff)
 
     def sorted_polys_monomial(self, polys):
         '''
@@ -153,7 +146,7 @@ class Groebner(object):
             for i,j in itertools.permutations(polys_with_unique_lm,2):
                 if i in divides_out:
                     continue
-                if self.divides(i,j): # j divides into i
+                if divides(j.lead_term,i.lead_term): # j divides into i
                     divides_out.append(i)
                     self._add_poly_to_matrix(i)
                     self._add_poly_to_matrix(j.mon_mult(tuple(a-b for a,b in zip(i.lead_term,j.lead_term))))
