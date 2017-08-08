@@ -380,16 +380,14 @@ def coordinateVector(poly, GB, basisSet):
         The polynomial for which to find the coordinate vector of its coset.
     GB : list of polynomial objects
         Polynomials that make up a Groebner basis for the ideal
-    basis : list of tuples
+    basisSet : set of tuples
         The monomials that make up a basis for the vector space
-    leadTermDict: A dictionary of the leadTerms in GB to the polynomials in GB.
     returns
     -------
     coordinateVector : list
         The coordinate vector of the given polynomial's coset in
         A = C[x_1,...x_n]/I as a vector space over C
     '''
-    dim = len(basisSet) # Dimension of vector space basis
 
     poly_coeff = reduce_poly(poly, GB, basisSet)
     return poly_coeff.flatten()
