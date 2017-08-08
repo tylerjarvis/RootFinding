@@ -119,8 +119,8 @@ def testCoordinateVector():
     VB = [(2,0),(1,2),(0,1),(1,0)]
     GB = [MultiCheb(np.array([[0,0,0],[0,0,0],[0,0,1]]))] # LT is big so nothing gets reduced
 
-    cv = rf.coordinateVector(poly, GB, VB, set(VB))
-    assert((cv == np.array([[0,1,0],[0,0,1],[1,0,0]])).all())
+    cv = rf.coordinateVector(poly, GB, set(VB))
+    assert((cv == np.array([0,1,0,0,0,1,1,0,0])).all())
 
 def testMultMatrix():
     f1 = MultiPower(np.array([[[5,0,0],[0,0,0],[0,0,0]],

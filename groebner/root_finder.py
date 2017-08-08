@@ -121,7 +121,7 @@ def roots(polys, method = 'Groebner'):
 
     print("Total run time for roots is {}".format(totalTime))
     print(times)
-    #Polynomial.printTime()
+
     return roots
 
 def groebnerMultMatrix(polys, poly_type, method):
@@ -192,7 +192,7 @@ def TVBMultMatrix(polys, poly_type):
     m_f : 2D numpy array
         The multiplication matrix for a random polynomial f
     var_dict : dictionary
-        Maps each variable to its position in the vector space basis 
+        Maps each variable to its position in the vector space basis
 
     '''
     startBasis = time.time()
@@ -205,8 +205,10 @@ def TVBMultMatrix(polys, poly_type):
     startMultMatrix = time.time()
     dim = max(f.dim for f in polys)
 
+    # Get random polynomial f
     f = _random_poly(poly_type, dim)[0]
 
+    # Build multiplication matrix m_f
     remainder_shape = np.maximum.reduce([mon for mon in VB])
     remainder_shape += np.ones_like(remainder_shape)
 
@@ -324,7 +326,7 @@ def multMatrix(poly, GB, basisList):
     for i in range(dim):
         monomial = basisList[i]
         poly_ = poly.mon_mult(monomial)
-        matrix_coeffs.append(coordinateVector(poly_, GB, basisList, basisSet).flatten())
+        matrix_coeffs.append(coordinateVector(poly_, GB, basisSet))
     multMatrix = np.vstack(matrix_coeffs)
     multMatrix = multMatrix.T
 
@@ -370,7 +372,7 @@ def vectorSpaceBasis(GB):
 
     return basis, var_to_pos_dict
 
-def coordinateVector(poly, GB, basisList, basisSet):
+def coordinateVector(poly, GB, basisSet):
     '''
     parameters
     ----------
@@ -387,10 +389,10 @@ def coordinateVector(poly, GB, basisList, basisSet):
         The coordinate vector of the given polynomial's coset in
         A = C[x_1,...x_n]/I as a vector space over C
     '''
-    dim = len(basisList) # Dimension of vector space basis
+    dim = len(basisSet) # Dimension of vector space basis
 
     poly_coeff = reduce_poly(poly, GB, basisSet)
-    return poly_coeff
+    return poly_coeff.flatten()
 
 def divides(mon1, mon2):
     '''
