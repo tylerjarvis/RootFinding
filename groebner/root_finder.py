@@ -92,7 +92,7 @@ def roots(polys, method = 'Groebner'):
 
     endEigen = time.time()
     times["Eigen"] = (endEigen - startEigen)
-    
+
     startEndStuff = time.time()
     roots = []
     for v in eig_vectors:
@@ -121,7 +121,7 @@ def roots(polys, method = 'Groebner'):
 
     print("Total run time for roots is {}".format(totalTime))
     print(times)
-    #Polynomial.printTime()
+
     return roots
 
 def groebnerMultMatrix(polys, poly_type, method):
@@ -176,6 +176,25 @@ def groebnerMultMatrix(polys, poly_type, method):
     return GB, m_f, var_dict
 
 def TVBMultMatrix(polys, poly_type):
+    '''
+    Finds the multiplication matrix using the reduced Macaulay matrix from the
+    TVB method.
+
+    Parameters
+    ----------
+    polys : array-like
+        The polynomials to find the common zeros of
+    poly_type : string
+        The type of the polynomials in polys
+
+    Returns
+    -------
+    m_f : 2D numpy array
+        The multiplication matrix for a random polynomial f
+    var_dict : dictionary
+        Maps each variable to its position in the vector space basis
+
+    '''
     startBasis = time.time()
     basisDict, VB = TelenVanBarel(polys)
     #print("non-basis vars:\n", basisDict.keys())
@@ -186,8 +205,10 @@ def TVBMultMatrix(polys, poly_type):
     startMultMatrix = time.time()
     dim = max(f.dim for f in polys)
 
+    # Get random polynomial f
     f = _random_poly(poly_type, dim)[0]
 
+    # Build multiplication matrix m_f
     remainder_shape = np.maximum.reduce([mon for mon in VB])
     remainder_shape += np.ones_like(remainder_shape)
 
@@ -203,7 +224,7 @@ def TVBMultMatrix(polys, poly_type):
         m_f_coeffs.append(remainder.flatten())
 
     m_f = np.vstack(m_f_coeffs).T
-    
+
     terms = np.zeros(remainder_shape, dtype = tuple)
     for i,j in np.ndenumerate(terms):
         terms[i] = tuple(i)
@@ -211,7 +232,7 @@ def TVBMultMatrix(polys, poly_type):
 
     m_f, matrix_terms = clean_matrix(m_f, matrix_terms, VB)
     m_f = sort_matrix(m_f, matrix_terms, VB)
-    
+
     # Construct var_dict
     var_dict = {}
     for i in range(len(VB)):
@@ -305,7 +326,7 @@ def multMatrix(poly, GB, basisList):
     for i in range(dim):
         monomial = basisList[i]
         poly_ = poly.mon_mult(monomial)
-        matrix_coeffs.append(coordinateVector(poly_, GB, basisList, basisSet).flatten())
+        matrix_coeffs.append(coordinateVector(poly_, GB, basisSet))
     multMatrix = np.vstack(matrix_coeffs)
     multMatrix = multMatrix.T
 
@@ -351,7 +372,7 @@ def vectorSpaceBasis(GB):
 
     return basis, var_to_pos_dict
 
-def coordinateVector(poly, GB, basisList, basisSet):
+def coordinateVector(poly, GB, basisSet):
     '''
     parameters
     ----------
@@ -359,19 +380,17 @@ def coordinateVector(poly, GB, basisList, basisSet):
         The polynomial for which to find the coordinate vector of its coset.
     GB : list of polynomial objects
         Polynomials that make up a Groebner basis for the ideal
-    basis : list of tuples
+    basisSet : set of tuples
         The monomials that make up a basis for the vector space
-    leadTermDict: A dictionary of the leadTerms in GB to the polynomials in GB.
     returns
     -------
     coordinateVector : list
         The coordinate vector of the given polynomial's coset in
         A = C[x_1,...x_n]/I as a vector space over C
     '''
-    dim = len(basisList) # Dimension of vector space basis
 
     poly_coeff = reduce_poly(poly, GB, basisSet)
-    return poly_coeff
+    return poly_coeff.flatten()
 
 def divides(mon1, mon2):
     '''
@@ -387,7 +406,6 @@ def divides(mon1, mon2):
         true if mon1 divides mon2, false otherwise
     '''
     return all(np.subtract(mon2, mon1) >= 0)
-
 
 def reduce_poly(poly, divisors, basisSet, permitted_round_error=1e-10):
     '''
