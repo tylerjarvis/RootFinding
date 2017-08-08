@@ -1,6 +1,6 @@
 import numpy as np
 import os,sys
-from groebner.multi_power import MultiPower
+from groebner.polynomial import MultiPower
 import pytest
 import random
 
@@ -69,7 +69,7 @@ def test_mon_mult_random():
             M4 = M4 + MultiPower.mon_mult(M1, index)
 
     if M3.shape != M4.shape:
-        new_M3_coeff, new_M4_coeff = MultiPower.match_size(M3.coeff,M4.coeff)
+        new_M3_coeff, new_M4_coeff = M2.match_size(M3.coeff,M4.coeff)
     else:
         new_M3_coeff, new_M4_coeff = M3.coeff, M4.coeff
 
