@@ -122,45 +122,6 @@ def find_degree(poly_list):
         degree_needed += poly.degree
     return ((degree_needed - len(poly_list)) + 1)
 
-def fullRank(matrix):
-    '''
-    Uses rank revealing QR to determine which rows of the given matrix are
-    linearly independent and which ones are linearly dependent. (This
-    function needs a name change).
-
-    Parameters
-    ----------
-    matrix : (2D numpy array)
-        The matrix of interest.
-
-    Returns
-    -------
-    independentRows : (list)
-        The indexes of the rows that are linearly independent
-    dependentRows : (list)
-        The indexes of the rows that can be removed without affecting the rank
-        (which are the linearly dependent rows).
-    Q : (2D numpy array)
-        The Q matrix used in RRQR reduction in finding the rank.
-    '''
-
-    height = matrix.shape[0]
-    Q,R,P = qr(matrix, pivoting = True)
-    diagonals = np.diagonal(R) #Go along the diagonals to find the rank
-    rank = np.sum(np.abs(diagonals)>global_accuracy)
-    numMissing = height - rank
-    if numMissing == 0: # Full Rank. All rows independent
-        return [i for i in range(height)],[],None
-    else:
-        # Find the rows we can take out. These are ones that are non-zero in
-        # the last rows of Q transpose, since QT*A=R.
-        # To find multiple, we find the pivot columns of Q.T
-        QMatrix = Q.T[-numMissing:]
-        Q1,R1,P1 = qr(QMatrix, pivoting = True)
-        independentRows = P1[R1.shape[0]:] #Other Columns
-        dependentRows = P1[:R1.shape[0]] #Pivot Columns
-        return independentRows,dependentRows,Q
-
 def get_good_rows(matrix, matrix_terms):
     '''
     Gets the rows in a matrix whose leading monomial is not divisible by the leading monomial of any other row.

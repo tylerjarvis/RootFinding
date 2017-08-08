@@ -1,7 +1,7 @@
 from operator import itemgetter
 import itertools
 import numpy as np
-from groebner.utils import MaxHeap, divides
+from groebner.utils import MaxHeap, divides, fullRank
 import math
 from groebner.polynomial import MultiCheb, MultiPower, Polynomial
 from scipy.linalg import lu, qr, solve_triangular
@@ -631,7 +631,7 @@ class Groebner(object):
         '''
         startTime = time.time()
         if qr_reduction:
-            independentRows, dependentRows, Q = self.fullRank(self.np_matrix)
+            independentRows, dependentRows, Q = fullRank(self.np_matrix)
             fullRankMatrix = self.np_matrix[independentRows]
 
             startRRQR = time.time()
@@ -713,29 +713,6 @@ class Groebner(object):
         matrix[np.where(np.abs(matrix) < global_accuracy)]=0
         return matrix
 
-    def fullRank(self, matrix):
-        '''
-        Finds the full rank of a matrix.
-        Returns independentRows - a list of rows that have full rank, and
-        dependentRows - rows that can be removed without affecting the rank
-        Q - The Q matrix used in RRQR reduction in finding the rank
-        '''
-        height = matrix.shape[0]
-        Q,R,P = qr(matrix, pivoting = True)
-        diagonals = np.diagonal(R) #Go along the diagonals to find the rank
-        rank = np.sum(np.abs(diagonals)>global_accuracy)
-        numMissing = height - rank
-        if numMissing == 0: #Full Rank. All rows independent
-            return [i for i in range(height)],[],None
-        else:
-            #Find the rows we can take out. These are ones that are non-zero in the last rows of Q transpose, as QT*A=R.
-            #To find multiple, we find the pivot columns of Q.T
-            QMatrix = Q.T[-numMissing:]
-            Q1,R1,P1 = qr(QMatrix, pivoting = True)
-            independentRows = P1[R1.shape[0]:] #Other Columns
-            dependentRows = P1[:R1.shape[0]] #Pivot Columns
-            return independentRows,dependentRows,Q
-
     def hasFullRank(self, matrix):
         height = matrix.shape[0]
         if height == 0:
@@ -759,7 +736,7 @@ class Groebner(object):
         height = matrix.shape[0]
         A = matrix[:height,:height] #Get the square submatrix
         B = matrix[:,height:] #The rest of the matrix to the right
-        independentRows, dependentRows, Q = self.fullRank(A)
+        independentRows, dependentRows, Q = fullRank(A)
         nullSpaceSize = len(dependentRows)
         if nullSpaceSize == 0: #A is full rank
             #print("FULL RANK")

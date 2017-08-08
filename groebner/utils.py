@@ -3,6 +3,8 @@ import numpy as np
 from scipy.linalg import lu, qr, solve_triangular
 import heapq
 
+global_accuracy = 1.e-10
+
 class Term(object):
     '''
     Terms are just tuples of exponents with the grevlex ordering
@@ -48,7 +50,7 @@ class Term(object):
                     if i > j:
                         return False
                 return False
-    
+
     # Define the other relations in grevlex order
 
     def __eq__(self, other):
@@ -271,29 +273,44 @@ def clean_zeros_from_matrix(matrix, global_accuracy=1.e-10):
     matrix[np.where(np.abs(matrix) < global_accuracy)] = 0
     return matrix
 
-def fullRank(matrix, global_accuracy = 1.e-10):
+def fullRank(matrix):
     '''
-    Finds the full rank of a matrix.
-    Returns independentRows - a list of rows that have full rank, and
-    dependentRows - rows that can be removed without affecting the rank
-    Q - The Q matrix used in RRQR reduction in finding the rank
+    Uses rank revealing QR to determine which rows of the given matrix are
+    linearly independent and which ones are linearly dependent. (This
+    function needs a name change).
+
+    Parameters
+    ----------
+    matrix : (2D numpy array)
+        The matrix of interest.
+
+    Returns
+    -------
+    independentRows : (list)
+        The indexes of the rows that are linearly independent
+    dependentRows : (list)
+        The indexes of the rows that can be removed without affecting the rank
+        (which are the linearly dependent rows).
+    Q : (2D numpy array)
+        The Q matrix used in RRQR reduction in finding the rank.
     '''
+
     height = matrix.shape[0]
     Q,R,P = qr(matrix, pivoting = True)
     diagonals = np.diagonal(R) #Go along the diagonals to find the rank
     rank = np.sum(np.abs(diagonals)>global_accuracy)
     numMissing = height - rank
-    if numMissing == 0: #Full Rank. All rows independent
+    if numMissing == 0: # Full Rank. All rows independent
         return [i for i in range(height)],[],None
     else:
-        #Find the rows we can take out. These are ones that are non-zero in the last rows of Q transpose, as QT*A=R.
-        #To find multiple, we find the pivot columns of Q.T
+        # Find the rows we can take out. These are ones that are non-zero in
+        # the last rows of Q transpose, since QT*A=R.
+        # To find multiple, we find the pivot columns of Q.T
         QMatrix = Q.T[-numMissing:]
         Q1,R1,P1 = qr(QMatrix, pivoting = True)
         independentRows = P1[R1.shape[0]:] #Other Columns
         dependentRows = P1[:R1.shape[0]] #Pivot Columns
         return independentRows,dependentRows,Q
-    pass
 
 def inverse_P(p):
     '''
