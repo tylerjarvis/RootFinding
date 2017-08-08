@@ -92,7 +92,7 @@ def roots(polys, method = 'Groebner'):
 
     endEigen = time.time()
     times["Eigen"] = (endEigen - startEigen)
-    
+
     startEndStuff = time.time()
     roots = []
     for v in eig_vectors:
@@ -176,6 +176,25 @@ def groebnerMultMatrix(polys, poly_type, method):
     return GB, m_f, var_dict
 
 def TVBMultMatrix(polys, poly_type):
+    '''
+    Finds the multiplication matrix using the reduced Macaulay matrix from the
+    TVB method.
+
+    Parameters
+    ----------
+    polys : array-like
+        The polynomials to find the common zeros of
+    poly_type : string
+        The type of the polynomials in polys
+
+    Returns
+    -------
+    m_f : 2D numpy array
+        The multiplication matrix for a random polynomial f
+    var_dict : dictionary
+        Maps each variable to its position in the vector space basis 
+
+    '''
     startBasis = time.time()
     basisDict, VB = TelenVanBarel(polys)
     #print("non-basis vars:\n", basisDict.keys())
@@ -203,7 +222,7 @@ def TVBMultMatrix(polys, poly_type):
         m_f_coeffs.append(remainder.flatten())
 
     m_f = np.vstack(m_f_coeffs).T
-    
+
     terms = np.zeros(remainder_shape, dtype = tuple)
     for i,j in np.ndenumerate(terms):
         terms[i] = tuple(i)
@@ -211,7 +230,7 @@ def TVBMultMatrix(polys, poly_type):
 
     m_f, matrix_terms = clean_matrix(m_f, matrix_terms, VB)
     m_f = sort_matrix(m_f, matrix_terms, VB)
-    
+
     # Construct var_dict
     var_dict = {}
     for i in range(len(VB)):
