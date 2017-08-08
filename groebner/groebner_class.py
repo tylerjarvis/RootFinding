@@ -613,7 +613,7 @@ class Groebner(object):
         # Note that 'terms' is an array of Term objects. We then flatten this
         # to become 'self.matrix_terms'. The position of each monomial in
         # 'self.matrix_terms' is the same as the column corresponding to that
-        # monomial. 
+        # monomial.
         terms = np.zeros(biggest_shape, dtype = Term)
         startTerms = time.time()
         for i,j in np.ndenumerate(terms):

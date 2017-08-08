@@ -4,6 +4,7 @@ import itertools
 from groebner.utils import Term
 import time
 from numpy.polynomial import chebyshev as cheb
+from numpy.polynomial import polynomial as poly
 import math
 
 
@@ -418,23 +419,27 @@ class MultiCheb(Polynomial):
 
     def evaluate_at(self, point):
         super(MultiCheb, self).evaluate_at(point)
-
-        poly_value = complex(0)
-        for mon in self.monomialList():
-            mon_value = 1
-            for i in range(len(point)):
-                cheb_deg = mon[i]
-                cheb_coeff = [0. for i in range(cheb_deg)]
-                cheb_coeff.append(1.)
-                cheb_val = cheb.chebval([point[i]], cheb_coeff)[0]
-                mon_value *= cheb_val
-            mon_value *= self.coeff[mon]
-            poly_value += mon_value
-
-        if abs(poly_value) < 1.e-10:
-            return 0
+        if self.dim == 2:
+            return cheb.chebval2d(point[0],point[1],self.coeff)
+        elif self.dim ==3:
+            return cheb.chebval3d(point[0],point[1],point[2],self.coeff)
         else:
-            return poly_value
+            poly_value = complex(0)
+            for mon in self.monomialList():
+                mon_value = 1
+                for i in range(len(point)):
+                    cheb_deg = mon[i]
+                    cheb_coeff = [0. for i in range(cheb_deg)]
+                    cheb_coeff.append(1.)
+                    cheb_val = cheb.chebval([point[i]], cheb_coeff)[0]
+                    mon_value *= cheb_val
+                mon_value *= self.coeff[mon]
+                poly_value += mon_value
+
+            if abs(poly_value) < 1.e-10:
+                return 0
+            else:
+                return poly_value
 
 ###############################################################################
 
@@ -537,20 +542,24 @@ class MultiPower(Polynomial):
 
     def evaluate_at(self, point):
         super(MultiPower, self).evaluate_at(point)
-
-        poly_value = 0
-        for mon in self.monomialList():
-            mon_value = 1
-            for i in range(len(point)):
-                var_value = pow(point[i], mon[i])
-                mon_value *= pow(point[i], mon[i])
-            mon_value *= self.coeff[mon]
-            poly_value += mon_value
-
-        if abs(poly_value) < 1.e-10:
-            return 0
+        if self.dim == 2:
+            return poly.polyval2d(point[0],point[1],self.coeff)
+        elif self.dim ==3:
+            return poly.polyval3d(point[0],point[1],point[2],self.coeff)
         else:
-            return poly_value
+            poly_value = 0
+            for mon in self.monomialList():
+                mon_value = 1
+                for i in range(len(point)):
+                    var_value = pow(point[i], mon[i])
+                    mon_value *= pow(point[i], mon[i])
+                mon_value *= self.coeff[mon]
+                poly_value += mon_value
+
+            if abs(poly_value) < 1.e-10:
+                return 0
+            else:
+                return poly_value
 
 ###############################################################################
 

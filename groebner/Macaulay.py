@@ -54,10 +54,10 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     matrix, matrix_terms = create_matrix(poly_coeff_list)
     endCreate = time.time()
     times["create matrix"] = (endCreate - startCreate)
-    
+
     startReduce = time.time()
     #rrqr_reduce2 and rrqr_reduce same pretty matched on stability, though I feel like 2 should be better.
-    matrix = rrqr_reduce2(matrix, global_accuracy = global_accuracy)
+    matrix = rrqr_reduce(matrix, global_accuracy = global_accuracy)
     matrix = clean_zeros_from_matrix(matrix)
     non_zero_rows = np.sum(abs(matrix),axis=1) != 0
     matrix = matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
@@ -74,13 +74,13 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
 
     startGetPolys = time.time()
     rows = get_good_rows(matrix, matrix_terms)
-    final_polys = get_poly_from_matrix(rows,matrix,matrix_terms,Power)
+    final_polys = get_polys_from_matrix(rows,matrix,matrix_terms,Power)
     endGetPolys = time.time()
     times["get polys"] = (endGetPolys - startGetPolys)
-        
+
     endTime = time.time()
-    print("Macaulay run time is {} seconds".format(endTime-startTime))
-    print(times)
+    #print("Macaulay run time is {} seconds".format(endTime-startTime))
+    #print(times)
     #MultiCheb.printTime()
     #MultiPower.printTime()
     #Polynomial.printTime()
@@ -88,7 +88,7 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     #    print(poly.lead_term)
     return final_polys
 
-def get_poly_from_matrix(rows,matrix,matrix_terms,power):
+def get_polys_from_matrix(rows,matrix,matrix_terms,power):
     '''
     Takes a list of indicies corresponding to the rows of the reduced matrix and
     returns a list of polynomial objects
@@ -150,12 +150,17 @@ def get_good_rows(matrix, matrix_terms):
 
 def find_degree(poly_list):
     """
-    Takes a list of polynomials and finds the degree needed for a Macaulay matrix.
-    Adds the degree of each polynomial and then subtracts the total number of polynomials and adds one.
-
+    Finds the degree needed for the Macaulay matrix
+    -------
+    Parameters:
+        poly_list: polynomials that will be used to construct the matrix
+    -------
+    Returns:
+        Integer value that is the degree needed.
+    -------
     Example:
         For polynomials [P1,P2,P3] with degree [d1,d2,d3] the function returns d1+d2+d3-3+1
-
+    -------
     """
     degree_needed = 0
     for poly in poly_list:
@@ -245,13 +250,13 @@ def create_matrix(polys_coeffs):
     for i,j in np.ndenumerate(terms):
         terms[i] = Term(i)
     matrix_terms = terms.ravel()
-    
+
     #Gets rid of any columns that are all 0.
     matrix, matrix_terms = clean_matrix(matrix, matrix_terms)
 
     #Sorts the matrix and matrix_terms by term order.
     matrix, matrix_terms = sort_matrix(matrix, matrix_terms)
-    
+
     #Sorts the rows of the matrix so it is close to upper triangular.
     matrix = row_swap_matrix(matrix)
     return matrix, matrix_terms
