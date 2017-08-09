@@ -218,14 +218,12 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, clean = F
     highest_num = matrix_shape_stuff[0]
     others_num = matrix_shape_stuff[1]
     xs_num = matrix_shape_stuff[2]
-    
-    '''
+
     #Try going down to halfway down the matrix. Faster, but if not full rank may cause problems.
     half = matrix.shape[0]//2
     diff = half - highest_num
     highest_num += diff
     others_num -= diff
-    '''
     
     highest = matrix_terms[:highest_num]
     others = matrix_terms[highest_num:highest_num+others_num]

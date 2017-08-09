@@ -147,11 +147,6 @@ def test_Macaulay():
         assert np.allclose(sorted_from_Macaulay, sorted_from_Groebner)
         assert np.allclose(sorted_from_Macaulay1, sorted_from_Groebner1)
 
-        # Test 2 - Hand calculated example in the Power basis
-
-        poly1 = MultiPower(np.array([[3,0,1],[0,0,0],[0,0,1]]))
-        poly2 = MultiPower(np.array([[3,0],[1,1],[0,1]]))
-
 def test_get_poly_from_matrix():
     #raise NotImplementedError
     pass
