@@ -1,7 +1,7 @@
 from operator import itemgetter
 import itertools
 import numpy as np
-from groebner.utils import MaxHeap
+import groebner.utils as utils
 import math
 from groebner.polynomial import MultiCheb, MultiPower, Polynomial
 from scipy.linalg import lu, qr, solve_triangular
@@ -47,26 +47,6 @@ class Groebner(object):
         self.original_lms = set()
         self.matrix_polys = list()
 
-    def divides(self,a,b):
-        '''
-        Takes two polynomials, a and b. Returns True if the lm of b divides the lm of a. False otherwise.
-        '''
-        diff = tuple(i-j for i,j in zip(a.lead_term,b.lead_term))
-        return all(i >= 0 for i in diff)
-
-    def sorted_polys_monomial(self, polys):
-        '''
-        Sorts the polynomials by the number of monomials they have, the ones with the least amount first.
-        '''
-        num_monomials = list()
-        for poly in polys:
-            num_monomials.append(len(np.where(poly.coeff != 0)[0]))
-        argsort_list = sorted(range(len(num_monomials)), key=num_monomials.__getitem__)[::]
-        sorted_polys = list()
-        for i in argsort_list:
-            sorted_polys.append(polys[i])
-        return sorted_polys
-
     def initialize_np_matrix(self, final_time = False):
         '''
         Initialzes self.np_matrix to having just old_polys and new_polys in it
@@ -92,7 +72,7 @@ class Groebner(object):
             new_polys = self.new_polys
             polys = old_polys + new_polys
 
-            polys = self.sorted_polys_monomial(polys)
+            polys = utils.sorted_polys_monomial(polys)
 
             self.old_polys = list()
             self.new_polys = list()
@@ -128,7 +108,7 @@ class Groebner(object):
             for i,j in itertools.permutations(polys_with_unique_lm,2):
                 if i in divides_out:
                     continue
-                if self.divides(i,j): # j divides into i
+                if utils.divides(j.lead_term,i.lead_term): # j divides into i
                     divides_out.append(i)
                     self._add_poly_to_matrix(i)
                     self._add_poly_to_matrix(j.mon_mult(tuple(a-b for a,b in zip(i.lead_term,j.lead_term))))
@@ -405,7 +385,9 @@ class Groebner(object):
         '''
         Builds a maxheap for use in r polynomial calculation
         '''
-        self.monheap = MaxHeap()
+
+        self.monheap = utils.MaxHeap()
+
         for mon in self.term_set:
             if mon not in self.lead_term_set: #Adds every monomial that isn't a lead term to the heap
                 self.monheap.heappush(mon)
@@ -536,7 +518,7 @@ class Groebner(object):
         Returns-True if new polynomials were found, False otherwise.
         '''
         if qr_reduction:
-            independentRows, dependentRows, Q = self.fullRank(self.np_matrix)
+            independentRows, dependentRows, Q = utils.fullRank(self.np_matrix)
             fullRankMatrix = self.np_matrix[independentRows]
 
             reduced_matrix = self.rrqr_reduce2(fullRankMatrix)
@@ -590,29 +572,6 @@ class Groebner(object):
         matrix[np.where(np.abs(matrix) < global_accuracy)]=0
         return matrix
 
-    def fullRank(self, matrix):
-        '''
-        Finds the full rank of a matrix.
-        Returns independentRows - a list of rows that have full rank, and
-        dependentRows - rows that can be removed without affecting the rank
-        Q - The Q matrix used in RRQR reduction in finding the rank
-        '''
-        height = matrix.shape[0]
-        Q,R,P = qr(matrix, pivoting = True)
-        diagonals = np.diagonal(R) #Go along the diagonals to find the rank
-        rank = np.sum(np.abs(diagonals)>global_accuracy)
-        numMissing = height - rank
-        if numMissing == 0: #Full Rank. All rows independent
-            return [i for i in range(height)],[],None
-        else:
-            #Find the rows we can take out. These are ones that are non-zero in the last rows of Q transpose, as QT*A=R.
-            #To find multiple, we find the pivot columns of Q.T
-            QMatrix = Q.T[-numMissing:]
-            Q1,R1,P1 = qr(QMatrix, pivoting = True)
-            independentRows = P1[R1.shape[0]:] #Other Columns
-            dependentRows = P1[:R1.shape[0]] #Pivot Columns
-            return independentRows,dependentRows,Q
-
     def hasFullRank(self, matrix):
         height = matrix.shape[0]
         if height == 0:
@@ -636,7 +595,7 @@ class Groebner(object):
         height = matrix.shape[0]
         A = matrix[:height,:height] #Get the square submatrix
         B = matrix[:,height:] #The rest of the matrix to the right
-        independentRows, dependentRows, Q = self.fullRank(A)
+        independentRows, dependentRows, Q = utils.fullRank(A)
         nullSpaceSize = len(dependentRows)
         if nullSpaceSize == 0: #A is full rank
             #print("FULL RANK")
