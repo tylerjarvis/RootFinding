@@ -3,8 +3,6 @@ import numpy as np
 from scipy.linalg import lu, qr, solve_triangular
 import heapq
 
-global_accuracy = 1.e-10
-
 class Term(object):
     '''
     Terms are just tuples of exponents with the grevlex ordering
@@ -151,6 +149,44 @@ class MinHeap(MaxHeap):
     def __repr__(self):
         return('A min heap of {} unique terms with the DegRevLex term order.'.format(len(self)))
 
+def clean_matrix(matrix, matrix_terms, set_zeros=False, accuracy=1.e-10):
+    '''Removes columns in the matrix that are all zero along with associated
+    terms in matrix_terms.
+
+    Parameters
+    ----------
+    matrix : 2D numpy array
+        The matrix with rows corresponding to polynomials, columns corresponding
+        to monomials, and entries corresponding to coefficients.
+    matrix_terms : array-like, contains Term objects
+        The column labels for matrix in order.
+    set_zeros : bool
+        If true, all entries in the matrix that are within accuracy of 0 will
+        be set to 0.
+    accuracy : float
+        How close entries should be to 0 for them to be set to 0 (only applies
+        if set_zeros is True).
+
+    Returns
+    -------
+    matrix : 2D numpy array
+        Same matrix as input but with all 0 columns removed.
+    matrix_terms : array-like, contains Term objects
+        Same as input but with entries corresponding to 0 columns in the matrix
+        removed.
+
+    '''
+    
+    ##This would replace all small values in the matrix with 0.
+    if set_zeros:
+        matrix[np.where(abs(matrix) < accuracy)]=0
+
+    #Removes all 0 monomials
+    non_zero_monomial = np.sum(abs(matrix), axis=0) != 0
+    matrix = matrix[:,non_zero_monomial] #only keeps the non_zero_monomials
+    matrix_terms = matrix_terms[non_zero_monomial]
+
+    return matrix, matrix_terms
 
 def divides(mon1, mon2):
     '''
@@ -273,7 +309,7 @@ def clean_zeros_from_matrix(matrix, global_accuracy=1.e-10):
     matrix[np.where(np.abs(matrix) < global_accuracy)] = 0
     return matrix
 
-def fullRank(matrix):
+def fullRank(matrix, accuracy=1.e-10):
     '''
     Uses rank revealing QR to determine which rows of the given matrix are
     linearly independent and which ones are linearly dependent. (This
@@ -298,7 +334,7 @@ def fullRank(matrix):
     height = matrix.shape[0]
     Q,R,P = qr(matrix, pivoting = True)
     diagonals = np.diagonal(R) #Go along the diagonals to find the rank
-    rank = np.sum(np.abs(diagonals)>global_accuracy)
+    rank = np.sum(np.abs(diagonals)>accuracy)
     numMissing = height - rank
     if numMissing == 0: # Full Rank. All rows independent
         return [i for i in range(height)],[],None

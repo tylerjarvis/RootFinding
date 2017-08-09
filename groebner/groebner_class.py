@@ -178,19 +178,6 @@ class Groebner(object):
             poly.coeff[np.where(abs(poly.coeff) < global_accuracy)] = 0
             self.groebner_basis.append(poly)
 
-    def clean_matrix(self):
-        '''
-        Gets rid of columns in the np_matrix that are all zero.
-        '''
-        ##This would replace all small values in the matrix with 0.
-        if clean:
-            self.np_matrix[np.where(abs(self.np_matrix) < global_accuracy)]=0
-
-        #Removes all 0 monomials
-        non_zero_monomial = np.sum(abs(self.np_matrix), axis=0) != 0
-        self.np_matrix = self.np_matrix[:,non_zero_monomial] #only keeps the non_zero_monomials
-        self.matrix_terms = self.matrix_terms[non_zero_monomial]
-
     def get_polys_from_matrix(self,rows,reduced_matrix):
         '''
         Takes a list of indicies corresponding to the rows of the reduced matrix and
@@ -491,7 +478,7 @@ class Groebner(object):
             terms[i] = Term(i)
 
         self.matrix_terms = terms.flatten()
-        self.clean_matrix()
+        self.np_matrix, self.matrix_terms = utils.clean_matrix(self.np_matrix, self.matrix_terms)
         self.np_matrix, self.matrix_terms = utils.sort_matrix(self.np_matrix, self.matrix_terms)
 
         self.np_matrix = self.row_swap_matrix(self.np_matrix)
