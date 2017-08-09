@@ -507,7 +507,7 @@ class Groebner(object):
 
         self.matrix_terms = terms.flatten()
         self.clean_matrix()
-        self.sort_matrix()
+        self.np_matrix, self.matrix_terms = utils.sort_matrix(self.np_matrix, self.matrix_terms)
 
         self.np_matrix = self.row_swap_matrix(self.np_matrix)
 
