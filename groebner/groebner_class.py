@@ -178,21 +178,6 @@ class Groebner(object):
             poly.coeff[np.where(abs(poly.coeff) < global_accuracy)] = 0
             self.groebner_basis.append(poly)
 
-    def sort_matrix(self):
-        '''
-        Sorts the matrix into degrevlex order.
-        '''
-        argsort_list, self.matrix_terms = self.argsort(self.matrix_terms)
-        self.np_matrix = self.np_matrix[:,argsort_list]
-
-    def argsort(self, index_list):
-        '''
-        Returns an argsort list for the index, as well as sorts the list in place
-        '''
-        argsort_list = sorted(range(len(index_list)), key=index_list.__getitem__)[::-1]
-        index_list.sort()
-        return argsort_list, index_list[::-1]
-
     def clean_matrix(self):
         '''
         Gets rid of columns in the np_matrix that are all zero.
