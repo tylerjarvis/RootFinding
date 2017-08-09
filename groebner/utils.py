@@ -334,7 +334,8 @@ def get_var_list(dim):
 
 def sorted_polys_monomial(polys):
     '''
-    Sorts the polynomials by the number of monomials they have, the ones with the least amount first.
+    Sorts the polynomials by the number of monomials they have, the ones with
+    the least amount first.
     '''
     num_monomials = list()
     for poly in polys:
