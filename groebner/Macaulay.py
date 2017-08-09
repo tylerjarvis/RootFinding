@@ -8,7 +8,6 @@ from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 from scipy.sparse import csc_matrix, vstack
 from groebner.utils import Term, row_swap_matrix, fill_size, clean_zeros_from_matrix, inverse_P, triangular_solve, divides, fullRank
 import matplotlib.pyplot as plt
-import time
 from collections import defaultdict
 
 def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
@@ -26,12 +25,6 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     Reduced Macaulay matrix that can be passed into the root finder.
     -----------
     """
-    times = {}
-    startTime = time.time()
-    MultiCheb.clearTime()
-    MultiPower.clearTime()
-    Polynomial.clearTime()
-
     Power = bool
     if all([type(p) == MultiPower for p in initial_poly_list]):
         Power = True
@@ -44,48 +37,23 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     poly_coeff_list = []
     degree = find_degree(initial_poly_list)
 
-    startAdding = time.time()
     for i in initial_poly_list:
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
-    endAdding = time.time()
-    times["adding polys"] = (endAdding - startAdding)
 
-    startCreate = time.time()
     matrix, matrix_terms = create_matrix(poly_coeff_list)
-    endCreate = time.time()
-    times["create matrix"] = (endCreate - startCreate)
 
-    startReduce = time.time()
     #rrqr_reduce2 and rrqr_reduce same pretty matched on stability, though I feel like 2 should be better.
     matrix = rrqr_reduce(matrix, global_accuracy = global_accuracy)
     matrix = clean_zeros_from_matrix(matrix)
     non_zero_rows = np.sum(abs(matrix),axis=1) != 0
     matrix = matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
-    endReduce = time.time()
-    times["reduce matrix"] = (endReduce - startReduce)
 
-    #plt.matshow([i==0 for i in matrix])
-
-    startTri = time.time()
     matrix = triangular_solve(matrix)
     matrix = clean_zeros_from_matrix(matrix)
-    endTri = time.time()
-    times["triangular solve"] = (endTri - startTri)
 
-    startGetPolys = time.time()
     rows = get_good_rows(matrix, matrix_terms)
     final_polys = get_polys_from_matrix(rows,matrix,matrix_terms,Power)
-    endGetPolys = time.time()
-    times["get polys"] = (endGetPolys - startGetPolys)
 
-    endTime = time.time()
-    #print("Macaulay run time is {} seconds".format(endTime-startTime))
-    #print(times)
-    #MultiCheb.printTime()
-    #MultiPower.printTime()
-    #Polynomial.printTime()
-    #for poly in final_polys:
-    #    print(poly.lead_term)
     return final_polys
 
 def get_polys_from_matrix(rows,matrix,matrix_terms,power):
