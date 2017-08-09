@@ -379,3 +379,80 @@ def triangular_solve(matrix, matrix_terms = None, reorder = True):
     else:
     # The case where the matrix passed in is a square matrix
         return np.eye(m)
+
+def first_x(s):
+    '''
+    Finds the first position of an 'x' in a string. If there is not x it returns the length of the string.
+    '''
+    for i in range(len(s)):
+        if s[i] == 'x':
+            return i
+    return len(s)
+
+def is_number(s):
+    '''
+    Checks is a string can be converted to a number. Returns True or False.
+    '''
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
+
+def makePolyCoeffMatrix(inputString):
+    '''
+    Takes a string input of a polynomaial and returns the coefficient matrix for it. Usefull for making things of high
+    degree of dimension so you don't have to make it by hand.
+
+    All strings must be of the following syntax. Ex. '3x0^2+2.1x1^2*x2+-14.73x0*x2^3'
+
+    1. There can be no spaces.
+    2. All monomials must be seperated by a '+'. If the coefficient of the monomial is negative then the '-' sign
+       should come after the '+'. This is not needed for the first monomial.
+    3. All variables inside a monomial are seperated by a '*'.
+    4. The power of a variable in a monomial is given folowing a '^' sign.
+    '''
+    matrixSpots = list()
+    coefficients = list()
+    for monomial in inputString.split('+'):
+        coefficientString = monomial[:first_x(monomial)]
+        if coefficientString == '-':
+            coefficient = -1
+        elif coefficientString == '':
+            coefficient = 1
+        else:
+            coefficient = float(coefficientString)
+        mons = monomial[first_x(monomial):].split('*')
+        matrixSpot = np.zeros(1, dtype = int)
+        for mon in mons:
+            stuff = mon.split('^')
+            if len(stuff) == 1:
+                power = 1
+            else:
+                power = int(stuff[1])
+            if stuff[0] == '':
+                varDegree = -1
+            else:
+                varDegree = int(stuff[0][1:])
+            if varDegree != -1:
+                if len(matrixSpot) <= varDegree:
+                    matrixSpot = np.append(matrixSpot, np.zeros(varDegree - len(matrixSpot)+1, dtype = int))
+                matrixSpot[varDegree] = power
+        matrixSpots.append(matrixSpot)
+        coefficients.append(coefficient)
+
+    #Pad the matrix spots so they are all the same length.
+    length = max(len(matrixSpot) for matrixSpot in matrixSpots)
+    for i in range(len(matrixSpots)):
+        matrixSpot = matrixSpots[i]
+        if len(matrixSpot) < length:
+            matrixSpot = np.append(matrixSpot, np.zeros(length - len(matrixSpot), dtype = int))
+            matrixSpots[i] = matrixSpot
+    matrixSize = np.maximum.reduce([matrixSpot for matrixSpot in matrixSpots])
+    matrixSize = matrixSize + np.ones_like(matrixSize)
+    matrix = np.zeros(matrixSize)
+    for i in range(len(matrixSpots)):
+        matrixSpot = matrixSpots[i]
+        coefficient = coefficients[i]
+        matrix[tuple(matrixSpot)] = coefficient
+    return matrix

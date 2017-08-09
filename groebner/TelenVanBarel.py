@@ -8,7 +8,6 @@ from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 from scipy.sparse import csc_matrix, vstack
 from groebner.utils import Term, row_swap_matrix, fill_size, clean_zeros_from_matrix, triangular_solve, divides, get_var_list
 import matplotlib.pyplot as plt
-import time
 from collections import defaultdict
 import gc
 
@@ -27,12 +26,6 @@ def TelenVanBarel(initial_poly_list, global_accuracy = 1.e-10):
     Reduced Macaulay matrix that can be passed into the root finder.
     -----------
     """
-    times = {}
-    startTime = time.time()
-    MultiCheb.clearTime()
-    MultiPower.clearTime()
-    Polynomial.clearTime()
-
     Power = bool
     if all([type(p) == MultiPower for p in initial_poly_list]):
         Power = True
@@ -44,47 +37,22 @@ def TelenVanBarel(initial_poly_list, global_accuracy = 1.e-10):
 
     poly_coeff_list = []
     degree = find_degree(initial_poly_list)
-
-    startAdding = time.time()
     for i in initial_poly_list:
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
-    endAdding = time.time()
-    times["adding polys"] = (endAdding - startAdding)
 
-    startCreate = time.time()
     matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list)
-    endCreate = time.time()
-    times["create matrix"] = (endCreate - startCreate)
-
-    startReduce = time.time()
-    matrix, matrix_terms = rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff,
+    
+    matrix, matrix_terms = rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, 
                                                         global_accuracy = global_accuracy)
     matrix = clean_zeros_from_matrix(matrix)
     non_zero_rows = np.sum(abs(matrix),axis=1) != 0
     matrix = matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
-    endReduce = time.time()
-    times["reduce matrix"] = (endReduce - startReduce)
 
-    #plt.matshow([i==0 for i in matrix])
-
-    startTri = time.time()
     matrix, matrix_terms = triangular_solve(matrix, matrix_terms, reorder = False)
     matrix = clean_zeros_from_matrix(matrix)
-    endTri = time.time()
-    times["triangular solve"] = (endTri - startTri)
-
-    #plt.matshow([i==0 for i in matrix])
-
-    startBasisDict = time.time()
+    
     VB = matrix_terms[matrix.shape[0]:]
     basisDict = makeBasisDict(matrix, matrix_terms, VB)
-    endBasisDict = time.time()
-    times["basisDict"] = (endBasisDict - startBasisDict)
-
-    endTime = time.time()
-    print("TelenVanBarel run time is {} seconds".format(endTime-startTime))
-    print(times)
-    #Polynomial.printTime()
     return basisDict, VB
 
 def makeBasisDict(matrix, matrix_terms, VB):
@@ -175,7 +143,7 @@ def sort_matrix(matrix, matrix_terms):
         mons = term + np.array(var_list)
         if not all(tuple(mon) in matrix_termSet for mon in mons):
             highest.add(term)
-
+    
     var_list = get_var_list(dim)
     var_list.append(tuple(np.zeros(dim, dtype=int)))
     for mon in var_list:
@@ -183,13 +151,13 @@ def sort_matrix(matrix, matrix_terms):
             matrix_terms = np.append(matrix_terms, 0)
             matrix_terms[::-1][0] = mon
             matrix = np.hstack((matrix,np.zeros((matrix.shape[0],1))))
-
+    
     others = set()
     for term in matrix_terms:
         if term not in var_list and term not in highest:
             others.add(term)
     sorted_matrix_terms = list(highest) + list(others) + list(var_list)
-
+    
     order = np.zeros(len(matrix_terms), dtype = int)
     matrix_termsList = list(matrix_terms)
     for i in range(len(matrix_terms)):
@@ -212,7 +180,10 @@ def create_matrix(poly_coeffs):
     '''
     #Gets an empty polynomial whose lm all other polynomial divide into.
     bigShape = np.maximum.reduce([p.shape for p in poly_coeffs])
-
+    
+    #print(np.product(bigShape))
+    #print(len(poly_coeffs))
+    
     #Gets a list of all the flattened polynomials.
     flat_polys = list()
     for coeff in poly_coeffs:
@@ -229,10 +200,10 @@ def create_matrix(poly_coeffs):
     for i,j in np.ndenumerate(terms):
         terms[i] = i
     matrix_terms = terms.ravel()
-
+        
     #Gets rid of any columns that are all 0.
     matrix, matrix_terms = clean_matrix(matrix, matrix_terms)
-
+    
     #Sorts the matrix and matrix_terms by term order.
     matrix, matrix_terms, matrix_shape_stuff = sort_matrix(matrix, matrix_terms)
 
@@ -253,18 +224,18 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, clean = F
     diff = half - highest_num
     highest_num += diff
     others_num -= diff
-
+    
     highest = matrix_terms[:highest_num]
     others = matrix_terms[highest_num:highest_num+others_num]
     xs = matrix_terms[highest_num+others_num:]
-
+    
     Highs = matrix[:,:highest_num]
     Others = matrix[:,highest_num:]
     Q1,R1,P1 = qr(Highs, pivoting = True)
-
+    
     matrix[:,:highest_num] = R1
     matrix[:,highest_num:] = Q1.T@Others
-
+    
     C = matrix[:highest_num,highest_num:highest_num+others_num]
     E = matrix[highest_num:,highest_num:highest_num+others_num]
     Mlow = matrix[highest_num:,highest_num+others_num:]
@@ -273,7 +244,7 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, clean = F
     matrix[:highest_num,highest_num:highest_num+others_num] = C[:,P]
     matrix[highest_num:,highest_num:highest_num+others_num] = R
     matrix[highest_num:,highest_num+others_num:] = Q.T@Mlow
-
+        
     non_zero_rows = np.sum(abs(matrix[:,:highest_num+others_num]),axis=1) > global_accuracy
     matrix = matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
     non_zero_rows = list()
@@ -281,7 +252,7 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, clean = F
         if abs(matrix[i][i]) > global_accuracy:
             non_zero_rows.append(i)
     matrix = matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
-
+    
     highest = list(np.array(highest)[P1])
     others = list(np.array(others)[P])
     matrix_termsTemp = highest+others+xs
@@ -289,5 +260,5 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, clean = F
     matrix_terms = list()
     for i in matrix_termsTemp:
         matrix_terms.append(tuple(i))
-
+    
     return matrix, matrix_terms
