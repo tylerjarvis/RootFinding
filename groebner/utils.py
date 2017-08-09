@@ -487,3 +487,52 @@ def makePolyCoeffMatrix(inputString):
         coefficient = coefficients[i]
         matrix[tuple(matrixSpot)] = coefficient
     return matrix
+
+def sort_matrix(matrix, matrix_terms):
+    '''Sort matrix columns by some term order.
+
+    Sorts the matrix columns into whichever order is defined on the term objects
+    in matrix_terms (usually grevlex).
+
+    Parameters
+    ----------
+    matrix : 2D numpy array
+        The matrix with rows corresponding to polynomials, columns
+        corresponding to monomials, and each entry is a coefficient.
+    matrix_terms : array-like, contains Term objects
+        Contains the monomial labels for the matrix columns in order, i.e., if
+        the first column of matrix corresponds to the monomial x^2, then
+        matrix_terms[0] is Term(x^2).
+
+    Returns
+    -------
+    ordered_matrix : 2D numpy array
+        The same matrix as was input, but now with the columns switched so they
+        are in order.
+    matrix_terms : array-like, contains Term objects
+        Same as the input, but now ordered.
+    '''
+
+    argsort_list, matrix_terms = argsort(matrix_terms)
+    ordered_matrix = matrix[:,argsort_list]
+    return ordered_matrix, matrix_terms
+
+def argsort(list_):
+    '''Sort the given list into decreasing order.
+
+    Parameters
+    ----------
+    list_ : list
+        The list to be sorted.
+
+    Returns
+    -------
+    argsort_list : list
+        A list of the old indexes in their new places. For example, if
+        [3,1,4] was sorted to be [4,3,1], then argsort_list would be [2,0,1]
+    list_ : list
+        The same list as was input, but now in decreasing order.
+    '''
+    argsort_list = sorted(range(len(list_)), key=list_.__getitem__)[::-1]
+    list_.sort()
+    return argsort_list, list_[::-1]
