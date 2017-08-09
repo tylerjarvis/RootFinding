@@ -410,7 +410,7 @@ def triangular_solve(matrix, matrix_terms = None, reorder = True):
     else:
     # The case where the matrix passed in is a square matrix
         return np.eye(m)
-    
+
 def first_x(s):
     '''
     Finds the first position of an 'x' in a string. If there is not x it returns the length of the string.
