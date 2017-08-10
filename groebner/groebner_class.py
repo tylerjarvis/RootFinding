@@ -300,20 +300,6 @@ class Groebner(object):
             if mon not in self.lead_term_set: #Adds every monomial that isn't a lead term to the heap
                 self.monheap.heappush(mon)
 
-    def sorted_polys_coeff(self):
-        '''
-        Sorts the polynomials by how much bigger the leading coefficient is than the rest of the coeff matrix.
-        '''
-        polys = self.new_polys+self.old_polys
-        lead_coeffs = list()
-        for poly in polys:
-            lead_coeffs.append(abs(poly.lead_coeff)/np.sum(np.abs(poly.coeff))) #The lead_coeff to other stuff ratio.
-        argsort_list = sorted(range(len(lead_coeffs)), key=lead_coeffs.__getitem__)[::-1]
-        sorted_polys = list()
-        for i in argsort_list:
-            sorted_polys.append(polys[i])
-        return sorted_polys
-
     def calc_r(self, m, sorted_polys):
         '''
         Finds the r polynomial that has a leading monomial m.
@@ -342,7 +328,7 @@ class Groebner(object):
         with leading terms that divide it and add them to the matrix.
         '''
         self._build_maxheap()
-        sorted_polys = self.sorted_polys_coeff()
+        sorted_polys = utils.sorted_polys_coeff(self.new_polys+self.old_polys)
         while len(self.monheap) > 0:
             m = list(self.monheap.heappop().val)
             r = self.calc_r(m,sorted_polys)

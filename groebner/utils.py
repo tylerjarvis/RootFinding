@@ -246,6 +246,55 @@ def lcm(a,b):
     '''
     return np.maximum(a.lead_term, b.lead_term)
 
+def sorted_polys_coeff(polys):
+    '''Sorts the polynomials by how much bigger the leading coefficient is than
+    the rest of the coeff matrix.
+
+    Parameters
+    ----------
+    polys : array-like
+        Contains polynomial objects to sort.
+
+    Returns
+    -------
+    sorted_polys : list
+        The polynomial objects in order of lead coefficient to everything else
+        ratio.
+
+    '''
+
+    # The lead_coeff to other stuff ratio.
+    lead_coeffs = [abs(poly.lead_coeff)/np.sum(np.abs(poly.coeff)) for poly in polys]
+
+    argsort_list = argsort(lead_coeffs)[0]
+    sorted_polys = list()
+    for i in argsort_list:
+        sorted_polys.append(polys[i])
+
+    return sorted_polys
+
+def argsort(list_):
+    '''Sort the given list into decreasing order.
+
+    Parameters
+    ----------
+    list_ : list
+        The list to be sorted.
+
+    Returns
+    -------
+    argsort_list : list
+        A list of the old indexes in their new places. For example, if
+        [3,1,4] was sorted to be [4,3,1], then argsort_list would be [2,0,1]
+    list_ : list
+        The same list as was input, but now in decreasing order.
+
+    '''
+
+    argsort_list = sorted(range(len(list_)), key=list_.__getitem__)[::-1]
+    list_.sort()
+    return argsort_list, list_[::-1]
+
 def sorted_polys_monomial(polys):
     '''
     Sorts the polynomials by the number of monomials they have, the ones with the least amount first.
@@ -270,19 +319,6 @@ def sorted_polys_monomial(polys):
     sorted_polys = [polys(i) for i in argsort_list]
 
     return sorted_polys
-
-
-def argsort(index_list):
-    '''
-    Returns an argsort list for the index, as well as sorts the list in place
-
-    !!! This could be combined with sorted_polys_monomial to avoid repetitive code.
-
-    '''
-
-    argsort_list = sorted(range(len(index_list)), key=index_list.__getitem__)[::-1]
-    return argsort_list, index_list.sort()[::-1]
-
 
 def calc_r(m, sorted_polys):
     '''
@@ -582,23 +618,3 @@ def sort_matrix(matrix, matrix_terms):
     argsort_list, matrix_terms = argsort(matrix_terms)
     ordered_matrix = matrix[:,argsort_list]
     return ordered_matrix, matrix_terms
-
-def argsort(list_):
-    '''Sort the given list into decreasing order.
-
-    Parameters
-    ----------
-    list_ : list
-        The list to be sorted.
-
-    Returns
-    -------
-    argsort_list : list
-        A list of the old indexes in their new places. For example, if
-        [3,1,4] was sorted to be [4,3,1], then argsort_list would be [2,0,1]
-    list_ : list
-        The same list as was input, but now in decreasing order.
-    '''
-    argsort_list = sorted(range(len(list_)), key=list_.__getitem__)[::-1]
-    list_.sort()
-    return argsort_list, list_[::-1]

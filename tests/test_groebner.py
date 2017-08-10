@@ -295,21 +295,3 @@ def test_init_():
     D = MultiCheb(np.array([[-1,0,0],[0,1,0],[1,0,0]]))
     with pytest.raises(ValueError):
         grob = Groebner([C,D])
-
-def test_sorted_polys_coeff():
-    A = MultiPower(np.array([[2,0,-3,0,0],
-                         [0,1,0,0,0],
-                         [-2,0,0,0,0],
-                         [0,0,4,0,0],
-                         [0,0,0,0,-2]]))
-    B = MultiPower(np.array([[3,0,-5,0,0,4,2,-6,3,-6],
-                         [-2,0,-1,1,-1,4,2,-6,-5,-2],
-                         [-1,3,2,-2,0,4,-1,-2,-4,6],
-                         [4,2,5,9,0,3,2,-1,-3,-3],
-                         [3,-3,-5,-2,0,4,-2,2,1,-6]]))
-    grob = Groebner([A,B])
-    assert(list((A,B)) == grob.sorted_polys_coeff())
-
-    C = MultiPower(np.array([[1]]))
-    grob = Groebner([A,B,C])
-    assert(list((C,A,B)) == grob.sorted_polys_coeff())
