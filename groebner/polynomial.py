@@ -503,6 +503,19 @@ class MultiPower(Polynomial):
             return np.pad(self.coeff, tuple1, 'constant', constant_values = 0)
 
     def evaluate_at(self, point):
+        """
+        Evaluates a polynomial at a given point.
+
+        Parameters
+        ----------
+        point : array_like
+            The point to be evaluated at in a polynomial.
+
+        Returns
+        ----------
+        float
+            The result of plugging a point into a polynomial.
+        """
         super(MultiPower, self).evaluate_at(point)
         if self.dim == 2:
             return poly.polyval2d(point[0],point[1],self.coeff)
@@ -531,12 +544,19 @@ class MultiPower(Polynomial):
 
 def conv_cheb(T):
     """
-    Convert a chebyshev polynomial to the power basis representation.
-    Args:
-        T (): The chebyshev polynomial to convert.
-    Returns:
-        new_conv (): The chebyshev polynomial converted to the power basis representation.
+    Convert a chebyshev polynomial to the power basis representation in one dimension.
 
+    Parameters
+    ----------
+    T : array_like
+        A one dimensional array_like object that represents the coeff of a
+        Chebyshev polynomial.
+
+    Returns
+    ----------
+    ndarray
+        A one dimensional array that represents the coeff of a power basis polynomial.
+        
     """
     conv = cheb.cheb2poly(T)
     if conv.size == T.size:
@@ -550,11 +570,16 @@ def conv_poly(P):
     """
     Convert a standard polynomial to a chebyshev polynomial in one dimension.
 
-    Args:
-        P (): The standard polynomial to be converted.
+    Parameters
+    ----------
+    P : array_like
+        A one dimensional array_like object that represents the coeff of a
+        power basis polynomial.
 
-    Returns:
-        new_conv (): The chebyshev polynomial.
+    Returns
+    ----------
+    ndarray
+        A one dimensional array that represents the coeff of a Chebyshev polynomial.
 
     """
     conv = cheb.poly2cheb(P)
@@ -569,6 +594,13 @@ def cheb2poly(T):
     """
     Convert a chebyshev polynomial to a standard polynomial in multiple dimensions.
 
+    Parameters
+    ----------
+    T : MultiCheb object
+
+    Returns
+    ----------
+    MultiPower object
     """
     dim = len(T.shape)
     A = T.coeff
@@ -580,11 +612,14 @@ def poly2cheb(P):
     """
     Convert a standard polynomial to a chebyshev polynomial in multiple dimensions.
 
-    Args:
-        P (): The multi-dimensional standard polynomial. (tensor?)
+    Parameters
+    ----------
+    P : MultiPower object
 
     Returns:
-        (MultiCheb): The multi-dimensional chebyshev polynomial.
+    ----------
+    MultiCheb object
+        The multi-dimensional chebyshev polynomial.
 
     """
     dim = len(P.shape)
