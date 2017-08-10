@@ -160,10 +160,10 @@ def clean_matrix(matrix, matrix_terms, set_zeros=False, accuracy=1.e-10):
         to monomials, and entries corresponding to coefficients.
     matrix_terms : array-like, contains Term objects
         The column labels for matrix in order.
-    set_zeros : bool
+    set_zeros : bool, optional
         If true, all entries in the matrix that are within accuracy of 0 will
         be set to 0.
-    accuracy : float
+    accuracy : float, optional
         How close entries should be to 0 for them to be set to 0 (only applies
         if set_zeros is True).
 
@@ -204,60 +204,31 @@ def divides(mon1, mon2):
     '''
     return all(np.subtract(mon2, mon1) >= 0)
 
-# def get_polys_from_matrix(matrix, matrix_terms, rows, power=False, clean=False, accuracy=1.e-10):
-    # '''Creates polynomial objects from the specified rows of the given matrix.
-    #
-    # Parameters
-    # ----------
-    # matrix : 2D numpy array
-    #     The matrix with rows corresponding to polynomials, columns corresponding
-    #     to monomials, and entries corresponding to coefficients.
-    # matrix_terms : array-like, contains Term objects
-    #     The column labels for matrix in order.
-    # rows : iterable, contains integers
-    #     The rows for which to create polynomial objects.
-    # power : bool
-    #     If true, the polynomials returned will be MultiPower objects.
-    #     Otherwise, they will be MultiCheb.
-    # clean : bool
-    #     If true, any row whose absolute sum is less than accuracy will not be
-    #     converted to a polynomial object.
-    # accuracy : float
-    #     Any row whose absolute sum is less than this value will not be
-    #     converted to polynomial objects if clean is True.
-    #
-    # Returns
-    # -------
-    # poly_list : list
-    #     Polynomial objects corresponding to the specified rows.
-    #
-    # '''
-#     shape = []
-#     poly_list = []
-#     matrix_term_vals = [term.val for term in matrix_terms]
-#
-#     # Finds the maximum size needed for each of the poly coeff tensors
-#     for i in range(len(matrix_term_vals[0])):
-#         # add 1 to each dimension to compensate for constant term
-#         shape.append(max(matrix_term_vals, key=itemgetter(i))[i]+1)
-#     # Grabs each polynomial, makes coeff matrix and constructs object
-#     for i in rows:
-#         p = matrix[i]
-#         if clean:
-#             if np.sum(np.abs(p)) < accuracy:
-#                 continue
-#         coeff = np.zeros(shape)
-#         for j,term in enumerate(matrix_term_vals):
-#             coeff[term] = p[j]
-#
-#         if power:
-#             poly = MultiPower(coeff)
-#         else:
-#             poly = MultiCheb(coeff)
-#
-#         if poly.lead_term != None:
-#             poly_list.append(poly)
-#     return poly_list
+def inverse_P(P):
+    '''The inverse of P, the array with column switching indexes.
+
+    Parameters
+    ----------
+    P : array-like
+        1D array P returned by scipy's QRP decomposition.
+
+    Returns
+    -------
+    1D numpy array
+        The indexes needed to switch the columns back to their original
+        positions.
+
+    See Also
+    --------
+    scipy.linalg.qr : QR decomposition (with pivoting=True)
+
+    '''
+
+    # The elementry matrix that flips the columns of given matrix.
+    M_P= np.eye(len(P))[:,P]
+    # This finds the index that equals 1 of each row of P.
+    #(This is what we want since we want the index of 1 at each column of P.T)
+    return np.where(M_P==1)[1]
 
 def sorted_polys_monomial(polys):
     '''
@@ -402,18 +373,6 @@ def fullRank(matrix, accuracy=1.e-10):
         independentRows = P1[R1.shape[0]:] #Other Columns
         dependentRows = P1[:R1.shape[0]] #Pivot Columns
         return independentRows,dependentRows,Q
-
-def inverse_P(p):
-    '''
-    Takes in the one dimentional array of column switching.
-    Returns the one dimentional array of switching it back.
-
-    '''
-    # The elementry matrix that flips the columns of given matrix.
-    P = np.eye(len(p))[:,p]
-    # This finds the index that equals 1 of each row of P.
-    #(This is what we want since we want the index of 1 at each column of P.T)
-    return np.where(P==1)[1]
 
 def get_var_list(dim):
     _vars = [] # list of the variables: [x_1, x_2, ..., x_n]

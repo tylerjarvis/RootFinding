@@ -1,6 +1,7 @@
 # imports from groebner
 from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 from groebner.utils import Term
+import groebner.utils as utils
 
 # other imports
 from operator import itemgetter
@@ -167,10 +168,10 @@ def get_polys_from_matrix(matrix, matrix_terms, rows, power=False, clean=False, 
     power : bool
         If true, the polynomials returned will be MultiPower objects.
         Otherwise, they will be MultiCheb.
-    clean : bool
+    clean : bool, optional
         If true, any row whose absolute sum is less than accuracy will not be
         converted to a polynomial object.
-    accuracy : float
+    accuracy : float, optional
         Any row whose absolute sum is less than this value will not be
         converted to polynomial objects if clean is True.
 
@@ -206,10 +207,6 @@ def get_polys_from_matrix(matrix, matrix_terms, rows, power=False, clean=False, 
         if poly.lead_term != None:
             p_list.append(poly)
     return p_list
-
-def inverse_P(p):
-    P = np.eye(len(p))[:,p]
-    return np.where(P==1)[1]
 
 def Macaulay(initial_poly_list, powerbasis=True, global_accuracy = 1.e-10):
     """
@@ -307,7 +304,7 @@ def rrqr_reduce(matrix, clean = False, global_accuracy = 1.e-10):
     A = matrix[:height,:height] #Get the square submatrix
     B = matrix[:,height:] #The rest of the matrix to the right
     Q,R,P = qr(A, pivoting = True) #rrqr reduce it
-    PT = inverse_P(P)
+    PT = utils.inverse_P(P)
     diagonals = np.diagonal(R) #Go along the diagonals to find the rank
     rank = np.sum(np.abs(diagonals)>global_accuracy)
     if rank == height: #full rank, do qr on it
@@ -397,7 +394,7 @@ def triangular_solve(matrix):
         solver = np.hstack((np.eye(X.shape[0]),X))
 
         # Find the order to reverse the columns back.
-        order = inverse_P(order_c+order_d)
+        order = utils.inverse_P(order_c+order_d)
 
         # Reverse the columns back.
         solver = solver[:,order]

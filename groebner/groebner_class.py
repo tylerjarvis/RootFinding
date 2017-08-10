@@ -575,7 +575,7 @@ class Groebner(object):
         A = matrix[:height,:height] #Get the square submatrix
         B = matrix[:,height:] #The rest of the matrix to the right
         Q,R,P = qr(A, pivoting = True) #rrqr reduce it
-        PT = self.inverse_P(P)
+        PT = utils.inverse_P(P)
         diagonals = np.diagonal(R) #Go along the diagonals to find the rank
         rank = np.sum(np.abs(diagonals)>global_accuracy)
         if clean:
@@ -610,17 +610,6 @@ class Groebner(object):
             return reduced_matrix
         else:
             return self.clean_zeros_from_matrix(reduced_matrix)
-
-    def inverse_P(self,p):
-        '''
-        Takes in the one dimentional array of column switching.
-        Returns the one dimentional array of switching it back.
-        '''
-        # The elementry matrix that flips the columns of given matrix.
-        P = np.eye(len(p))[:,p]
-        # This finds the index that equals 1 of each row of P.
-        #(This is what we want since we want the index of 1 at each column of P.T)
-        return np.where(P==1)[1]
 
     def triangular_solve(self,matrix):
         " Reduces the upper block triangular matrix. "
@@ -667,7 +656,7 @@ class Groebner(object):
             solver = np.hstack((np.eye(X.shape[0]),X))
 
             # Find the order to reverse the columns back.
-            order = self.inverse_P(order_c+order_d)
+            order = utils.inverse_P(order_c+order_d)
 
             # Reverse the columns back.
             solver = solver[:,order]
