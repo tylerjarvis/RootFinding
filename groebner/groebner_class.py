@@ -216,17 +216,28 @@ class Groebner(object):
         '''
         Calculates the phi-polynomial's of the polynomials a and b.
 
-        Phi polynomials are defined to be:
-        (lcm(LT(a), LT(b)) / LT(a)) * a and
-        (lcm(LT(a), LT(b)) / LT(b)) * b
+        Parameters
+        ----------
+        a, b : Polynomial objects
+
+        Returns
+        -------
+        2 Polynomial objects
+            The calculated phi polynomials for a and b.
+
+        Notes
+        -----
+        Phi polynomials are defined to be
+        .. math::
+            \frac{lcm(LT(a), LT(b))}_{LT(a)} * a\\
+            \frac{lcm(LT(a), LT(b))}_{LT(b)} * b
 
         The reasoning behind this definition is that both phis will have the
         same leading term so they can be linearly reduced to produce a new,
         smaller polynomial in the ideal.
 
-        Returns:
-            A tuple of the calculated phi's.
         '''
+
         lcm = utils.lcm(a,b)
 
         a_diff = tuple([i-j for i,j in zip(lcm, a.lead_term)])
