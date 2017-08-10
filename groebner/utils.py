@@ -220,7 +220,7 @@ def inverse_P(P):
 
     See Also
     --------
-    scipy.linalg.qr : QR decomposition (with pivoting=True)
+    scipy.linalg.qr : QR decomposition (with pivoting=True).
 
     '''
 
