@@ -212,38 +212,6 @@ class Groebner(object):
         for p in p_list:
             self._add_poly_to_matrix(p)
 
-    def calc_phi(self,a,b):
-        '''
-        Calculates the phi-polynomial's of the polynomials a and b.
-
-        Parameters
-        ----------
-        a, b : Polynomial objects
-
-        Returns
-        -------
-        2 Polynomial objects
-            The calculated phi polynomials for a and b.
-
-        Notes
-        -----
-        Phi polynomials are defined to be
-        .. math::
-            \frac{lcm(LT(a), LT(b))}_{LT(a)} * a\\
-            \frac{lcm(LT(a), LT(b))}_{LT(b)} * b
-
-        The reasoning behind this definition is that both phis will have the
-        same leading term so they can be linearly reduced to produce a new,
-        smaller polynomial in the ideal.
-
-        '''
-
-        lcm = utils.lcm(a,b)
-
-        a_diff = tuple([i-j for i,j in zip(lcm, a.lead_term)])
-        b_diff = tuple([i-j for i,j in zip(lcm, b.lead_term)])
-        return a.mon_mult(a_diff), b.mon_mult(b_diff)
-
     def add_phi_to_matrix(self,phi = True):
         '''
         Takes all new possible combinations of phi polynomials and adds them to the Groebner Matrix
@@ -264,7 +232,7 @@ class Groebner(object):
             i,j = all_index_combinations.pop()
             if self.phi_criterion(i,j,all_index_combinations,phi):
                 #calculate the phi's.
-                phi_a , phi_b = self.calc_phi(all_polys[i],all_polys[j])
+                phi_a , phi_b = gsolve.calc_phi(all_polys[i],all_polys[j])
                 # add the phi's on to the Groebner Matrix.
                 self._add_poly_to_matrix(phi_a)
                 self._add_poly_to_matrix(phi_b)
