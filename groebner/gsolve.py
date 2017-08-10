@@ -59,9 +59,9 @@ def calc_phi(a,b):
 
     lcm = utils.lcm(a,b)
 
-    a_diff = tuple([i-j for i,j in zip(lcm, a.lead_term)])
-    b_diff = tuple([i-j for i,j in zip(lcm, b.lead_term)])
-    return a.mon_mult(a_diff), b.mon_mult(b_diff)
+    a_quo = utils.quotient(lcm, a.lead_term)
+    b_quo = utils.quotient(lcm, b.lead_term)
+    return a.mon_mult(a_quo), b.mon_mult(b_quo)
 
 def calc_r(m, polys):
     '''Calculates an r polynomial that has a leading monomial m.
@@ -96,7 +96,7 @@ def calc_r(m, polys):
 
     for poly in polys:
         LT_p = list(poly.lead_term)
-        if len(LT_p) == len(m) and utils.divides(LT_p, m): #Checks to see if LT_p divides m
+        if len(LT_p) == len(m) and utils.divides(LT_p, m):
             quotient = utils.quotient(m, LT_p)
             if not LT_p == m: #Make sure c isn't all 0
                 return poly.mon_mult(quotient)

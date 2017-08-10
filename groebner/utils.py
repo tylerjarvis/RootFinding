@@ -149,6 +149,50 @@ class MinHeap(MaxHeap):
     def __repr__(self):
         return('A min heap of {} unique terms with the DegRevLex term order.'.format(len(self)))
 
+def argsort_dec(list_):
+    '''Sort the given list into decreasing order.
+
+    Parameters
+    ----------
+    list_ : list
+        The list to be sorted.
+
+    Returns
+    -------
+    argsort_list : list
+        A list of the old indexes in their new places. For example, if
+        [3,1,4] was sorted to be [4,3,1], then argsort_list would be [2,0,1]
+    list_ : list
+        The same list as was input, but now in decreasing order.
+
+    '''
+
+    argsort_list = sorted(range(len(list_)), key=list_.__getitem__)[::-1]
+    list_.sort()
+    return argsort_list, list_[::-1]
+
+def argsort_inc(list_):
+    '''Sort the given list into increasing order.
+
+    Parameters
+    ----------
+    list_ : list
+        The list to be sorted.
+
+    Returns
+    -------
+    argsort_list : list
+        A list of the old indexes in their new places. For example, if
+        [3,1,4] was sorted to be [1,3,4], then argsort_list would be [1,0,2]
+    list_ : list
+        The same list as was input, but now in increasing order.
+
+    '''
+
+    argsort_list = sorted(range(len(list_)), key=list_.__getitem__)
+    list_.sort()
+    return argsort_list, list_
+
 def clean_matrix(matrix, matrix_terms, set_zeros=False, accuracy=1.e-10):
     '''Removes columns in the matrix that are all zero along with associated
     terms in matrix_terms.
@@ -260,7 +304,7 @@ def quotient(a, b):
 
     '''
 
-    return [j-i for j,i in zip(a, b)]
+    return [i-j for i,j in zip(a, b)]
 
 def sorted_polys_coeff(polys):
     '''Sorts the polynomials by how much bigger the leading coefficient is than
@@ -282,76 +326,43 @@ def sorted_polys_coeff(polys):
     # The lead_coeff to other stuff ratio.
     lead_coeffs = [abs(poly.lead_coeff)/np.sum(np.abs(poly.coeff)) for poly in polys]
 
-    argsort_list = argsort(lead_coeffs)[0]
-    sorted_polys = list()
-    for i in argsort_list:
-        sorted_polys.append(polys[i])
+    argsort_list = argsort_dec(lead_coeffs)[0]
+    sorted_polys = [polys[i] for i in argsort_list]
 
     return sorted_polys
 
-def argsort(list_):
-    '''Sort the given list into decreasing order.
+def sorted_polys_monomial(polys):
+    '''Sorts the polynomials by the number of monomials they have, the ones
+    with the least amount first.
 
     Parameters
     ----------
-    list_ : list
-        The list to be sorted.
+    polys : array-like, contains polynomial objects !!! Is it a list or could it be any iterable?
+        Polynomials to be sorted
 
     Returns
     -------
-    argsort_list : list
-        A list of the old indexes in their new places. For example, if
-        [3,1,4] was sorted to be [4,3,1], then argsort_list would be [2,0,1]
-    list_ : list
-        The same list as was input, but now in decreasing order.
-
-    '''
-
-    argsort_list = sorted(range(len(list_)), key=list_.__getitem__)[::-1]
-    list_.sort()
-    return argsort_list, list_[::-1]
-
-def sorted_polys_monomial(polys):
-    '''
-    Sorts the polynomials by the number of monomials they have, the ones with the least amount first.
-
-    polys (list-like): !!! Is it a list or could it be any iterable?
+    sorted_polys : list
+        Polynomials in order.
 
     '''
 
     # A list to contain the number of monomials with non zero coefficients.
     num_monomials = []
-    for p in polys:
-        # Grab all the coefficients in the tensor that are non zero.
-        # !!! Why are we only getting index 0?
-        n = len(np.where(p.coeff != 0)[0])
-        num_monomials.append(n)
+    for poly in polys:
+        # This gets the length of the list of first indexes, since
+        # that is number of non-zero coefficients in the coefficient array.
+        # See documentation for np.where
+        num_monomials.append(len(np.where(poly.coeff != 0)[0]))
 
     # Generate a sorted index based on num_monomials.
     # TODO: I'm pretty sure there is a numpy function that does this already.
-    argsort_list = sorted(range(len(num_monomials)), key=num_monomials.__getitem__)[::]
+    argsort_list = argsort_inc(num_monomials)[0]
 
     # Sort the polynomials according to the index argsort_list.
-    sorted_polys = [polys(i) for i in argsort_list]
+    sorted_polys = [polys[i] for i in argsort_list]
 
     return sorted_polys
-
-def calc_r(m, sorted_polys):
-    '''
-    Finds the r polynomial that has a leading monomial m.
-    Returns the polynomial.
-
-    '''
-
-    for p in sorted_polys:
-        l = list(p.lead_term)
-        # Check to see if l divides m
-        if all([i<=j for i,j in zip(l,m)]) and len(l) == len(m):
-            # !!! i-j is used in the divide() method, not j-i. Is this a problem?
-            c = [j-i for i,j in zip(l,m)]
-            if l != m: # Make sure c isn't all 0
-                return p.mon_mult(c)
-
 
 def row_swap_matrix(matrix):
     '''
@@ -365,7 +376,7 @@ def row_swap_matrix(matrix):
             lms.append(j)
             last_i = i
     # !!! Repetition of previous code.
-    argsort_list = sorted(range(len(lms)), key=lms.__getitem__)[::]
+    argsort_list = argsort_inc(lms)[0]
     return matrix[argsort_list]
 
 
@@ -450,19 +461,7 @@ def get_var_list(dim):
         _vars.append(tuple(var))
     return _vars
 
-def sorted_polys_monomial(polys):
-    '''
-    Sorts the polynomials by the number of monomials they have, the ones with
-    the least amount first.
-    '''
-    num_monomials = list()
-    for poly in polys:
-        num_monomials.append(len(np.where(poly.coeff != 0)[0]))
-    argsort_list = sorted(range(len(num_monomials)), key=num_monomials.__getitem__)[::]
-    sorted_polys = list()
-    for i in argsort_list:
-        sorted_polys.append(polys[i])
-    return sorted_polys
+
 
 def triangular_solve(matrix, matrix_terms = None, reorder = True):
     """
@@ -631,6 +630,6 @@ def sort_matrix(matrix, matrix_terms):
         Same as the input, but now ordered.
     '''
 
-    argsort_list, matrix_terms = argsort(matrix_terms)
+    argsort_list, matrix_terms = argsort_dec(matrix_terms)
     ordered_matrix = matrix[:,argsort_list]
     return ordered_matrix, matrix_terms
