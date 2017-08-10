@@ -176,7 +176,7 @@ def clean_matrix(matrix, matrix_terms, set_zeros=False, accuracy=1.e-10):
         removed.
 
     '''
-    
+
     ##This would replace all small values in the matrix with 0.
     if set_zeros:
         matrix[np.where(abs(matrix) < accuracy)]=0
@@ -203,6 +203,61 @@ def divides(mon1, mon2):
         true if mon1 divides mon2, false otherwise
     '''
     return all(np.subtract(mon2, mon1) >= 0)
+
+# def get_polys_from_matrix(matrix, matrix_terms, rows, power=False, clean=False, accuracy=1.e-10):
+    # '''Creates polynomial objects from the specified rows of the given matrix.
+    #
+    # Parameters
+    # ----------
+    # matrix : 2D numpy array
+    #     The matrix with rows corresponding to polynomials, columns corresponding
+    #     to monomials, and entries corresponding to coefficients.
+    # matrix_terms : array-like, contains Term objects
+    #     The column labels for matrix in order.
+    # rows : iterable, contains integers
+    #     The rows for which to create polynomial objects.
+    # power : bool
+    #     If true, the polynomials returned will be MultiPower objects.
+    #     Otherwise, they will be MultiCheb.
+    # clean : bool
+    #     If true, any row whose absolute sum is less than accuracy will not be
+    #     converted to a polynomial object.
+    # accuracy : float
+    #     Any row whose absolute sum is less than this value will not be
+    #     converted to polynomial objects if clean is True.
+    #
+    # Returns
+    # -------
+    # poly_list : list
+    #     Polynomial objects corresponding to the specified rows.
+    #
+    # '''
+#     shape = []
+#     poly_list = []
+#     matrix_term_vals = [term.val for term in matrix_terms]
+#
+#     # Finds the maximum size needed for each of the poly coeff tensors
+#     for i in range(len(matrix_term_vals[0])):
+#         # add 1 to each dimension to compensate for constant term
+#         shape.append(max(matrix_term_vals, key=itemgetter(i))[i]+1)
+#     # Grabs each polynomial, makes coeff matrix and constructs object
+#     for i in rows:
+#         p = matrix[i]
+#         if clean:
+#             if np.sum(np.abs(p)) < accuracy:
+#                 continue
+#         coeff = np.zeros(shape)
+#         for j,term in enumerate(matrix_term_vals):
+#             coeff[term] = p[j]
+#
+#         if power:
+#             poly = MultiPower(coeff)
+#         else:
+#             poly = MultiCheb(coeff)
+#
+#         if poly.lead_term != None:
+#             poly_list.append(poly)
+#     return poly_list
 
 def sorted_polys_monomial(polys):
     '''
