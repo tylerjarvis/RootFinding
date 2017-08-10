@@ -63,6 +63,46 @@ def calc_phi(a,b):
     b_diff = tuple([i-j for i,j in zip(lcm, b.lead_term)])
     return a.mon_mult(a_diff), b.mon_mult(b_diff)
 
+def calc_r(m, polys):
+    '''Calculates an r polynomial that has a leading monomial m.
+
+    Parameters
+    ----------
+    m : array-like
+        The leading monomial that the r polynomial should have.
+    polys : array-like
+        Contains polynomial objects from which to create the r polynomial.
+
+    Returns
+    -------
+    Polynomial object or None
+        If no polynomial divides m, returns None. Otherwise, returns
+        the r polynomial with leading monomial m.
+
+    Notes
+    -----
+    The r polynomial corresponding to m is defined as follows:
+
+        Find a polynomial p such that the leading monomial of p divides m.
+        Then the r polynomial is
+
+        .. math::
+            r = \frac{m}_{LT(p)} * p
+
+    The reason we use r polynomials is because now any polynomial with
+    m as a term will be linearly reduced by r.
+
+    '''
+
+    for poly in polys:
+        LT_p = list(poly.lead_term)
+        if len(LT_p) == len(m) and utils.divides(LT_p, m): #Checks to see if LT_p divides m
+            quotient = utils.quotient(m, LT_p)
+            if not LT_p == m: #Make sure c isn't all 0
+                return poly.mon_mult(quotient)
+
+    return None
+
 def clean_matrix(matrix, matrix_terms):
     '''
     Gets rid of columns in the matrix that are all zero and returns it and the updated matrix_terms.

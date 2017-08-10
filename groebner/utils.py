@@ -246,6 +246,22 @@ def lcm(a,b):
     '''
     return np.maximum(a.lead_term, b.lead_term)
 
+def quotient(a, b):
+    '''Finds the quotient of monomials a and b, that is, a / b.
+
+    Parameters
+    ----------
+    a, b : array-like, the monomials to divide
+
+    Returns
+    -------
+    list
+        The quotient a / b
+
+    '''
+
+    return [j-i for j,i in zip(a, b)]
+
 def sorted_polys_coeff(polys):
     '''Sorts the polynomials by how much bigger the leading coefficient is than
     the rest of the coeff matrix.

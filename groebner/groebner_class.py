@@ -300,27 +300,6 @@ class Groebner(object):
             if mon not in self.lead_term_set: #Adds every monomial that isn't a lead term to the heap
                 self.monheap.heappush(mon)
 
-    def calc_r(self, m, sorted_polys):
-        '''
-        Finds the r polynomial that has a leading monomial m.
-
-        The r polynomials are defined as follows:
-            First look at all monomials that are not leading terms. For each one
-            of those monomials m, if there is a polynoial p that divides it,
-            calculate r = (m / LT(p)) * p. This is the r polynomial
-            corresponding to m.
-            The reason we use r polynomials is because now any polynomial with
-            m in it will be linearly reduced even further.
-
-        Returns the polynomial.
-        '''
-        for p in sorted_polys:
-            LT_p = list(p.lead_term)
-            if all([i<=j for i,j in zip(LT_p,m)]) and len(LT_p) == len(m): #Checks to see if LT_p divides m
-                c = [j-i for i,j in zip(LT_p,m)]
-                if not LT_p == m: #Make sure c isn't all 0
-                    return p.mon_mult(c)
-
     def add_r_to_matrix(self):
         '''
         Finds the r polynomials and adds them to the matrix.
@@ -331,7 +310,7 @@ class Groebner(object):
         sorted_polys = utils.sorted_polys_coeff(self.new_polys+self.old_polys)
         while len(self.monheap) > 0:
             m = list(self.monheap.heappop().val)
-            r = self.calc_r(m,sorted_polys)
+            r = gsolve.calc_r(m, sorted_polys)
             self._add_poly_to_matrix(r, adding_r = True)
 
     def row_swap_matrix(self, matrix):
