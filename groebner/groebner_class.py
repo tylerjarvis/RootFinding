@@ -1,6 +1,7 @@
 import itertools
 import numpy as np
 import groebner.utils as utils
+import groebner.gsolve as gsolve
 import math
 from groebner.polynomial import MultiCheb, MultiPower, Polynomial
 from scipy.linalg import lu, qr, solve_triangular
@@ -177,61 +178,6 @@ class Groebner(object):
                 return
             poly.coeff[np.where(abs(poly.coeff) < global_accuracy)] = 0
             self.groebner_basis.append(poly)
-
-    def get_polys_from_matrix(self,matrix, matrix_terms, rows, power=False, clean=False, accuracy=1.e-10):
-        '''Creates polynomial objects from the specified rows of the given matrix.
-
-        Parameters
-        ----------
-        matrix : 2D numpy array
-            The matrix with rows corresponding to polynomials, columns corresponding
-            to monomials, and entries corresponding to coefficients.
-        matrix_terms : array-like, contains Term objects
-            The column labels for matrix in order.
-        rows : iterable, contains integers
-            The rows for which to create polynomial objects.
-        power : bool
-            If true, the polynomials returned will be MultiPower objects.
-            Otherwise, they will be MultiCheb.
-        clean : bool
-            If true, any row whose absolute sum is less than accuracy will not be
-            converted to a polynomial object.
-        accuracy : float
-            Any row whose absolute sum is less than this value will not be
-            converted to polynomial objects if clean is True.
-
-        Returns
-        -------
-        poly_list : list
-            Polynomial objects corresponding to the specified rows.
-
-        '''
-        shape = []
-        p_list = []
-        matrix_term_vals = [i.val for i in matrix_terms]
-
-        # Finds the maximum size needed for each of the poly coeff tensors
-        for i in range(len(matrix_term_vals[0])):
-            # add 1 to each to compensate for constant term
-            shape.append(max(matrix_term_vals, key=itemgetter(i))[i]+1)
-        # Grabs each polynomial, makes coeff matrix and constructs object
-        for i in rows:
-            p = matrix[i]
-            if clean:
-                if np.sum(np.abs(p)) < accuracy:
-                    continue
-            coeff = np.zeros(shape)
-            for j,term in enumerate(matrix_term_vals):
-                coeff[term] = p[j]
-
-            if power:
-                poly = MultiPower(coeff)
-            else:
-                poly = MultiCheb(coeff)
-
-            if poly.lead_term != None:
-                p_list.append(poly)
-        return p_list
 
     def _add_poly_to_matrix(self, p, adding_r = False):
         '''
@@ -549,12 +495,12 @@ class Groebner(object):
                 new_poly_spots.append(i) #This row gives a new leading monomial
 
         if triangular_solve:
-            self.old_polys = self.get_polys_from_matrix(reduced_matrix, \
+            self.old_polys = gsolve.get_polys_from_matrix(reduced_matrix, \
                 self.matrix_terms, old_poly_spots, power=self.power)
         else:
             self.old_polys = self.new_polys + self.old_polys
 
-        self.new_polys = self.get_polys_from_matrix(reduced_matrix, \
+        self.new_polys = gsolve.get_polys_from_matrix(reduced_matrix, \
             self.matrix_terms, new_poly_spots, power=self.power)
 
         if len(self.old_polys+self.new_polys) == 0:
