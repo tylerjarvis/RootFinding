@@ -230,6 +230,22 @@ def inverse_P(P):
     #(This is what we want since we want the index of 1 at each column of P.T)
     return np.where(M_P==1)[1]
 
+def lcm(a,b):
+    '''Finds the LCM of the two leading terms of polynomials a and b
+
+    Parameters
+    ----------
+    a, b : polynomial objects
+
+    Returns
+    -------
+    numpy array
+        The lcm of the leading terms of a and b. The usual representation is
+        used, i.e., :math:`x^2y^3` is represented as :math:`\mathtt{(2,3)}`
+
+    '''
+    return np.maximum(a.lead_term, b.lead_term)
+
 def sorted_polys_monomial(polys):
     '''
     Sorts the polynomials by the number of monomials they have, the ones with the least amount first.

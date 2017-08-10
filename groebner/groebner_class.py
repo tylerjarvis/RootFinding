@@ -212,18 +212,6 @@ class Groebner(object):
         for p in p_list:
             self._add_poly_to_matrix(p)
 
-    def _lcm(self,a,b):
-        '''
-        Finds the LCM of the two leading terms of Polynomial a,b
-
-        Params:
-        a, b - polynomail objects
-
-        returns:
-        LCM - the np.array of the lead_term of the lcm polynomial
-        '''
-        return np.maximum(a.lead_term, b.lead_term)
-
     def calc_phi(self,a,b):
         '''
         Calculates the phi-polynomial's of the polynomials a and b.
@@ -239,7 +227,7 @@ class Groebner(object):
         Returns:
             A tuple of the calculated phi's.
         '''
-        lcm = self._lcm(a,b)
+        lcm = utils.lcm(a,b)
 
         a_diff = tuple([i-j for i,j in zip(lcm, a.lead_term)])
         b_diff = tuple([i-j for i,j in zip(lcm, b.lead_term)])
@@ -312,7 +300,7 @@ class Groebner(object):
                 if j_tuple in B or i_tuple in B:
                     continue
 
-                lcm = self._lcm(polys[i],polys[j])
+                lcm = utils.lcm(polys[i],polys[j])
                 lead_l = polys[l].lead_term
 
                 # See if LT(poly[l]) divides lcm(LT(i),LT(j))
