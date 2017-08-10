@@ -362,7 +362,7 @@ def row_swap_matrix(matrix):
             lms.append(j)
             last_i = i
     #Get the list by which we sort the matrix, first leading columns first.
-    argsort_list = sorted(range(len(lms)), key=lms.__getitem__)[::]
+    argsort_list = utils.argsort_inc(lms)[0]
     return matrix[argsort_list]
 
 def rrqr_reduce(matrix, clean = False, global_accuracy = 1.e-10):
@@ -416,7 +416,7 @@ def sort_matrix(matrix, matrix_terms):
     Returns the sorted matrix and matrix_terms.
     '''
     #argsort_list gives the ordering by which the matrix should be sorted.
-    argsort_list = sorted(range(len(matrix_terms)), key=matrix_terms.__getitem__)[::-1]
+    argsort_list = utils.argsort_dec(matrix_terms)[0]
     matrix_terms.sort()
     matrix = matrix[:,argsort_list]
     return matrix, matrix_terms[::-1]

@@ -327,7 +327,7 @@ class Groebner(object):
             else:
                 lms.append(j)
                 last_i = i
-        argsort_list = sorted(range(len(lms)), key=lms.__getitem__)[::]
+        argsort_list = utils.argsort_inc(lms)[0]
         return matrix[argsort_list]
 
     def fill_size(self,bigMatrix,smallMatrix):
