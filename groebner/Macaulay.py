@@ -75,7 +75,6 @@ def get_polys_from_matrix(rows,matrix,matrix_terms,power):
         coeff = np.zeros(shape)
         for j,term in enumerate(matrix_term_vals):
             coeff[term] = p[j]
-
         if power:
             poly = MultiPower(coeff)
         else:
