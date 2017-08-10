@@ -62,18 +62,18 @@ def test_Macaulay_roots():
     A = getPoly(5,2,True)
     B = getPoly(5,2,True)
     correctZeros([A,B])
-    
+
     #Case 2 - Two MultiCheb 2D degree 5 polynomials.
     A = getPoly(5,2,False)
     B = getPoly(5,2,False)
     correctZeros([A,B])
-    
+
     #Case 3 - Three MultiPower 3D degree 3 polynomials.
     A = getPoly(3,3,True)
     B = getPoly(3,3,True)
     C = getPoly(3,3,True)
     correctZeros([A,B,C])
-    
+
     #Case 4 - Three MultiCheb 3D degree 3 polynomials.
     A = getPoly(3,3,False)
     B = getPoly(3,3,False)
@@ -86,7 +86,7 @@ def test_Macaulay_roots():
     C = getPoly(2,4,True)
     D = getPoly(2,4,True)
     correctZeros([A,B,C,D])
-    
+
     #Case 6 - Four MultiCheb 4D degree 2 polynomials.
     A = getPoly(2,4,False)
     B = getPoly(2,4,False)
@@ -103,49 +103,18 @@ def test_Macaulay_roots():
     A = getPoly(5,2,False)
     B = getPoly(3,2,False)
     correctZeros([A,B])
-    
+
     #Case 9 - Three MultiPower 3D of degrees 2,3 and 4
     A = getPoly(2,3,True)
     B = getPoly(3,3,True)
     C = getPoly(4,3,True)
     correctZeros([A,B,C])
-    
+
     #Case 10 - Three MultiCheb 3D of degrees 2,3 and 4
     A = getPoly(2,3,False)
     B = getPoly(3,3,False)
     C = getPoly(4,3,False)
     correctZeros([A,B,C])
-
-def test_Macaulay():
-
-    #test 1 - compare Groebner results and Macaulay results in Chebyshev and Power.
-    for i in range(5):
-        ACoeff = np.random.rand(3,3)
-        BCoeff = np.random.rand(3,3)
-        for i,j in np.ndenumerate(ACoeff):
-            if np.sum(i) > 3:
-                ACoeff[i] = 0
-                BCoeff[i] = 0
-        A = MultiCheb(ACoeff)
-        B = MultiCheb(BCoeff)
-
-        A1 = MultiPower(ACoeff)
-        B1 = MultiPower(BCoeff)
-
-        zeros_from_Macaulay = roots([A,B], 'Macaulay')
-        zeros_from_Groebner = roots([A,B], 'Groebner')
-
-        zeros_from_Macaulay1 = roots([A1,B1], 'Macaulay')
-        zeros_from_Groebner1 = roots([A1,B1], 'Groebner')
-
-        sorted_from_Macaulay = np.sort(zeros_from_Macaulay, axis = 0)
-        sorted_from_Groebner = np.sort(zeros_from_Groebner, axis = 0)
-
-        sorted_from_Macaulay1 = np.sort(zeros_from_Macaulay1, axis = 0)
-        sorted_from_Groebner1 = np.sort(zeros_from_Groebner1, axis = 0)
-
-        assert np.allclose(sorted_from_Macaulay, sorted_from_Groebner)
-        assert np.allclose(sorted_from_Macaulay1, sorted_from_Groebner1)
 
 def test_get_poly_from_matrix():
     #raise NotImplementedError
