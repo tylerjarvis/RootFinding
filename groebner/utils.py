@@ -461,8 +461,6 @@ def get_var_list(dim):
         _vars.append(tuple(var))
     return _vars
 
-
-
 def triangular_solve(matrix, matrix_terms = None, reorder = True):
     """
     Reduces the upper block triangular matrix.
@@ -628,6 +626,7 @@ def sort_matrix(matrix, matrix_terms):
         are in order.
     matrix_terms : array-like, contains Term objects
         Same as the input, but now ordered.
+
     '''
 
     argsort_list, matrix_terms = argsort_dec(matrix_terms)
