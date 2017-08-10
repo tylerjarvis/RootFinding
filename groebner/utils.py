@@ -515,11 +515,7 @@ def triangular_solve(matrix, matrix_terms = None, reorder = True):
             solver = solver[:,order]
             return solver
         else:
-            matrix_termsTemp = np.array(matrix_terms)[order_c+order_d]
-            #I need matrix_terms to have tuples but the above code makes it nd arrays. Annoying, but this flips it back.
-            matrix_terms = list()
-            for i in matrix_termsTemp:
-                matrix_terms.append(tuple(i))
+            matrix_terms = np.array(matrix_terms)[order_c+order_d]
             return solver, matrix_terms
 
     else:
