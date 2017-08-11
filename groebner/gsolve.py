@@ -31,6 +31,33 @@ def add_polys(degree, poly, poly_list):
         poly_list.append(poly.mon_mult(i))
     return poly_list
 
+def build_maxheap(term_set, lead_term_set):
+    '''Builds a maxheap for use in r polynomial calculation.
+
+    Parameters
+    ----------
+    term_set : set, contains Term objects
+        The set of all terms that appear as column labels in the main matrix
+    lead_term_set : set, contains Term objects
+        The set of all terms that appear as leading terms of some polynomial
+        in the main matrix
+
+    Returns
+    -------
+    monheap : MaxHeap object, contains Term objects
+        A max heap of all terms that do not appear as leading terms of any
+        polynomial
+        
+    '''
+
+    monheap = utils.MaxHeap()
+
+    for mon in term_set:
+        if mon not in lead_term_set: #Adds every monomial that isn't a lead term to the heap
+            monheap.heappush(mon)
+
+    return monheap
+
 def calc_phi(a,b):
     '''
     Calculates the phi-polynomial's of the polynomials a and b.
