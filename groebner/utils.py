@@ -223,7 +223,7 @@ def clean_matrix(matrix, matrix_terms, set_zeros=False, accuracy=1.e-10):
 
     ##This would replace all small values in the matrix with 0.
     if set_zeros:
-        matrix[np.where(abs(matrix) < accuracy)]=0
+        matrix = clean_zeros_from_matrix(matrix, accuracy=accuracy)
 
     #Removes all 0 monomials
     non_zero_monomial = np.sum(abs(matrix), axis=0) != 0
@@ -231,6 +231,25 @@ def clean_matrix(matrix, matrix_terms, set_zeros=False, accuracy=1.e-10):
     matrix_terms = matrix_terms[non_zero_monomial]
 
     return matrix, matrix_terms
+
+def clean_zeros_from_matrix(array, accuracy=1.e-10):
+    '''Sets all values in the array less than the given accuracy to 0.
+
+    Parameters
+    ----------
+    array : numpy array
+    accuracy : float, optional
+        Values in the matrix less than this will be set to 0.
+
+    Returns
+    -------
+    array : numpy array
+        Same array, but with values less than the given accuracy set to 0.
+
+    '''
+
+    array[np.where(np.abs(array) < accuracy)] = 0
+    return array
 
 def divides(mon1, mon2):
     '''
@@ -424,25 +443,6 @@ def get_var_list(dim):
         var[i] = 1
         _vars.append(tuple(var))
     return _vars
-
-def clean_zeros_from_matrix(array, accuracy=1.e-10):
-    '''Sets all values in the array less than the given accuracy to 0.
-
-    Parameters
-    ----------
-    array : numpy array
-    accuracy : float, optional
-        Values in the matrix less than this will be set to 0.
-
-    Returns
-    -------
-    array : numpy array
-        Same array, but with values less than the given accuracy set to 0.
-
-    '''
-    
-    array[np.where(np.abs(array) < accuracy)] = 0
-    return array
 
 def fullRank(matrix, accuracy=1.e-10):
     '''
