@@ -267,6 +267,39 @@ def divides(mon1, mon2):
     '''
     return all(np.subtract(mon2, mon1) >= 0)
 
+def has_full_rank(matrix, accuracy=1.e-10):
+    '''Decides whether or not the given matrix has full rank.
+
+    Parameters
+    ----------
+    matrix : 2D numpy array
+    accuracy : float
+        Only values along the diagonal that are greater than this number
+        will be considered in calculating the rank
+
+    Returns
+    -------
+    bool
+        True if the matrix has full rank, false otherwise
+
+    '''
+    
+    height = matrix.shape[0]
+    if height == 0:
+        return True
+    try:
+        Q,R,P = qr(matrix, pivoting = True)
+    except ValueError:
+        print("VALUE ERROR")
+        print(matrix)
+    diagonals = np.diagonal(R) #Go along the diagonals to find the rank
+    rank = np.sum(np.abs(diagonals)>accuracy)
+    if rank == height:
+        return True
+    else:
+        print(rank,height)
+        return False
+
 def inverse_P(P):
     '''The inverse of P, the array with column switching indexes.
 
