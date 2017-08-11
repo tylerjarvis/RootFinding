@@ -313,23 +313,6 @@ class Groebner(object):
             r = gsolve.calc_r(m, sorted_polys)
             self._add_poly_to_matrix(r, adding_r = True)
 
-    def row_swap_matrix(self, matrix):
-        '''
-        rearange the rows of matrix so it starts close to upper traingular
-        '''
-        rows, columns = np.where(matrix != 0)
-        lms = {}
-        last_i = -1
-        lms = list()
-        for i,j in zip(rows,columns):
-            if i == last_i:
-                continue
-            else:
-                lms.append(j)
-                last_i = i
-        argsort_list = utils.argsort_inc(lms)[0]
-        return matrix[argsort_list]
-
     def fill_size(self,bigMatrix,smallMatrix):
         '''
         Fits the small matrix inside of the big matrix and returns it.
@@ -382,7 +365,7 @@ class Groebner(object):
         self.np_matrix, self.matrix_terms = utils.clean_matrix(self.np_matrix, self.matrix_terms)
         self.np_matrix, self.matrix_terms = utils.sort_matrix(self.np_matrix, self.matrix_terms)
 
-        self.np_matrix = self.row_swap_matrix(self.np_matrix)
+        self.np_matrix = utils.row_swap_matrix(self.np_matrix)
 
     def reduce_matrix(self, qr_reduction=True, triangular_solve = False):
         '''
