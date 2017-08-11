@@ -31,6 +31,33 @@ def add_polys(degree, poly, poly_list):
         poly_list.append(poly.mon_mult(i))
     return poly_list
 
+def build_maxheap(term_set, lead_term_set):
+    '''Builds a maxheap of Term objects for use in r polynomial calculation.
+
+    Parameters
+    ----------
+    term_set : set, contains Term objects
+        The set of all terms that appear as column labels in the main matrix
+    lead_term_set : set, contains Term objects
+        The set of all terms that appear as leading terms of some polynomial
+        in the main matrix
+
+    Returns
+    -------
+    monheap : MaxHeap object, contains Term objects
+        A max heap of all terms that do not appear as leading terms of any
+        polynomial
+
+    '''
+
+    monheap = utils.MaxHeap()
+
+    for mon in term_set:
+        if mon not in lead_term_set: #Adds every monomial that isn't a lead term to the heap
+            monheap.heappush(mon)
+
+    return monheap
+
 def calc_phi(a,b):
     '''
     Calculates the phi-polynomial's of the polynomials a and b.
@@ -112,13 +139,6 @@ def clean_matrix(matrix, matrix_terms):
     matrix_terms = matrix_terms[non_zero_monomial] #Only keeps the non_zero_monomials
     return matrix, matrix_terms
 
-def clean_zeros_from_matrix(matrix, global_accuracy = 1.e-10):
-    '''
-    Sets all points in the matrix less than the gloabal accuracy to 0.
-    '''
-    matrix[np.where(np.abs(matrix) < global_accuracy)]=0
-    return matrix
-
 def create_matrix(polys):
     '''
     Takes a list of polynomial objects (polys) and uses them to create a matrix. That is ordered by the monomial
@@ -153,7 +173,7 @@ def create_matrix(polys):
     matrix, matrix_terms = sort_matrix(matrix, matrix_terms)
 
     #Sorts the rows of the matrix so it is close to upper triangular.
-    matrix = row_swap_matrix(matrix)
+    matrix = utils.row_swap_matrix(matrix)
     return matrix, matrix_terms
 
 def divides(a,b): #This is not the divides used in utils.
@@ -308,13 +328,13 @@ def Macaulay(initial_poly_list, powerbasis=True, global_accuracy = 1.e-10):
 
     # Reduce the Macaulay matrix. Keep only nonzero polynomials.
     matrix = rrqr_reduce(matrix)
-    matrix = clean_zeros_from_matrix(matrix)
+    matrix = utils.clean_zeros_from_matrix(matrix)
     non_zero_rows = np.sum(abs(matrix),axis=1) != 0
     matrix = matrix[non_zero_rows,:]
 
     # Triangular solve and clean zeros from matrix.
     matrix = triangular_solve(matrix)
-    matrix = clean_zeros_from_matrix(matrix)
+    matrix = utils.clean_zeros_from_matrix(matrix)
 
     # Get polynomials from matrix.
     rows = get_good_rows(matrix, matrix_terms)
@@ -345,25 +365,6 @@ def mon_combos(mon, numLeft, spot = 0):
         temp[spot] = i
         answers += mon_combos(temp, numLeft-i, spot+1)
     return answers
-
-def row_swap_matrix(matrix):
-    '''
-    Rearange the rows of the matrix so it starts close to upper traingular and return it.
-    '''
-    rows, columns = np.where(matrix != 0)
-    lms = {}
-    last_i = -1
-    lms = list()
-    #Finds the leading column of each row and adds it to lms.
-    for i,j in zip(rows,columns):
-        if i == last_i:
-            continue
-        else:
-            lms.append(j)
-            last_i = i
-    #Get the list by which we sort the matrix, first leading columns first.
-    argsort_list = utils.argsort_inc(lms)[0]
-    return matrix[argsort_list]
 
 def rrqr_reduce(matrix, clean = False, global_accuracy = 1.e-10):
     '''

@@ -223,7 +223,7 @@ def clean_matrix(matrix, matrix_terms, set_zeros=False, accuracy=1.e-10):
 
     ##This would replace all small values in the matrix with 0.
     if set_zeros:
-        matrix[np.where(abs(matrix) < accuracy)]=0
+        matrix = clean_zeros_from_matrix(matrix, accuracy=accuracy)
 
     #Removes all 0 monomials
     non_zero_monomial = np.sum(abs(matrix), axis=0) != 0
@@ -231,6 +231,25 @@ def clean_matrix(matrix, matrix_terms, set_zeros=False, accuracy=1.e-10):
     matrix_terms = matrix_terms[non_zero_monomial]
 
     return matrix, matrix_terms
+
+def clean_zeros_from_matrix(array, accuracy=1.e-10):
+    '''Sets all values in the array less than the given accuracy to 0.
+
+    Parameters
+    ----------
+    array : numpy array
+    accuracy : float, optional
+        Values in the matrix less than this will be set to 0.
+
+    Returns
+    -------
+    array : numpy array
+        Same array, but with values less than the given accuracy set to 0.
+
+    '''
+
+    array[np.where(np.abs(array) < accuracy)] = 0
+    return array
 
 def divides(mon1, mon2):
     '''
@@ -365,18 +384,37 @@ def sorted_polys_monomial(polys):
     return sorted_polys
 
 def row_swap_matrix(matrix):
+    '''Rearrange the rows of matrix so it is close to upper traingular.
+
+    Parameters
+    ----------
+    matrix : 2D numpy array
+        The matrix whose rows need to be switched
+
+    Returns
+    -------
+    2D numpy array
+        The same matrix but with the rows changed so it is close to upper
+        triangular
+
+    Examples
+    --------
+    >>> utils.row_swap_matrix(np.array([[0,2,0,2],[0,1,3,0],[1,2,3,4]]))
+    array([[1, 2, 3, 4],
+           [0, 2, 0, 2],
+           [0, 1, 3, 0]])
+
     '''
-    rearange the rows of matrix so it starts close to upper traingular
-    '''
+
     rows, columns = np.where(matrix != 0)
     last_i = -1
-    lms = list() # !!! What does lms stand for?
+    leading_mon_columns = list()
     for i,j in zip(rows,columns):
         if i != last_i:
-            lms.append(j)
+            leading_mon_columns.append(j)
             last_i = i
-    # !!! Repetition of previous code.
-    argsort_list = argsort_inc(lms)[0]
+
+    argsort_list = argsort_inc(leading_mon_columns)[0]
     return matrix[argsort_list]
 
 
@@ -405,14 +443,6 @@ def get_var_list(dim):
         var[i] = 1
         _vars.append(tuple(var))
     return _vars
-
-def clean_zeros_from_matrix(matrix, global_accuracy=1.e-10):
-    '''
-    Sets all points in the matrix less than the gloabal accuracy to 0.
-
-    '''
-    matrix[np.where(np.abs(matrix) < global_accuracy)] = 0
-    return matrix
 
 def fullRank(matrix, accuracy=1.e-10):
     '''

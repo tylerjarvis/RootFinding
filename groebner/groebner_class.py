@@ -289,46 +289,18 @@ class Groebner(object):
         # Function will return True and calculate phi if none of the checks passed for all l's.
             return True
 
-    def _build_maxheap(self):
-        '''
-        Builds a maxheap for use in r polynomial calculation
-        '''
-
-        self.monheap = utils.MaxHeap()
-
-        for mon in self.term_set:
-            if mon not in self.lead_term_set: #Adds every monomial that isn't a lead term to the heap
-                self.monheap.heappush(mon)
-
     def add_r_to_matrix(self):
         '''
         Finds the r polynomials and adds them to the matrix.
         First makes Heap out of all potential monomials, then finds polynomials
         with leading terms that divide it and add them to the matrix.
         '''
-        self._build_maxheap()
+        self.monheap = gsolve.build_maxheap(self.term_set, self.lead_term_set)
         sorted_polys = utils.sorted_polys_coeff(self.new_polys+self.old_polys)
         while len(self.monheap) > 0:
             m = list(self.monheap.heappop().val)
             r = gsolve.calc_r(m, sorted_polys)
             self._add_poly_to_matrix(r, adding_r = True)
-
-    def row_swap_matrix(self, matrix):
-        '''
-        rearange the rows of matrix so it starts close to upper traingular
-        '''
-        rows, columns = np.where(matrix != 0)
-        lms = {}
-        last_i = -1
-        lms = list()
-        for i,j in zip(rows,columns):
-            if i == last_i:
-                continue
-            else:
-                lms.append(j)
-                last_i = i
-        argsort_list = utils.argsort_inc(lms)[0]
-        return matrix[argsort_list]
 
     def fill_size(self,bigMatrix,smallMatrix):
         '''
@@ -382,7 +354,7 @@ class Groebner(object):
         self.np_matrix, self.matrix_terms = utils.clean_matrix(self.np_matrix, self.matrix_terms)
         self.np_matrix, self.matrix_terms = utils.sort_matrix(self.np_matrix, self.matrix_terms)
 
-        self.np_matrix = self.row_swap_matrix(self.np_matrix)
+        self.np_matrix = utils.row_swap_matrix(self.np_matrix)
 
     def reduce_matrix(self, qr_reduction=True, triangular_solve = False):
         '''
@@ -395,7 +367,7 @@ class Groebner(object):
             fullRankMatrix = self.np_matrix[independentRows]
 
             reduced_matrix = self.rrqr_reduce2(fullRankMatrix)
-            reduced_matrix = self.clean_zeros_from_matrix(reduced_matrix)
+            reduced_matrix = utils.clean_zeros_from_matrix(reduced_matrix)
 
             non_zero_rows = np.sum(abs(reduced_matrix),axis=1) != 0
 
@@ -404,7 +376,7 @@ class Groebner(object):
             if triangular_solve:
                 reduced_matrix = self.triangular_solve(reduced_matrix)
                 if clean:
-                    reduced_matrix = self.clean_zeros_from_matrix(reduced_matrix)
+                    reduced_matrix = utils.clean_zeros_from_matrix(reduced_matrix)
         else:
             #This thing is very behind the times.
             P,L,U = lu(self.np_matrix)
@@ -440,30 +412,6 @@ class Groebner(object):
             print(reduced_matrix)
 
         return len(self.new_polys) > 0
-
-    def clean_zeros_from_matrix(self,matrix):
-        '''
-        Sets all points in the matrix less than the gloabal accuracy to 0.
-        '''
-        matrix[np.where(np.abs(matrix) < global_accuracy)]=0
-        return matrix
-
-    def hasFullRank(self, matrix):
-        height = matrix.shape[0]
-        if height == 0:
-            return True
-        try:
-            Q,R,P = qr(matrix, pivoting = True)
-        except ValueError:
-            print("VALUE ERROR")
-            print(matrix)
-        diagonals = np.diagonal(R) #Go along the diagonals to find the rank
-        rank = np.sum(np.abs(diagonals)>global_accuracy)
-        if rank == height:
-            return True
-        else:
-            print(rank,height)
-            return False
 
     def rrqr_reduce2(self, matrix): #My new sort of working one. Still appears to have some problems. Possibly from fullRank.
         if matrix.shape[0] <= 1 or matrix.shape[0]==1 or  matrix.shape[1]==0:
@@ -502,7 +450,7 @@ class Groebner(object):
         if matrix.shape[0]==0 or matrix.shape[1]==0:
             return matrix
         if clean:
-            matrix = self.clean_zeros_from_matrix(matrix)
+            matrix = utils.clean_zeros_from_matrix(matrix)
         height = matrix.shape[0]
         A = matrix[:height,:height] #Get the square submatrix
         B = matrix[:,height:] #The rest of the matrix to the right
@@ -511,7 +459,7 @@ class Groebner(object):
         diagonals = np.diagonal(R) #Go along the diagonals to find the rank
         rank = np.sum(np.abs(diagonals)>global_accuracy)
         if clean:
-            R = self.clean_zeros_from_matrix(R)
+            R = utils.clean_zeros_from_matrix(R)
 
         if rank == height: #full rank, do qr on it
             Q,R = qr(A)
@@ -541,7 +489,7 @@ class Groebner(object):
         if not clean:
             return reduced_matrix
         else:
-            return self.clean_zeros_from_matrix(reduced_matrix)
+            return utils.clean_zeros_from_matrix(reduced_matrix)
 
     def triangular_solve(self,matrix):
         " Reduces the upper block triangular matrix. "
@@ -608,7 +556,7 @@ class Groebner(object):
         Fully reduces the matrix by making sure all submatrices formed by taking out columns of zeros are
         also in upper triangular form. Does this recursively. Returns the reduced matrix.
         '''
-        matrix = self.clean_zeros_from_matrix(matrix)
+        matrix = utils.clean_zeros_from_matrix(matrix)
         diagonals = np.diagonal(matrix).copy()
         zero_diagonals = np.where(abs(diagonals)==0)[0]
         if(len(zero_diagonals != 0)):
@@ -633,6 +581,6 @@ class Groebner(object):
 
                 matrix[first_zero: , i:] = sub_matrix
         if clean:
-            return self.clean_zeros_from_matrix(matrix)
+            return utils.clean_zeros_from_matrix(matrix)
         else:
-            return self.clean_zeros_from_matrix(matrix)
+            return utils.clean_zeros_from_matrix(matrix)
