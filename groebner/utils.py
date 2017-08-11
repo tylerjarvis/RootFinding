@@ -370,13 +370,13 @@ def row_swap_matrix(matrix):
     '''
     rows, columns = np.where(matrix != 0)
     last_i = -1
-    lms = list() # !!! What does lms stand for?
+    leading_mon_columns = list()
     for i,j in zip(rows,columns):
         if i != last_i:
-            lms.append(j)
+            leading_mon_columns.append(j)
             last_i = i
-    # !!! Repetition of previous code.
-    argsort_list = argsort_inc(lms)[0]
+
+    argsort_list = argsort_inc(leading_mon_columns)[0]
     return matrix[argsort_list]
 
 
