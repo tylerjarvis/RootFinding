@@ -247,8 +247,9 @@ def fill_size(bigShape,smallPolyCoeff):
     '''
     if (smallPolyCoeff.shape == bigShape).all():
         return smallPolyCoeff
+    
     matrix = np.zeros(bigShape)
-
+    
     slices = list()
     for i in smallPolyCoeff.shape:
         s = slice(0,i)
@@ -268,9 +269,10 @@ def get_var_list(dim):
 def clean_zeros_from_matrix(matrix, global_accuracy=1.e-10):
     '''
     Sets all points in the matrix less than the gloabal accuracy to 0.
-
     '''
-    matrix[np.where(np.abs(matrix) < global_accuracy)] = 0
+    #matrix[np.where(np.abs(matrix) < global_accuracy)] = 0
+    matrix[(matrix < global_accuracy) & (matrix > -global_accuracy)] = 0
+    
     return matrix
 
 def fullRank(matrix):
@@ -310,7 +312,7 @@ def fullRank(matrix):
         Q1,R1,P1 = qr(QMatrix, pivoting = True)
         independentRows = P1[R1.shape[0]:] #Other Columns
         dependentRows = P1[:R1.shape[0]] #Pivot Columns
-        return independentRows,dependentRows,Q
+        return independentRows, dependentRows, Q
 
 def inverse_P(p):
     '''
@@ -347,7 +349,30 @@ def sorted_polys_monomial(polys):
 
 def triangular_solve(matrix, matrix_terms = None, reorder = True):
     """
-    Reduces the upper block triangular matrix.
+    Takes a matrix that is in row echelon form and reduces it into row reduced echelon form.
+    
+    Parameters
+    ----------
+    matrix : 2D numpy array
+        The matrix of interest.
+    matrix_terms : An numpy array.
+        The i'th row matrix_terms is the term in the i'th column of the matrix.
+    reorder : bool
+        If reorder is True then the matrix is reordered after triangular solve to put it in it's
+        initial order. Otherwise it is returned so the first part of the matrix is the identity matrix.
+        The matrix_terms are reordered accordingly.
+
+    Returns
+    -------
+    matrix : 2D numpy array
+        The matrix is row reduced echelon form if reorder it True, ordered with the pivot columns in
+        the fron otherwise.
+    
+    Optional Return
+    ---------------
+    matrix_terms : An numpy array.
+        Only returned if reorder is False. The reordered matrix_terms. If reorder is True they will
+        have not been affected.    
     """
     m,n = matrix.shape
     j = 0  # The row index.
@@ -392,35 +417,57 @@ def triangular_solve(matrix, matrix_terms = None, reorder = True):
         solver = np.hstack((np.eye(X.shape[0]),X))
 
         # Find the order to reverse the columns back.
-        order = inverse_P(order_c+order_d)
+        #order = inverse_P(order_c+order_d)
 
         # Reverse the columns back.
         if reorder:
-            solver = solver[:,order]
-            return solver
+            solver1 = np.empty_like(solver)
+            solver1[:,order_c+order_d] = solver
+            #solver = solver[:,order]
+            return solver1
         else:
-            matrix_terms = np.array(matrix_terms)[order_c+order_d]
+            matrix_terms = matrix_terms[order_c+order_d]
             return solver, matrix_terms
 
     else:
     # The case where the matrix passed in is a square matrix
         return np.eye(m)
     
-def first_x(s):
+def first_x(string):
     '''
-    Finds the first position of an 'x' in a string. If there is not x it returns the length of the string.
-    '''
-    for i in range(len(s)):
-        if s[i] == 'x':
-            return i
-    return len(s)
+    Finds the first position of an 'x' in a string. If there is not x it returns the length
+    of the string.
+    
+    Parameters
+    ----------
+    string : str
+        The string of interest.
+    Returns
+    -------
+    i : int
+        The position in the string of the first 'x' character. If 'x' does not appear in the string
+        the return value is the length of the string.
 
-def is_number(s):
     '''
-    Checks is a string can be converted to a number. Returns True or False.
+    for i in range(len(string)):
+        if string[i] == 'x':
+            return i
+    return len(string)
+
+def is_number(string):
+    '''
+    Checks is a string can be converted to a number.
+    Parameters
+    ----------
+    string : str
+        The string of interest.
+    Returns
+    -------
+    value : bool
+        Whether or not the string is a valid number.
     '''
     try:
-        float(s)
+        float(string)
         return True
     except ValueError:
         return False

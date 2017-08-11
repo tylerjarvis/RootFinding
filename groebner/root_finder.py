@@ -4,7 +4,7 @@ import itertools
 from groebner.groebner_class import Groebner
 from groebner.Macaulay import Macaulay
 from groebner.TelenVanBarel import TelenVanBarel
-from groebner.utils import Term, get_var_list
+from groebner.utils import Term, get_var_list, divides
 
 '''
 This module contains the tools necessary to find the points of the variety of the
@@ -71,6 +71,7 @@ def roots(polys, method = 'Groebner'):
     e = np.linalg.eig(m_f.T)
     eig = e[1]
     num_vectors = eig.shape[1]
+        
     eig_vectors = [eig[:,i].tolist() for i in range(num_vectors)] # columns of eig
 
     roots = []
@@ -134,6 +135,26 @@ def groebnerMultMatrix(polys, poly_type, method):
 
     return GB, m_f, var_dict
 
+def sortVB(VB):
+    '''
+    Sorts the Vector Basis into degrevlex order so the eigensolve is faster (in theory).
+    
+    Parameters
+    ----------
+    VB : numpy array
+        Each row in VB is a term in the vector basis.
+    
+    Returns
+    -------
+    VB : numpy array
+        The vector basis sorted so the lowest terms are at the top.
+    '''
+    VBList = list()
+    for i in VB:
+        VBList.append(Term(i))
+    argsort_list = sorted(range(len(VBList)), key=VBList.__getitem__)[::]
+    return VB[argsort_list]
+
 def TVBMultMatrix(polys, poly_type):
     '''
     Finds the multiplication matrix using the reduced Macaulay matrix from the
@@ -148,15 +169,13 @@ def TVBMultMatrix(polys, poly_type):
 
     Returns
     -------
-    m_f : 2D numpy array
+    multiplicationMatrix : 2D numpy array
         The multiplication matrix for a random polynomial f
     var_dict : dictionary
         Maps each variable to its position in the vector space basis
-
     '''
     basisDict, VB = TelenVanBarel(polys)
-    #print("non-basis vars:\n", basisDict.keys())
-    #print("VB:\n", VB)
+    VB = sortVB(VB)
 
     dim = max(f.dim for f in polys)
 
@@ -171,7 +190,7 @@ def TVBMultMatrix(polys, poly_type):
     for mon in VB:
         VBset.add(tuple(mon))
         
-    multMatrix = np.zeros((len(VB), len(VB)))
+    mMatrix = np.zeros((len(VB), len(VB)))
 
     # Build multiplication matrix m_f
     remainder_shape = np.maximum.reduce([mon for mon in VB])
@@ -186,7 +205,7 @@ def TVBMultMatrix(polys, poly_type):
                 remainder[term] += f_new.coeff[term]
             else:
                 remainder -= f_new.coeff[term]*basisDict[term]
-        multMatrix[:,i] = remainder[slices]
+        mMatrix[:,i] = remainder[slices]
 
     # Construct var_dict
     var_dict = {}
@@ -194,7 +213,8 @@ def TVBMultMatrix(polys, poly_type):
         mon = VB[i]
         if np.sum(mon) == 1 or np.sum(mon) == 0:
             var_dict[tuple(mon)] = i
-    return multMatrix, var_dict
+    
+    return mMatrix, var_dict
 
 def _finitelyManySolutions(GB, var_list):
     '''Returns true if the number of solutions N satisfies 1 <= N < infinity'''
@@ -314,28 +334,13 @@ def coordinateVector(poly, GB, basisSet, slices):
         Contains the inexes of the vector basis so those spots can be pulled out of he coeff matrix quickly.
     returns
     -------
-    coordinateVector : list
+    coordinateVector : numpy array
         The coordinate vector of the given polynomial's coset in
         A = C[x_1,...x_n]/I as a vector space over C
     '''
 
     poly_coeff = reduce_poly(poly, GB, basisSet)
     return poly_coeff[slices]
-
-def divides(mon1, mon2):
-    '''
-    parameters
-    ----------
-    mon1 : tuple
-        contains the exponents of the monomial divisor
-    mon2 : tuple
-        contains the exponents of the monomial dividend
-    returns
-    -------
-    boolean
-        true if mon1 divides mon2, false otherwise
-    '''
-    return all(np.subtract(mon2, mon1) >= 0)
 
 def reduce_poly(poly, divisors, basisSet, permitted_round_error=1e-10):
     '''
