@@ -270,6 +270,8 @@ def divides(mon1, mon2):
 def has_full_rank(matrix, accuracy=1.e-10):
     '''Decides whether or not the given matrix has full rank.
 
+    ------THIS FUNCTION IS NEVER USED-------
+
     Parameters
     ----------
     matrix : 2D numpy array
@@ -283,7 +285,7 @@ def has_full_rank(matrix, accuracy=1.e-10):
         True if the matrix has full rank, false otherwise
 
     '''
-    
+
     height = matrix.shape[0]
     if height == 0:
         return True
