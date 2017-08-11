@@ -365,9 +365,28 @@ def sorted_polys_monomial(polys):
     return sorted_polys
 
 def row_swap_matrix(matrix):
+    '''Rearrange the rows of matrix so it is close to upper traingular.
+
+    Parameters
+    ----------
+    matrix : 2D numpy array
+        The matrix whose rows need to be switched
+
+    Returns
+    -------
+    2D numpy array
+        The same matrix but with the rows changed so it is close to upper
+        triangular
+
+    Examples
+    --------
+    >>> utils.row_swap_matrix(np.array([[0,2,0,2],[0,1,3,0],[1,2,3,4]]))
+    array([[1, 2, 3, 4],
+           [0, 2, 0, 2],
+           [0, 1, 3, 0]])
+
     '''
-    rearange the rows of matrix so it starts close to upper traingular
-    '''
+    
     rows, columns = np.where(matrix != 0)
     last_i = -1
     leading_mon_columns = list()
