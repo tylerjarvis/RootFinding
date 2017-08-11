@@ -289,24 +289,13 @@ class Groebner(object):
         # Function will return True and calculate phi if none of the checks passed for all l's.
             return True
 
-    def _build_maxheap(self):
-        '''
-        Builds a maxheap for use in r polynomial calculation
-        '''
-
-        self.monheap = utils.MaxHeap()
-
-        for mon in self.term_set:
-            if mon not in self.lead_term_set: #Adds every monomial that isn't a lead term to the heap
-                self.monheap.heappush(mon)
-
     def add_r_to_matrix(self):
         '''
         Finds the r polynomials and adds them to the matrix.
         First makes Heap out of all potential monomials, then finds polynomials
         with leading terms that divide it and add them to the matrix.
         '''
-        self._build_maxheap()
+        self.monheap = gsolve.build_maxheap(self.term_set, self.lead_term_set)
         sorted_polys = utils.sorted_polys_coeff(self.new_polys+self.old_polys)
         while len(self.monheap) > 0:
             m = list(self.monheap.heappop().val)
