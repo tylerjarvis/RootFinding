@@ -48,7 +48,7 @@ def TelenVanBarel(initial_poly_list, global_accuracy = 1.e-10):
                                                         global_accuracy = global_accuracy)
     matrix = clean_zeros_from_matrix(matrix)
     non_zero_rows = np.sum(np.abs(matrix),axis=1) != 0
-    matrix = matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
+    matrix = matrix[non_zero_rows,:] #Only keeps the non-zero rows.
         
     matrix, matrix_terms = triangular_solve(matrix, matrix_terms, reorder = False)
     matrix = clean_zeros_from_matrix(matrix)
@@ -246,7 +246,7 @@ def create_matrix(poly_coeffs):
     
     #Make the matrix
     matrix = np.vstack(flat_polys[::-1])
-        
+
     #Sorts the rows of the matrix so it is close to upper triangular.
     matrix = row_swap_matrix(matrix)
     return matrix, matrix_terms, matrix_shape_stuff

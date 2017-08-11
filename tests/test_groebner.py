@@ -229,44 +229,6 @@ def test_phi_criterion():
     x2 = solve_phi(grob2,False)
     assert(x2[0]== x1[0])
 
-def test_inverse_P():
-
-    # Simple Test Case.
-    C = MultiPower(np.array([[-1,0,1],[0,0,0]]))
-    D = MultiPower(np.array([[-1,0,0],[0,1,0],[1,0,0]]))
-    # Creating a random object to run tests.
-    grob = Groebner([C,D])
-
-    # Create matrix
-    M = np.array([[0, 1, 2, 3, 4, 5],
-       [0, 1, 2, 3, 4, 5],
-       [0, 1, 2, 3, 4, 5],
-       [0, 1, 2, 3, 4, 5]])
-
-    # Order of Column flips.
-    p = [1,4,3,2,0,5]
-
-    # N is the matrix with the columns flipped.
-    N = M[:,p]
-
-    # Find the order of columns to flip back to.
-    pt = grob.inverse_P(p)
-    # Result done by hand.
-    pt_inv = [4,0,3,2,1,5]
-    assert(np.allclose(M,N[:,pt])), "Matrix are not the same."
-    assert(all(pt == pt_inv)), "Wrong matrix order."
-
-
-    # Test Case 2:
-    A = np.random.random((5,10))
-
-    Q,R,p = qr(A,pivoting=True)
-
-    pt = grob.inverse_P(p)
-
-    # We know that A[:,p] = QR, want to see if pt flips QR back to A.
-    assert(np.allclose(A,np.dot(Q,R)[:,pt]))
-
 def test_triangular_solve():
     """This tests the triangular_solve() method.
     A visual graph of zeroes on the diagonal was also used to test this function.
@@ -333,21 +295,3 @@ def test_init_():
     D = MultiCheb(np.array([[-1,0,0],[0,1,0],[1,0,0]]))
     with pytest.raises(ValueError):
         grob = Groebner([C,D])
-
-def test_sorted_polys_coeff():
-    A = MultiPower(np.array([[2,0,-3,0,0],
-                         [0,1,0,0,0],
-                         [-2,0,0,0,0],
-                         [0,0,4,0,0],
-                         [0,0,0,0,-2]]))
-    B = MultiPower(np.array([[3,0,-5,0,0,4,2,-6,3,-6],
-                         [-2,0,-1,1,-1,4,2,-6,-5,-2],
-                         [-1,3,2,-2,0,4,-1,-2,-4,6],
-                         [4,2,5,9,0,3,2,-1,-3,-3],
-                         [3,-3,-5,-2,0,4,-2,2,1,-6]]))
-    grob = Groebner([A,B])
-    assert(list((A,B)) == grob.sorted_polys_coeff())
-
-    C = MultiPower(np.array([[1]]))
-    grob = Groebner([A,B,C])
-    assert(list((C,A,B)) == grob.sorted_polys_coeff())

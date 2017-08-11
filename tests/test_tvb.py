@@ -60,18 +60,18 @@ def test_TVB_roots():
     A = getPoly(10,2,True)
     B = getPoly(10,2,True)
     correctZeros([A,B])
-    
+
     #Case 2 - Two MultiCheb 2D degree 10 polynomials.
     A = getPoly(10,2,False)
     B = getPoly(10,2,False)
     correctZeros([A,B])
-    
+
     #Case 3 - Three MultiPower 3D degree 4 polynomials.
     A = getPoly(4,3,True)
     B = getPoly(4,3,True)
     C = getPoly(4,3,True)
     correctZeros([A,B,C])
-    
+
     #Case 4 - Three MultiCheb 3D degree 4 polynomials.
     A = getPoly(4,3,False)
     B = getPoly(4,3,False)
@@ -84,7 +84,7 @@ def test_TVB_roots():
     C = getPoly(2,4,True)
     D = getPoly(2,4,True)
     correctZeros([A,B,C,D])
-    
+
     #Case 6 - Four MultiCheb 4D degree 2 polynomials.
     A = getPoly(2,4,False)
     B = getPoly(2,4,False)
@@ -101,35 +101,35 @@ def test_TVB_roots():
     A = getPoly(5,2,False)
     B = getPoly(7,2,False)
     correctZeros([A,B])
-    
+
     #Case 9 - Three MultiPower 3D of degrees 3,4 and 5
     A = getPoly(3,3,True)
     B = getPoly(4,3,True)
     C = getPoly(5,3,True)
     correctZeros([A,B,C])
-    
+
     #Case 10 - Three MultiCheb 3D of degrees 3,4 and 5
     A = getPoly(3,3,False)
     B = getPoly(4,3,False)
     C = getPoly(5,3,False)
     correctZeros([A,B,C])
-        
+
 def test_makeBasisDict():
-    
-    
-    
-    
+
+
+
+
     pass
 
 def test_find_degree():
     #Test Case #1 - 2,3,4, and 5 2D Polynomials of degree 3
-    
+
     degree3Coeff = np.array([
                     [1,1,1,1],
                     [1,1,1,0],
                     [1,1,0,0],
                     [1,0,0,0]])
-    
+
     A = MultiPower(degree3Coeff)
     B = MultiPower(degree3Coeff)
     C = MultiPower(degree3Coeff)
@@ -139,7 +139,7 @@ def test_find_degree():
     assert(find_degree([A,B,C]) == 7)
     assert(find_degree([A,B,C,D]) == 9)
     assert(find_degree([A,B,C,D,E]) == 11)
-    
+
     #Test Case #2 - A 2D polynomials of degree 3 and one of degree 5
     degree5Coeff = np.array([
                     [1,1,1,1,1,1],
@@ -150,7 +150,7 @@ def test_find_degree():
                     [1,0,0,0,0,0]])
     F = MultiPower(degree5Coeff)
     assert(find_degree([A,F]) == 7)
-    
+
     #Test Case #3 - Two 3D polynomials of degree 15
     G = MultiPower(np.random.rand(6,6,6))
     H = MultiPower(np.random.rand(6,6,6))
@@ -170,7 +170,7 @@ def test_mon_combos():
             mons2.append(i)
     for i in range(len(mons)):
         assert((mons[i] == mons2[i]).all())
-    
+
     #Test Case #1 - degree 25, dimension 2
     deg = 25
     dim = 2
@@ -181,7 +181,7 @@ def test_mon_combos():
             mons2.append(i)
     for i in range(len(mons)):
         assert((mons[i] == mons2[i]).all())
-    
+
     #Test Case #1 - degree 5, dimension 3
     deg = 5
     dim = 3
@@ -192,7 +192,7 @@ def test_mon_combos():
             mons2.append(i)
     for i in range(len(mons)):
         assert((mons[i] == mons2[i]).all())
-    
+
     #Test Case #1 - degree 5, dimension 5
     deg = 5
     dim = 5
@@ -205,15 +205,15 @@ def test_mon_combos():
         assert((mons[i] == mons2[i]).all())
 
 def test_add_polys():
-    
+
     pass
 
 def test_sort_matrix():
-    
-    
+
+
     pass
 
 def test_rrqr_reduceTelenVanBarel():
-    
-    
+
+
     pass
