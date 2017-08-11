@@ -413,23 +413,6 @@ class Groebner(object):
 
         return len(self.new_polys) > 0
 
-    def hasFullRank(self, matrix):
-        height = matrix.shape[0]
-        if height == 0:
-            return True
-        try:
-            Q,R,P = qr(matrix, pivoting = True)
-        except ValueError:
-            print("VALUE ERROR")
-            print(matrix)
-        diagonals = np.diagonal(R) #Go along the diagonals to find the rank
-        rank = np.sum(np.abs(diagonals)>global_accuracy)
-        if rank == height:
-            return True
-        else:
-            print(rank,height)
-            return False
-
     def rrqr_reduce2(self, matrix): #My new sort of working one. Still appears to have some problems. Possibly from fullRank.
         if matrix.shape[0] <= 1 or matrix.shape[0]==1 or  matrix.shape[1]==0:
             return matrix
