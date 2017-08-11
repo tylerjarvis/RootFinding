@@ -62,18 +62,18 @@ def test_Macaulay_roots():
     A = getPoly(5,2,True)
     B = getPoly(5,2,True)
     correctZeros([A,B])
-    
+
     #Case 2 - Two MultiCheb 2D degree 5 polynomials.
     A = getPoly(5,2,False)
     B = getPoly(5,2,False)
     correctZeros([A,B])
-    
+
     #Case 3 - Three MultiPower 3D degree 3 polynomials.
     A = getPoly(3,3,True)
     B = getPoly(3,3,True)
     C = getPoly(3,3,True)
     correctZeros([A,B,C])
-    
+
     #Case 4 - Three MultiCheb 3D degree 3 polynomials.
     A = getPoly(3,3,False)
     B = getPoly(3,3,False)
@@ -86,7 +86,7 @@ def test_Macaulay_roots():
     C = getPoly(2,4,True)
     D = getPoly(2,4,True)
     correctZeros([A,B,C,D])
-    
+
     #Case 6 - Four MultiCheb 4D degree 2 polynomials.
     A = getPoly(2,4,False)
     B = getPoly(2,4,False)
@@ -103,13 +103,13 @@ def test_Macaulay_roots():
     A = getPoly(5,2,False)
     B = getPoly(3,2,False)
     correctZeros([A,B])
-    
+
     #Case 9 - Three MultiPower 3D of degrees 2,3 and 4
     A = getPoly(2,3,True)
     B = getPoly(3,3,True)
     C = getPoly(4,3,True)
     correctZeros([A,B,C])
-    
+
     #Case 10 - Three MultiCheb 3D of degrees 2,3 and 4
     A = getPoly(2,3,False)
     B = getPoly(3,3,False)

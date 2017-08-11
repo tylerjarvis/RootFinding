@@ -67,6 +67,7 @@ def roots(polys, method = 'Groebner'):
         vnib = True
 
     # Get left eigenvectors
+    
     e = np.linalg.eig(m_f.T)
     eig = e[1]
     num_vectors = eig.shape[1]
@@ -162,38 +163,38 @@ def TVBMultMatrix(polys, poly_type):
     # Get random polynomial f
     f = _random_poly(poly_type, dim)[0]
 
+    slices = list()
+    for i in range(len(VB[0])):
+        slices.append(VB.T[i])
+    
+    VBset = set()
+    for mon in VB:
+        VBset.add(tuple(mon))
+        
+    multMatrix = np.zeros((len(VB), len(VB)))
+
     # Build multiplication matrix m_f
     remainder_shape = np.maximum.reduce([mon for mon in VB])
     remainder_shape += np.ones_like(remainder_shape)
 
-    m_f_coeffs = list()
-    for mon in VB:
-        f_new = f.mon_mult(mon)
+    for i in range(VB.shape[0]):
+        monomial = VB[i]
+        f_new = f.mon_mult(monomial)
         remainder = np.zeros(remainder_shape)
         for term in zip(*np.where(f_new.coeff != 0)):
-            if term in VB:
+            if term in VBset:
                 remainder[term] += f_new.coeff[term]
             else:
                 remainder -= f_new.coeff[term]*basisDict[term]
-        m_f_coeffs.append(remainder.flatten())
-
-    m_f = np.vstack(m_f_coeffs).T
-
-    terms = np.zeros(remainder_shape, dtype = tuple)
-    for i,j in np.ndenumerate(terms):
-        terms[i] = tuple(i)
-    matrix_terms = terms.ravel()
-
-    m_f, matrix_terms = clean_matrix(m_f, matrix_terms, VB)
-    m_f = sort_matrix(m_f, matrix_terms, VB)
+        multMatrix[:,i] = remainder[slices]
 
     # Construct var_dict
     var_dict = {}
     for i in range(len(VB)):
         mon = VB[i]
-        if sum(mon) == 1 or sum(mon) == 0:
-            var_dict[mon] = i
-    return m_f, var_dict
+        if np.sum(mon) == 1 or np.sum(mon) == 0:
+            var_dict[tuple(mon)] = i
+    return multMatrix, var_dict
 
 def _finitelyManySolutions(GB, var_list):
     '''Returns true if the number of solutions N satisfies 1 <= N < infinity'''
@@ -216,33 +217,12 @@ def sorted_polys_coeff(polys):
     '''
     lead_coeffs = list()
     for poly in polys:
-        lead_coeffs.append(abs(poly.lead_coeff)/np.sum(np.abs(poly.coeff))) #The lead_coeff to other stuff ratio.
+        lead_coeffs.append(np.abs(poly.lead_coeff)/np.sum(np.abs(poly.coeff))) #The lead_coeff to other stuff ratio.
     argsort_list = sorted(range(len(lead_coeffs)), key=lead_coeffs.__getitem__)[::-1]
     sorted_polys = list()
     for i in argsort_list:
         sorted_polys.append(polys[i])
     return sorted_polys
-
-def clean_matrix(matrix, matrix_terms, basisSet):
-    '''
-    Gets rid of rows in the matrix that are all zero and returns it and the updated matrix_terms.
-    '''
-    non_zero_row = np.array([(i in basisSet) for i in matrix_terms])
-    matrix = matrix[non_zero_row] #Only keeps the non_zero_monomials
-    matrix_terms = matrix_terms[non_zero_row] #Only keeps the non_zero_monomials
-    return matrix, matrix_terms
-
-def sort_matrix(matrix, matrix_terms, basisList):
-    '''
-    Takes a matrix and matrix_terms (holding the terms in each row of the matrix), and sorts the matrix so
-    the terms are in the same order as in basisList.
-    Returns the sorted matrix.
-    '''
-    matrix_terms = list(matrix_terms)
-    order = np.zeros(len(basisList), dtype = int)
-    for i in range(len(basisList)):
-        order[i] = matrix_terms.index(basisList[i])
-    return matrix[order]
 
 def multMatrix(poly, GB, basisList):
     '''
@@ -257,7 +237,7 @@ def multMatrix(poly, GB, basisList):
         The polynomial f for which to find the matrix m_f.
     GB: list of polynomial objects
         Polynomials that make up a Groebner basis for the ideal
-    basis : list of tuples
+    basisList : list of tuples
         The monomials that make up a basis for the vector space A
     returns
     -------
@@ -265,33 +245,29 @@ def multMatrix(poly, GB, basisList):
         The matrix m_f
     '''
     basisSet = set(basisList)
-
+    basisTerms = np.zeros_like(basisList[0])
+    for term in basisList:
+        basisTerms = np.vstack((basisTerms,term))
+    basisTerms = basisTerms[1:]
+    slices = list()
+    for i in range(len(basisTerms[0])):
+        slices.append(basisTerms.T[i])
+    
     GB = sorted_polys_coeff(GB)
 
     # All polys in GB will be in the same dimension, so just match poly with
     # the first Groebner basis element
     poly = _match_poly_dim(poly, GB[0])[0]
-
     dim = len(basisList) # Dimension of the vector space basis
-    matrix_coeffs = list()
-
+    
+    multMatrix = np.zeros((dim, dim))
     for i in range(dim):
         monomial = basisList[i]
         poly_ = poly.mon_mult(monomial)
-        matrix_coeffs.append(coordinateVector(poly_, GB, basisSet))
-    multMatrix = np.vstack(matrix_coeffs)
-    multMatrix = multMatrix.T
+        multMatrix[:,i] = coordinateVector(poly_, GB, basisSet, slices)
 
-    remainder_shape = np.maximum.reduce([p.shape for p in GB])
-    terms = np.zeros(remainder_shape, dtype = tuple)
-    for i,j in np.ndenumerate(terms):
-        terms[i] = tuple(i)
-    matrix_terms = terms.ravel()
-
-    multMatrix, matrix_terms = clean_matrix(multMatrix, matrix_terms, basisSet)
-    multMatrix = sort_matrix(multMatrix, matrix_terms, basisList)
     return multMatrix
-
+    
 def vectorSpaceBasis(GB):
     '''
     parameters
@@ -324,7 +300,7 @@ def vectorSpaceBasis(GB):
 
     return basis, var_to_pos_dict
 
-def coordinateVector(poly, GB, basisSet):
+def coordinateVector(poly, GB, basisSet, slices):
     '''
     parameters
     ----------
@@ -334,6 +310,8 @@ def coordinateVector(poly, GB, basisSet):
         Polynomials that make up a Groebner basis for the ideal
     basisSet : set of tuples
         The monomials that make up a basis for the vector space
+    slices : A list of np.arrays
+        Contains the inexes of the vector basis so those spots can be pulled out of he coeff matrix quickly.
     returns
     -------
     coordinateVector : list
@@ -342,7 +320,7 @@ def coordinateVector(poly, GB, basisSet):
     '''
 
     poly_coeff = reduce_poly(poly, GB, basisSet)
-    return poly_coeff.flatten()
+    return poly_coeff[slices]
 
 def divides(mon1, mon2):
     '''
@@ -369,7 +347,8 @@ def reduce_poly(poly, divisors, basisSet, permitted_round_error=1e-10):
         the polynomial to be divided by the Groebner basis
     divisors : list of polynomial objects
         polynomials to divide poly by
-    leadTermDict: A dictionary of the leadTerms in GB to the polynomials in GB.
+    basisSet : set of tuples
+        The monomials that make up a basis for the vector space
     returns
     -------
     polynomial object
@@ -402,7 +381,7 @@ def reduce_poly(poly, divisors, basisSet, permitted_round_error=1e-10):
                 new_coeff = poly_coeff - \
                     (poly.lead_coeff/poly_to_subtract_coeff[tuple(divisor.lead_term+LT_quotient)])*poly_to_subtract_coeff
 
-                new_coeff[np.where(abs(new_coeff) < permitted_round_error)]=0
+                new_coeff[np.where(np.abs(new_coeff) < permitted_round_error)]=0
 
                 for term in zip(*np.where(new_coeff != 0)):
                     if term in basisSet:
