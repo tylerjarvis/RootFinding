@@ -1,6 +1,7 @@
 # imports from groebner
 from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 from groebner.utils import Term
+import groebner.utils as utils
 
 # other imports
 from operator import itemgetter
@@ -30,6 +31,105 @@ def add_polys(degree, poly, poly_list):
         poly_list.append(poly.mon_mult(i))
     return poly_list
 
+def build_maxheap(term_set, lead_term_set):
+    '''Builds a maxheap of Term objects for use in r polynomial calculation.
+
+    Parameters
+    ----------
+    term_set : set, contains Term objects
+        The set of all terms that appear as column labels in the main matrix
+    lead_term_set : set, contains Term objects
+        The set of all terms that appear as leading terms of some polynomial
+        in the main matrix
+
+    Returns
+    -------
+    monheap : MaxHeap object, contains Term objects
+        A max heap of all terms that do not appear as leading terms of any
+        polynomial
+
+    '''
+
+    monheap = utils.MaxHeap()
+
+    for mon in term_set:
+        if mon not in lead_term_set: #Adds every monomial that isn't a lead term to the heap
+            monheap.heappush(mon)
+
+    return monheap
+
+def calc_phi(a,b):
+    '''
+    Calculates the phi-polynomial's of the polynomials a and b.
+
+    Parameters
+    ----------
+    a, b : Polynomial objects
+
+    Returns
+    -------
+    2 Polynomial objects
+        The calculated phi polynomials for a and b.
+
+    Notes
+    -----
+    Phi polynomials are defined to be
+    .. math::
+        \frac{lcm(LT(a), LT(b))}_{LT(a)} * a\\
+        \frac{lcm(LT(a), LT(b))}_{LT(b)} * b
+
+    The reasoning behind this definition is that both phis will have the
+    same leading term so they can be linearly reduced to produce a new,
+    smaller polynomial in the ideal.
+
+    '''
+
+    lcm = utils.lcm(a,b)
+
+    a_quo = utils.quotient(lcm, a.lead_term)
+    b_quo = utils.quotient(lcm, b.lead_term)
+    return a.mon_mult(a_quo), b.mon_mult(b_quo)
+
+def calc_r(m, polys):
+    '''Calculates an r polynomial that has a leading monomial m.
+
+    Parameters
+    ----------
+    m : array-like
+        The leading monomial that the r polynomial should have.
+    polys : array-like
+        Contains polynomial objects from which to create the r polynomial.
+
+    Returns
+    -------
+    Polynomial object or None
+        If no polynomial divides m, returns None. Otherwise, returns
+        the r polynomial with leading monomial m.
+
+    Notes
+    -----
+    The r polynomial corresponding to m is defined as follows:
+
+        Find a polynomial p such that the leading monomial of p divides m.
+        Then the r polynomial is
+
+        .. math::
+            r = \frac{m}_{LT(p)} * p
+
+    The reason we use r polynomials is because now any polynomial with
+    m as a term will be linearly reduced by r.
+
+    '''
+
+    for poly in polys:
+        LT_p = list(poly.lead_term)
+        if len(LT_p) == len(m) and utils.divides(LT_p, m):
+            quotient = utils.quotient(m, LT_p)
+            if not LT_p == m: #Make sure c isn't all 0
+                return poly.mon_mult(quotient)
+
+    return None
+
 def clean_matrix(matrix, matrix_terms):
     '''
     Gets rid of columns in the matrix that are all zero and returns it and the updated matrix_terms.
@@ -38,13 +138,6 @@ def clean_matrix(matrix, matrix_terms):
     matrix = matrix[:,non_zero_monomial] #Only keeps the non_zero_monomials
     matrix_terms = matrix_terms[non_zero_monomial] #Only keeps the non_zero_monomials
     return matrix, matrix_terms
-
-def clean_zeros_from_matrix(matrix, global_accuracy = 1.e-10):
-    '''
-    Sets all points in the matrix less than the gloabal accuracy to 0.
-    '''
-    matrix[np.where(np.abs(matrix) < global_accuracy)]=0
-    return matrix
 
 def create_matrix(polys):
     '''
@@ -80,7 +173,7 @@ def create_matrix(polys):
     matrix, matrix_terms = sort_matrix(matrix, matrix_terms)
 
     #Sorts the rows of the matrix so it is close to upper triangular.
-    matrix = row_swap_matrix(matrix)
+    matrix = utils.row_swap_matrix(matrix)
     return matrix, matrix_terms
 
 def divides(a,b): #This is not the divides used in utils.
@@ -152,10 +245,33 @@ def get_good_rows(matrix, matrix_terms):
         spot += 1
     return keys
 
-def get_poly_from_matrix(rows,matrix,matrix_terms,powerbasis):
-    '''
-    Takes a list of indicies corresponding to the rows of the reduced matrix and
-    returns a list of polynomial objects
+def get_polys_from_matrix(matrix, matrix_terms, rows, power=False, clean=False, accuracy=1.e-10):
+    '''Creates polynomial objects from the specified rows of the given matrix.
+
+    Parameters
+    ----------
+    matrix : 2D numpy array
+        The matrix with rows corresponding to polynomials, columns corresponding
+        to monomials, and entries corresponding to coefficients.
+    matrix_terms : array-like, contains Term objects
+        The column labels for matrix in order.
+    rows : iterable, contains integers
+        The rows for which to create polynomial objects.
+    power : bool
+        If true, the polynomials returned will be MultiPower objects.
+        Otherwise, they will be MultiCheb.
+    clean : bool, optional
+        If true, any row whose absolute sum is less than accuracy will not be
+        converted to a polynomial object.
+    accuracy : float, optional
+        Any row whose absolute sum is less than this value will not be
+        converted to polynomial objects if clean is True.
+
+    Returns
+    -------
+    poly_list : list
+        Polynomial objects corresponding to the specified rows.
+
     '''
     shape = []
     p_list = []
@@ -168,11 +284,14 @@ def get_poly_from_matrix(rows,matrix,matrix_terms,powerbasis):
     # Grabs each polynomial, makes coeff matrix and constructs object
     for i in rows:
         p = matrix[i]
+        if clean:
+            if np.sum(np.abs(p)) < accuracy:
+                continue
         coeff = np.zeros(shape)
         for j,term in enumerate(matrix_term_vals):
             coeff[term] = p[j]
 
-        if powerbasis:
+        if power:
             poly = MultiPower(coeff)
         else:
             poly = MultiCheb(coeff)
@@ -180,10 +299,6 @@ def get_poly_from_matrix(rows,matrix,matrix_terms,powerbasis):
         if poly.lead_term != None:
             p_list.append(poly)
     return p_list
-
-def inverse_P(p):
-    P = np.eye(len(p))[:,p]
-    return np.where(P==1)[1]
 
 def Macaulay(initial_poly_list, powerbasis=True, global_accuracy = 1.e-10):
     """
@@ -213,13 +328,13 @@ def Macaulay(initial_poly_list, powerbasis=True, global_accuracy = 1.e-10):
 
     # Reduce the Macaulay matrix. Keep only nonzero polynomials.
     matrix = rrqr_reduce(matrix)
-    matrix = clean_zeros_from_matrix(matrix)
+    matrix = utils.clean_zeros_from_matrix(matrix)
     non_zero_rows = np.sum(abs(matrix),axis=1) != 0
     matrix = matrix[non_zero_rows,:]
 
     # Triangular solve and clean zeros from matrix.
     matrix = triangular_solve(matrix)
-    matrix = clean_zeros_from_matrix(matrix)
+    matrix = utils.clean_zeros_from_matrix(matrix)
 
     # Get polynomials from matrix.
     rows = get_good_rows(matrix, matrix_terms)
@@ -251,25 +366,6 @@ def mon_combos(mon, numLeft, spot = 0):
         answers += mon_combos(temp, numLeft-i, spot+1)
     return answers
 
-def row_swap_matrix(matrix):
-    '''
-    Rearange the rows of the matrix so it starts close to upper traingular and return it.
-    '''
-    rows, columns = np.where(matrix != 0)
-    lms = {}
-    last_i = -1
-    lms = list()
-    #Finds the leading column of each row and adds it to lms.
-    for i,j in zip(rows,columns):
-        if i == last_i:
-            continue
-        else:
-            lms.append(j)
-            last_i = i
-    #Get the list by which we sort the matrix, first leading columns first.
-    argsort_list = sorted(range(len(lms)), key=lms.__getitem__)[::]
-    return matrix[argsort_list]
-
 def rrqr_reduce(matrix, clean = False, global_accuracy = 1.e-10):
     '''
     Recursively reduces the matrix using rrqr reduction so it returns a reduced matrix, where each row has
@@ -281,7 +377,7 @@ def rrqr_reduce(matrix, clean = False, global_accuracy = 1.e-10):
     A = matrix[:height,:height] #Get the square submatrix
     B = matrix[:,height:] #The rest of the matrix to the right
     Q,R,P = qr(A, pivoting = True) #rrqr reduce it
-    PT = inverse_P(P)
+    PT = utils.inverse_P(P)
     diagonals = np.diagonal(R) #Go along the diagonals to find the rank
     rank = np.sum(np.abs(diagonals)>global_accuracy)
     if rank == height: #full rank, do qr on it
@@ -321,7 +417,7 @@ def sort_matrix(matrix, matrix_terms):
     Returns the sorted matrix and matrix_terms.
     '''
     #argsort_list gives the ordering by which the matrix should be sorted.
-    argsort_list = sorted(range(len(matrix_terms)), key=matrix_terms.__getitem__)[::-1]
+    argsort_list = utils.argsort_dec(matrix_terms)[0]
     matrix_terms.sort()
     matrix = matrix[:,argsort_list]
     return matrix, matrix_terms[::-1]
@@ -371,7 +467,7 @@ def triangular_solve(matrix):
         solver = np.hstack((np.eye(X.shape[0]),X))
 
         # Find the order to reverse the columns back.
-        order = inverse_P(order_c+order_d)
+        order = utils.inverse_P(order_c+order_d)
 
         # Reverse the columns back.
         solver = solver[:,order]

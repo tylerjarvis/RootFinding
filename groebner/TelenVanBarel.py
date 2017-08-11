@@ -41,7 +41,6 @@ def TelenVanBarel(initial_poly_list, global_accuracy = 1.e-10):
             
     for i in initial_poly_list:
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
-    
     matrix, matrix_terms, matrix_shape_stuff = create_matrix2(poly_coeff_list)
         
     matrix, matrix_terms = rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, 
@@ -149,7 +148,7 @@ def sort_matrix(matrix, matrix_terms):
         mons = term + np.array(var_list)
         if not all(tuple(mon) in matrix_termSet for mon in mons):
             highest.add(term)
-    
+
     var_list = get_var_list(dim)
     var_list.append(tuple(np.zeros(dim, dtype=int)))
     for mon in var_list:
@@ -157,13 +156,13 @@ def sort_matrix(matrix, matrix_terms):
             matrix_terms = np.append(matrix_terms, 0)
             matrix_terms[::-1][0] = mon
             matrix = np.hstack((matrix,np.zeros((matrix.shape[0],1))))
-    
+
     others = set()
     for term in matrix_terms:
         if term not in var_list and term not in highest:
             others.add(term)
     sorted_matrix_terms = list(highest) + list(others) + list(var_list)
-    
+
     order = np.zeros(len(matrix_terms), dtype = int)
     matrix_termsList = list(matrix_terms)
     for i in range(len(matrix_terms)):
@@ -271,10 +270,10 @@ def create_matrix(poly_coeffs):
     for i,j in np.ndenumerate(terms):
         terms[i] = i
     matrix_terms = terms.ravel()
-        
+
     #Gets rid of any columns that are all 0.
     matrix, matrix_terms = clean_matrix(matrix, matrix_terms)
-    
+
     #Sorts the matrix and matrix_terms by term order.
     matrix, matrix_terms, matrix_shape_stuff = sort_matrix(matrix, matrix_terms)
 
@@ -316,7 +315,7 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, global_ac
     
     matrix[:,:highest_num] = R1
     matrix[:,highest_num:] = Q1.T@Others
-    
+
     C = matrix[:highest_num,highest_num:highest_num+others_num]
     E = matrix[highest_num:,highest_num:highest_num+others_num]
     Mlow = matrix[highest_num:,highest_num+others_num:]

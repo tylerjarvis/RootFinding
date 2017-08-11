@@ -160,3 +160,20 @@ def test_push_pop():
     assert maxh.heappop() == a1
     assert maxh.heappop() == a4
     assert maxh.heappop() == a0
+
+def test_sorted_polys_coeff():
+    A = MultiPower(np.array([[2,0,-3,0,0],
+                         [0,1,0,0,0],
+                         [-2,0,0,0,0],
+                         [0,0,4,0,0],
+                         [0,0,0,0,-2]]))
+    B = MultiPower(np.array([[3,0,-5,0,0,4,2,-6,3,-6],
+                         [-2,0,-1,1,-1,4,2,-6,-5,-2],
+                         [-1,3,2,-2,0,4,-1,-2,-4,6],
+                         [4,2,5,9,0,3,2,-1,-3,-3],
+                         [3,-3,-5,-2,0,4,-2,2,1,-6]]))
+
+    assert(list((A,B)) == ut.sorted_polys_coeff([A,B]))
+
+    C = MultiPower(np.array([[1]]))
+    assert(list((C,A,B)) == ut.sorted_polys_coeff([A,B,C]))
