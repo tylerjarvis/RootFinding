@@ -153,7 +153,7 @@ def create_matrix(polys):
     matrix, matrix_terms = sort_matrix(matrix, matrix_terms)
 
     #Sorts the rows of the matrix so it is close to upper triangular.
-    matrix = row_swap_matrix(matrix)
+    matrix = utils.row_swap_matrix(matrix)
     return matrix, matrix_terms
 
 def divides(a,b): #This is not the divides used in utils.
@@ -345,25 +345,6 @@ def mon_combos(mon, numLeft, spot = 0):
         temp[spot] = i
         answers += mon_combos(temp, numLeft-i, spot+1)
     return answers
-
-def row_swap_matrix(matrix):
-    '''
-    Rearange the rows of the matrix so it starts close to upper traingular and return it.
-    '''
-    rows, columns = np.where(matrix != 0)
-    lms = {}
-    last_i = -1
-    lms = list()
-    #Finds the leading column of each row and adds it to lms.
-    for i,j in zip(rows,columns):
-        if i == last_i:
-            continue
-        else:
-            lms.append(j)
-            last_i = i
-    #Get the list by which we sort the matrix, first leading columns first.
-    argsort_list = utils.argsort_inc(lms)[0]
-    return matrix[argsort_list]
 
 def rrqr_reduce(matrix, clean = False, global_accuracy = 1.e-10):
     '''
