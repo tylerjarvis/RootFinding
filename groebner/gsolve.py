@@ -32,7 +32,7 @@ def add_polys(degree, poly, poly_list):
     return poly_list
 
 def build_maxheap(term_set, lead_term_set):
-    '''Builds a maxheap for use in r polynomial calculation.
+    '''Builds a maxheap of Term objects for use in r polynomial calculation.
 
     Parameters
     ----------
@@ -47,7 +47,7 @@ def build_maxheap(term_set, lead_term_set):
     monheap : MaxHeap object, contains Term objects
         A max heap of all terms that do not appear as leading terms of any
         polynomial
-        
+
     '''
 
     monheap = utils.MaxHeap()
