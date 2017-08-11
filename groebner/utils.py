@@ -3,8 +3,6 @@ import numpy as np
 from scipy.linalg import lu, qr, solve_triangular
 import heapq
 
-global_accuracy = 1.e-10
-
 class Term(object):
     '''
     Terms are just tuples of exponents with the grevlex ordering
@@ -151,6 +149,88 @@ class MinHeap(MaxHeap):
     def __repr__(self):
         return('A min heap of {} unique terms with the DegRevLex term order.'.format(len(self)))
 
+def argsort_dec(list_):
+    '''Sort the given list into decreasing order.
+
+    Parameters
+    ----------
+    list_ : list
+        The list to be sorted.
+
+    Returns
+    -------
+    argsort_list : list
+        A list of the old indexes in their new places. For example, if
+        [3,1,4] was sorted to be [4,3,1], then argsort_list would be [2,0,1]
+    list_ : list
+        The same list as was input, but now in decreasing order.
+
+    '''
+
+    argsort_list = sorted(range(len(list_)), key=list_.__getitem__)[::-1]
+    list_.sort()
+    return argsort_list, list_[::-1]
+
+def argsort_inc(list_):
+    '''Sort the given list into increasing order.
+
+    Parameters
+    ----------
+    list_ : list
+        The list to be sorted.
+
+    Returns
+    -------
+    argsort_list : list
+        A list of the old indexes in their new places. For example, if
+        [3,1,4] was sorted to be [1,3,4], then argsort_list would be [1,0,2]
+    list_ : list
+        The same list as was input, but now in increasing order.
+
+    '''
+
+    argsort_list = sorted(range(len(list_)), key=list_.__getitem__)
+    list_.sort()
+    return argsort_list, list_
+
+def clean_matrix(matrix, matrix_terms, set_zeros=False, accuracy=1.e-10):
+    '''Removes columns in the matrix that are all zero along with associated
+    terms in matrix_terms.
+
+    Parameters
+    ----------
+    matrix : 2D numpy array
+        The matrix with rows corresponding to polynomials, columns corresponding
+        to monomials, and entries corresponding to coefficients.
+    matrix_terms : array-like, contains Term objects
+        The column labels for matrix in order.
+    set_zeros : bool, optional
+        If true, all entries in the matrix that are within accuracy of 0 will
+        be set to 0.
+    accuracy : float, optional
+        How close entries should be to 0 for them to be set to 0 (only applies
+        if set_zeros is True).
+
+    Returns
+    -------
+    matrix : 2D numpy array
+        Same matrix as input but with all 0 columns removed.
+    matrix_terms : array-like, contains Term objects
+        Same as input but with entries corresponding to 0 columns in the matrix
+        removed.
+
+    '''
+
+    ##This would replace all small values in the matrix with 0.
+    if set_zeros:
+        matrix[np.where(abs(matrix) < accuracy)]=0
+
+    #Removes all 0 monomials
+    non_zero_monomial = np.sum(abs(matrix), axis=0) != 0
+    matrix = matrix[:,non_zero_monomial] #only keeps the non_zero_monomials
+    matrix_terms = matrix_terms[non_zero_monomial]
+
+    return matrix, matrix_terms
 
 def divides(mon1, mon2):
     '''
@@ -168,60 +248,121 @@ def divides(mon1, mon2):
     '''
     return all(np.subtract(mon2, mon1) >= 0)
 
-def sorted_polys_monomial(polys):
-    '''
-    Sorts the polynomials by the number of monomials they have, the ones with the least amount first.
+def inverse_P(P):
+    '''The inverse of P, the array with column switching indexes.
 
-    polys (list-like): !!! Is it a list or could it be any iterable?
+    Parameters
+    ----------
+    P : array-like
+        1D array P returned by scipy's QRP decomposition.
+
+    Returns
+    -------
+    1D numpy array
+        The indexes needed to switch the columns back to their original
+        positions.
+
+    See Also
+    --------
+    scipy.linalg.qr : QR decomposition (with pivoting=True).
+
+    '''
+
+    # The elementry matrix that flips the columns of given matrix.
+    M_P= np.eye(len(P))[:,P]
+    # This finds the index that equals 1 of each row of P.
+    #(This is what we want since we want the index of 1 at each column of P.T)
+    return np.where(M_P==1)[1]
+
+def lcm(a,b):
+    '''Finds the LCM of the two leading terms of polynomials a and b
+
+    Parameters
+    ----------
+    a, b : polynomial objects
+
+    Returns
+    -------
+    numpy array
+        The lcm of the leading terms of a and b. The usual representation is
+        used, i.e., :math:`x^2y^3` is represented as :math:`\mathtt{(2,3)}`
+
+    '''
+    return np.maximum(a.lead_term, b.lead_term)
+
+def quotient(a, b):
+    '''Finds the quotient of monomials a and b, that is, a / b.
+
+    Parameters
+    ----------
+    a, b : array-like, the monomials to divide
+
+    Returns
+    -------
+    list
+        The quotient a / b
+
+    '''
+
+    return [i-j for i,j in zip(a, b)]
+
+def sorted_polys_coeff(polys):
+    '''Sorts the polynomials by how much bigger the leading coefficient is than
+    the rest of the coeff matrix.
+
+    Parameters
+    ----------
+    polys : array-like
+        Contains polynomial objects to sort.
+
+    Returns
+    -------
+    sorted_polys : list
+        The polynomial objects in order of lead coefficient to everything else
+        ratio.
+
+    '''
+
+    # The lead_coeff to other stuff ratio.
+    lead_coeffs = [abs(poly.lead_coeff)/np.sum(np.abs(poly.coeff)) for poly in polys]
+
+    argsort_list = argsort_dec(lead_coeffs)[0]
+    sorted_polys = [polys[i] for i in argsort_list]
+
+    return sorted_polys
+
+def sorted_polys_monomial(polys):
+    '''Sorts the polynomials by the number of monomials they have, the ones
+    with the least amount first.
+
+    Parameters
+    ----------
+    polys : array-like, contains polynomial objects !!! Is it a list or could it be any iterable?
+        Polynomials to be sorted
+
+    Returns
+    -------
+    sorted_polys : list
+        Polynomials in order.
 
     '''
 
     # A list to contain the number of monomials with non zero coefficients.
     num_monomials = []
-    for p in polys:
-        # Grab all the coefficients in the tensor that are non zero.
-        # !!! Why are we only getting index 0?
-        n = len(np.where(p.coeff != 0)[0])
-        num_monomials.append(n)
+    for poly in polys:
+        # This gets the length of the list of first indexes, since
+        # that is number of non-zero coefficients in the coefficient array.
+        # See documentation for np.where
+        num_monomials.append(len(np.where(poly.coeff != 0)[0]))
 
     # Generate a sorted index based on num_monomials.
     # TODO: I'm pretty sure there is a numpy function that does this already.
-    argsort_list = sorted(range(len(num_monomials)), key=num_monomials.__getitem__)[::]
+    argsort_list = argsort_inc(num_monomials)[0]
 
     # Sort the polynomials according to the index argsort_list.
-    sorted_polys = [polys(i) for i in argsort_list]
+    sorted_polys = [polys[i] for i in argsort_list]
 
     return sorted_polys
-
-
-def argsort(index_list):
-    '''
-    Returns an argsort list for the index, as well as sorts the list in place
-
-    !!! This could be combined with sorted_polys_monomial to avoid repetitive code.
-
-    '''
-
-    argsort_list = sorted(range(len(index_list)), key=index_list.__getitem__)[::-1]
-    return argsort_list, index_list.sort()[::-1]
-
-
-def calc_r(m, sorted_polys):
-    '''
-    Finds the r polynomial that has a leading monomial m.
-    Returns the polynomial.
-
-    '''
-
-    for p in sorted_polys:
-        l = list(p.lead_term)
-        # Check to see if l divides m
-        if all([i<=j for i,j in zip(l,m)]) and len(l) == len(m):
-            # !!! i-j is used in the divide() method, not j-i. Is this a problem?
-            c = [j-i for i,j in zip(l,m)]
-            if l != m: # Make sure c isn't all 0
-                return p.mon_mult(c)
-
 
 def row_swap_matrix(matrix):
     '''
@@ -235,7 +376,7 @@ def row_swap_matrix(matrix):
             lms.append(j)
             last_i = i
     # !!! Repetition of previous code.
-    argsort_list = sorted(range(len(lms)), key=lms.__getitem__)[::]
+    argsort_list = argsort_inc(lms)[0]
     return matrix[argsort_list]
 
 
@@ -273,7 +414,7 @@ def clean_zeros_from_matrix(matrix, global_accuracy=1.e-10):
     matrix[np.where(np.abs(matrix) < global_accuracy)] = 0
     return matrix
 
-def fullRank(matrix):
+def fullRank(matrix, accuracy=1.e-10):
     '''
     Uses rank revealing QR to determine which rows of the given matrix are
     linearly independent and which ones are linearly dependent. (This
@@ -298,7 +439,7 @@ def fullRank(matrix):
     height = matrix.shape[0]
     Q,R,P = qr(matrix, pivoting = True)
     diagonals = np.diagonal(R) #Go along the diagonals to find the rank
-    rank = np.sum(np.abs(diagonals)>global_accuracy)
+    rank = np.sum(np.abs(diagonals)>accuracy)
     numMissing = height - rank
     if numMissing == 0: # Full Rank. All rows independent
         return [i for i in range(height)],[],None
@@ -312,17 +453,6 @@ def fullRank(matrix):
         dependentRows = P1[:R1.shape[0]] #Pivot Columns
         return independentRows,dependentRows,Q
 
-def inverse_P(p):
-    '''
-    Takes in the one dimentional array of column switching.
-    Returns the one dimentional array of switching it back.
-    '''
-    # The elementry matrix that flips the columns of given matrix.
-    P = np.eye(len(p))[:,p]
-    # This finds the index that equals 1 of each row of P.
-    #(This is what we want since we want the index of 1 at each column of P.T)
-    return np.where(P==1)[1]
-
 def get_var_list(dim):
     _vars = [] # list of the variables: [x_1, x_2, ..., x_n]
     for i in range(dim):
@@ -330,20 +460,6 @@ def get_var_list(dim):
         var[i] = 1
         _vars.append(tuple(var))
     return _vars
-
-def sorted_polys_monomial(polys):
-    '''
-    Sorts the polynomials by the number of monomials they have, the ones with
-    the least amount first.
-    '''
-    num_monomials = list()
-    for poly in polys:
-        num_monomials.append(len(np.where(poly.coeff != 0)[0]))
-    argsort_list = sorted(range(len(num_monomials)), key=num_monomials.__getitem__)[::]
-    sorted_polys = list()
-    for i in argsort_list:
-        sorted_polys.append(polys[i])
-    return sorted_polys
 
 def triangular_solve(matrix, matrix_terms = None, reorder = True):
     """
@@ -405,7 +521,7 @@ def triangular_solve(matrix, matrix_terms = None, reorder = True):
     else:
     # The case where the matrix passed in is a square matrix
         return np.eye(m)
-    
+
 def first_x(s):
     '''
     Finds the first position of an 'x' in a string. If there is not x it returns the length of the string.
@@ -482,3 +598,33 @@ def makePolyCoeffMatrix(inputString):
         coefficient = coefficients[i]
         matrix[tuple(matrixSpot)] = coefficient
     return matrix
+
+def sort_matrix(matrix, matrix_terms):
+    '''Sort matrix columns by some term order.
+
+    Sorts the matrix columns into whichever order is defined on the term objects
+    in matrix_terms (usually grevlex).
+
+    Parameters
+    ----------
+    matrix : 2D numpy array
+        The matrix with rows corresponding to polynomials, columns
+        corresponding to monomials, and each entry is a coefficient.
+    matrix_terms : array-like, contains Term objects
+        Contains the monomial labels for the matrix columns in order, i.e., if
+        the first column of matrix corresponds to the monomial x^2, then
+        matrix_terms[0] is Term(x^2).
+
+    Returns
+    -------
+    ordered_matrix : 2D numpy array
+        The same matrix as was input, but now with the columns switched so they
+        are in order.
+    matrix_terms : array-like, contains Term objects
+        Same as the input, but now ordered.
+
+    '''
+
+    argsort_list, matrix_terms = argsort_dec(matrix_terms)
+    ordered_matrix = matrix[:,argsort_list]
+    return ordered_matrix, matrix_terms
