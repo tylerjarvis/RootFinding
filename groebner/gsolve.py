@@ -139,13 +139,6 @@ def clean_matrix(matrix, matrix_terms):
     matrix_terms = matrix_terms[non_zero_monomial] #Only keeps the non_zero_monomials
     return matrix, matrix_terms
 
-def clean_zeros_from_matrix(matrix, global_accuracy = 1.e-10):
-    '''
-    Sets all points in the matrix less than the gloabal accuracy to 0.
-    '''
-    matrix[np.where(np.abs(matrix) < global_accuracy)]=0
-    return matrix
-
 def create_matrix(polys):
     '''
     Takes a list of polynomial objects (polys) and uses them to create a matrix. That is ordered by the monomial
@@ -335,13 +328,13 @@ def Macaulay(initial_poly_list, powerbasis=True, global_accuracy = 1.e-10):
 
     # Reduce the Macaulay matrix. Keep only nonzero polynomials.
     matrix = rrqr_reduce(matrix)
-    matrix = clean_zeros_from_matrix(matrix)
+    matrix = utils.clean_zeros_from_matrix(matrix)
     non_zero_rows = np.sum(abs(matrix),axis=1) != 0
     matrix = matrix[non_zero_rows,:]
 
     # Triangular solve and clean zeros from matrix.
     matrix = triangular_solve(matrix)
-    matrix = clean_zeros_from_matrix(matrix)
+    matrix = utils.clean_zeros_from_matrix(matrix)
 
     # Get polynomials from matrix.
     rows = get_good_rows(matrix, matrix_terms)

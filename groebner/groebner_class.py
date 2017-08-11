@@ -367,7 +367,7 @@ class Groebner(object):
             fullRankMatrix = self.np_matrix[independentRows]
 
             reduced_matrix = self.rrqr_reduce2(fullRankMatrix)
-            reduced_matrix = self.clean_zeros_from_matrix(reduced_matrix)
+            reduced_matrix = utils.clean_zeros_from_matrix(reduced_matrix)
 
             non_zero_rows = np.sum(abs(reduced_matrix),axis=1) != 0
 
@@ -376,7 +376,7 @@ class Groebner(object):
             if triangular_solve:
                 reduced_matrix = self.triangular_solve(reduced_matrix)
                 if clean:
-                    reduced_matrix = self.clean_zeros_from_matrix(reduced_matrix)
+                    reduced_matrix = utils.clean_zeros_from_matrix(reduced_matrix)
         else:
             #This thing is very behind the times.
             P,L,U = lu(self.np_matrix)
@@ -412,13 +412,6 @@ class Groebner(object):
             print(reduced_matrix)
 
         return len(self.new_polys) > 0
-
-    def clean_zeros_from_matrix(self,matrix):
-        '''
-        Sets all points in the matrix less than the gloabal accuracy to 0.
-        '''
-        matrix[np.where(np.abs(matrix) < global_accuracy)]=0
-        return matrix
 
     def hasFullRank(self, matrix):
         height = matrix.shape[0]
@@ -474,7 +467,7 @@ class Groebner(object):
         if matrix.shape[0]==0 or matrix.shape[1]==0:
             return matrix
         if clean:
-            matrix = self.clean_zeros_from_matrix(matrix)
+            matrix = utils.clean_zeros_from_matrix(matrix)
         height = matrix.shape[0]
         A = matrix[:height,:height] #Get the square submatrix
         B = matrix[:,height:] #The rest of the matrix to the right
@@ -483,7 +476,7 @@ class Groebner(object):
         diagonals = np.diagonal(R) #Go along the diagonals to find the rank
         rank = np.sum(np.abs(diagonals)>global_accuracy)
         if clean:
-            R = self.clean_zeros_from_matrix(R)
+            R = utils.clean_zeros_from_matrix(R)
 
         if rank == height: #full rank, do qr on it
             Q,R = qr(A)
@@ -513,7 +506,7 @@ class Groebner(object):
         if not clean:
             return reduced_matrix
         else:
-            return self.clean_zeros_from_matrix(reduced_matrix)
+            return utils.clean_zeros_from_matrix(reduced_matrix)
 
     def triangular_solve(self,matrix):
         " Reduces the upper block triangular matrix. "
@@ -580,7 +573,7 @@ class Groebner(object):
         Fully reduces the matrix by making sure all submatrices formed by taking out columns of zeros are
         also in upper triangular form. Does this recursively. Returns the reduced matrix.
         '''
-        matrix = self.clean_zeros_from_matrix(matrix)
+        matrix = utils.clean_zeros_from_matrix(matrix)
         diagonals = np.diagonal(matrix).copy()
         zero_diagonals = np.where(abs(diagonals)==0)[0]
         if(len(zero_diagonals != 0)):
@@ -605,6 +598,6 @@ class Groebner(object):
 
                 matrix[first_zero: , i:] = sub_matrix
         if clean:
-            return self.clean_zeros_from_matrix(matrix)
+            return utils.clean_zeros_from_matrix(matrix)
         else:
-            return self.clean_zeros_from_matrix(matrix)
+            return utils.clean_zeros_from_matrix(matrix)

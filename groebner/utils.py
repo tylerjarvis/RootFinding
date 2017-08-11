@@ -386,7 +386,7 @@ def row_swap_matrix(matrix):
            [0, 1, 3, 0]])
 
     '''
-    
+
     rows, columns = np.where(matrix != 0)
     last_i = -1
     leading_mon_columns = list()
@@ -425,12 +425,12 @@ def get_var_list(dim):
         _vars.append(tuple(var))
     return _vars
 
-def clean_zeros_from_matrix(matrix, global_accuracy=1.e-10):
+def clean_zeros_from_matrix(matrix, accuracy=1.e-10):
     '''
-    Sets all points in the matrix less than the gloabal accuracy to 0.
+    Sets all points in the matrix less than accuracy to 0.
 
     '''
-    matrix[np.where(np.abs(matrix) < global_accuracy)] = 0
+    matrix[np.where(np.abs(matrix) < accuracy)] = 0
     return matrix
 
 def fullRank(matrix, accuracy=1.e-10):
