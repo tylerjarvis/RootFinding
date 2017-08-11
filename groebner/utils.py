@@ -425,13 +425,24 @@ def get_var_list(dim):
         _vars.append(tuple(var))
     return _vars
 
-def clean_zeros_from_matrix(matrix, accuracy=1.e-10):
-    '''
-    Sets all points in the matrix less than accuracy to 0.
+def clean_zeros_from_matrix(array, accuracy=1.e-10):
+    '''Sets all values in the array less than the given accuracy to 0.
+
+    Parameters
+    ----------
+    array : numpy array
+    accuracy : float, optional
+        Values in the matrix less than this will be set to 0.
+
+    Returns
+    -------
+    array : numpy array
+        Same array, but with values less than the given accuracy set to 0.
 
     '''
-    matrix[np.where(np.abs(matrix) < accuracy)] = 0
-    return matrix
+    
+    array[np.where(np.abs(array) < accuracy)] = 0
+    return array
 
 def fullRank(matrix, accuracy=1.e-10):
     '''
