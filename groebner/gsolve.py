@@ -418,7 +418,7 @@ def row_echelon(matrix):
 
     return reduced_matrix
 
-def get_new_polys(matrix, matrix_terms, old_polys, new_polys, triangular_solve = False, clean=False):
+def get_new_polys(matrix, matrix_terms, old_polys, new_polys, clean=False):
     '''
     Reduces the matrix fully using QR decomposition. Adds the
     new_poly's to old_poly's, and adds to new_poly's any polynomials created by
@@ -429,11 +429,6 @@ def get_new_polys(matrix, matrix_terms, old_polys, new_polys, triangular_solve =
 
     # Row echelon form of matrix
     reduced_matrix = row_echelon(matrix)
-
-    if triangular_solve:
-        reduced_matrix = utils.triangular_solve(reduced_matrix)
-        if clean:
-            reduced_matrix = utils.clean_zeros_from_matrix(reduced_matrix)
 
     #Get the new polynomials
     new_poly_spots = list()
