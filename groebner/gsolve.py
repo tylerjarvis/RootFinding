@@ -328,7 +328,7 @@ def Macaulay(initial_poly_list, powerbasis=True, global_accuracy = 1.e-10):
 
     # Reduce the Macaulay matrix. Keep only nonzero polynomials.
     matrix = rrqr_reduce(matrix)
-    matrix = utils.clean_zeros_from_matrix(matrix)
+    matrix = k(matrix)
     non_zero_rows = np.sum(abs(matrix),axis=1) != 0
     matrix = matrix[non_zero_rows,:]
 
