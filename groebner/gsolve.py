@@ -15,36 +15,68 @@ from collections import defaultdict
 import warnings
 from groebner.utils import InstabilityWarning
 
-def F4(polys, reducedGroebner = True):
+def F4(polys, reducedGroebner = True, accuracy = 1.e-10):
+    '''Uses the F4 algorithm to find a Groebner Basis.
+
+    Parameters
+    ----------
+    polys : list
+        The polynomails for which a Groebner basis is computed.
+    reducedGroebner: bool
+        Defaults to True. If True then a reduced Groebner Basis is found. If False, just a Groebner Basis is found.
+    accuracy: float
+        Defaults to 1.e-10. What is determined to be zero in the code.
+
+    Returns
+    -------
+    groebner_basis : list
+        The polynomials in the Groebner Basis.
     '''
-    The main function. Initializes the matrix, adds the phi's and r's, and then reduces it. Repeats until the reduction
-    no longer adds any more polynomials to the matrix. Print statements let us see the progress of the code.
-    '''
+
     power = isinstance(polys[0],MultiPower)
     old_polys = list()
     new_polys = polys
     polys_were_added = True
     while len(new_polys) > 0:
-        old_polys, new_polys, matrix_polys = initialize_np_matrix(old_polys, new_polys)
+        old_polys, new_polys, matrix_polys = sort_reducible_polys(old_polys, new_polys)
         matrix_polys = add_phi_to_matrix(old_polys, new_polys, matrix_polys)
         matrix_polys, matrix_terms = add_r_to_matrix(matrix_polys, old_polys + new_polys)
         matrix, matrix_terms = create_matrix(matrix_polys, matrix_terms)
         old_polys += new_polys
-        new_polys = get_new_polys(matrix, matrix_terms, power)
+        new_polys = get_new_polys(matrix, matrix_terms, power, accuracy = accuracy)
 
     groebner_basis = old_polys
     if reducedGroebner:
         groebner_basis = reduce_groebner_basis(groebner_basis, power)
     return groebner_basis
 
-def initialize_np_matrix(old_polys, new_polys, final_time = False):
-    '''
-    Initialzes self.np_matrix to having just old_polys and new_polys in it
-    matrix_terms is the header of the matrix, it lines up each column with a monomial
+def sort_reducible_polys(old_polys, new_polys):
+    '''Finds which polynomials are reducable.
+    The polynomials that are reducible aren't used in phi and r calculations, they are just added
+    to the matrix. They are also removed from the poly list they are in, as whatever they are reduced
+    down to will be pulled out of the matrix at the end.
+    
+    A polynomial is considered reducible if the leading term of another polynomial divides it's leading term.
+    In the case of multiple polynomials having the same leading term, one is considered non-reducible and the
+    rest are reducible.
 
-    Now it sorts through the polynomials and if a polynomial is going to be reduced this time through
-    it adds it and it's reducer to the matrix but doesn't use it for phi or r calculations.
-    This makes the code WAY faster.
+    Parameters
+    ----------
+    old_polys : list
+        The polynomails that have already gone through the reduction before.
+    new_polys: list
+        The polynomials that have not gone through the reduction before.
+
+    Returns
+    -------
+    old_polys : list
+        The old_polys that are not reducible.
+    new_polys: list
+        The new_polys that are not reducible.
+    matrix_polys: list
+        The polynomials that are being put in the matrix. Any polynomial that is reducible is put in the matrix,
+        and if it is reducible because some other polynomials lead term divides it's lead term than the other
+        polynomial is multiplied by th monomial needed to give it the same lead term, and that is put in the matrix.
     '''
     matrix_polys = list()
     
@@ -109,6 +141,31 @@ def initialize_np_matrix(old_polys, new_polys, final_time = False):
     return old_polys, new_polys, matrix_polys
 
 def add_phi_to_matrix(old_polys, new_polys, matrix_polys, phi = True):
+    '''Adds phi polynomials to the matrix.
+    
+    Phi polynomials are defined 
+
+    Parameters
+    ----------
+    old_polys : list
+        The polynomails that have already gone through the reduction before.
+    new_polys: list
+        The polynomials that have not gone through the reduction before.
+
+    Returns
+    -------
+    old_polys : list
+        The old_polys that are not reducible.
+    new_polys: list
+        The new_polys that are not reducible.
+    matrix_polys: list
+        The polynomials that are being put in the matrix. Any polynomial that is reducible is put in the matrix,
+        and if it is reducible because some other polynomials lead term divides it's lead term than the other
+        polynomial is multiplied by th monomial needed to give it the same lead term, and that is put in the matrix.
+    '''
+
+    
+    
     '''
     Takes all new possible combinations of phi polynomials and adds them to the Groebner Matrix
     Includes some checks to throw out unnecessary phi's
@@ -137,6 +194,7 @@ def add_phi_to_matrix(old_polys, new_polys, matrix_polys, phi = True):
 def phi_criterion(all_polys,i,j,B,phi):
     '''
     Parameters:
+    all_polys : A list of all the polynomials.
     i (int) : the index of the first polynomial
     j (int) : the index of the second polynomial
     B (set) : index of the set of polynomials to be considered.
