@@ -418,14 +418,34 @@ def row_echelon(matrix):
 
     return reduced_matrix
 
-def get_new_polys(matrix, matrix_terms, old_polys, new_polys, clean=False):
-    '''
-    Reduces the matrix fully using QR decomposition. Adds the
-    new_poly's to old_poly's, and adds to new_poly's any polynomials created by
-    the reduction that have new leading monomials.
+def lead_term_columns(matrix):
+    '''Finds all columns j such that there is a row i where matrix[i,j] is the
+    first nonzero entry in row i.
 
-    Returns-True if new polynomials were found, False otherwise.
+    Parameters
+    ----------
+    matrix : 2D numpy array
+        The matrix of interest.
+
+    Returns
+    -------
+    LT_columns : set
+        The set of column indexes that correspond to leading terms
+
     '''
+
+    LT_columns = set()
+
+    already_looked_at = set()
+    for i, j in zip(*np.where(matrix!=0)):
+        if i not in already_looked_at:
+            LT_columns.add(j)
+            already_looked_at.add(i)
+
+    return LT_columns
+
+def get_new_polys(matrix, matrix_terms, new_polys, clean=False, power=False):
+
 
     # Row echelon form of matrix
     reduced_matrix = row_echelon(matrix)
@@ -446,20 +466,14 @@ def get_new_polys(matrix, matrix_terms, old_polys, new_polys, clean=False):
             already_looked_at.add(i)
             new_poly_spots.append(i) #This row gives a new leading monomial
 
-    if triangular_solve:
-        self.old_polys = get_polys_from_matrix(reduced_matrix, \
-            matrix_terms, old_poly_spots, power=self.power)
-    else:
-        self.old_polys = self.new_polys + self.old_polys
-
-    self.new_polys = get_polys_from_matrix(reduced_matrix, \
+    new_polys = get_polys_from_matrix(reduced_matrix, \
         matrix_terms, new_poly_spots, power=self.power)
 
-    if len(self.old_polys+self.new_polys) == 0:
+    if len(old_polys+new_polys) == 0:
         print("ERROR ERROR ERROR ERROR ERROR NOT GOOD NO POLYNOMIALS IN THE BASIS FIX THIS ASAP!!!!!!!!!!!!!")
         print(reduced_matrix)
 
-    return len(self.new_polys) > 0
+    return len(new_polys) > 0
 
 def sort_matrix(matrix, matrix_terms):
     '''
