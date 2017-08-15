@@ -366,7 +366,7 @@ class Groebner(object):
             independentRows, dependentRows, Q = utils.fullRank(self.np_matrix)
             fullRankMatrix = self.np_matrix[independentRows]
 
-            reduced_matrix = self.rrqr_reduce2(fullRankMatrix)
+            reduced_matrix = utils.rrqr_reduce2(fullRankMatrix)
             reduced_matrix = utils.clean_zeros_from_matrix(reduced_matrix)
 
             non_zero_rows = np.sum(abs(reduced_matrix),axis=1) != 0
@@ -412,81 +412,3 @@ class Groebner(object):
             print(reduced_matrix)
 
         return len(self.new_polys) > 0
-
-    def rrqr_reduce2(self, matrix): #My new sort of working one. Still appears to have some problems. Possibly from fullRank.
-        if matrix.shape[0] <= 1 or matrix.shape[0]==1 or  matrix.shape[1]==0:
-            return matrix
-        height = matrix.shape[0]
-        A = matrix[:height,:height] #Get the square submatrix
-        B = matrix[:,height:] #The rest of the matrix to the right
-        independentRows, dependentRows, Q = utils.fullRank(A)
-        nullSpaceSize = len(dependentRows)
-        if nullSpaceSize == 0: #A is full rank
-            #print("FULL RANK")
-            Q,R = qr(matrix)
-            return R
-        else: #A is not full rank
-            #print("NOT FULL RANK")
-            #sub1 is the independentRows of the matrix, we will recursively reduce this
-            #sub2 is the dependentRows of A, we will set this all to 0
-            #sub3 is the dependentRows of Q.T@B, we will recursively reduce this.
-            #We then return sub1 stacked on top of sub2+sub3
-            bottom = matrix[dependentRows]
-            BCopy = B.copy()
-            sub3 = bottom[:,height:]
-            sub3 = Q.T[-nullSpaceSize:]@BCopy
-            sub3 = self.rrqr_reduce(sub3)
-
-            sub1 = matrix[independentRows]
-            sub1 = self.rrqr_reduce(sub1)
-
-            sub2 = bottom[:,:height]
-            sub2[:] = np.zeros_like(sub2)
-
-            reduced_matrix = np.vstack((sub1,np.hstack((sub2,sub3))))
-            return reduced_matrix
-
-    def rrqr_reduce(self, matrix): #Original One. Seems to be the more stable one from testing.
-        if matrix.shape[0]==0 or matrix.shape[1]==0:
-            return matrix
-        if clean:
-            matrix = utils.clean_zeros_from_matrix(matrix)
-        height = matrix.shape[0]
-        A = matrix[:height,:height] #Get the square submatrix
-        B = matrix[:,height:] #The rest of the matrix to the right
-        Q,R,P = qr(A, pivoting = True) #rrqr reduce it
-        PT = utils.inverse_P(P)
-        diagonals = np.diagonal(R) #Go along the diagonals to find the rank
-        rank = np.sum(np.abs(diagonals)>global_accuracy)
-        if clean:
-            R = utils.clean_zeros_from_matrix(R)
-
-        if rank == height: #full rank, do qr on it
-            Q,R = qr(A)
-            A = R #qr reduce A
-            B = Q.T.dot(B) #Transform B the same way
-        else: #not full rank
-            A = R[:,PT] #Switch the columns back
-            B = Q.T.dot(B) #Multiply B by Q transpose
-            #sub1 is the top part of the matrix, we will recursively reduce this
-            #sub2 is the bottom part of A, we will set this all to 0
-            #sub3 is the bottom part of B, we will recursively reduce this.
-            #All submatrices are then put back in the matrix and it is returned.
-            sub1 = np.hstack((A[:rank,],B[:rank,])) #Takes the top parts of A and B
-            result = self.rrqr_reduce(sub1) #Reduces it
-            A[:rank,] = result[:,:height] #Puts the A part back in A
-            B[:rank,] = result[:,height:] #And the B part back in B
-
-            sub2 = A[rank:,]
-            zeros = np.zeros_like(sub2)
-            A[rank:,] = np.zeros_like(sub2)
-
-            sub3 = B[rank:,]
-            B[rank:,] = self.rrqr_reduce(sub3)
-
-        reduced_matrix = np.hstack((A,B))
-
-        if not clean:
-            return reduced_matrix
-        else:
-            return utils.clean_zeros_from_matrix(reduced_matrix)

@@ -9,6 +9,7 @@ from scipy.sparse import csc_matrix, vstack
 from groebner.utils import Term, row_swap_matrix, fill_size, clean_zeros_from_matrix, inverse_P, triangular_solve, divides, argsort_dec
 import matplotlib.pyplot as plt
 from collections import defaultdict
+import groebner.utils as utils
 
 def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     """
@@ -41,17 +42,17 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
 
     matrix, matrix_terms = create_matrix(poly_coeff_list)
-    
+
     #rrqr_reduce2 and rrqr_reduce same pretty matched on stability, though I feel like 2 should be better.
-    matrix = rrqr_reduce2(matrix, global_accuracy = global_accuracy)
+    matrix = utils.rrqr_reduce2(matrix, global_accuracy = global_accuracy)
     matrix = clean_zeros_from_matrix(matrix)
     non_zero_rows = np.sum(np.abs(matrix),axis=1) != 0
     matrix = matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
 
     matrix = triangular_solve(matrix)
     matrix = clean_zeros_from_matrix(matrix)
-    
-    
+
+
     rows = get_good_rows(matrix, matrix_terms)
     final_polys = get_polys_from_matrix(rows,matrix,matrix_terms,Power)
 
@@ -210,7 +211,7 @@ def coeff_slice(coeff):
 
 def create_matrix(poly_coeffs):
     ''' Builds a Macaulay matrix.
-        
+
     Parameters
     ----------
     poly_coeffs : list.
@@ -231,14 +232,14 @@ def create_matrix(poly_coeffs):
     for term in non_zeroSet:
         matrix_terms = np.vstack((matrix_terms,term))
     matrix_terms = matrix_terms[1:]
-        
+
     matrix_terms = sort_matrix_terms(matrix_terms)
-    
+
     #Get the slices needed to pull the matrix_terms from the coeff matrix.
     matrix_term_indexes = list()
     for i in range(len(bigShape)):
         matrix_term_indexes.append(matrix_terms.T[i])
-    
+
     #Adds the poly_coeffs to flat_polys, using added_zeros to make sure every term is in there.
     added_zeros = np.zeros(bigShape)
     flat_polys = list()
@@ -247,7 +248,7 @@ def create_matrix(poly_coeffs):
         added_zeros[slices] = coeff
         flat_polys.append(added_zeros[matrix_term_indexes])
         added_zeros[slices] = np.zeros_like(coeff)
-        
+
     #Make the matrix
     matrix = np.vstack(flat_polys[::-1])
 
@@ -255,140 +256,11 @@ def create_matrix(poly_coeffs):
     matrix = row_swap_matrix(matrix)
     return matrix, matrix_terms
 
-def rrqr_reduce(matrix, clean = False, global_accuracy = 1.e-10):
-    '''
-    Reduces the matrix into row echelon form, so each row has a unique leading term.
-    
-    Parameters
-    ----------
-    matrix : (2D numpy array)
-        The matrix of interest.
-    clean: bool
-        Defaults to False. If True then at certain points in the code all the points in the matrix
-        that are close to 0 are set to 0.
-    global_accuracy: float
-        Defaults to 1.e-10. What is determined to be zero when searching for the pivot columns or setting
-        things to zero.
-
-    Returns
-    -------
-    matrix : (2D numpy array)
-        The reduced matrix in row echelon form. It should look like this.
-        a - - - - - - -
-        0 b - - - - - -
-        0 0 0 c - - - -
-        0 0 0 0 d - - -
-        0 0 0 0 0 0 0 e
-    '''
-    if matrix.shape[0]==0 or matrix.shape[1]==0:
-        return matrix
-    height = matrix.shape[0]
-    A = matrix[:height,:height] #Get the square submatrix
-    B = matrix[:,height:] #The rest of the matrix to the right
-    Q,R,P = qr(A, pivoting = True) #rrqr reduce it
-    PT = inverse_P(P)
-    diagonals = np.diagonal(R) #Go along the diagonals to find the rank
-    rank = np.sum(np.abs(diagonals)>global_accuracy)
-    if rank == height: #full rank, do qr on it
-        Q,R = qr(A)
-        A = R #qr reduce A
-        B = Q.T.dot(B) #Transform B the same way
-    else: #not full rank
-        A = R[:,PT] #Switch the columns back
-        if clean:
-            Q[np.where(abs(Q) < global_accuracy)]=0
-        B = Q.T.dot(B) #Multiply B by Q transpose
-        if clean:
-            B[np.where(abs(B) < global_accuracy)]=0
-        #sub1 is the top part of the matrix, we will recursively reduce this
-        #sub2 is the bottom part of A, we will set this all to 0
-        #sub3 is the bottom part of B, we will recursively reduce this.
-        #All submatrices are then put back in the matrix and it is returned.
-        sub1 = np.hstack((A[:rank,],B[:rank,])) #Takes the top parts of A and B
-        result = rrqr_reduce(sub1) #Reduces it
-        A[:rank,] = result[:,:height] #Puts the A part back in A
-        B[:rank,] = result[:,height:] #And the B part back in B
-
-        sub2 = A[rank:,]
-        zeros = np.zeros_like(sub2)
-        A[rank:,] = np.zeros_like(sub2)
-
-        sub3 = B[rank:,]
-        B[rank:,] = rrqr_reduce(sub3)
-
-    reduced_matrix = np.hstack((A,B))
-    return reduced_matrix
-
-def rrqr_reduce2(matrix, clean = True, global_accuracy = 1.e-10):
-    '''
-    Reduces the matrix into row echelon form, so each row has a unique leading term.
-    Note that it preforms the same function as rrqr_reduce, currently I'm not sure which is better.
-
-    Parameters
-    ----------
-    matrix : (2D numpy array)
-        The matrix of interest.
-    clean: bool
-        Defaults to True. If True then at certain points in the code all the points in the matrix
-        that are close to 0 are set to 0.
-    global_accuracy: float
-        Defaults to 1.e-10. What is determined to be zero when searching for the pivot columns or setting
-        things to zero.
-
-    Returns
-    -------
-    matrix : (2D numpy array)
-        The reduced matrix in row echelon form. It should look like this.
-        a - - - - - - -
-        0 b - - - - - -
-        0 0 0 c - - - -
-        0 0 0 0 d - - -
-        0 0 0 0 0 0 0 e
-    '''
-    if matrix.shape[0] <= 1 or matrix.shape[0]==1 or  matrix.shape[1]==0:
-        return matrix
-    height = matrix.shape[0]
-    A = matrix[:height,:height] #Get the square submatrix
-    B = matrix[:,height:] #The rest of the matrix to the right
-    independentRows, dependentRows, Q = fullRank(A, global_accuracy = global_accuracy)
-    nullSpaceSize = len(dependentRows)
-    if nullSpaceSize == 0: #A is full rank
-        Q,R = qr(matrix)
-        return clean_zeros_from_matrix(R)
-    else: #A is not full rank
-        #sub1 is the independentRows of the matrix, we will recursively reduce this
-        #sub2 is the dependentRows of A, we will set this all to 0
-        #sub3 is the dependentRows of Q.T@B, we will recursively reduce this.
-        #We then return sub1 stacked on top of sub2+sub3
-        if clean:
-            Q[np.where(abs(Q) < global_accuracy)]=0
-        bottom = matrix[dependentRows]
-        BCopy = B.copy()
-        sub3 = bottom[:,height:]
-        sub3 = Q.T[-nullSpaceSize:]@BCopy
-        if clean:
-            sub3 = clean_zeros_from_matrix(sub3)
-        sub3 = rrqr_reduce2(sub3)
-
-        sub1 = matrix[independentRows]
-        sub1 = rrqr_reduce2(sub1)
-
-        sub2 = bottom[:,:height]
-        sub2[:] = np.zeros_like(sub2)
-
-        reduced_matrix = np.vstack((sub1,np.hstack((sub2,sub3))))
-        if clean:
-            return clean_zeros_from_matrix(reduced_matrix)
-        else:
-            return reduced_matrix
-    pass
-
-
 def matrixReduce(matrix, triangular_solve = False, global_accuracy = 1.e-10):
     '''
     Reduces the matrix into row echelon form, so each row has a unique leading term. If triangular_solve is
     True it is reduces to reduced row echelon form, so everything above the leading terms is 0.
-    
+
     Parameters
     ----------
     matrix : (2D numpy array)
@@ -418,25 +290,25 @@ def matrixReduce(matrix, triangular_solve = False, global_accuracy = 1.e-10):
     '''
     independentRows,dependentRows,Q = fullRank(matrix, global_accuracy = global_accuracy)
     matrix = matrix[independentRows]
-    
-    pivotColumnMatrix = findPivotColumns(matrix, global_accuracy = global_accuracy)    
+
+    pivotColumnMatrix = findPivotColumns(matrix, global_accuracy = global_accuracy)
     pivotColumns = list(np.where(pivotColumnMatrix == 1)[1])
     otherColumns = list()
     for i in range(matrix.shape[1]):
         if i not in pivotColumns:
             otherColumns.append(i)
-        
+
     matrix = matrix[:,pivotColumns + otherColumns]
-    
+
     Q,R = qr(matrix)
     if triangular_solve:
         R = clean_zeros_from_matrix(R)
         X = solve_triangular(R[:,:R.shape[0]],R[:,R.shape[0]:])
         reduced = np.hstack((np.eye(X.shape[0]),X))
-    
+
     matrix = np.empty_like(reduced)
     matrix[:,pivotColumns + otherColumns] = reduced
-    
+
     return matrix
 
 def fullRank(matrix, global_accuracy = 1.e-10):
@@ -512,7 +384,7 @@ def findPivotColumns(matrix, global_accuracy = 1.e-10):
         else:
             column[0] = 1
             return column
-    
+
     height = matrix.shape[0]
     A = matrix[:height,:height] #Get the square submatrix
     B = matrix[:,height:] #The rest of the matrix to the right
