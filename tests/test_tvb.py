@@ -1,6 +1,6 @@
 import numpy as np
 from groebner.polynomial import Polynomial, MultiCheb, MultiPower
-from groebner.TelenVanBarel import find_degree, mon_combos, sort_matrix
+from groebner.TelenVanBarel import find_degree, mon_combos, sort_matrix_terms
 from groebner.root_finder import roots
 from itertools import product
 
