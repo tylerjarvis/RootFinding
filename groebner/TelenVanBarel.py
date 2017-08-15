@@ -228,10 +228,9 @@ def create_matrix(poly_coeffs):
     for coeff in poly_coeffs:
         for term in zip(*np.where(coeff != 0)):
             non_zeroSet.add(term)
-    matrix_terms = np.zeros_like(bigShape)
+    matrix_terms = np.array(non_zeroSet.pop())
     for term in non_zeroSet:
         matrix_terms = np.vstack((matrix_terms,term))
-    matrix_terms = matrix_terms[1:]
     
     print(matrix_terms.shape)
     print(len(poly_coeffs))
