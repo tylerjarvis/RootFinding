@@ -390,10 +390,24 @@ def get_polys_from_matrix(matrix, matrix_terms, rows, power=False, clean=False, 
     return p_list
 
 def reduce_matrix(matrix):
-    independentRows, dependentRows, Q = utils.fullRank(matrix)
-    fullRankMatrix = matrix[independentRows]
+    '''Reduces the matrix to row echelon form and removes all zero rows.
 
-    reduced_matrix = utils.rrqr_reduce2(fullRankMatrix)
+    Parameters
+    ----------
+    matrix : 2D numpy array
+        The matrix of interest.
+
+    Returns
+    -------
+    reduced_matrix : 2D numpy array
+        The matrix in row echelon form with all zero rows removed.
+
+    '''
+
+    independent_rows, dependent_rows, Q = utils.fullRank(matrix)
+    full_rank_matrix = matrix[independent_rows]
+
+    reduced_matrix = utils.rrqr_reduce2(full_rank_matrix)
     reduced_matrix = utils.clean_zeros_from_matrix(reduced_matrix)
 
     non_zero_rows = np.sum(abs(reduced_matrix),axis=1) != 0
