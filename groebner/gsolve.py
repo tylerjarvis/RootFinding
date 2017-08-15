@@ -47,7 +47,7 @@ def initialize_np_matrix(old_polys, new_polys, final_time = False):
     This makes the code WAY faster.
     '''
     matrix_polys = list()
-    
+
     old = old_polys
     new  = new_polys
     polys = old + new
@@ -221,19 +221,19 @@ def add_r_to_matrix(matrix_polys, all_polys):
     '''
     matrixTermSet = set()
     leadTermSet = set()
-    
+
     for poly in matrix_polys:
         for mon in zip(*np.where(poly.coeff != 0)):
             matrixTermSet.add(tuple(mon))
         leadTermSet.add(poly.lead_term)
-    
+
     others = list()
     for term in matrixTermSet:
         if term not in leadTermSet:
             others.append(term)
-    
+
     sorted_polys = utils.sorted_polys_coeff(all_polys)
-    
+
     for term in others:
         r = calc_r(term, sorted_polys)
         if r is not None:
@@ -242,11 +242,11 @@ def add_r_to_matrix(matrix_polys, all_polys):
                     others.append(mon)
                     matrixTermSet.add(mon)
             matrix_polys.append(r)
-    
+
     matrix_terms = np.array(matrixTermSet.pop())
     for term in matrixTermSet:
         matrix_terms = np.vstack((matrix_terms,term))
-    
+
     return matrix_polys, matrix_terms
 
 def calc_r(m, polys):
@@ -323,7 +323,7 @@ def coeff_slice(coeff):
 
 def create_matrix(matrix_polys, matrix_terms = None):
     ''' Builds a Macaulay matrix.
-        
+
     Parameters
     ----------
     matrix_polys : list.
@@ -347,12 +347,12 @@ def create_matrix(matrix_polys, matrix_terms = None):
             matrix_terms = np.vstack((matrix_terms,term))
 
     matrix_terms = sort_matrix_terms(matrix_terms)
-    
+
     #Get the slices needed to pull the matrix_terms from the coeff matrix.
     matrix_term_indexes = list()
     for i in range(len(bigShape)):
         matrix_term_indexes.append(matrix_terms.T[i])
-    
+
     #Adds the poly_coeffs to flat_polys, using added_zeros to make sure every term is in there.
     added_zeros = np.zeros(bigShape)
     flat_polys = list()
@@ -362,7 +362,7 @@ def create_matrix(matrix_polys, matrix_terms = None):
         added_zeros[slices] = coeff
         flat_polys.append(added_zeros[matrix_term_indexes])
         added_zeros[slices] = np.zeros_like(coeff)
-        
+
     #Make the matrix
     matrix = np.vstack(flat_polys[::-1])
 
@@ -370,36 +370,6 @@ def create_matrix(matrix_polys, matrix_terms = None):
     matrix = utils.row_swap_matrix(matrix)
     plt.matshow([i == 0 for i in matrix])
     return matrix, matrix_terms
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def get_polys_from_matrix(matrix, matrix_terms, rows, power):
@@ -445,7 +415,7 @@ def get_polys_from_matrix(matrix, matrix_terms, rows, power):
             p_list.append(poly)
     return p_list
 
-def row_echelon(matrix):
+def row_echelon(matrix, accuracy=1.e-10):
     '''Reduces the matrix to row echelon form and removes all zero rows.
 
     Parameters
@@ -460,7 +430,7 @@ def row_echelon(matrix):
 
     '''
 
-    independent_rows, dependent_rows, Q = utils.fullRank(matrix)
+    independent_rows, dependent_rows, Q = utils.fullRank(matrix, accuracy=accuracy)
     full_rank_matrix = matrix[independent_rows]
 
     reduced_matrix = utils.rrqr_reduce2(full_rank_matrix)
@@ -475,8 +445,8 @@ def row_echelon(matrix):
     return reduced_matrix
 
 def lead_term_columns(matrix):
-    '''Finds all columns j such that there is a row i where matrix[i,j] is the
-    first nonzero entry in row i.
+    '''Finds all columns that correspond to the leading term of some polynomial
+    in the matrix.
 
     Parameters
     ----------
@@ -500,42 +470,51 @@ def lead_term_columns(matrix):
 
     return LT_columns
 
-def get_new_polys(matrix, matrix_terms, new_polys, clean=False, power=False):
+def get_new_polys(matrix, matrix_terms, accuracy=1.e-10, power=False):
+    '''Reduces the given matrix and finds all polynomials that have new
+    leading terms after reduction.
 
+    Parameters
+    ----------
+    matrix : 2D numpy array
+        The matrix where rows correspond to polynomials, columns to terms,
+        and entries to coefficients.
+    matrix_terms : 2D numpy array
+        Each row corresponds to a column in matrix, each column corresponds
+        to a variable, and entries correspond to the exponent of that variable
+    accuracy : float
+        Entries in matrix lower than accuracy will be counted as zero during
+        the reduction process
+    power : bool
+        True if the polynomials are in the power basis, false for chebyshev.
 
-    # Row echelon form of matrix
-    reduced_matrix = row_echelon(matrix)
+    Returns
+    -------
+    new_polys : list
+        Contains polynomial objects whose leading terms weren't leading terms
+        in the matrix passed in, but the were after reduction.
+        
+    '''
+
+    lead_term_before = lead_term_columns(matrix)
+    reduced_matrix = row_echelon(matrix, accuracy=accuracy)
+    lead_term_after = lead_term_columns(reduced_matrix)
+
+    new_lead_terms = lead_term_after - lead_term_before
 
     #Get the new polynomials
     new_poly_spots = list()
-    old_poly_spots = list()
     already_looked_at = set() #rows whose leading monomial we've already checked
     for i, j in zip(*np.where(reduced_matrix!=0)):
-        if i in already_looked_at: #We've already looked at this row
-            continue
-        elif matrix_terms[j] in self.lead_term_set: #The leading monomial is not new.
-            if matrix_terms[j] in self.original_lms: #Reduced old poly. Only used if triangular solve is done.
-                old_poly_spots.append(i)
+        if i not in already_looked_at:
+            if j in new_lead_terms:
+                new_poly_spots.append(i)
             already_looked_at.add(i)
-            continue
-        else:
-            already_looked_at.add(i)
-            new_poly_spots.append(i) #This row gives a new leading monomial
 
     new_polys = get_polys_from_matrix(reduced_matrix, \
-        matrix_terms, new_poly_spots, power=self.power)
+        matrix_terms, new_poly_spots, power=power)
 
-    if len(old_polys+new_polys) == 0:
-        print("ERROR ERROR ERROR ERROR ERROR NOT GOOD NO POLYNOMIALS IN THE BASIS FIX THIS ASAP!!!!!!!!!!!!!")
-        print(reduced_matrix)
-
-    return len(new_polys) > 0
-
-
-
-
-
-
+    return new_polys
 
 def reduce_groebner_basis(groebner_basis, power):
     '''
