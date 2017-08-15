@@ -6,7 +6,7 @@ from scipy.linalg import lu, qr, solve_triangular, inv, solve, svd
 from numpy.linalg import cond
 from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 from scipy.sparse import csc_matrix, vstack
-from groebner.utils import Term, row_swap_matrix, fill_size, clean_zeros_from_matrix, inverse_P, triangular_solve, divides, argsort_dec
+from groebner.utils import Term, row_swap_matrix, fill_size, clean_zeros_from_matrix, inverse_P, triangular_solve, divides, argsort_dec, fullRank
 import matplotlib.pyplot as plt
 from collections import defaultdict
 
@@ -53,15 +53,31 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     
     
     rows = get_good_rows(matrix, matrix_terms)
-    final_polys = get_polys_from_matrix(rows,matrix,matrix_terms,Power)
+    final_polys = get_polys_from_matrix(matrix, matrix_terms, rows, Power)
 
     return final_polys
 
-def get_polys_from_matrix(rows,matrix,matrix_terms,power):
+def get_polys_from_matrix(matrix, matrix_terms ,rows, power):
+    '''Creates polynomial objects from the specified rows of the given matrix.
+
+    Parameters
+    ----------
+    matrix : 2D numpy array
+        The matrix with rows corresponding to polynomials, columns corresponding
+        to monomials, and entries corresponding to coefficients.
+    matrix_terms : array-like, contains Term objects
+        The column labels for matrix in order.
+    rows : iterable, contains integers
+        The rows for which to create polynomial objects.
+    power : bool
+        If true, the polynomials returned will be MultiPower objects.
+        Otherwise, they will be MultiCheb.
+    Returns
+    -------
+    poly_list : list
+        Polynomial objects corresponding to the specified rows.
     '''
-    Takes a list of indicies corresponding to the rows of the reduced matrix and
-    returns a list of polynomial objects
-    '''
+
     shape = []
     p_list = []
     shape = np.maximum.reduce([term for term in matrix_terms])
@@ -227,10 +243,9 @@ def create_matrix(poly_coeffs):
     for coeff in poly_coeffs:
         for term in zip(*np.where(coeff != 0)):
             non_zeroSet.add(term)
-    matrix_terms = np.zeros_like(bigShape)
+    matrix_terms = np.array(non_zeroSet.pop())
     for term in non_zeroSet:
         matrix_terms = np.vstack((matrix_terms,term))
-    matrix_terms = matrix_terms[1:]
         
     matrix_terms = sort_matrix_terms(matrix_terms)
     
@@ -350,7 +365,7 @@ def rrqr_reduce2(matrix, clean = True, global_accuracy = 1.e-10):
     height = matrix.shape[0]
     A = matrix[:height,:height] #Get the square submatrix
     B = matrix[:,height:] #The rest of the matrix to the right
-    independentRows, dependentRows, Q = fullRank(A, global_accuracy = global_accuracy)
+    independentRows, dependentRows, Q = fullRank(A, accuracy = global_accuracy)
     nullSpaceSize = len(dependentRows)
     if nullSpaceSize == 0: #A is full rank
         Q,R = qr(matrix)
@@ -382,7 +397,6 @@ def rrqr_reduce2(matrix, clean = True, global_accuracy = 1.e-10):
         else:
             return reduced_matrix
     pass
-
 
 def matrixReduce(matrix, triangular_solve = False, global_accuracy = 1.e-10):
     '''
@@ -416,7 +430,7 @@ def matrixReduce(matrix, triangular_solve = False, global_accuracy = 1.e-10):
         0 0 0 0 0 0 0 e
 
     '''
-    independentRows,dependentRows,Q = fullRank(matrix, global_accuracy = global_accuracy)
+    independentRows,dependentRows,Q = fullRank(matrix, accuracy = global_accuracy)
     matrix = matrix[independentRows]
     
     pivotColumnMatrix = findPivotColumns(matrix, global_accuracy = global_accuracy)    
@@ -438,46 +452,6 @@ def matrixReduce(matrix, triangular_solve = False, global_accuracy = 1.e-10):
     matrix[:,pivotColumns + otherColumns] = reduced
     
     return matrix
-
-def fullRank(matrix, global_accuracy = 1.e-10):
-    '''
-    Uses rank revealing QR to determine which rows of the given matrix are
-    linearly independent and which ones are linearly dependent. (This
-    function needs a name change).
-
-    Parameters
-    ----------
-    matrix : (2D numpy array)
-        The matrix of interest.
-    global_accuracy: float
-        Defaults to 1.e-10. What is determined to be zero when searching for the pivot columns.
-
-    Returns
-    -------
-    independentRows : (list)
-        The indexes of the rows that are linearly independent
-    dependentRows : (list)
-        The indexes of the rows that can be removed without affecting the rank
-        (which are the linearly dependent rows).
-    Q : (2D numpy array)
-        The Q matrix used in RRQR reduction in finding the rank.
-    '''
-    height = matrix.shape[0]
-    Q,R,P = qr(matrix, pivoting = True)
-    diagonals = np.diagonal(R) #Go along the diagonals to find the rank
-    rank = np.sum(np.abs(diagonals)>global_accuracy)
-    numMissing = height - rank
-    if numMissing == 0: # Full Rank. All rows independent
-        return [i for i in range(height)],[],None
-    else:
-        # Find the rows we can take out. These are ones that are non-zero in
-        # the last rows of Q transpose, since QT*A=R.
-        # To find multiple, we find the pivot columns of Q.T
-        QMatrix = Q.T[-numMissing:]
-        Q1,R1,P1 = qr(QMatrix, pivoting = True)
-        independentRows = P1[R1.shape[0]:] #Other Columns
-        dependentRows = P1[:R1.shape[0]] #Pivot Columns
-        return independentRows,dependentRows,Q
 
 def findPivotColumns(matrix, global_accuracy = 1.e-10):
     ''' Finds the pivot columns of a matrix.
@@ -516,7 +490,7 @@ def findPivotColumns(matrix, global_accuracy = 1.e-10):
     height = matrix.shape[0]
     A = matrix[:height,:height] #Get the square submatrix
     B = matrix[:,height:] #The rest of the matrix to the right
-    independentRows, dependentRows, Q = fullRank(A, global_accuracy = global_accuracy)
+    independentRows, dependentRows, Q = fullRank(A, accuracy = global_accuracy)
     nullSpaceSize = len(dependentRows)
     if nullSpaceSize == 0: #A is full rank
         #The columns of A are all pivot columns
