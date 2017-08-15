@@ -12,6 +12,8 @@ from scipy.linalg import lu, qr, solve_triangular
 from scipy.sparse import csc_matrix, vstack
 import matplotlib.pyplot as plt
 from collections import defaultdict
+import warnings
+from groebner.utils import InstabilityWarning
 
 def F4(polys, reducedGroebner = True):
     '''
@@ -443,62 +445,82 @@ def get_polys_from_matrix(matrix, matrix_terms, rows, power):
             p_list.append(poly)
     return p_list
 
+def row_echelon(matrix):
+    '''Reduces the matrix to row echelon form and removes all zero rows.
 
+    Parameters
+    ----------
+    matrix : 2D numpy array
+        The matrix of interest.
 
+    Returns
+    -------
+    reduced_matrix : 2D numpy array
+        The matrix in row echelon form with all zero rows removed.
 
-
-
-
-
-
-
-
-
-
-
-def rrqr_reduce(matrix, clean = False, global_accuracy = 1.e-10):
     '''
-    Recursively reduces the matrix using rrqr reduction so it returns a reduced matrix, where each row has
-    a unique leading monomial.
-    '''
-    if matrix.shape[0]==0 or matrix.shape[1]==0:
-        return matrix
-    height = matrix.shape[0]
-    A = matrix[:height,:height] #Get the square submatrix
-    B = matrix[:,height:] #The rest of the matrix to the right
-    Q,R,P = qr(A, pivoting = True) #rrqr reduce it
-    PT = utils.inverse_P(P)
-    diagonals = np.diagonal(R) #Go along the diagonals to find the rank
-    rank = np.sum(np.abs(diagonals)>global_accuracy)
-    if rank == height: #full rank, do qr on it
-        Q,R = qr(A)
-        A = R #qr reduce A
-        B = Q.T.dot(B) #Transform B the same way
-    else: #not full rank
-        A = R[:,PT] #Switch the columns back
-        if clean:
-            Q[np.where(abs(Q) < global_accuracy)]=0
-        B = Q.T.dot(B) #Multiply B by Q transpose
-        if clean:
-            B[np.where(abs(B) < global_accuracy)]=0
-        #sub1 is the top part of the matrix, we will recursively reduce this
-        #sub2 is the bottom part of A, we will set this all to 0
-        #sub3 is the bottom part of B, we will recursively reduce this.
-        #All submatrices are then put back in the matrix and it is returned.
-        sub1 = np.hstack((A[:rank,],B[:rank,])) #Takes the top parts of A and B
-        result = rrqr_reduce(sub1) #Reduces it
-        A[:rank,] = result[:,:height] #Puts the A part back in A
-        B[:rank,] = result[:,height:] #And the B part back in B
 
-        sub2 = A[rank:,]
-        zeros = np.zeros_like(sub2)
-        A[rank:,] = np.zeros_like(sub2)
+    independent_rows, dependent_rows, Q = utils.fullRank(matrix)
+    full_rank_matrix = matrix[independent_rows]
 
-        sub3 = B[rank:,]
-        B[rank:,] = rrqr_reduce(sub3)
+    reduced_matrix = utils.rrqr_reduce2(full_rank_matrix)
+    reduced_matrix = utils.clean_zeros_from_matrix(reduced_matrix)
 
-    reduced_matrix = np.hstack((A,B))
+    non_zero_rows = np.sum(abs(reduced_matrix),axis=1) != 0
+    if np.sum(non_zero_rows) != reduced_matrix.shape[0]:
+        warnings.warn("Full rank matrix has zero rows.", InstabilityWarning)
+
+    reduced_matrix = reduced_matrix[non_zero_rows,:] #Only keeps the non-zero polymonials
+
     return reduced_matrix
+
+def get_new_polys(matrix, matrix_terms, old_polys, new_polys, triangular_solve = False, clean=False):
+    '''
+    Reduces the matrix fully using QR decomposition. Adds the
+    new_poly's to old_poly's, and adds to new_poly's any polynomials created by
+    the reduction that have new leading monomials.
+
+    Returns-True if new polynomials were found, False otherwise.
+    '''
+
+    # Row echelon form of matrix
+    reduced_matrix = row_echelon(matrix)
+
+    if triangular_solve:
+        reduced_matrix = utils.triangular_solve(reduced_matrix)
+        if clean:
+            reduced_matrix = utils.clean_zeros_from_matrix(reduced_matrix)
+
+    #Get the new polynomials
+    new_poly_spots = list()
+    old_poly_spots = list()
+    already_looked_at = set() #rows whose leading monomial we've already checked
+    for i, j in zip(*np.where(reduced_matrix!=0)):
+        if i in already_looked_at: #We've already looked at this row
+            continue
+        elif matrix_terms[j] in self.lead_term_set: #The leading monomial is not new.
+            if matrix_terms[j] in self.original_lms: #Reduced old poly. Only used if triangular solve is done.
+                old_poly_spots.append(i)
+            already_looked_at.add(i)
+            continue
+        else:
+            already_looked_at.add(i)
+            new_poly_spots.append(i) #This row gives a new leading monomial
+
+    if triangular_solve:
+        self.old_polys = get_polys_from_matrix(reduced_matrix, \
+            matrix_terms, old_poly_spots, power=self.power)
+    else:
+        self.old_polys = self.new_polys + self.old_polys
+
+    self.new_polys = get_polys_from_matrix(reduced_matrix, \
+        matrix_terms, new_poly_spots, power=self.power)
+
+    if len(self.old_polys+self.new_polys) == 0:
+        print("ERROR ERROR ERROR ERROR ERROR NOT GOOD NO POLYNOMIALS IN THE BASIS FIX THIS ASAP!!!!!!!!!!!!!")
+        print(reduced_matrix)
+
+    return len(self.new_polys) > 0
 
 
 

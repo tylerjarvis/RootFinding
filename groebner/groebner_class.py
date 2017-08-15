@@ -366,7 +366,7 @@ class Groebner(object):
             independentRows, dependentRows, Q = utils.fullRank(self.np_matrix)
             fullRankMatrix = self.np_matrix[independentRows]
 
-            reduced_matrix = self.rrqr_reduce2(fullRankMatrix)
+            reduced_matrix = utils.rrqr_reduce2(fullRankMatrix)
             reduced_matrix = utils.clean_zeros_from_matrix(reduced_matrix)
 
             non_zero_rows = np.sum(abs(reduced_matrix),axis=1) != 0
@@ -374,7 +374,7 @@ class Groebner(object):
             reduced_matrix = reduced_matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
 
             if triangular_solve:
-                reduced_matrix = self.triangular_solve(reduced_matrix)
+                reduced_matrix = utils.triangular_solve(reduced_matrix)
                 if clean:
                     reduced_matrix = utils.clean_zeros_from_matrix(reduced_matrix)
         else:
@@ -412,175 +412,3 @@ class Groebner(object):
             print(reduced_matrix)
 
         return len(self.new_polys) > 0
-
-    def rrqr_reduce2(self, matrix): #My new sort of working one. Still appears to have some problems. Possibly from fullRank.
-        if matrix.shape[0] <= 1 or matrix.shape[0]==1 or  matrix.shape[1]==0:
-            return matrix
-        height = matrix.shape[0]
-        A = matrix[:height,:height] #Get the square submatrix
-        B = matrix[:,height:] #The rest of the matrix to the right
-        independentRows, dependentRows, Q = utils.fullRank(A)
-        nullSpaceSize = len(dependentRows)
-        if nullSpaceSize == 0: #A is full rank
-            #print("FULL RANK")
-            Q,R = qr(matrix)
-            return R
-        else: #A is not full rank
-            #print("NOT FULL RANK")
-            #sub1 is the independentRows of the matrix, we will recursively reduce this
-            #sub2 is the dependentRows of A, we will set this all to 0
-            #sub3 is the dependentRows of Q.T@B, we will recursively reduce this.
-            #We then return sub1 stacked on top of sub2+sub3
-            bottom = matrix[dependentRows]
-            BCopy = B.copy()
-            sub3 = bottom[:,height:]
-            sub3 = Q.T[-nullSpaceSize:]@BCopy
-            sub3 = self.rrqr_reduce(sub3)
-
-            sub1 = matrix[independentRows]
-            sub1 = self.rrqr_reduce(sub1)
-
-            sub2 = bottom[:,:height]
-            sub2[:] = np.zeros_like(sub2)
-
-            reduced_matrix = np.vstack((sub1,np.hstack((sub2,sub3))))
-            return reduced_matrix
-
-    def rrqr_reduce(self, matrix): #Original One. Seems to be the more stable one from testing.
-        if matrix.shape[0]==0 or matrix.shape[1]==0:
-            return matrix
-        if clean:
-            matrix = utils.clean_zeros_from_matrix(matrix)
-        height = matrix.shape[0]
-        A = matrix[:height,:height] #Get the square submatrix
-        B = matrix[:,height:] #The rest of the matrix to the right
-        Q,R,P = qr(A, pivoting = True) #rrqr reduce it
-        PT = utils.inverse_P(P)
-        diagonals = np.diagonal(R) #Go along the diagonals to find the rank
-        rank = np.sum(np.abs(diagonals)>global_accuracy)
-        if clean:
-            R = utils.clean_zeros_from_matrix(R)
-
-        if rank == height: #full rank, do qr on it
-            Q,R = qr(A)
-            A = R #qr reduce A
-            B = Q.T.dot(B) #Transform B the same way
-        else: #not full rank
-            A = R[:,PT] #Switch the columns back
-            B = Q.T.dot(B) #Multiply B by Q transpose
-            #sub1 is the top part of the matrix, we will recursively reduce this
-            #sub2 is the bottom part of A, we will set this all to 0
-            #sub3 is the bottom part of B, we will recursively reduce this.
-            #All submatrices are then put back in the matrix and it is returned.
-            sub1 = np.hstack((A[:rank,],B[:rank,])) #Takes the top parts of A and B
-            result = self.rrqr_reduce(sub1) #Reduces it
-            A[:rank,] = result[:,:height] #Puts the A part back in A
-            B[:rank,] = result[:,height:] #And the B part back in B
-
-            sub2 = A[rank:,]
-            zeros = np.zeros_like(sub2)
-            A[rank:,] = np.zeros_like(sub2)
-
-            sub3 = B[rank:,]
-            B[rank:,] = self.rrqr_reduce(sub3)
-
-        reduced_matrix = np.hstack((A,B))
-
-        if not clean:
-            return reduced_matrix
-        else:
-            return utils.clean_zeros_from_matrix(reduced_matrix)
-
-    def triangular_solve(self,matrix):
-        " Reduces the upper block triangular matrix. "
-        m,n = matrix.shape
-        j = 0  # The row index.
-        k = 0  # The column index.
-        c = [] # It will contain the columns that make an upper triangular matrix.
-        d = [] # It will contain the rest of the columns.
-        order_c = [] # List to keep track of original index of the columns in c.
-        order_d = [] # List to keep track of the original index of the columns in d.
-
-        # Checks if the given matrix is not a square matrix.
-        if m != n:
-            # Makes sure the indicies are within the matrix.
-            while j < m and k < n:
-                if matrix[j,k]!= 0:
-                    c.append(matrix[:,k])
-                    order_c.append(k)
-                    # Move to the diagonal if the index is non-zero.
-                    j+=1
-                    k+=1
-                else:
-                    d.append(matrix[:,k])
-                    order_d.append(k)
-                    # Check the next column in the same row if index is zero.
-                    k+=1
-            # C will be the square matrix that is upper triangular with no zeros on the diagonals.
-            C = np.vstack(c).T
-            # If d is not empty, add the rest of the columns not checked into the matrix.
-            if d:
-                D = np.vstack(d).T
-                D = np.hstack((D,matrix[:,k:]))
-            else:
-                D = matrix[:,k:]
-            # Append the index of the rest of the columns to the order_d list.
-            for i in range(n-k):
-                order_d.append(k)
-                k+=1
-
-            # Solve for the CX = D
-            X = solve_triangular(C,D)
-
-            # Add I to X. [I|X]
-            solver = np.hstack((np.eye(X.shape[0]),X))
-
-            # Find the order to reverse the columns back.
-            order = utils.inverse_P(order_c+order_d)
-
-            # Reverse the columns back.
-            solver = solver[:,order]
-            # Temporary checker. Plots the non-zero part of the matrix.
-            #plt.matshow(~np.isclose(solver,0))
-
-            return solver
-
-        else:
-        # The case where the matrix passed in is a square matrix
-            return np.eye(m)
-
-    def fully_reduce(self, matrix, qr_reduction = True):
-        '''
-        This function isn't really used any more as it seems less stable. But it's good for testing purposes.
-
-        Fully reduces the matrix by making sure all submatrices formed by taking out columns of zeros are
-        also in upper triangular form. Does this recursively. Returns the reduced matrix.
-        '''
-        matrix = utils.clean_zeros_from_matrix(matrix)
-        diagonals = np.diagonal(matrix).copy()
-        zero_diagonals = np.where(abs(diagonals)==0)[0]
-        if(len(zero_diagonals != 0)):
-            first_zero = zero_diagonals[0]
-            i = first_zero
-            #Checks how many rows we can go down that are all 0.
-            while all([k==0 for k in matrix[first_zero:,i:i+1]]):
-                i+=1
-                if(i == matrix.shape[1]):
-                    i = -1
-                    break
-
-            if(i != -1):
-                sub_matrix = matrix[first_zero: , i:]
-                if qr_reduction:
-                    Q,R = qr(sub_matrix)
-                    sub_matrix = self.fully_reduce(R)
-                else:
-                    P,L,U = lu(sub_matrix)
-                    #ERROR HERE BECAUSE OF THE PERMUATION MATRIX, I'M NOT SURE HOW TO FIX IT
-                    sub_matrix = self.fully_reduce(U, qr_reduction = False)
-
-                matrix[first_zero: , i:] = sub_matrix
-        if clean:
-            return utils.clean_zeros_from_matrix(matrix)
-        else:
-            return utils.clean_zeros_from_matrix(matrix)
