@@ -229,67 +229,6 @@ def test_phi_criterion():
     x2 = solve_phi(grob2,False)
     assert(x2[0]== x1[0])
 
-def test_triangular_solve():
-    """This tests the triangular_solve() method.
-    A visual graph of zeroes on the diagonal was also used to test this function.
-    """
-
-    # Simple Test Case.
-    M = MultiPower(np.array([[-1,0,1],[0,0,0]]))
-    N = MultiPower(np.array([[-1,0,0],[0,1,0],[1,0,0]]))
-    # Creating a random object to run tests.
-    grob = Groebner([M,N])
-
-    A = np.array([[1, 2, 3, 4, 5],
-                  [0, 1, 2, 3, 4],
-                  [0, 0, 0, 1, 2]])
-
-    matrix = grob.triangular_solve(A)
-    answer = np.array([[ 1.,  0., -1.,  0.,  1.],
-                       [ 0.,  1.,  2.,  0., -2.],
-                       [ 0.,  0.,  0.,  1.,  2.]])
-    assert(np.allclose(matrix,answer))
-
-    # Randomize test case: square matrix.
-    A = np.random.random((50,50))
-    Q,R,p = qr(A,pivoting=True)
-    diagonal = np.diag(R)
-    r = np.sum(np.abs(diagonal)>1e-10)
-    matrix = R[:r]
-    new_matrix = grob.triangular_solve(matrix)
-    true=sy.Matrix(new_matrix).rref()
-    x = sy.symbols('x')
-    f = sy.lambdify(x,true[0])
-    assert(np.allclose(new_matrix,f(1)))
-
-    # Randomize test case: shorter rows than column.
-    A = np.random.random((10,50))
-    Q,R,p = qr(A,pivoting=True)
-    diagonal = np.diag(R)
-    r = np.sum(np.abs(diagonal)>1e-10)
-    matrix = R[:r]
-    new_matrix = grob.triangular_solve(matrix)
-    true=sy.Matrix(new_matrix).rref()
-    x = sy.symbols('x')
-    f = sy.lambdify(x,true[0])
-    print(f(1))
-    print(new_matrix)
-    assert(np.allclose(new_matrix,f(1)))
-
-    # Randomize test case: longer rows than columns.
-    A = np.random.random((50,10))
-    Q,R,p = qr(A,pivoting=True)
-    diagonal = np.diag(R)
-    r = np.sum(np.abs(diagonal)>1e-10)
-    matrix = R[:r]
-    new_matrix = grob.triangular_solve(matrix)
-    true=sy.Matrix(new_matrix).rref()
-    x = sy.symbols('x')
-    f = sy.lambdify(x,true[0])
-    print(f(1))
-    print(new_matrix)
-    assert(np.allclose(new_matrix,f(1)))
-
 def test_init_():
     C = MultiPower(np.array([[-1,0,1],[0,0,0]]))
     D = MultiCheb(np.array([[-1,0,0],[0,1,0],[1,0,0]]))

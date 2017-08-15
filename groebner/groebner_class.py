@@ -374,7 +374,7 @@ class Groebner(object):
             reduced_matrix = reduced_matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
 
             if triangular_solve:
-                reduced_matrix = self.triangular_solve(reduced_matrix)
+                reduced_matrix = utils.triangular_solve(reduced_matrix)
                 if clean:
                     reduced_matrix = utils.clean_zeros_from_matrix(reduced_matrix)
         else:
@@ -490,64 +490,6 @@ class Groebner(object):
             return reduced_matrix
         else:
             return utils.clean_zeros_from_matrix(reduced_matrix)
-
-    def triangular_solve(self,matrix):
-        " Reduces the upper block triangular matrix. "
-        m,n = matrix.shape
-        j = 0  # The row index.
-        k = 0  # The column index.
-        c = [] # It will contain the columns that make an upper triangular matrix.
-        d = [] # It will contain the rest of the columns.
-        order_c = [] # List to keep track of original index of the columns in c.
-        order_d = [] # List to keep track of the original index of the columns in d.
-
-        # Checks if the given matrix is not a square matrix.
-        if m != n:
-            # Makes sure the indicies are within the matrix.
-            while j < m and k < n:
-                if matrix[j,k]!= 0:
-                    c.append(matrix[:,k])
-                    order_c.append(k)
-                    # Move to the diagonal if the index is non-zero.
-                    j+=1
-                    k+=1
-                else:
-                    d.append(matrix[:,k])
-                    order_d.append(k)
-                    # Check the next column in the same row if index is zero.
-                    k+=1
-            # C will be the square matrix that is upper triangular with no zeros on the diagonals.
-            C = np.vstack(c).T
-            # If d is not empty, add the rest of the columns not checked into the matrix.
-            if d:
-                D = np.vstack(d).T
-                D = np.hstack((D,matrix[:,k:]))
-            else:
-                D = matrix[:,k:]
-            # Append the index of the rest of the columns to the order_d list.
-            for i in range(n-k):
-                order_d.append(k)
-                k+=1
-
-            # Solve for the CX = D
-            X = solve_triangular(C,D)
-
-            # Add I to X. [I|X]
-            solver = np.hstack((np.eye(X.shape[0]),X))
-
-            # Find the order to reverse the columns back.
-            order = utils.inverse_P(order_c+order_d)
-
-            # Reverse the columns back.
-            solver = solver[:,order]
-            # Temporary checker. Plots the non-zero part of the matrix.
-            #plt.matshow(~np.isclose(solver,0))
-
-            return solver
-
-        else:
-        # The case where the matrix passed in is a square matrix
-            return np.eye(m)
 
     def fully_reduce(self, matrix, qr_reduction = True):
         '''
