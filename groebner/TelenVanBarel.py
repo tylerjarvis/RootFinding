@@ -2,11 +2,11 @@ from operator import itemgetter
 import itertools
 import numpy as np
 import math
-from scipy.linalg import lu, qr, solve_triangular, inv, solve, svd
+from scipy.linalg import lu, qr, solve_triangular, inv, solve, svd, qr_multiply
 from numpy.linalg import cond
 from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 from scipy.sparse import csc_matrix, vstack
-from groebner.utils import Term, row_swap_matrix, fill_size, clean_zeros_from_matrix, triangular_solve, divides, get_var_list
+from groebner.utils import Term, row_swap_matrix, fill_size, clean_zeros_from_matrix, triangular_solve, divides, get_var_list, fullRank
 import matplotlib.pyplot as plt
 from collections import defaultdict
 import gc
@@ -43,15 +43,20 @@ def TelenVanBarel(initial_poly_list, global_accuracy = 1.e-10):
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
     
     matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list)
+    
+    print(matrix.shape)
         
-    matrix, matrix_terms = rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, 
+    matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, 
                                                         global_accuracy = global_accuracy)
+    
+    print("Reduced")
+    
     matrix = clean_zeros_from_matrix(matrix)
-    non_zero_rows = np.sum(np.abs(matrix),axis=1) != 0
-    matrix = matrix[non_zero_rows,:] #Only keeps the non-zero rows.
-        
+            
     matrix, matrix_terms = triangular_solve(matrix, matrix_terms, reorder = False)
     matrix = clean_zeros_from_matrix(matrix)
+    
+    print("triangluar solved")
         
     VB = matrix_terms[matrix.shape[0]:]
     basisDict = makeBasisDict(matrix, matrix_terms, VB)
@@ -227,6 +232,9 @@ def create_matrix(poly_coeffs):
     for term in non_zeroSet:
         matrix_terms = np.vstack((matrix_terms,term))
     matrix_terms = matrix_terms[1:]
+    
+    print(matrix_terms.shape)
+    print(len(poly_coeffs))
         
     matrix_terms, matrix_shape_stuff = sort_matrix_terms(matrix_terms)
     
@@ -243,7 +251,7 @@ def create_matrix(poly_coeffs):
         added_zeros[slices] = coeff
         flat_polys.append(added_zeros[matrix_term_indexes])
         added_zeros[slices] = np.zeros_like(coeff)
-    
+        
     #Make the matrix
     matrix = np.vstack(flat_polys[::-1])
 
@@ -290,20 +298,35 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, global_ac
     if diff > 0 and diff < others_num:
         highest_num += diff
         others_num -= diff
-        
+    
+    print(highest_num, others_num)
+    
     #RRQR reduces A and D sticking the result in it's place.
     Q1,matrix[:,:highest_num],P1 = qr(matrix[:,:highest_num], pivoting = True)
+    
+    print("first QR done")
         
     #Multiplying the rest of the matrix by Q.T
     matrix[:,highest_num:] = Q1.T@matrix[:,highest_num:]
-        
+    Q1 = 0 #Get rid of Q1 for memory purposes.
+    
+    print("first multiplication done")
+    
     #RRQR reduces E sticking the result in it's place.
     Q,matrix[highest_num:,highest_num:highest_num+others_num],P = qr(matrix[highest_num:,highest_num:highest_num+others_num], pivoting = True)
     
-    #Shifts the columns of B
-    matrix[:highest_num,highest_num:highest_num+others_num] = matrix[:highest_num,highest_num:highest_num+others_num][:,P]
+    print("second QR done")
+
     #Multiplies F by Q.T.
     matrix[highest_num:,highest_num+others_num:] = Q.T@matrix[highest_num:,highest_num+others_num:]
+    Q = 0 #Get rid of Q for memory purposes.
+    print("second multiplication done")
+
+    #Shifts the columns of B
+    matrix[:highest_num,highest_num:highest_num+others_num] = matrix[:highest_num,highest_num:highest_num+others_num][:,P]
+    
+    print("column switching done")
+    
     
     #Checks for 0 rows and gets rid of them.
     non_zero_rows = list()
@@ -312,8 +335,99 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, global_ac
             non_zero_rows.append(i)
     matrix = matrix[non_zero_rows,:]
     
+    print("non-zero rows gone")
+    
     #Resorts the matrix_terms.
     matrix_terms[:highest_num] = matrix_terms[:highest_num][P1]
     matrix_terms[highest_num:highest_num+others_num] = matrix_terms[highest_num:highest_num+others_num][P]
     
+    print("matrix_terms resorted")
+    
+    return matrix, matrix_terms
+
+
+def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, global_accuracy = 1.e-10):
+    ''' Reduces a Telen Van Barel Macaulay matrix.
+    
+    This function does the same thing as rrqr_reduceTelenVanBarel but uses qr_multiply instead of qr and a multiplication
+    to make the function faster and more memory efficient. It could be less stable, but I haven't seen any stability
+    problems while running it.
+    
+    Parameters
+    ----------
+    matrix : numpy array.
+        The Macaulay matrix, sorted in TVB style.
+    matrix_terms: numpy array
+        Each row of the array contains a term in the matrix. The i'th row corresponds to
+        the i'th column in the matrix.
+    matrix_shape_stuff : tuple
+        Terrible name I know. It has 3 values, the first is how many columnns are in the
+        'highest' part of the matrix. The second is how many are in the 'others' part of
+        the matrix, and the third is how many are in the 'xs' part.
+    Returns
+    -------
+    matrix : numpy array
+        The reduced matrix. 
+    matrix_terms: numpy array
+        The resorted matrix_terms.
+    '''    
+    highest_num = matrix_shape_stuff[0]
+    others_num = matrix_shape_stuff[1]
+    xs_num = matrix_shape_stuff[2]
+    ''' #This is breaking right now for this function, not sure why.    
+    #Try going down to halfway down the matrix.
+    half = min(matrix.shape[0]//2, (highest_num + others_num)//2)
+    diff = half - highest_num
+    if diff > 0 and diff < others_num:
+        highest_num += diff
+        others_num -= diff
+    
+    print(highest_num, others_num)
+    
+    
+    C1,R1,P1 = qr_multiply(matrix[:,:highest_num], matrix[:,highest_num:].T, mode = 'right', pivoting = True)
+    matrix = np.vstack((np.hstack((R1,C1.T)),matrix[highest_num:]))
+    print("first QR done")
+    
+    A = matrix[highest_num:,:highest_num][:,P1]
+    matrix_terms[:highest_num] = matrix_terms[:highest_num][P1]
+    P1 = 0
+    B = matrix[highest_num:,highest_num:]
+    B -= A@solve_triangular(R1,C1.T)
+    R1,C1 = 0,0
+    
+    print("adjustment done")
+    '''
+    C1,matrix[:highest_num,:highest_num],P1 = qr_multiply(matrix[:,:highest_num], matrix[:,highest_num:].T, mode = 'right', pivoting = True)
+    matrix[:highest_num,highest_num:] = C1.T
+    C1 = 0
+    print("first QR done")
+    
+    matrix[:highest_num,highest_num:] = solve_triangular(matrix[:highest_num,:highest_num],matrix[:highest_num,highest_num:])
+    matrix[:highest_num,:highest_num] = np.eye(highest_num)
+    matrix[highest_num:,highest_num:] -= (matrix[highest_num:,:highest_num][:,P1])@matrix[:highest_num,highest_num:]
+    matrix_terms[:highest_num] = matrix_terms[:highest_num][P1]
+    P1 = 0
+    print("adjustment done")
+    
+    C,R,P = qr_multiply(matrix[highest_num:,highest_num:highest_num+others_num], matrix[highest_num:,highest_num+others_num:].T, mode = 'right', pivoting = True)
+    matrix = np.vstack((matrix[:highest_num],np.hstack((np.zeros_like(matrix[highest_num:R.shape[0]+highest_num,:highest_num]),R,C.T))))
+    C,R = 0,0
+    print("second QR done")
+
+    #Shifts the columns of B
+    matrix[:highest_num,highest_num:highest_num+others_num] = matrix[:highest_num,highest_num:highest_num+others_num][:,P]
+    matrix_terms[highest_num:highest_num+others_num] = matrix_terms[highest_num:highest_num+others_num][P]
+    P = 0
+    print("column switching done")
+    
+    #Checks for 0 rows and gets rid of them.
+    non_zero_rows = list()
+    for i in range(min(highest_num+others_num, matrix.shape[0])):
+        if np.abs(matrix[i][i]) > global_accuracy:
+            non_zero_rows.append(i)
+    matrix = matrix[non_zero_rows,:]
+    
+    print("non-zero rows gone")
+        
     return matrix, matrix_terms

@@ -73,6 +73,8 @@ def roots(polys, method = 'Groebner'):
     num_vectors = eig.shape[1]
         
     eig_vectors = [eig[:,i].tolist() for i in range(num_vectors)] # columns of eig
+    
+    print("eigenvectors found")
 
     roots = []
     for v in eig_vectors:
@@ -175,7 +177,13 @@ def TVBMultMatrix(polys, poly_type):
         Maps each variable to its position in the vector space basis
     '''
     basisDict, VB = TelenVanBarel(polys)
+    
+    print("Telen Van Barel done")
+    
     VB = sortVB(VB)
+    
+    print("VB sorted")
+    print(len(VB))
 
     dim = max(f.dim for f in polys)
 
@@ -195,24 +203,31 @@ def TVBMultMatrix(polys, poly_type):
     # Build multiplication matrix m_f
     remainder_shape = np.maximum.reduce([mon for mon in VB])
     remainder_shape += np.ones_like(remainder_shape)
+    print(remainder_shape)
+    remainder = np.zeros(remainder_shape)
+    
+    print('prelimenaries done')
 
     for i in range(VB.shape[0]):
-        monomial = VB[i]
-        f_new = f.mon_mult(monomial)
-        remainder = np.zeros(remainder_shape)
-        for term in zip(*np.where(f_new.coeff != 0)):
+        f_coeff = f.mon_mult(VB[i], returnType = 'Matrix')
+        #remainder = np.zeros(remainder_shape)
+        for term in zip(*np.where(f_coeff != 0)):
             if term in VBset:
-                remainder[term] += f_new.coeff[term]
+                remainder[term] += f_coeff[term]
             else:
-                remainder -= f_new.coeff[term]*basisDict[term]
+                remainder[slices] -= f_coeff[term]*basisDict[term][slices]
         mMatrix[:,i] = remainder[slices]
+        remainder[slices] = 0
 
+    print("multMatrix done")
     # Construct var_dict
     var_dict = {}
     for i in range(len(VB)):
         mon = VB[i]
         if np.sum(mon) == 1 or np.sum(mon) == 0:
             var_dict[tuple(mon)] = i
+    
+    print("varDict done")
     
     return mMatrix, var_dict
 

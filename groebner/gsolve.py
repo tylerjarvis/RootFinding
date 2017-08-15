@@ -13,23 +13,110 @@ from scipy.sparse import csc_matrix, vstack
 import matplotlib.pyplot as plt
 from collections import defaultdict
 
-global_accuracy = 1.e-10
+def F4(polys, reducedGroebner = True):
+    '''
+    The main function. Initializes the matrix, adds the phi's and r's, and then reduces it. Repeats until the reduction
+    no longer adds any more polynomials to the matrix. Print statements let us see the progress of the code.
+    '''
+    polys_were_added = True
+    while polys_were_added:
+        self.initialize_np_matrix()
+        self.add_phi_to_matrix()
+        self.add_r_to_matrix()
+        self.create_matrix()
+        polys_were_added = self.reduce_matrix(qr_reduction = qr_reduction, triangular_solve = False)
 
-def add_polys(degree, poly, poly_list):
-    """
-    Take each polynomial and adds it to a poly_list
-    Then uses monomial multiplication and adds all polynomials with degree less than
-        or equal to the total degree needed.
-    Returns a list of polynomials.
-    """
-    poly_list.append(poly)
-    deg = degree - poly.degree
-    dim = poly.dim
-    mons = mon_combos(np.zeros(dim, dtype = int),deg)
-    mons = mons[1:]
-    for i in mons:
-        poly_list.append(poly.mon_mult(i))
-    return poly_list
+    self.get_groebner()
+    if reducedGroebner:
+        self.reduce_groebner_basis()
+    return self.groebner_basis
+
+def initialize_np_matrix(self, final_time = False):
+    '''
+    Initialzes self.np_matrix to having just old_polys and new_polys in it
+    matrix_terms is the header of the matrix, it lines up each column with a monomial
+
+    Now it sorts through the polynomials and if a polynomial is going to be reduced this time through
+    it adds it and it's reducer to the matrix but doesn't use it for phi or r calculations.
+    This makes the code WAY faster.
+    '''
+    matrix_polys = list()
+    original_lms
+
+    self.matrix_terms = []
+    self.np_matrix = np.array([])
+    self.term_set = set()
+    self.lead_term_set = set()
+    self.original_lms = set()
+    self.matrix_polys = list()
+
+    if final_time:
+        self._add_polys(self.new_polys + self.old_polys)
+        for poly in self.new_polys + self.old_polys:
+            self.original_lms.add(Term(poly.lead_term))
+    else:
+        old_polys = self.old_polys
+        new_polys = self.new_polys
+        polys = old_polys + new_polys
+
+        polys = utils.sorted_polys_monomial(polys)
+
+        self.old_polys = list()
+        self.new_polys = list()
+
+        lms = defaultdict(list)
+        for p in polys:
+            lms[p.lead_term].append(p)
+
+        # This list will contain one polynomial for each leading term,
+        # so all the leading terms will be unique
+        polys_with_unique_lm = list()
+
+        for i in lms:
+            # If there are multiple polynomials with the same leading term
+            # we add just one of them to polys_with_unique_lm and add the
+            # rest to the matrix for reduction.
+            if len(lms[i]) > 1:
+                # Why is this next line happening??
+                self.new_polys.append(lms[i][0])
+                # Removing ^ still passes all tests so....
+
+                polys_with_unique_lm.append(lms[i][0])
+                lms[i].remove(lms[i][0])
+                self._add_polys(lms[i]) #Still lets stuff be reduced if a poly reduces all of them.
+            else:
+                polys_with_unique_lm.append(lms[i][0])
+
+        divides_out = list()
+
+        # Checks if anything in old_polys or new_polys can divide each other
+        # Example: if f1 divides f2, then f2 and  LT(f2)/LT(f1) * f1 are
+        # added to the matrix
+        for i,j in itertools.permutations(polys_with_unique_lm,2):
+            if i in divides_out:
+                continue
+            if utils.divides(j.lead_term,i.lead_term): # j divides into i
+                divides_out.append(i)
+                self._add_poly_to_matrix(i)
+                self._add_poly_to_matrix(j.mon_mult(tuple(a-b for a,b in zip(i.lead_term,j.lead_term))))
+
+        # Now add everything that couldn't be divided out to the matrix,
+        # and put them back in either self.old_polys or self.new_polys,
+        # whichever they belonged to before.
+        #
+        # This means that the ones that got divided out are essentially
+        # removed from the list they belonged to, so they won't be
+        # used for phi or r calculations.
+        for i in polys_with_unique_lm:
+            if i not in divides_out:
+                self._add_poly_to_matrix(i)
+                if i in old_polys:
+                    self.old_polys.append(i)
+                elif i in new_polys:
+                    self.new_polys.append(i)
+                else:
+                    raise ValueError("Where did this poly come from?")
+
 
 def build_maxheap(term_set, lead_term_set):
     '''Builds a maxheap of Term objects for use in r polynomial calculation.
@@ -300,72 +387,6 @@ def get_polys_from_matrix(matrix, matrix_terms, rows, power=False, clean=False, 
             p_list.append(poly)
     return p_list
 
-def Macaulay(initial_poly_list, powerbasis=True, global_accuracy = 1.e-10):
-    """
-    Macaulay will take a list of polynomials and use them to construct a Macaulay matrix.
-
-    parameters
-    --------
-    initial_poly_list: A list of polynomials
-    global_accuracy: How small we want a number to be before assuming it is zero.
-    --------
-
-    Returns
-    -----------
-    Reduced Macaulay matrix that can be passed into the root finder.
-    -----------
-    """
-
-    poly_list = []
-    degree = find_degree(initial_poly_list)
-
-    # Add polynomials with degree less than or equal to variable 'degree'.
-    for i in initial_poly_list:
-        poly_list = add_polys(degree, i, poly_list)
-
-    # Create the Macaulay matrix from the generated list of polynomials.
-    matrix, matrix_terms = create_matrix(poly_list)
-
-    # Reduce the Macaulay matrix. Keep only nonzero polynomials.
-    matrix = rrqr_reduce(matrix)
-    matrix = k(matrix)
-    non_zero_rows = np.sum(abs(matrix),axis=1) != 0
-    matrix = matrix[non_zero_rows,:]
-
-    # Triangular solve and clean zeros from matrix.
-    matrix = triangular_solve(matrix)
-    matrix = utils.clean_zeros_from_matrix(matrix)
-
-    # Get polynomials from matrix.
-    rows = get_good_rows(matrix, matrix_terms)
-    final_polys = get_poly_from_matrix(rows,matrix,matrix_terms,powerbasis)
-
-    # return the final polynomials?
-    return final_polys
-
-def mon_combos(mon, numLeft, spot = 0):
-    '''
-    This function finds all the monomials up to a given degree (here numLeft) and returns them.
-    mon is a tuple that starts as all 0's and gets changed as needed to get all the monomials.
-    numLeft starts as the dimension, but as the code goes is how much can still be added to mon.
-    spot is the place in mon we are currently adding things to.
-    Returns a list of all the possible monomials.
-    '''
-    answers = list()
-    if len(mon) == spot+1: #We are at the end of mon, no more recursion.
-        for i in range(numLeft+1):
-            mon[spot] = i
-            answers.append(mon.copy())
-        return answers
-    if numLeft == 0: #Nothing else can be added.
-        answers.append(mon.copy())
-        return answers
-    temp = mon.copy() #Quicker than copying every time inside the loop.
-    for i in range(numLeft+1): #Recursively add to mon further down.
-        temp[spot] = i
-        answers += mon_combos(temp, numLeft-i, spot+1)
-    return answers
-
 def rrqr_reduce(matrix, clean = False, global_accuracy = 1.e-10):
     '''
     Recursively reduces the matrix using rrqr reduction so it returns a reduced matrix, where each row has
@@ -421,60 +442,3 @@ def sort_matrix(matrix, matrix_terms):
     matrix_terms.sort()
     matrix = matrix[:,argsort_list]
     return matrix, matrix_terms[::-1]
-
-def triangular_solve(matrix):
-    " Reduces the upper block triangular matrix. "
-    m,n = matrix.shape
-    j = 0  # The row index.
-    k = 0  # The column index.
-    c = [] # It will contain the columns that make an upper triangular matrix.
-    d = [] # It will contain the rest of the columns.
-    order_c = [] # List to keep track of original index of the columns in c.
-    order_d = [] # List to keep track of the original index of the columns in d.
-
-    # Checks if the given matrix is not a square matrix.
-    if m != n:
-        # Makes sure the indicies are within the matrix.
-        while j < m and k < n:
-            if matrix[j,k]!= 0:
-                c.append(matrix[:,k])
-                order_c.append(k)
-                # Move to the diagonal if the index is non-zero.
-                j+=1
-                k+=1
-            else:
-                d.append(matrix[:,k])
-                order_d.append(k)
-                # Check the next column in the same row if index is zero.
-                k+=1
-        # C will be the square matrix that is upper triangular with no zeros on the diagonals.
-        C = np.vstack(c).T
-        # If d is not empty, add the rest of the columns not checked into the matrix.
-        if d:
-            D = np.vstack(d).T
-            D = np.hstack((D,matrix[:,k:]))
-        else:
-            D = matrix[:,k:]
-        # Append the index of the rest of the columns to the order_d list.
-        for i in range(n-k):
-            order_d.append(k)
-            k+=1
-
-        # Solve for the CX = D
-        X = solve_triangular(C,D)
-
-        # Add I to X. [I|X]
-        solver = np.hstack((np.eye(X.shape[0]),X))
-
-        # Find the order to reverse the columns back.
-        order = utils.inverse_P(order_c+order_d)
-
-        # Reverse the columns back.
-        solver = solver[:,order]
-        # Temporary checker. Plots the non-zero part of the matrix.
-        #plt.matshow(~np.isclose(solver,0))
-        return solver
-
-    else:
-        # The case where the matrix passed in is a square matrix
-        return np.eye(m)
