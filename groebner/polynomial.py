@@ -9,6 +9,18 @@ import math
 class Polynomial(object):
     def __init__(self, coeff, order='degrevlex', lead_term=None, clean_zeros = True):
         '''
+        Enter description.
+
+        Attributes
+        ----------
+        What are they?
+
+        Parameters # documentation for __init__
+        ----------
+
+        Methods
+        ----------
+
         terms, int- number of chebyshev polynomials each variable can have. Each dimension will have term terms
         dim, int- number of different variables, how many dim our tensor will be
         order, string- how you want to order your polynomials. Grevlex is default
@@ -162,6 +174,18 @@ class Polynomial(object):
 
 class MultiCheb(Polynomial):
     """
+    Enter description.
+
+    Attributes
+    ----------
+    What are they?
+
+    Parameters # documentation for __init__
+    ----------
+
+    Methods
+    ----------
+
     _____ params _______
     dim: int, number of variables, dimension of chebyshev system
     terms: int, highest term of single variable chebyshev polynomials
@@ -408,6 +432,17 @@ class MultiCheb(Polynomial):
 
 class MultiPower(Polynomial):
     """
+    Enter description.
+
+    Attributes
+    ----------
+    What are they?
+
+    Parameters # documentation for __init__
+    ----------
+
+    Methods
+    ----------
 
 
     _____ params _______
@@ -429,7 +464,17 @@ class MultiPower(Polynomial):
 
     def __add__(self,other):
         '''
-        Here we add an addition class.
+        Here we add an addition method
+
+        Parameters
+        ----------
+        other : MultiPower object
+
+        Returns
+        ----------
+        MultiPower object
+            The sum of the coeff of self and coeff of other.
+
         '''
         if self.shape != other.shape:
             new_self, new_other = self.match_size(self.coeff,other.coeff)
@@ -439,7 +484,17 @@ class MultiPower(Polynomial):
 
     def __sub__(self,other):
         '''
-        Here we subtract the two polys
+        Here we subtract the two polys coeffs
+
+        Parameters
+        ----------
+        other : MultiPower object
+
+        Returns
+        ----------
+        MultiPower object
+            The coeff values are the result of self.coeff - other.coeff.
+
         '''
         if self.shape != other.shape:
             new_self, new_other = self.match_size(self.coeff,other.coeff)
@@ -449,7 +504,17 @@ class MultiPower(Polynomial):
 
     def __mul__(self,other):
         '''
-        here we add leading terms?
+        Method for multiplying two polynomials.
+
+        Parameters
+        ----------
+        other : MultiPower object
+
+        Returns
+        ----------
+        MultiPower object
+            The result of self*other.
+
         '''
         if self.shape != other.shape:
             new_self, new_other = self.match_size(self.coeff,other.coeff)
@@ -460,7 +525,17 @@ class MultiPower(Polynomial):
 
     def __eq__(self,other):
         '''
-        check if coeff matrix is the same
+        Check if the coeff matrix is the same.
+
+        Parameters
+        ----------
+        other : MultiPower object
+
+        Returns
+        ----------
+        bool
+            True if the coeff of self and other are the same for all entries.
+
         '''
         if self.shape != other.shape:
             return False
@@ -470,6 +545,15 @@ class MultiPower(Polynomial):
     def __ne__(self,other):
         '''
         check if coeff matrix is not the same
+
+        Parameters
+        ----------
+        other : MultiPower object
+
+        Returns
+        ----------
+        bool
+            True if any corresponding entries in self and other are not the same.
         '''
         return not (self == other)
 
@@ -556,7 +640,7 @@ def conv_cheb(T):
     ----------
     ndarray
         A one dimensional array that represents the coeff of a power basis polynomial.
-        
+
     """
     conv = cheb.cheb2poly(T)
     if conv.size == T.size:
