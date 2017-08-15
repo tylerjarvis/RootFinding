@@ -6,7 +6,7 @@ from scipy.linalg import lu, qr, solve_triangular, inv, solve, svd
 from numpy.linalg import cond
 from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 from scipy.sparse import csc_matrix, vstack
-from groebner.utils import Term, row_swap_matrix, fill_size, clean_zeros_from_matrix, inverse_P, triangular_solve, divides
+from groebner.utils import Term, row_swap_matrix, fill_size, clean_zeros_from_matrix, inverse_P, triangular_solve, divides, argsort_dec
 import matplotlib.pyplot as plt
 from collections import defaultdict
 
@@ -64,18 +64,17 @@ def get_polys_from_matrix(rows,matrix,matrix_terms,power):
     '''
     shape = []
     p_list = []
-    matrix_term_vals = [i.val for i in matrix_terms]
+    shape = np.maximum.reduce([term for term in matrix_terms])
+    shape += np.ones_like(shape)
+    spots = list()
+    for dim in range(matrix_terms.shape[1]):
+        spots.append(matrix_terms.T[dim])
 
-    # Finds the maximum size needed for each of the poly coeff tensors
-    for i in range(len(matrix_term_vals[0])):
-        # add 1 to each to compensate for constant term
-        shape.append(max(matrix_term_vals, key=itemgetter(i))[i]+1)
     # Grabs each polynomial, makes coeff matrix and constructs object
     for i in rows:
         p = matrix[i]
         coeff = np.zeros(shape)
-        for j,term in enumerate(matrix_term_vals):
-            coeff[term] = p[j]
+        coeff[spots] = p
         if power:
             poly = MultiPower(coeff)
         else:
@@ -109,7 +108,7 @@ def get_good_rows(matrix, matrix_terms):
         toRemove = list()
         for i in range(spot+1, len(keys)):
             term2 = rowLMs[keys[i]]
-            if divides(term1.val,term2.val):
+            if divides(term1,term2):
                 toRemove.append(keys[i])
         for i in toRemove:
             keys.remove(i)
@@ -174,56 +173,83 @@ def add_polys(degree, poly, poly_coeff_list):
         poly_coeff_list.append(poly.mon_mult(i, returnType = 'Matrix'))
     return poly_coeff_list
 
-def sort_matrix(matrix, matrix_terms):
-    '''
-    Takes a matrix and matrix_terms (holding the terms in each column of the matrix), and sorts them both
-    by term order.
-    Returns the sorted matrix and matrix_terms.
-    '''
-    #argsort_list gives the ordering by which the matrix should be sorted.
-    argsort_list = sorted(range(len(matrix_terms)), key=matrix_terms.__getitem__)[::-1]
-    matrix_terms.sort()
-    matrix = matrix[:,argsort_list]
-    return matrix, matrix_terms[::-1]
 
-def clean_matrix(matrix, matrix_terms):
+def sort_matrix_terms(matrix_terms):
+    '''Sorts the matrix_terms by term order.
+    So the highest terms come first, the lowest ones last/.
+    Parameters
+    ----------
+    matrix_terms : numpy array.
+        Each row is one of the terms in the matrix.
+    Returns
+    -------
+    matrix_terms : numpy array
+        The sorted matrix_terms.
     '''
-    Gets rid of columns in the matrix that are all zero and returns it and the updated matrix_terms.
-    '''
-    non_zero_monomial = np.sum(abs(matrix), axis=0) != 0
-    matrix = matrix[:,non_zero_monomial] #Only keeps the non_zero_monomials
-    matrix_terms = matrix_terms[non_zero_monomial] #Only keeps the non_zero_monomials
-    return matrix, matrix_terms
+    termList = list()
+    for term in matrix_terms:
+        termList.append(Term(term))
+    argsort_list, termList = argsort_dec(termList)
+    return matrix_terms[argsort_list]
 
-def create_matrix(polys_coeffs):
+def coeff_slice(coeff):
+    ''' Gets the n-d slices that corespond to the dimenison of a coeff matrix.
+    Parameters
+    ----------
+    coeff : numpy matrix.
+        The matrix of interest.
+    Returns
+    -------
+    slices : list
+        Each value of the list is a slice of the matrix in some dimension. It is exactly the size of the matrix.
     '''
-    Takes a list of polynomial objects (polys) and uses them to create a matrix. That is ordered by the monomial
-    ordering. Returns the matrix and the matrix_terms, a list of the monomials corresponding to the rows of the matrix.
+    slices = list()
+    for i in coeff.shape:
+        slices.append(slice(0,i))
+    return slices
+
+def create_matrix(poly_coeffs):
+    ''' Builds a Macaulay matrix.
+        
+    Parameters
+    ----------
+    poly_coeffs : list.
+        Contains numpy arrays that hold the coefficients of the polynomials to be put in the matrix.
+    Returns
+    -------
+    matrix : 2D numpy array
+        The Macaulay matrix.
     '''
-    #Gets an empty polynomial whose lm all other polynomial divide into.
-    bigShape = np.maximum.reduce([p.shape for p in polys_coeffs])
-    #Gets a list of all the flattened polynomials.
+    bigShape = np.maximum.reduce([p.shape for p in poly_coeffs])
+
+    #Finds the matrix terms.
+    non_zeroSet = set()
+    for coeff in poly_coeffs:
+        for term in zip(*np.where(coeff != 0)):
+            non_zeroSet.add(term)
+    matrix_terms = np.zeros_like(bigShape)
+    for term in non_zeroSet:
+        matrix_terms = np.vstack((matrix_terms,term))
+    matrix_terms = matrix_terms[1:]
+        
+    matrix_terms = sort_matrix_terms(matrix_terms)
+    
+    #Get the slices needed to pull the matrix_terms from the coeff matrix.
+    matrix_term_indexes = list()
+    for i in range(len(bigShape)):
+        matrix_term_indexes.append(matrix_terms.T[i])
+    
+    #Adds the poly_coeffs to flat_polys, using added_zeros to make sure every term is in there.
+    added_zeros = np.zeros(bigShape)
     flat_polys = list()
-    for coeff in polys_coeffs:
-        #Gets a matrix that is padded so it is the same size as biggest, and flattens it. This is so
-        #all flattened polynomials look the same.
-        newMatrix = fill_size(bigShape, coeff)
-        flat_polys.append(newMatrix.ravel())
-
+    for coeff in poly_coeffs:
+        slices = coeff_slice(coeff)
+        added_zeros[slices] = coeff
+        flat_polys.append(added_zeros[matrix_term_indexes])
+        added_zeros[slices] = np.zeros_like(coeff)
+        
     #Make the matrix
     matrix = np.vstack(flat_polys[::-1])
-
-    #Makes matrix_terms, a list of all the terms in the matrix.
-    terms = np.zeros(bigShape, dtype = Term)
-    for i,j in np.ndenumerate(terms):
-        terms[i] = Term(i)
-    matrix_terms = terms.ravel()
-
-    #Gets rid of any columns that are all 0.
-    matrix, matrix_terms = clean_matrix(matrix, matrix_terms)
-
-    #Sorts the matrix and matrix_terms by term order.
-    matrix, matrix_terms = sort_matrix(matrix, matrix_terms)
 
     #Sorts the rows of the matrix so it is close to upper triangular.
     matrix = row_swap_matrix(matrix)
