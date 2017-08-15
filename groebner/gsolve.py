@@ -389,7 +389,7 @@ def get_polys_from_matrix(matrix, matrix_terms, rows, power=False, clean=False, 
             p_list.append(poly)
     return p_list
 
-def reduce_matrix(matrix):
+def row_echelon(matrix):
     '''Reduces the matrix to row echelon form and removes all zero rows.
 
     Parameters
@@ -427,7 +427,8 @@ def get_new_polys(matrix, matrix_terms, old_polys, new_polys, triangular_solve =
     Returns-True if new polynomials were found, False otherwise.
     '''
 
-    reduced_matrix = reduce_matrix(matrix)
+    # Row echelon form of matrix
+    reduced_matrix = row_echelon(matrix)
 
     if triangular_solve:
         reduced_matrix = utils.triangular_solve(reduced_matrix)
