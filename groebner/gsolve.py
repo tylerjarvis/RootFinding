@@ -42,9 +42,9 @@ def F4(polys, reducedGroebner = True, accuracy = 1.e-10):
         matrix_polys = add_phi_to_matrix(old_polys, new_polys, matrix_polys)
         matrix_polys, matrix_terms = add_r_to_matrix(matrix_polys, old_polys + new_polys)
         matrix, matrix_terms = create_matrix(matrix_polys, matrix_terms)
+        print(matrix.shape)
         old_polys += new_polys
-        new_polys = get_new_polys(matrix, matrix_terms, power, accuracy = accuracy)
-
+        new_polys = get_new_polys(matrix, matrix_terms, accuracy = accuracy, power = power)
     groebner_basis = old_polys
     if reducedGroebner:
         groebner_basis = reduce_groebner_basis(groebner_basis, power)
@@ -397,7 +397,7 @@ def create_matrix(matrix_polys, matrix_terms = None):
     if matrix_terms is None:
         #Finds the matrix terms.
         non_zeroSet = set()
-        for polys in matrix_polys:
+        for poly in matrix_polys:
             for term in zip(*np.where(poly.coeff != 0)):
                 non_zeroSet.add(term)
         matrix_terms = np.array(non_zeroSet.pop())
@@ -426,7 +426,6 @@ def create_matrix(matrix_polys, matrix_terms = None):
 
     #Sorts the rows of the matrix so it is close to upper triangular.
     matrix = utils.row_swap_matrix(matrix)
-    plt.matshow([i == 0 for i in matrix])
     return matrix, matrix_terms
 
 

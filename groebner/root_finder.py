@@ -5,6 +5,7 @@ from groebner.groebner_class import Groebner
 from groebner.Macaulay import Macaulay
 from groebner.TelenVanBarel import TelenVanBarel
 from groebner.utils import Term, get_var_list, divides
+from groebner.gsolve import F4
 
 '''
 This module contains the tools necessary to find the points of the variety of the
@@ -116,8 +117,9 @@ def groebnerMultMatrix(polys, poly_type, method):
     '''
     # Calculate groebner basis
     if method == 'Groebner':
-        G = Groebner(polys)
-        GB = G.solve()
+        #G = Groebner(polys)
+        #GB = G.solve()
+        GB = F4(polys)
     else:
         GB = Macaulay(polys)
 
