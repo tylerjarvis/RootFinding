@@ -490,39 +490,3 @@ class Groebner(object):
             return reduced_matrix
         else:
             return utils.clean_zeros_from_matrix(reduced_matrix)
-
-    def fully_reduce(self, matrix, qr_reduction = True):
-        '''
-        This function isn't really used any more as it seems less stable. But it's good for testing purposes.
-
-        Fully reduces the matrix by making sure all submatrices formed by taking out columns of zeros are
-        also in upper triangular form. Does this recursively. Returns the reduced matrix.
-        '''
-        matrix = utils.clean_zeros_from_matrix(matrix)
-        diagonals = np.diagonal(matrix).copy()
-        zero_diagonals = np.where(abs(diagonals)==0)[0]
-        if(len(zero_diagonals != 0)):
-            first_zero = zero_diagonals[0]
-            i = first_zero
-            #Checks how many rows we can go down that are all 0.
-            while all([k==0 for k in matrix[first_zero:,i:i+1]]):
-                i+=1
-                if(i == matrix.shape[1]):
-                    i = -1
-                    break
-
-            if(i != -1):
-                sub_matrix = matrix[first_zero: , i:]
-                if qr_reduction:
-                    Q,R = qr(sub_matrix)
-                    sub_matrix = self.fully_reduce(R)
-                else:
-                    P,L,U = lu(sub_matrix)
-                    #ERROR HERE BECAUSE OF THE PERMUATION MATRIX, I'M NOT SURE HOW TO FIX IT
-                    sub_matrix = self.fully_reduce(U, qr_reduction = False)
-
-                matrix[first_zero: , i:] = sub_matrix
-        if clean:
-            return utils.clean_zeros_from_matrix(matrix)
-        else:
-            return utils.clean_zeros_from_matrix(matrix)
