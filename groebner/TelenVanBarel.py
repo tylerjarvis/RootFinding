@@ -43,21 +43,14 @@ def TelenVanBarel(initial_poly_list, global_accuracy = 1.e-10):
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
     
     matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list)
-    
-    print(matrix.shape)
-        
+            
     matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, 
                                                         global_accuracy = global_accuracy)
-    
-    print("Reduced")
-    
     matrix = clean_zeros_from_matrix(matrix)
             
     matrix, matrix_terms = triangular_solve(matrix, matrix_terms, reorder = False)
     matrix = clean_zeros_from_matrix(matrix)
-    
-    print("triangluar solved")
-        
+            
     VB = matrix_terms[matrix.shape[0]:]
     basisDict = makeBasisDict(matrix, matrix_terms, VB)
     return basisDict, VB
@@ -231,9 +224,6 @@ def create_matrix(poly_coeffs):
     matrix_terms = np.array(non_zeroSet.pop())
     for term in non_zeroSet:
         matrix_terms = np.vstack((matrix_terms,term))
-    
-    print(matrix_terms.shape)
-    print(len(poly_coeffs))
         
     matrix_terms, matrix_shape_stuff = sort_matrix_terms(matrix_terms)
     
@@ -297,35 +287,23 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, global_ac
     if diff > 0 and diff < others_num:
         highest_num += diff
         others_num -= diff
-    
-    print(highest_num, others_num)
-    
+        
     #RRQR reduces A and D sticking the result in it's place.
     Q1,matrix[:,:highest_num],P1 = qr(matrix[:,:highest_num], pivoting = True)
-    
-    print("first QR done")
-        
+            
     #Multiplying the rest of the matrix by Q.T
     matrix[:,highest_num:] = Q1.T@matrix[:,highest_num:]
     Q1 = 0 #Get rid of Q1 for memory purposes.
-    
-    print("first multiplication done")
-    
+        
     #RRQR reduces E sticking the result in it's place.
     Q,matrix[highest_num:,highest_num:highest_num+others_num],P = qr(matrix[highest_num:,highest_num:highest_num+others_num], pivoting = True)
     
-    print("second QR done")
-
     #Multiplies F by Q.T.
     matrix[highest_num:,highest_num+others_num:] = Q.T@matrix[highest_num:,highest_num+others_num:]
     Q = 0 #Get rid of Q for memory purposes.
-    print("second multiplication done")
 
     #Shifts the columns of B
-    matrix[:highest_num,highest_num:highest_num+others_num] = matrix[:highest_num,highest_num:highest_num+others_num][:,P]
-    
-    print("column switching done")
-    
+    matrix[:highest_num,highest_num:highest_num+others_num] = matrix[:highest_num,highest_num:highest_num+others_num][:,P]    
     
     #Checks for 0 rows and gets rid of them.
     non_zero_rows = list()
@@ -333,15 +311,11 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, global_ac
         if np.abs(matrix[i][i]) > global_accuracy:
             non_zero_rows.append(i)
     matrix = matrix[non_zero_rows,:]
-    
-    print("non-zero rows gone")
-    
+        
     #Resorts the matrix_terms.
     matrix_terms[:highest_num] = matrix_terms[:highest_num][P1]
     matrix_terms[highest_num:highest_num+others_num] = matrix_terms[highest_num:highest_num+others_num][P]
-    
-    print("matrix_terms resorted")
-    
+        
     return matrix, matrix_terms
 
 
@@ -380,13 +354,10 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, global_a
     if diff > 0 and diff < others_num:
         highest_num += diff
         others_num -= diff
-    
-    print(highest_num, others_num)
-    
+        
     
     C1,R1,P1 = qr_multiply(matrix[:,:highest_num], matrix[:,highest_num:].T, mode = 'right', pivoting = True)
     matrix = np.vstack((np.hstack((R1,C1.T)),matrix[highest_num:]))
-    print("first QR done")
     
     A = matrix[highest_num:,:highest_num][:,P1]
     matrix_terms[:highest_num] = matrix_terms[:highest_num][P1]
@@ -395,30 +366,25 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, global_a
     B -= A@solve_triangular(R1,C1.T)
     R1,C1 = 0,0
     
-    print("adjustment done")
     '''
     C1,matrix[:highest_num,:highest_num],P1 = qr_multiply(matrix[:,:highest_num], matrix[:,highest_num:].T, mode = 'right', pivoting = True)
     matrix[:highest_num,highest_num:] = C1.T
     C1 = 0
-    print("first QR done")
     
     matrix[:highest_num,highest_num:] = solve_triangular(matrix[:highest_num,:highest_num],matrix[:highest_num,highest_num:])
     matrix[:highest_num,:highest_num] = np.eye(highest_num)
     matrix[highest_num:,highest_num:] -= (matrix[highest_num:,:highest_num][:,P1])@matrix[:highest_num,highest_num:]
     matrix_terms[:highest_num] = matrix_terms[:highest_num][P1]
     P1 = 0
-    print("adjustment done")
     
     C,R,P = qr_multiply(matrix[highest_num:,highest_num:highest_num+others_num], matrix[highest_num:,highest_num+others_num:].T, mode = 'right', pivoting = True)
     matrix = np.vstack((matrix[:highest_num],np.hstack((np.zeros_like(matrix[highest_num:R.shape[0]+highest_num,:highest_num]),R,C.T))))
     C,R = 0,0
-    print("second QR done")
 
     #Shifts the columns of B
     matrix[:highest_num,highest_num:highest_num+others_num] = matrix[:highest_num,highest_num:highest_num+others_num][:,P]
     matrix_terms[highest_num:highest_num+others_num] = matrix_terms[highest_num:highest_num+others_num][P]
     P = 0
-    print("column switching done")
     
     #Checks for 0 rows and gets rid of them.
     non_zero_rows = list()
@@ -426,7 +392,5 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, global_a
         if np.abs(matrix[i][i]) > global_accuracy:
             non_zero_rows.append(i)
     matrix = matrix[non_zero_rows,:]
-    
-    print("non-zero rows gone")
-        
+            
     return matrix, matrix_terms

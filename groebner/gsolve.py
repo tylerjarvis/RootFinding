@@ -15,7 +15,7 @@ from collections import defaultdict
 import warnings
 from groebner.utils import InstabilityWarning
 
-def F4(polys, reducedGroebner = True, accuracy = 1.e-10):
+def F4(polys, reducedGroebner = True, accuracy = 1.e-10, phi = True):
     '''Uses the F4 algorithm to find a Groebner Basis.
 
     Parameters
@@ -39,10 +39,9 @@ def F4(polys, reducedGroebner = True, accuracy = 1.e-10):
     polys_were_added = True
     while len(new_polys) > 0:
         old_polys, new_polys, matrix_polys = sort_reducible_polys(old_polys, new_polys)
-        matrix_polys = add_phi_to_matrix(old_polys, new_polys, matrix_polys)
+        matrix_polys = add_phi_to_matrix(old_polys, new_polys, matrix_polys, phi = phi)
         matrix_polys, matrix_terms = add_r_to_matrix(matrix_polys, old_polys + new_polys)
         matrix, matrix_terms = create_matrix(matrix_polys, matrix_terms)
-        print(matrix.shape)
         old_polys += new_polys
         new_polys = get_new_polys(matrix, matrix_terms, accuracy = accuracy, power = power)
     groebner_basis = old_polys
@@ -143,7 +142,9 @@ def sort_reducible_polys(old_polys, new_polys):
 def add_phi_to_matrix(old_polys, new_polys, matrix_polys, phi = True):
     '''Adds phi polynomials to the matrix.
     
-    Phi polynomials are defined 
+    Given two polynomials we define two phi polynomials as follows. If the two polynomials A and B have leading
+    terms A.lt and B.lt, then call the least common multiple of these is lcm. Then the two phis are A*lcm/A.lt and
+    B*lcm/B.lt.
 
     Parameters
     ----------
@@ -154,21 +155,9 @@ def add_phi_to_matrix(old_polys, new_polys, matrix_polys, phi = True):
 
     Returns
     -------
-    old_polys : list
-        The old_polys that are not reducible.
-    new_polys: list
-        The new_polys that are not reducible.
     matrix_polys: list
-        The polynomials that are being put in the matrix. Any polynomial that is reducible is put in the matrix,
-        and if it is reducible because some other polynomials lead term divides it's lead term than the other
-        polynomial is multiplied by th monomial needed to give it the same lead term, and that is put in the matrix.
-    '''
-
-    
-    
-    '''
-    Takes all new possible combinations of phi polynomials and adds them to the Groebner Matrix
-    Includes some checks to throw out unnecessary phi's
+        The polynomials that are being put in the matrix. Both the ones that were put in earlier and the new
+        phi polynomials that are bing added.
     '''
     # Find the set of all pairs of index the function will run through
 
@@ -381,6 +370,8 @@ def coeff_slice(coeff):
 
 def create_matrix(matrix_polys, matrix_terms = None):
     ''' Builds a Macaulay matrix.
+    
+    If there is only one term in the matrix it won't work.
 
     Parameters
     ----------
@@ -388,6 +379,7 @@ def create_matrix(matrix_polys, matrix_terms = None):
         Contains numpy arrays that hold the polynomials to be put in the matrix.
     matrix_terms : numpy array
         The terms that will exist in the matrix. Not sorted yet.
+        Defaults to None, in which case it will be found in the function.
     Returns
     -------
     matrix : 2D numpy array
@@ -577,6 +569,11 @@ def reduce_groebner_basis(groebner_basis, power):
     '''
     Uses triangular solve to get a fully reduced Groebner basis.
     '''
+    if len(groebner_basis) == 1:
+        poly = groebner_basis[0]
+        poly.coeff = poly.coeff/poly.lead_coeff
+        groebner_basis[0] = poly
+        return groebner_basis
     matrix, matrix_terms = create_matrix(groebner_basis)
     matrix = utils.triangular_solve(matrix)
     rows = np.arange(matrix.shape[0])
