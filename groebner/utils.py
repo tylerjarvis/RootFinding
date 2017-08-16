@@ -422,7 +422,7 @@ def rrqr_reduce2(matrix, clean = True, global_accuracy = 1.e-10):
     height = matrix.shape[0]
     A = matrix[:height,:height] #Get the square submatrix
     B = matrix[:,height:] #The rest of the matrix to the right
-    independentRows, dependentRows, Q = fullRank(A, accuracy = global_accuracy)
+    independentRows, dependentRows, Q = row_linear_dependencies(A, accuracy = global_accuracy)
     nullSpaceSize = len(dependentRows)
     if nullSpaceSize == 0: #A is full rank
         Q,R = qr(matrix)
@@ -574,7 +574,7 @@ def get_var_list(dim):
         _vars.append(tuple(var))
     return _vars
 
-def fullRank(matrix, accuracy=1.e-10):
+def row_linear_dependencies(matrix, accuracy=1.e-10):
     '''
     Uses rank revealing QR to determine which rows of the given matrix are
     linearly independent and which ones are linearly dependent. (This
