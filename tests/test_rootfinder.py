@@ -1,7 +1,7 @@
 import numpy as np
 from groebner import root_finder as rf
 from groebner.polynomial import MultiPower, MultiCheb
-from groebner.groebner_class import Groebner
+from groebner.gsolve import F4
 import pytest
 import pdb
 
@@ -139,9 +139,8 @@ def testMultMatrix():
                           [[0,0,0],[0,0,0],[0,0,0]]]))
 
     F = [f1, f2, f3]
-    Gr = Groebner(F)
 
-    GB = Gr.solve()
+    GB = F4(F)
     VB = rf.vectorSpaceBasis(GB)[0]
 
     x = MultiPower(np.array([[0],[1]]))

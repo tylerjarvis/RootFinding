@@ -1,10 +1,10 @@
 import numpy as np
 from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 import itertools
-from groebner.groebner_class import Groebner
 from groebner.Macaulay import Macaulay
 from groebner.TelenVanBarel import TelenVanBarel
 from groebner.utils import Term, get_var_list, divides
+from groebner.gsolve import F4
 
 '''
 This module contains the tools necessary to find the points of the variety of the
@@ -73,7 +73,7 @@ def roots(polys, method = 'Groebner'):
     num_vectors = eig.shape[1]
         
     eig_vectors = [eig[:,i].tolist() for i in range(num_vectors)] # columns of eig
-
+    
     roots = []
     for v in eig_vectors:
         root = np.zeros(dim, dtype=complex)
@@ -114,8 +114,9 @@ def groebnerMultMatrix(polys, poly_type, method):
     '''
     # Calculate groebner basis
     if method == 'Groebner':
-        G = Groebner(polys)
-        GB = G.solve()
+        #G = Groebner(polys)
+        #GB = G.solve()
+        GB = F4(polys)
     else:
         GB = Macaulay(polys)
 
@@ -175,6 +176,7 @@ def TVBMultMatrix(polys, poly_type):
         Maps each variable to its position in the vector space basis
     '''
     basisDict, VB = TelenVanBarel(polys)
+        
     VB = sortVB(VB)
 
     dim = max(f.dim for f in polys)
@@ -195,17 +197,18 @@ def TVBMultMatrix(polys, poly_type):
     # Build multiplication matrix m_f
     remainder_shape = np.maximum.reduce([mon for mon in VB])
     remainder_shape += np.ones_like(remainder_shape)
-
+    remainder = np.zeros(remainder_shape)
+    
     for i in range(VB.shape[0]):
-        monomial = VB[i]
-        f_new = f.mon_mult(monomial)
-        remainder = np.zeros(remainder_shape)
-        for term in zip(*np.where(f_new.coeff != 0)):
+        f_coeff = f.mon_mult(VB[i], returnType = 'Matrix')
+        #remainder = np.zeros(remainder_shape)
+        for term in zip(*np.where(f_coeff != 0)):
             if term in VBset:
-                remainder[term] += f_new.coeff[term]
+                remainder[term] += f_coeff[term]
             else:
-                remainder -= f_new.coeff[term]*basisDict[term]
+                remainder[slices] -= f_coeff[term]*basisDict[term][slices]
         mMatrix[:,i] = remainder[slices]
+        remainder[slices] = 0
 
     # Construct var_dict
     var_dict = {}
@@ -213,7 +216,7 @@ def TVBMultMatrix(polys, poly_type):
         mon = VB[i]
         if np.sum(mon) == 1 or np.sum(mon) == 0:
             var_dict[tuple(mon)] = i
-    
+        
     return mMatrix, var_dict
 
 def _finitelyManySolutions(GB, var_list):

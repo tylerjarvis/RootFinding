@@ -3,6 +3,9 @@ import numpy as np
 from scipy.linalg import lu, qr, solve_triangular
 import heapq
 
+class InstabilityWarning(Warning):
+    pass
+
 class Term(object):
     '''
     Terms are just tuples of exponents with the grevlex ordering
@@ -324,6 +327,133 @@ def quotient(a, b):
 
     return [i-j for i,j in zip(a, b)]
 
+def rrqr_reduce(matrix, clean = False, global_accuracy = 1.e-10):
+    '''
+    Reduces the matrix into row echelon form, so each row has a unique leading term.
+
+    Parameters
+    ----------
+    matrix : (2D numpy array)
+        The matrix of interest.
+    clean: bool
+        Defaults to False. If True then at certain points in the code all the points in the matrix
+        that are close to 0 are set to 0.
+    global_accuracy: float
+        Defaults to 1.e-10. What is determined to be zero when searching for the pivot columns or setting
+        things to zero.
+
+    Returns
+    -------
+    matrix : (2D numpy array)
+        The reduced matrix in row echelon form. It should look like this.
+        a - - - - - - -
+        0 b - - - - - -
+        0 0 0 c - - - -
+        0 0 0 0 d - - -
+        0 0 0 0 0 0 0 e
+    '''
+    if matrix.shape[0]==0 or matrix.shape[1]==0:
+        return matrix
+    height = matrix.shape[0]
+    A = matrix[:height,:height] #Get the square submatrix
+    B = matrix[:,height:] #The rest of the matrix to the right
+    Q,R,P = qr(A, pivoting = True) #rrqr reduce it
+    PT = inverse_P(P)
+    diagonals = np.diagonal(R) #Go along the diagonals to find the rank
+    rank = np.sum(np.abs(diagonals)>global_accuracy)
+    if rank == height: #full rank, do qr on it
+        Q,R = qr(A)
+        A = R #qr reduce A
+        B = Q.T.dot(B) #Transform B the same way
+    else: #not full rank
+        A = R[:,PT] #Switch the columns back
+        if clean:
+            Q[np.where(abs(Q) < global_accuracy)]=0
+        B = Q.T.dot(B) #Multiply B by Q transpose
+        if clean:
+            B[np.where(abs(B) < global_accuracy)]=0
+        #sub1 is the top part of the matrix, we will recursively reduce this
+        #sub2 is the bottom part of A, we will set this all to 0
+        #sub3 is the bottom part of B, we will recursively reduce this.
+        #All submatrices are then put back in the matrix and it is returned.
+        sub1 = np.hstack((A[:rank,],B[:rank,])) #Takes the top parts of A and B
+        result = rrqr_reduce(sub1) #Reduces it
+        A[:rank,] = result[:,:height] #Puts the A part back in A
+        B[:rank,] = result[:,height:] #And the B part back in B
+
+        sub2 = A[rank:,]
+        zeros = np.zeros_like(sub2)
+        A[rank:,] = np.zeros_like(sub2)
+
+        sub3 = B[rank:,]
+        B[rank:,] = rrqr_reduce(sub3)
+
+    reduced_matrix = np.hstack((A,B))
+    return reduced_matrix
+
+def rrqr_reduce2(matrix, clean = True, global_accuracy = 1.e-10):
+    '''
+    Reduces the matrix into row echelon form, so each row has a unique leading term.
+    Note that it preforms the same function as rrqr_reduce, currently I'm not sure which is better.
+
+    Parameters
+    ----------
+    matrix : (2D numpy array)
+        The matrix of interest.
+    clean: bool
+        Defaults to True. If True then at certain points in the code all the points in the matrix
+        that are close to 0 are set to 0.
+    global_accuracy: float
+        Defaults to 1.e-10. What is determined to be zero when searching for the pivot columns or setting
+        things to zero.
+
+    Returns
+    -------
+    matrix : (2D numpy array)
+        The reduced matrix in row echelon form. It should look like this.
+        a - - - - - - -
+        0 b - - - - - -
+        0 0 0 c - - - -
+        0 0 0 0 d - - -
+        0 0 0 0 0 0 0 e
+    '''
+    if matrix.shape[0] <= 1 or matrix.shape[0]==1 or  matrix.shape[1]==0:
+        return matrix
+    height = matrix.shape[0]
+    A = matrix[:height,:height] #Get the square submatrix
+    B = matrix[:,height:] #The rest of the matrix to the right
+    independentRows, dependentRows, Q = fullRank(A, accuracy = global_accuracy)
+    nullSpaceSize = len(dependentRows)
+    if nullSpaceSize == 0: #A is full rank
+        Q,R = qr(matrix)
+        return clean_zeros_from_matrix(R)
+    else: #A is not full rank
+        #sub1 is the independentRows of the matrix, we will recursively reduce this
+        #sub2 is the dependentRows of A, we will set this all to 0
+        #sub3 is the dependentRows of Q.T@B, we will recursively reduce this.
+        #We then return sub1 stacked on top of sub2+sub3
+        if clean:
+            Q[np.where(abs(Q) < global_accuracy)]=0
+        bottom = matrix[dependentRows]
+        BCopy = B.copy()
+        sub3 = bottom[:,height:]
+        sub3 = Q.T[-nullSpaceSize:]@BCopy
+        if clean:
+            sub3 = clean_zeros_from_matrix(sub3)
+        sub3 = rrqr_reduce2(sub3)
+
+        sub1 = matrix[independentRows]
+        sub1 = rrqr_reduce2(sub1)
+
+        sub2 = bottom[:,:height]
+        sub2[:] = np.zeros_like(sub2)
+
+        reduced_matrix = np.vstack((sub1,np.hstack((sub2,sub3))))
+        if clean:
+            return clean_zeros_from_matrix(reduced_matrix)
+        else:
+            return reduced_matrix
+
 def sorted_polys_coeff(polys):
     '''Sorts the polynomials by how much bigger the leading coefficient is than
     the rest of the coeff matrix.
@@ -425,9 +555,9 @@ def fill_size(bigShape,smallPolyCoeff):
     '''
     if (smallPolyCoeff.shape == bigShape).all():
         return smallPolyCoeff
-    
+
     matrix = np.zeros(bigShape)
-    
+
     slices = list()
     for i in smallPolyCoeff.shape:
         s = slice(0,i)
@@ -494,7 +624,7 @@ def get_var_list(dim):
 def triangular_solve(matrix, matrix_terms = None, reorder = True):
     """
     Takes a matrix that is in row echelon form and reduces it into row reduced echelon form.
-    
+
     Parameters
     ----------
     matrix : 2D numpy array
@@ -511,12 +641,12 @@ def triangular_solve(matrix, matrix_terms = None, reorder = True):
     matrix : 2D numpy array
         The matrix is row reduced echelon form if reorder it True, ordered with the pivot columns in
         the fron otherwise.
-    
+
     Optional Return
     ---------------
     matrix_terms : An numpy array.
         Only returned if reorder is False. The reordered matrix_terms. If reorder is True they will
-        have not been affected.    
+        have not been affected.
     """
     m,n = matrix.shape
     j = 0  # The row index.
@@ -576,12 +706,12 @@ def triangular_solve(matrix, matrix_terms = None, reorder = True):
     else:
     # The case where the matrix passed in is a square matrix
         return np.eye(m)
-    
+
 def first_x(string):
     '''
     Finds the first position of an 'x' in a string. If there is not x it returns the length
     of the string.
-    
+
     Parameters
     ----------
     string : str
