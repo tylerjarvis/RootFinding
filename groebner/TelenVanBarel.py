@@ -6,7 +6,7 @@ from scipy.linalg import lu, qr, solve_triangular, inv, solve, svd, qr_multiply
 from numpy.linalg import cond
 from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 from scipy.sparse import csc_matrix, vstack
-from groebner.utils import Term, row_swap_matrix, fill_size, clean_zeros_from_matrix, triangular_solve, divides, get_var_list, fullRank
+from groebner.utils import Term, row_swap_matrix, fill_size, clean_zeros_from_matrix, triangular_solve, divides, get_var_list
 import matplotlib.pyplot as plt
 from collections import defaultdict
 import gc
@@ -38,19 +38,19 @@ def TelenVanBarel(initial_poly_list, global_accuracy = 1.e-10):
 
     poly_coeff_list = []
     degree = find_degree(initial_poly_list)
-                
+
     for i in initial_poly_list:
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
-    
+
     matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list)
-            
-    matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, 
+
+    matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff,
                                                         global_accuracy = global_accuracy)
     matrix = clean_zeros_from_matrix(matrix)
-            
+
     matrix, matrix_terms = triangular_solve(matrix, matrix_terms, reorder = False)
     matrix = clean_zeros_from_matrix(matrix)
-            
+
     VB = matrix_terms[matrix.shape[0]:]
     basisDict = makeBasisDict(matrix, matrix_terms, VB)
     return basisDict, VB
@@ -63,7 +63,7 @@ def makeBasisDict(matrix, matrix_terms, VB):
     remainder_shape = np.maximum.reduce([mon for mon in VB])
     remainder_shape += np.ones_like(remainder_shape)
     basisDict = {}
-    
+
     spots = list()
     for dim in range(matrix_terms.shape[1]):
         spots.append(matrix_terms[matrix.shape[0]:].T[dim])
@@ -75,7 +75,7 @@ def makeBasisDict(matrix, matrix_terms, VB):
         row[i] = 0
         remainder[spots] = row[matrix.shape[0]:]
         basisDict[tuple(pivotSpot)] = remainder
-    
+
     return basisDict
 
 def find_degree(poly_list):
@@ -174,10 +174,10 @@ def sort_matrix_terms(matrix_terms):
         mons = term + np.array(var_list)
         if not all(tuple(mon) in matrix_termSet for mon in mons):
             highest.append(i)
-    
+
     var_list2 = var_list
     var_list2.append(np.zeros(dim, dtype=int))
-    
+
     others = list()
     for i in range(len(matrix_terms)):
         term = matrix_terms[i]
@@ -204,7 +204,7 @@ def coeff_slice(coeff):
 
 def create_matrix(poly_coeffs):
     ''' Builds a Telen Van Barel matrix.
-        
+
     Parameters
     ----------
     poly_coeffs : list.
@@ -224,14 +224,14 @@ def create_matrix(poly_coeffs):
     matrix_terms = np.array(non_zeroSet.pop())
     for term in non_zeroSet:
         matrix_terms = np.vstack((matrix_terms,term))
-        
+
     matrix_terms, matrix_shape_stuff = sort_matrix_terms(matrix_terms)
-    
+
     #Get the slices needed to pull the matrix_terms from the coeff matrix.
     matrix_term_indexes = list()
     for i in range(len(bigShape)):
         matrix_term_indexes.append(matrix_terms.T[i])
-    
+
     #Adds the poly_coeffs to flat_polys, using added_zeros to make sure every term is in there.
     added_zeros = np.zeros(bigShape)
     flat_polys = list()
@@ -240,7 +240,7 @@ def create_matrix(poly_coeffs):
         added_zeros[slices] = coeff
         flat_polys.append(added_zeros[matrix_term_indexes])
         added_zeros[slices] = np.zeros_like(coeff)
-        
+
     #Make the matrix
     matrix = np.vstack(flat_polys[::-1])
 
@@ -250,15 +250,15 @@ def create_matrix(poly_coeffs):
 
 def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, global_accuracy = 1.e-10):
     ''' Reduces a Telen Van Barel Macaulay matrix.
-    
+
     The matrix is split into the shape
     A B C
     D E F
     Where A is square and contains all the highest terms, and C contains all the x,y,z etc. terms. The lengths
     are determined by the matrix_shape_stuff tuple. First A and D are reduced using rrqr, and then the rest of
-    the matrix is multiplied by Q.T to change it accordingly. Then E is reduced by rrqr, the rows of B are shifted 
+    the matrix is multiplied by Q.T to change it accordingly. Then E is reduced by rrqr, the rows of B are shifted
     accordingly, and F is multipled by Q.T to change it accordingly. This is all done in place to save memory.
-    
+
     Parameters
     ----------
     matrix : numpy array.
@@ -273,7 +273,7 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, global_ac
     Returns
     -------
     matrix : numpy array
-        The reduced matrix. 
+        The reduced matrix.
     matrix_terms: numpy array
         The resorted matrix_terms.
     '''
@@ -287,45 +287,45 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, global_ac
     if diff > 0 and diff < others_num:
         highest_num += diff
         others_num -= diff
-        
+
     #RRQR reduces A and D sticking the result in it's place.
     Q1,matrix[:,:highest_num],P1 = qr(matrix[:,:highest_num], pivoting = True)
-            
+
     #Multiplying the rest of the matrix by Q.T
     matrix[:,highest_num:] = Q1.T@matrix[:,highest_num:]
     Q1 = 0 #Get rid of Q1 for memory purposes.
-        
+
     #RRQR reduces E sticking the result in it's place.
     Q,matrix[highest_num:,highest_num:highest_num+others_num],P = qr(matrix[highest_num:,highest_num:highest_num+others_num], pivoting = True)
-    
+
     #Multiplies F by Q.T.
     matrix[highest_num:,highest_num+others_num:] = Q.T@matrix[highest_num:,highest_num+others_num:]
     Q = 0 #Get rid of Q for memory purposes.
 
     #Shifts the columns of B
-    matrix[:highest_num,highest_num:highest_num+others_num] = matrix[:highest_num,highest_num:highest_num+others_num][:,P]    
-    
+    matrix[:highest_num,highest_num:highest_num+others_num] = matrix[:highest_num,highest_num:highest_num+others_num][:,P]
+
     #Checks for 0 rows and gets rid of them.
     non_zero_rows = list()
     for i in range(min(highest_num+others_num, matrix.shape[0])):
         if np.abs(matrix[i][i]) > global_accuracy:
             non_zero_rows.append(i)
     matrix = matrix[non_zero_rows,:]
-        
+
     #Resorts the matrix_terms.
     matrix_terms[:highest_num] = matrix_terms[:highest_num][P1]
     matrix_terms[highest_num:highest_num+others_num] = matrix_terms[highest_num:highest_num+others_num][P]
-        
+
     return matrix, matrix_terms
 
 
 def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, global_accuracy = 1.e-10):
     ''' Reduces a Telen Van Barel Macaulay matrix.
-    
+
     This function does the same thing as rrqr_reduceTelenVanBarel but uses qr_multiply instead of qr and a multiplication
     to make the function faster and more memory efficient. It could be less stable, but I haven't seen any stability
     problems while running it.
-    
+
     Parameters
     ----------
     matrix : numpy array.
@@ -340,43 +340,43 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, global_a
     Returns
     -------
     matrix : numpy array
-        The reduced matrix. 
+        The reduced matrix.
     matrix_terms: numpy array
         The resorted matrix_terms.
-    '''    
+    '''
     highest_num = matrix_shape_stuff[0]
     others_num = matrix_shape_stuff[1]
     xs_num = matrix_shape_stuff[2]
-    ''' #This is breaking right now for this function, not sure why.    
+    ''' #This is breaking right now for this function, not sure why.
     #Try going down to halfway down the matrix.
     half = min(matrix.shape[0]//2, (highest_num + others_num)//2)
     diff = half - highest_num
     if diff > 0 and diff < others_num:
         highest_num += diff
         others_num -= diff
-        
-    
+
+
     C1,R1,P1 = qr_multiply(matrix[:,:highest_num], matrix[:,highest_num:].T, mode = 'right', pivoting = True)
     matrix = np.vstack((np.hstack((R1,C1.T)),matrix[highest_num:]))
-    
+
     A = matrix[highest_num:,:highest_num][:,P1]
     matrix_terms[:highest_num] = matrix_terms[:highest_num][P1]
     P1 = 0
     B = matrix[highest_num:,highest_num:]
     B -= A@solve_triangular(R1,C1.T)
     R1,C1 = 0,0
-    
+
     '''
     C1,matrix[:highest_num,:highest_num],P1 = qr_multiply(matrix[:,:highest_num], matrix[:,highest_num:].T, mode = 'right', pivoting = True)
     matrix[:highest_num,highest_num:] = C1.T
     C1 = 0
-    
+
     matrix[:highest_num,highest_num:] = solve_triangular(matrix[:highest_num,:highest_num],matrix[:highest_num,highest_num:])
     matrix[:highest_num,:highest_num] = np.eye(highest_num)
     matrix[highest_num:,highest_num:] -= (matrix[highest_num:,:highest_num][:,P1])@matrix[:highest_num,highest_num:]
     matrix_terms[:highest_num] = matrix_terms[:highest_num][P1]
     P1 = 0
-    
+
     C,R,P = qr_multiply(matrix[highest_num:,highest_num:highest_num+others_num], matrix[highest_num:,highest_num+others_num:].T, mode = 'right', pivoting = True)
     matrix = np.vstack((matrix[:highest_num],np.hstack((np.zeros_like(matrix[highest_num:R.shape[0]+highest_num,:highest_num]),R,C.T))))
     C,R = 0,0
@@ -385,12 +385,12 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, global_a
     matrix[:highest_num,highest_num:highest_num+others_num] = matrix[:highest_num,highest_num:highest_num+others_num][:,P]
     matrix_terms[highest_num:highest_num+others_num] = matrix_terms[highest_num:highest_num+others_num][P]
     P = 0
-    
+
     #Checks for 0 rows and gets rid of them.
     non_zero_rows = list()
     for i in range(min(highest_num+others_num, matrix.shape[0])):
         if np.abs(matrix[i][i]) > global_accuracy:
             non_zero_rows.append(i)
     matrix = matrix[non_zero_rows,:]
-            
+
     return matrix, matrix_terms

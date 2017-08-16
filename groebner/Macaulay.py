@@ -6,7 +6,7 @@ from scipy.linalg import lu, qr, solve_triangular, inv, solve, svd
 from numpy.linalg import cond
 from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 from scipy.sparse import csc_matrix, vstack
-from groebner.utils import Term, row_swap_matrix, fill_size, clean_zeros_from_matrix, inverse_P, triangular_solve, divides, argsort_dec, fullRank
+from groebner.utils import Term, row_swap_matrix, fill_size, clean_zeros_from_matrix, inverse_P, triangular_solve, divides, argsort_dec
 import matplotlib.pyplot as plt
 from collections import defaultdict
 import groebner.utils as utils
@@ -303,7 +303,7 @@ def matrixReduce(matrix, triangular_solve = False, global_accuracy = 1.e-10):
         0 0 0 0 0 0 0 e
 
     '''
-    independentRows,dependentRows,Q = fullRank(matrix, accuracy = global_accuracy)
+    independentRows,dependentRows,Q = utils.row_linear_dependencies(matrix, accuracy = global_accuracy)
     matrix = matrix[independentRows]
 
     pivotColumnMatrix = findPivotColumns(matrix, global_accuracy = global_accuracy)
@@ -363,7 +363,7 @@ def findPivotColumns(matrix, global_accuracy = 1.e-10):
     height = matrix.shape[0]
     A = matrix[:height,:height] #Get the square submatrix
     B = matrix[:,height:] #The rest of the matrix to the right
-    independentRows, dependentRows, Q = fullRank(A, accuracy = global_accuracy)
+    independentRows, dependentRows, Q = utils.row_linear_dependencies(A, accuracy = global_accuracy)
     nullSpaceSize = len(dependentRows)
     if nullSpaceSize == 0: #A is full rank
         #The columns of A are all pivot columns
