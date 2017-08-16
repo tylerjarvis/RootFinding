@@ -7,20 +7,30 @@ from numpy.polynomial import polynomial as poly
 import math
 
 class Polynomial(object):
+    '''
+    We add the methods of
+
+    Attributes
+    ----------
+    What are they?
+
+    Parameters # documentation for __init__
+    ----------
+
+    Methods
+    ----------
+    clean_coeff
+    match_size
+    monomialList
+    monSort
+    update_lead_term
+    evaluate_at
+    __eq__
+    __ne__
+
+    '''
     def __init__(self, coeff, order='degrevlex', lead_term=None, clean_zeros = True):
         '''
-        Enter description.
-
-        Attributes
-        ----------
-        What are they?
-
-        Parameters # documentation for __init__
-        ----------
-
-        Methods
-        ----------
-
         terms, int- number of chebyshev polynomials each variable can have. Each dimension will have term terms
         dim, int- number of different variables, how many dim our tensor will be
         order, string- how you want to order your polynomials. Grevlex is default
@@ -182,16 +192,16 @@ class MultiCheb(Polynomial):
 
     Parameters # documentation for __init__
     ----------
+        dim: int, number of variables, dimension of chebyshev system
+        terms: int, highest term of single variable chebyshev polynomials
+        coeff: list(terms**dim) or np.array ([terms,] * dim), coefficents in given ordering
+        order: string, monomial ordering desired for Groebner calculations
+        lead_term: list, the index of the current leading coefficent
+
 
     Methods
     ----------
 
-    _____ params _______
-    dim: int, number of variables, dimension of chebyshev system
-    terms: int, highest term of single variable chebyshev polynomials
-    coeff: list(terms**dim) or np.array ([terms,] * dim), coefficents in given ordering
-    order: string, monomial ordering desired for Groebner calculations
-    lead_term: list, the index of the current leading coefficent
 
 
 
@@ -440,21 +450,20 @@ class MultiPower(Polynomial):
 
     Parameters # documentation for __init__
     ----------
+    dim : int
+        number of variables, dimension of polynomial system
+    terms : int
+        highest term of single variable power polynomials
+    coeff : list(terms**dim) or np.array ([terms,] * dim)
+        coefficents in given ordering
+    order : string
+        monomial ordering desired for Grobner calculations
+    lead_term : list
+        the index of the current leading coefficent
 
     Methods
     ----------
 
-
-    _____ params _______
-    dim: int, number of variables, dimension of polynomial system
-    terms: int, highest term of single variable power polynomials
-    coeff: list(terms**dim) or np.array ([terms,] * dim), coefficents in given ordering
-    order: string, monomial ordering desired for Grobner calculations
-    lead_term: list, the index of the current leading coefficent
-
-
-
-    _____ methods ______
     next_step:
         input- Current: list, current location in ordering
         output- the next step in ordering
