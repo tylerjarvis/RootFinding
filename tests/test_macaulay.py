@@ -20,7 +20,6 @@ def getPoly(deg,dim,power):
         return MultiPower(ACoeff)
     else:
         return MultiCheb(ACoeff)
-    return polys
 
 def correctZeros(polys):
     '''
@@ -48,7 +47,6 @@ def correctZeros(polys):
                     #print(zero)
                     #print(cheb.chebval2d(zero[0],zero[1],poly.coeff))
                     pass
-                break
         if good:
             correct += 1
     assert(100*correct/(len(zeros)-outOfRange) > 80)

@@ -8,25 +8,54 @@ import math
 
 class Polynomial(object):
     '''
-    We add the methods of
+    Superclass for MultiPower and MultiCheb. Contains methods and attributes
+    that are applicable to both subclasses.
 
     Attributes
     ----------
-    What are they?
+    coeff
+        The coefficient matrix represented in the object.
+    dim
+        The number of dimensions of the coefficient matrix
+    order
+        Ordering type given as a string
+    shape
+        The shape of the coefficient matrix
+    lead_term
+        The polynomial term with the largest total degree
+    degree
+        The total degree of the lead_term
+    lead_coeff
+        The coeff of the lead_term
 
-    Parameters # documentation for __init__
+    Parameters
     ----------
+    coeff : ndarray
+    order : string
+    lead_term : Tuple
+        Default is None. Accepts tuple or tuple-like inputs
+    clean_zeros : bool
+        Default is True. If True, all extra rows, columns, etc of all zeroes are
+        removed from matrix of coefficients.
 
     Methods
     ----------
     clean_coeff
+        Removes extra rows, columns, etc of zeroes from end of matrix of coefficients
     match_size
+        Matches the shape of two matrices.
     monomialList
+        Creates a list of monomials that make up the polynomial in degrevlex order.
     monSort
+        Calls monomial list.
     update_lead_term
+        Finds the lead_term of a polynomial
     evaluate_at
+        Evaluates a polynomial at a certain point.
     __eq__
+        Checks if two polynomials are equal.
     __ne__
+        Checks if two polynomials are not equal.
 
     '''
     def __init__(self, coeff, order='degrevlex', lead_term=None, clean_zeros = True):
@@ -184,13 +213,13 @@ class Polynomial(object):
 
 class MultiCheb(Polynomial):
     """
-    Enter description.
+    Used to represent a chebyshev polynomial.
 
     Attributes
     ----------
-    What are they?
+    See Polynomial
 
-    Parameters # documentation for __init__
+    Parameters
     ----------
         dim: int, number of variables, dimension of chebyshev system
         terms: int, highest term of single variable chebyshev polynomials
@@ -201,14 +230,15 @@ class MultiCheb(Polynomial):
 
     Methods
     ----------
+    __add__
+        Add two MultiCheb polynomials.
+    __sub__
+        Subtract two MultiCheb polynomials.
+    mon_mult
+        Multiply a MultiCheb monomial by a MultiCheb polynomial.
+    evaluate_at
+        Evaluate a MultiCheb polynomial at a point.
 
-
-
-
-    _____ methods ______
-    next_step:
-        input- Current: list, current location in ordering
-        output- the next step in ordering
     """
     def __init__(self, coeff, order='degrevlex', lead_term=None, clean_zeros = True):
         super(MultiCheb, self).__init__(coeff, order, lead_term, clean_zeros)
@@ -253,7 +283,7 @@ class MultiCheb(Polynomial):
             new_self, new_other = self.coeff, other.coeff
         return MultiCheb((new_self - (new_other)), clean_zeros = False)
 
-    def fold_in_i_dir(solution_matrix, dim, fdim, size_in_fdim, fold_idx):
+    def _fold_in_i_dir(solution_matrix, dim, fdim, size_in_fdim, fold_idx):
         """
         Finds T_|m-n| (Referred to as folding in proceeding documentation)
         for a given dimension of a matrix.
@@ -320,34 +350,7 @@ class MultiCheb(Polynomial):
 
         return sol
 
-    def mon_mult(self, idx, returnType = 'Poly'):
-        """
-        Multiplies a Chebyshev polynomial by a monomial
-
-        Parameters
-        ----------
-        idx : tuple of ints
-            The index of the monomial to multiply self by.
-        returnType : str
-            If 'Poly' then returns a polynomial object
-
-        Returns
-        ----------
-        MultiCheb object if returnType is 'Poly'.
-        ndarray if returnType is "Matrix".
-
-        """
-        initial_matrix = self.coeff
-        for i in range(len(idx)):
-            idx_zeros = np.zeros(len(idx),dtype = int)
-            idx_zeros[i] = idx[i]
-            initial_matrix = MultiCheb.mon_mult1(initial_matrix, idx_zeros, i)
-        if returnType == 'Poly':
-            return MultiCheb(initial_matrix, lead_term = self.lead_term + np.array(idx), clean_zeros = False)
-        elif returnType == 'Matrix':
-            return initial_matrix
-
-    def mon_mult1(initial_matrix, idx, dim_mult):
+    def _mon_mult1(initial_matrix, idx, dim_mult):
         """
         Executes monomial multiplication in one dimension
         Parameters
@@ -388,7 +391,7 @@ class MultiCheb(Polynomial):
         #Loop iterates through each dimension of the polynomial and folds in that dimension
         for i in range(number_of_dim):
             if idx[i] != 0:
-                initial_matrix = MultiCheb.fold_in_i_dir(initial_matrix, number_of_dim, i, shape_of_self[i], idx[i])
+                initial_matrix = MultiCheb._fold_in_i_dir(initial_matrix, number_of_dim, i, shape_of_self[i], idx[i])
         if p1.shape != initial_matrix.shape:
             idx = [i-j for i,j in zip(p1.shape,initial_matrix.shape)]
             pad_values = list()
@@ -398,6 +401,33 @@ class MultiCheb(Polynomial):
             initial_matrix = np.pad(initial_matrix, (pad_values), 'constant')
         Pf = p1 + initial_matrix
         return .5*Pf
+
+    def mon_mult(self, idx, returnType = 'Poly'):
+        """
+        Multiplies a Chebyshev polynomial by a monomial
+
+        Parameters
+        ----------
+        idx : tuple of ints
+            The index of the monomial to multiply self by.
+        returnType : str
+            If 'Poly' then returns a polynomial object
+
+        Returns
+        ----------
+        MultiCheb object if returnType is 'Poly'.
+        ndarray if returnType is "Matrix".
+
+        """
+        initial_matrix = self.coeff
+        for i in range(len(idx)):
+            idx_zeros = np.zeros(len(idx),dtype = int)
+            idx_zeros[i] = idx[i]
+            initial_matrix = MultiCheb._mon_mult1(initial_matrix, idx_zeros, i)
+        if returnType == 'Poly':
+            return MultiCheb(initial_matrix, lead_term = self.lead_term + np.array(idx), clean_zeros = False)
+        elif returnType == 'Matrix':
+            return initial_matrix
 
     def evaluate_at(self, point):
         """
@@ -442,13 +472,13 @@ class MultiCheb(Polynomial):
 
 class MultiPower(Polynomial):
     """
-    Enter description.
+    Used to represent a power basis polynomial.
 
     Attributes
     ----------
-    What are they?
+    See Polynomial.
 
-    Parameters # documentation for __init__
+    Parameters
     ----------
     dim : int
         number of variables, dimension of polynomial system
@@ -463,10 +493,21 @@ class MultiPower(Polynomial):
 
     Methods
     ----------
-
-    next_step:
-        input- Current: list, current location in ordering
-        output- the next step in ordering
+    __add__
+        Add two power polynomials
+    __sub__
+        Subtract two power polynomials
+    __mul__
+        Multiply two power polynomials
+    __eq__
+        Check if two power polynomials are equal.
+    __ne__
+        Check if two power polynomials are not equal.
+    mon_mult
+        Multiplies a power monomial by a power polynomial.
+    evaluate_at
+        Evaluate a power polynomial at a point.
+        
     """
     def __init__(self, coeff, order='degrevlex', lead_term=None, clean_zeros = True):
         super(MultiPower, self).__init__(coeff, order, lead_term, clean_zeros)
