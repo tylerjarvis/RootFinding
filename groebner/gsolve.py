@@ -574,6 +574,11 @@ def reduce_groebner_basis(groebner_basis, power):
         poly.coeff = poly.coeff/poly.lead_coeff
         groebner_basis[0] = poly
         return groebner_basis
+    
+    #This should be done eventually, Just make sure to pull out only the original GB.
+    #matrix_polys, matrix_terms = add_r_to_matrix(groebner_basis, groebner_basis)
+    #matrix, matrix_terms = create_matrix(matrix_polys, matrix_terms)
+        
     matrix, matrix_terms = create_matrix(groebner_basis)
     matrix = utils.triangular_solve(matrix)
     rows = np.arange(matrix.shape[0])

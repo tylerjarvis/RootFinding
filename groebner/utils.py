@@ -6,6 +6,9 @@ import heapq
 class InstabilityWarning(Warning):
     pass
 
+class TVBError(RuntimeError):
+    pass
+
 class Term(object):
     '''
     Terms are just tuples of exponents with the grevlex ordering

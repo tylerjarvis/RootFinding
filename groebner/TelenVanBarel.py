@@ -6,20 +6,20 @@ from scipy.linalg import lu, qr, solve_triangular, inv, solve, svd, qr_multiply
 from numpy.linalg import cond
 from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 from scipy.sparse import csc_matrix, vstack
-from groebner.utils import Term, row_swap_matrix, fill_size, clean_zeros_from_matrix, triangular_solve, divides, get_var_list, fullRank
+from groebner.utils import Term, row_swap_matrix, fill_size, clean_zeros_from_matrix, triangular_solve, divides, get_var_list, fullRank, TVBError
 import matplotlib.pyplot as plt
 from collections import defaultdict
 import gc
 import time
 
-def TelenVanBarel(initial_poly_list, global_accuracy = 1.e-10):
+def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
     """
     Macaulay will take a list of polynomials and use them to construct a Macaulay matrix.
 
     parameters
     --------
     initial_poly_list: A list of polynomials
-    global_accuracy: How small we want a number to be before assuming it is zero.
+    accuracy: How small we want a number to be before assuming it is zero.
     --------
 
     Returns
@@ -38,16 +38,19 @@ def TelenVanBarel(initial_poly_list, global_accuracy = 1.e-10):
 
     poly_coeff_list = []
     degree = find_degree(initial_poly_list)
-                
+    
     for i in initial_poly_list:
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
     
     matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list)
-            
+        
+    if matrix_shape_stuff[0] > matrix.shape[0]: #The matrix isn't tall enough, these can't all be pivot columns.
+        raise TVBError("HIGHEST NOT FULL RANK. TRY HIGHER DEGREE")
+                
     matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, 
-                                                        global_accuracy = global_accuracy)
+                                                        accuracy = accuracy)    
     matrix = clean_zeros_from_matrix(matrix)
-            
+    
     matrix, matrix_terms = triangular_solve(matrix, matrix_terms, reorder = False)
     matrix = clean_zeros_from_matrix(matrix)
             
@@ -166,9 +169,53 @@ def sort_matrix_terms(matrix_terms):
     '''
     highest = list()
     dim = len(matrix_terms[0])
-
-    var_list = get_var_list(dim)
+    var_list = get_var_list(dim) #All the the xs. Not incuding 1 for now.
     matrix_termSet = set([tuple(term) for term in matrix_terms])
+    
+    
+    #Fill in behind the diagonal. This could be done better.
+    diagonal_degree = np.max([np.sum(term) for term in matrix_terms])
+    possible_mons = mon_combos(np.zeros(dim, dtype = int),diagonal_degree)
+    
+    corners = list()
+    for term in matrix_terms:
+        corner = False
+        for var in var_list:
+            varArray = np.array(var)
+            hit = False
+            for i in range(diagonal_degree - np.sum(term)):
+                num = i+1
+                if tuple(num*varArray + term) in matrix_termSet:
+                    corner = False
+                    hit = True
+                    break
+            if not hit:
+                corner = True
+                break
+        if corner:
+            corners.append(term)
+        pass
+    for mon in possible_mons:
+        if tuple(mon) in matrix_termSet:
+            continue
+        bounded = True
+        
+        for var in var_list:
+            varArray = np.array(var)
+            hit = False
+            for i in range(diagonal_degree - np.sum(mon)):
+                num = i+1
+                if tuple(num*varArray + mon) in matrix_termSet:
+                    hit = True
+                    break
+            if not hit:
+                bounded = False
+                break
+        if bounded:
+            matrix_termSet.add(tuple(mon))
+            matrix_terms = np.vstack((matrix_terms,mon))    
+    #Done filling
+
     for i in range(matrix_terms.shape[0]):
         term = tuple(matrix_terms[i])
         mons = term + np.array(var_list)
@@ -184,6 +231,7 @@ def sort_matrix_terms(matrix_terms):
         if not inVarList(term, var_list2) and i not in highest:
             others.append(i)
     sorted_matrix_terms = np.vstack((matrix_terms[highest], matrix_terms[others], var_list2))
+    
     return sorted_matrix_terms, tuple([len(highest),len(others),len(var_list)])
 
 def coeff_slice(coeff):
@@ -248,7 +296,7 @@ def create_matrix(poly_coeffs):
     matrix = row_swap_matrix(matrix)
     return matrix, matrix_terms, matrix_shape_stuff
 
-def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, global_accuracy = 1.e-10):
+def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, accuracy = 1.e-10):
     ''' Reduces a Telen Van Barel Macaulay matrix.
     
     The matrix is split into the shape
@@ -281,15 +329,11 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, global_ac
     others_num = matrix_shape_stuff[1]
     xs_num = matrix_shape_stuff[2]
 
-    #Try going down to halfway down the matrix. Faster, but if not full rank may cause problems.
-    half = min(matrix.shape[0]//2, (highest_num + others_num)//2)
-    diff = half - highest_num
-    if diff > 0 and diff < others_num:
-        highest_num += diff
-        others_num -= diff
-        
     #RRQR reduces A and D sticking the result in it's place.
     Q1,matrix[:,:highest_num],P1 = qr(matrix[:,:highest_num], pivoting = True)
+    
+    if abs(matrix[:,:highest_num].diagonal()[-1]) < accuracy:
+        raise TVBError("HIGHEST NOT FULL RANK")
             
     #Multiplying the rest of the matrix by Q.T
     matrix[:,highest_num:] = Q1.T@matrix[:,highest_num:]
@@ -308,7 +352,7 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, global_ac
     #Checks for 0 rows and gets rid of them.
     non_zero_rows = list()
     for i in range(min(highest_num+others_num, matrix.shape[0])):
-        if np.abs(matrix[i][i]) > global_accuracy:
+        if np.abs(matrix[i][i]) > accuracy:
             non_zero_rows.append(i)
     matrix = matrix[non_zero_rows,:]
         
@@ -319,7 +363,7 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, global_ac
     return matrix, matrix_terms
 
 
-def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, global_accuracy = 1.e-10):
+def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy = 1.e-10):
     ''' Reduces a Telen Van Barel Macaulay matrix.
     
     This function does the same thing as rrqr_reduceTelenVanBarel but uses qr_multiply instead of qr and a multiplication
@@ -347,29 +391,13 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, global_a
     highest_num = matrix_shape_stuff[0]
     others_num = matrix_shape_stuff[1]
     xs_num = matrix_shape_stuff[2]
-    ''' #This is breaking right now for this function, not sure why.    
-    #Try going down to halfway down the matrix.
-    half = min(matrix.shape[0]//2, (highest_num + others_num)//2)
-    diff = half - highest_num
-    if diff > 0 and diff < others_num:
-        highest_num += diff
-        others_num -= diff
-        
-    
-    C1,R1,P1 = qr_multiply(matrix[:,:highest_num], matrix[:,highest_num:].T, mode = 'right', pivoting = True)
-    matrix = np.vstack((np.hstack((R1,C1.T)),matrix[highest_num:]))
-    
-    A = matrix[highest_num:,:highest_num][:,P1]
-    matrix_terms[:highest_num] = matrix_terms[:highest_num][P1]
-    P1 = 0
-    B = matrix[highest_num:,highest_num:]
-    B -= A@solve_triangular(R1,C1.T)
-    R1,C1 = 0,0
-    
-    '''
+
     C1,matrix[:highest_num,:highest_num],P1 = qr_multiply(matrix[:,:highest_num], matrix[:,highest_num:].T, mode = 'right', pivoting = True)
     matrix[:highest_num,highest_num:] = C1.T
     C1 = 0
+    
+    if abs(matrix[:,:highest_num].diagonal()[-1]) < accuracy:
+        raise TVBError("HIGHEST NOT FULL RANK")
     
     matrix[:highest_num,highest_num:] = solve_triangular(matrix[:highest_num,:highest_num],matrix[:highest_num,highest_num:])
     matrix[:highest_num,:highest_num] = np.eye(highest_num)
@@ -389,7 +417,7 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, global_a
     #Checks for 0 rows and gets rid of them.
     non_zero_rows = list()
     for i in range(min(highest_num+others_num, matrix.shape[0])):
-        if np.abs(matrix[i][i]) > global_accuracy:
+        if np.abs(matrix[i][i]) > accuracy:
             non_zero_rows.append(i)
     matrix = matrix[non_zero_rows,:]
             
