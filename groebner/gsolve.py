@@ -54,7 +54,7 @@ def sort_reducible_polys(old_polys, new_polys):
     The polynomials that are reducible aren't used in phi and r calculations, they are just added
     to the matrix. They are also removed from the poly list they are in, as whatever they are reduced
     down to will be pulled out of the matrix at the end.
-    
+
     A polynomial is considered reducible if the leading term of another polynomial divides it's leading term.
     In the case of multiple polynomials having the same leading term, one is considered non-reducible and the
     rest are reducible.
@@ -141,7 +141,7 @@ def sort_reducible_polys(old_polys, new_polys):
 
 def add_phi_to_matrix(old_polys, new_polys, matrix_polys, phi = True):
     '''Adds phi polynomials to the matrix.
-    
+
     Given two polynomials we define two phi polynomials as follows. If the two polynomials A and B have leading
     terms A.lt and B.lt, then call the least common multiple of these is lcm. Then the two phis are A*lcm/A.lt and
     B*lcm/B.lt.
@@ -370,7 +370,7 @@ def coeff_slice(coeff):
 
 def create_matrix(matrix_polys, matrix_terms = None):
     ''' Builds a Macaulay matrix.
-    
+
     If there is only one term in the matrix it won't work.
 
     Parameters
@@ -479,7 +479,7 @@ def row_echelon(matrix, accuracy=1.e-10):
 
     '''
 
-    independent_rows, dependent_rows, Q = utils.fullRank(matrix, accuracy=accuracy)
+    independent_rows, dependent_rows, Q = utils.row_linear_dependencies(matrix, accuracy=accuracy)
     full_rank_matrix = matrix[independent_rows]
 
     reduced_matrix = utils.rrqr_reduce2(full_rank_matrix)
@@ -542,7 +542,7 @@ def get_new_polys(matrix, matrix_terms, accuracy=1.e-10, power=False):
     new_polys : list
         Contains polynomial objects whose leading terms weren't leading terms
         in the matrix passed in, but the were after reduction.
-        
+
     '''
 
     lead_term_before = lead_term_columns(matrix)

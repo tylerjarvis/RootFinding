@@ -18,7 +18,6 @@ def getPoly(deg,dim,power):
         return MultiPower(ACoeff)
     else:
         return MultiCheb(ACoeff)
-    return polys
 
 def correctZeros(polys):
     '''

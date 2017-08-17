@@ -5,7 +5,7 @@ import warnings
 from groebner.Macaulay import Macaulay
 from groebner.TelenVanBarel import TelenVanBarel
 from groebner.utils import Term, get_var_list, divides, TVBError, InstabilityWarning
-from groebner.gsolve import F4, F4loops
+from groebner.gsolve import F4
 
 '''
 This module contains the tools necessary to find the points of the variety of the
