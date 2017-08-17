@@ -20,7 +20,6 @@ def getPoly(deg,dim,power):
         return MultiPower(ACoeff)
     else:
         return MultiCheb(ACoeff)
-    return polys
 
 def correctZeros(polys):
     '''
@@ -48,7 +47,6 @@ def correctZeros(polys):
                     #print(zero)
                     #print(cheb.chebval2d(zero[0],zero[1],poly.coeff))
                     pass
-                break
         if good:
             correct += 1
     assert(100*correct/(len(zeros)-outOfRange) > 80)
@@ -115,37 +113,6 @@ def test_Macaulay_roots():
     B = getPoly(3,3,False)
     C = getPoly(4,3,False)
     correctZeros([A,B,C])
-
-def test_Macaulay():
-
-    #test 1 - compare Groebner results and Macaulay results in Chebyshev and Power.
-    for i in range(5):
-        ACoeff = np.random.rand(3,3)
-        BCoeff = np.random.rand(3,3)
-        for i,j in np.ndenumerate(ACoeff):
-            if np.sum(i) > 3:
-                ACoeff[i] = 0
-                BCoeff[i] = 0
-        A = MultiCheb(ACoeff)
-        B = MultiCheb(BCoeff)
-
-        A1 = MultiPower(ACoeff)
-        B1 = MultiPower(BCoeff)
-
-        zeros_from_Macaulay = roots([A,B], 'Macaulay')
-        zeros_from_Groebner = roots([A,B], 'Groebner')
-
-        zeros_from_Macaulay1 = roots([A1,B1], 'Macaulay')
-        zeros_from_Groebner1 = roots([A1,B1], 'Groebner')
-
-        sorted_from_Macaulay = np.sort(zeros_from_Macaulay, axis = 0)
-        sorted_from_Groebner = np.sort(zeros_from_Groebner, axis = 0)
-
-        sorted_from_Macaulay1 = np.sort(zeros_from_Macaulay1, axis = 0)
-        sorted_from_Groebner1 = np.sort(zeros_from_Groebner1, axis = 0)
-
-        assert np.allclose(sorted_from_Macaulay, sorted_from_Groebner)
-        assert np.allclose(sorted_from_Macaulay1, sorted_from_Groebner1)
 
 def test_get_poly_from_matrix():
     #raise NotImplementedError

@@ -7,6 +7,57 @@ from numpy.polynomial import polynomial as poly
 import math
 
 class Polynomial(object):
+    '''
+    Superclass for MultiPower and MultiCheb. Contains methods and attributes
+    that are applicable to both subclasses.
+
+    Attributes
+    ----------
+    coeff
+        The coefficient matrix represented in the object.
+    dim
+        The number of dimensions of the coefficient matrix
+    order
+        Ordering type given as a string
+    shape
+        The shape of the coefficient matrix
+    lead_term
+        The polynomial term with the largest total degree
+    degree
+        The total degree of the lead_term
+    lead_coeff
+        The coeff of the lead_term
+
+    Parameters
+    ----------
+    coeff : ndarray
+    order : string
+    lead_term : Tuple
+        Default is None. Accepts tuple or tuple-like inputs
+    clean_zeros : bool
+        Default is True. If True, all extra rows, columns, etc of all zeroes are
+        removed from matrix of coefficients.
+
+    Methods
+    ----------
+    clean_coeff
+        Removes extra rows, columns, etc of zeroes from end of matrix of coefficients
+    match_size
+        Matches the shape of two matrices.
+    monomialList
+        Creates a list of monomials that make up the polynomial in degrevlex order.
+    monSort
+        Calls monomial list.
+    update_lead_term
+        Finds the lead_term of a polynomial
+    evaluate_at
+        Evaluates a polynomial at a certain point.
+    __eq__
+        Checks if two polynomials are equal.
+    __ne__
+        Checks if two polynomials are not equal.
+
+    '''
     def __init__(self, coeff, order='degrevlex', lead_term=None, clean_zeros = True):
         '''
         terms, int- number of chebyshev polynomials each variable can have. Each dimension will have term terms
@@ -30,7 +81,7 @@ class Polynomial(object):
             self.lead_term = tuple(lead_term)
             self.degree = sum(self.lead_term)
             self.lead_coeff = self.coeff[self.lead_term]
-        
+
     def clean_coeff(self):
         """
         Gets rid of any 0's on the outside of the coeff matrix, not giving any info.
@@ -162,27 +213,49 @@ class Polynomial(object):
 
 class MultiCheb(Polynomial):
     """
-    _____ params _______
-    dim: int, number of variables, dimension of chebyshev system
-    terms: int, highest term of single variable chebyshev polynomials
-    coeff: list(terms**dim) or np.array ([terms,] * dim), coefficents in given ordering
-    order: string, monomial ordering desired for Groebner calculations
-    lead_term: list, the index of the current leading coefficent
+    Used to represent a chebyshev polynomial.
+
+    Attributes
+    ----------
+    See Polynomial
+
+    Parameters
+    ----------
+        dim: int, number of variables, dimension of chebyshev system
+        terms: int, highest term of single variable chebyshev polynomials
+        coeff: list(terms**dim) or np.array ([terms,] * dim), coefficents in given ordering
+        order: string, monomial ordering desired for Groebner calculations
+        lead_term: list, the index of the current leading coefficent
 
 
+    Methods
+    ----------
+    __add__
+        Add two MultiCheb polynomials.
+    __sub__
+        Subtract two MultiCheb polynomials.
+    mon_mult
+        Multiply a MultiCheb monomial by a MultiCheb polynomial.
+    evaluate_at
+        Evaluate a MultiCheb polynomial at a point.
 
-    _____ methods ______
-    next_step:
-        input- Current: list, current location in ordering
-        output- the next step in ordering
     """
     def __init__(self, coeff, order='degrevlex', lead_term=None, clean_zeros = True):
         super(MultiCheb, self).__init__(coeff, order, lead_term, clean_zeros)
 
-
     def __add__(self,other):
         '''
         Here we add an addition method
+
+        Parameters
+        ----------
+        other : MultiCheb object
+
+        Returns
+        ----------
+        MultiCheb object
+            The sum of the coeff of self and coeff of other.
+
         '''
         if self.shape != other.shape:
             new_self, new_other = self.match_size(self.coeff,other.coeff)
@@ -191,61 +264,47 @@ class MultiCheb(Polynomial):
 
         return MultiCheb(new_self + new_other)
 
-    def __sub__(self,other, scale = 1):
+    def __sub__(self,other):
         '''
         Here we subtract the two polys coeffs
+
+        Parameters
+        ----------
+        other : MultiCheb object
+
+        Returns
+        ----------
+        MultiCheb object
+            The coeff values are the result of self.coeff - other.coeff.
         '''
         if self.shape != other.shape:
             new_self, new_other = self.match_size(self.coeff,other.coeff)
         else:
             new_self, new_other = self.coeff, other.coeff
-        return MultiCheb((new_self - (scale*new_other)), clean_zeros = False)
+        return MultiCheb((new_self - (new_other)), clean_zeros = False)
 
-    def _reverse_axes(self):
+    def _fold_in_i_dir(solution_matrix, dim, fdim, size_in_fdim, fold_idx):
         """
-        Reverse the axes of the coeff tensor.
-        """
-        return self.coeff.flatten()[::-1].reshape(self.coeff.shape)
+        Finds T_|m-n| (Referred to as folding in proceeding documentation)
+        for a given dimension of a matrix.
 
-    def fold_for_reg_mult(temp, half, dim_to_fold, dim):
-        """
-        Function folds matrix in the middle of each dimension.
-        To fold we take the first half and reverse in the dimension we are folding
-        and then adding that to the second half of the matrix.
-        For example, [1,2,3,4] folded around 3 gives [3,6,1] since
-        [1,2,3] becomes [3,2,1] and we add that to [3,4,0] then divide the first term by 2.
-        """
-        slice0 = slice(None, half+1, None) #slice to get first half of the matrix.
-        slice1 = slice(None, None, -1) #slice to reverse first half of the matrix.
-        slice2 = slice(half,None,None) #slice to get the second half ot the matrix.
-        slice3 = slice(0,1,None) #slice to take the row/column/piece that was added twice.
+        Parameters
+        ----------
+        solution_matrix : ndarray
+            Polynomial to by folded.
+        dim : int
+            The number of dimensions in solution_matrix
+        fdim : int
+            The dimension being folded.
+        size_in_fdim : int
+            The size of the solution matrix in the dimension being folded
+        fold_idx : int
+            The index to fold around.
 
-        #creates an index with a slice for each dimension.
-        indexer0 = [slice(None,None,None)]*dim #
-        indexer1 = [slice(None,None,None)]*dim
-        indexer2 = [slice(None,None,None)]*dim
+        Returns
+        ----------
+        sol : ndarray
 
-        #Changes the index of the correct dimmension in the indexers for array slicing.
-        indexer0[dim_to_fold] = slice0
-        indexer1[dim_to_fold] = slice1
-        indexer2[dim_to_fold] = slice2
-
-        #Takes the first half, reverses it and adds it to the second half.
-        p2 = temp[indexer0][indexer1] + temp[indexer2]
-        #divides the first piece by 2.
-        indexer2[dim_to_fold] = slice3
-        p2[indexer2] = p2[indexer2]/2.
-
-        return p2
-
-    def fold_in_i_dir(solution_matrix, dim, i, x, fold_idx):
-        """
-        Folds around a fold_inx and returns new solution.
-        solution_matrix is polynomial to be folded
-        dim is the number of dimensions of solution_matrix
-        i represents the dimensions being folded.
-        x is the size of the solution matrix in the dimension being folded
-        fold_idx is the index to fold around.
         """
         if fold_idx == 0:
             return solution_matrix
@@ -260,72 +319,54 @@ class MultiCheb(Polynomial):
         indexer3 = [slice(None)]*dim
 
         #Changes the index in each indexer for the correct dimension
-        indexer1[i] = slice_0
-        indexer2[i] = slice_1
+        indexer1[fdim] = slice_0
+        indexer2[fdim] = slice_1
 
         #makes first slice in sol equal to the slice we fold around in solution_matrix
         sol[indexer1] = solution_matrix[indexer2]
 
         #Loop adds the slices above and below the slice we rotate around and inserts solutions in sol.
-        for n in range(x):
+        for n in range(size_in_fdim):
 
             slice_2 = slice(n+1, n+2, None) #Used to imput new values in sol.
             slice_3 = slice(fold_idx+n+1, fold_idx+n+2, None) #Used to find slices that are n above fold_idx
             slice_4 = slice(fold_idx-n-1, fold_idx-n, None) #Used to find slices that are n below fold_idx
 
-            indexer1[i] = slice_2
-            indexer2[i] = slice_3
-            indexer3[i] = slice_4
+            indexer1[fdim] = slice_2
+            indexer2[fdim] = slice_3
+            indexer3[fdim] = slice_4
 
             #if statement checks to ensure that slices to be added are contained in the matrix.
             if fold_idx-n-1 < 0:
-                if fold_idx+n+2 > x:
+                if fold_idx+n+2 > size_in_fdim:
                     break
                 else:
                     sol[indexer1] = solution_matrix[indexer2]
             else:
-                if fold_idx+n+2 > x:
+                if fold_idx+n+2 > size_in_fdim:
                     sol[indexer1] = solution_matrix[indexer3]
                 else:
                     sol[indexer1] = solution_matrix[indexer3] + solution_matrix[indexer2]
 
         return sol
 
-    def mon_mult(self, idx, returnType = 'Poly'):
-        """
-        Multiplies a Chebyshev polynomial by a monomial
-        -------
-        Parameters:
-            self: A MultiCheb object
-            idx: The index of the monomial to multiply self by.
-            returnType: if 'Poly' then returns a polynomial object
-        -------
-        Returns:
-            MultiCheb object or a matrix if returnType is not 'Poly'
-        -------
-        """
-        initial_matrix = self.coeff
-        for i in range(len(idx)):
-            idx_zeros = np.zeros(len(idx),dtype = int)
-            idx_zeros[i] = idx[i]
-            initial_matrix = MultiCheb.mon_mult1(initial_matrix, idx_zeros, i)
-        if returnType == 'Poly':
-            return MultiCheb(initial_matrix, lead_term = self.lead_term + np.array(idx), clean_zeros = False)
-        elif returnType == 'Matrix':
-            return initial_matrix
-
-    def mon_mult1(initial_matrix, idx, dim_mult):
+    def _mon_mult1(initial_matrix, idx, dim_mult):
         """
         Executes monomial multiplication in one dimension
-        -------
-        Parameters:
-            initial_matrix: matrix of coefficients that represents a Chebyshev polynomial
-            idx: the index of a monomial of one variable to multiply the Chebyshev polynomial by
-            dim_mult: the location of the non-zero value in idx.
-        -------
-        Returns:
-            matrix of coeff that is the result of the one dimensial monomial multiplication.
-        -------
+        Parameters
+        ----------
+        initial_matrix : array_like
+            Matrix of coefficients that represent a Chebyshev polynomial
+        idx : tuple of ints
+            The index of a monomial of one variable to multiply by initial_matrix
+        dim_mult : int
+            The location of the non-zero value in idx.
+
+        Returns
+        ----------
+        ndarray
+            Coeff that are the result of the one dimensial monomial multiplication.
+
         """
         pad_values = list()
         for i in idx: #iterates through monomial and creates a tuple of pad values for each dimension
@@ -350,7 +391,7 @@ class MultiCheb(Polynomial):
         #Loop iterates through each dimension of the polynomial and folds in that dimension
         for i in range(number_of_dim):
             if idx[i] != 0:
-                initial_matrix = MultiCheb.fold_in_i_dir(initial_matrix, number_of_dim, i, shape_of_self[i], idx[i])
+                initial_matrix = MultiCheb._fold_in_i_dir(initial_matrix, number_of_dim, i, shape_of_self[i], idx[i])
         if p1.shape != initial_matrix.shape:
             idx = [i-j for i,j in zip(p1.shape,initial_matrix.shape)]
             pad_values = list()
@@ -361,7 +402,47 @@ class MultiCheb(Polynomial):
         Pf = p1 + initial_matrix
         return .5*Pf
 
+    def mon_mult(self, idx, returnType = 'Poly'):
+        """
+        Multiplies a Chebyshev polynomial by a monomial
+
+        Parameters
+        ----------
+        idx : tuple of ints
+            The index of the monomial to multiply self by.
+        returnType : str
+            If 'Poly' then returns a polynomial object
+
+        Returns
+        ----------
+        MultiCheb object if returnType is 'Poly'.
+        ndarray if returnType is "Matrix".
+
+        """
+        initial_matrix = self.coeff
+        for i in range(len(idx)):
+            idx_zeros = np.zeros(len(idx),dtype = int)
+            idx_zeros[i] = idx[i]
+            initial_matrix = MultiCheb._mon_mult1(initial_matrix, idx_zeros, i)
+        if returnType == 'Poly':
+            return MultiCheb(initial_matrix, lead_term = self.lead_term + np.array(idx), clean_zeros = False)
+        elif returnType == 'Matrix':
+            return initial_matrix
+
     def evaluate_at(self, point):
+        """
+        Evaluates a Chebyshev polynomial at a given point.
+
+        Parameters
+        ----------
+        point : array_like
+            The point to be evaluated at in a polynomial.
+
+        Returns
+        ----------
+        float
+            The result of plugging a point into a polynomial.
+        """
         super(MultiCheb, self).evaluate_at(point)
         if self.dim == 2:
             return cheb.chebval2d(point[0],point[1],self.coeff)
@@ -391,26 +472,59 @@ class MultiCheb(Polynomial):
 
 class MultiPower(Polynomial):
     """
-    _____ params _______
-    dim: int, number of variables, dimension of polynomial system
-    terms: int, highest term of single variable power polynomials
-    coeff: list(terms**dim) or np.array ([terms,] * dim), coefficents in given ordering
-    order: string, monomial ordering desired for Grobner calculations
-    lead_term: list, the index of the current leading coefficent
+    Used to represent a power basis polynomial.
 
+    Attributes
+    ----------
+    See Polynomial.
 
+    Parameters
+    ----------
+    dim : int
+        number of variables, dimension of polynomial system
+    terms : int
+        highest term of single variable power polynomials
+    coeff : list(terms**dim) or np.array ([terms,] * dim)
+        coefficents in given ordering
+    order : string
+        monomial ordering desired for Grobner calculations
+    lead_term : list
+        the index of the current leading coefficent
 
-    _____ methods ______
-    next_step:
-        input- Current: list, current location in ordering
-        output- the next step in ordering
+    Methods
+    ----------
+    __add__
+        Add two power polynomials
+    __sub__
+        Subtract two power polynomials
+    __mul__
+        Multiply two power polynomials
+    __eq__
+        Check if two power polynomials are equal.
+    __ne__
+        Check if two power polynomials are not equal.
+    mon_mult
+        Multiplies a power monomial by a power polynomial.
+    evaluate_at
+        Evaluate a power polynomial at a point.
+        
     """
     def __init__(self, coeff, order='degrevlex', lead_term=None, clean_zeros = True):
         super(MultiPower, self).__init__(coeff, order, lead_term, clean_zeros)
 
     def __add__(self,other):
         '''
-        Here we add an addition class.
+        Here we add an addition method
+
+        Parameters
+        ----------
+        other : MultiPower object
+
+        Returns
+        ----------
+        MultiPower object
+            The sum of the coeff of self and coeff of other.
+
         '''
         if self.shape != other.shape:
             new_self, new_other = self.match_size(self.coeff,other.coeff)
@@ -418,19 +532,39 @@ class MultiPower(Polynomial):
             new_self, new_other = self.coeff, other.coeff
         return MultiPower((new_self + new_other), clean_zeros = False)
 
-    def __sub__(self,other, scale = 1):
+    def __sub__(self,other):
         '''
-        Here we subtract the two polys
+        Here we subtract the two polys coeffs
+
+        Parameters
+        ----------
+        other : MultiPower object
+
+        Returns
+        ----------
+        MultiPower object
+            The coeff values are the result of self.coeff - other.coeff.
+
         '''
         if self.shape != other.shape:
             new_self, new_other = self.match_size(self.coeff,other.coeff)
         else:
             new_self, new_other = self.coeff, other.coeff
-        return MultiPower((new_self - (scale*new_other)), clean_zeros = False)
+        return MultiPower((new_self - (new_other)), clean_zeros = False)
 
     def __mul__(self,other):
         '''
-        here we add leading terms?
+        Method for multiplying two polynomials.
+
+        Parameters
+        ----------
+        other : MultiPower object
+
+        Returns
+        ----------
+        MultiPower object
+            The result of self*other.
+
         '''
         if self.shape != other.shape:
             new_self, new_other = self.match_size(self.coeff,other.coeff)
@@ -441,7 +575,17 @@ class MultiPower(Polynomial):
 
     def __eq__(self,other):
         '''
-        check if coeff matrix is the same
+        Check if the coeff matrix is the same.
+
+        Parameters
+        ----------
+        other : MultiPower object
+
+        Returns
+        ----------
+        bool
+            True if the coeff of self and other are the same for all entries.
+
         '''
         if self.shape != other.shape:
             return False
@@ -450,29 +594,62 @@ class MultiPower(Polynomial):
 
     def __ne__(self,other):
         '''
-        check if coeff matrix is not the same same
+        check if coeff matrix is not the same
+
+        Parameters
+        ----------
+        other : MultiPower object
+
+        Returns
+        ----------
+        bool
+            True if any corresponding entries in self and other are not the same.
         '''
         return not (self == other)
 
-    def mon_mult(self, M, returnType = 'Poly'):
+    def mon_mult(self, mon, returnType = 'Poly'):
         '''
-        M is a tuple of the powers in the monomial.
+        Multiplies a polynomial by a monomial.
+
+        Parameters
+        ----------
+        mon : tuple
+            The powers in the monomial.
             Ex: x^3*y^4*z^2 would be input as (3,4,2)
-        #P is the polynomial.
+        returnType : str
+            determines what type of object to return.
+
+        Return
+        ----------
+        MultiPower object if returnType is 'Poly'
+        ndarray if returnType is 'Matrix'
         '''
-        M = np.array(M)
+        mon = np.array(mon)
         tuple1 = []
-        for i in M:
+        for i in mon:
             list1 = (i,0)
             tuple1.append(list1)
         if returnType == 'Poly':
-            poly = MultiPower(np.pad(self.coeff, tuple1, 'constant', constant_values = 0), 
-                          clean_zeros = False, lead_term = self.lead_term + M)
+            poly = MultiPower(np.pad(self.coeff, tuple1, 'constant', constant_values = 0),
+                          clean_zeros = False, lead_term = self.lead_term + mon)
             return poly
         elif returnType == 'Matrix':
             return np.pad(self.coeff, tuple1, 'constant', constant_values = 0)
 
     def evaluate_at(self, point):
+        """
+        Evaluates a polynomial at a given point.
+
+        Parameters
+        ----------
+        point : array_like
+            The point to be evaluated at in a polynomial.
+
+        Returns
+        ----------
+        float
+            The result of plugging a point into a polynomial.
+        """
         super(MultiPower, self).evaluate_at(point)
         if self.dim == 2:
             return poly.polyval2d(point[0],point[1],self.coeff)
@@ -501,11 +678,18 @@ class MultiPower(Polynomial):
 
 def conv_cheb(T):
     """
-    Convert a chebyshev polynomial to the power basis representation.
-    Args:
-        T (): The chebyshev polynomial to convert.
-    Returns:
-        new_conv (): The chebyshev polynomial converted to the power basis representation.
+    Convert a chebyshev polynomial to the power basis representation in one dimension.
+
+    Parameters
+    ----------
+    T : array_like
+        A one dimensional array_like object that represents the coeff of a
+        Chebyshev polynomial.
+
+    Returns
+    ----------
+    ndarray
+        A one dimensional array that represents the coeff of a power basis polynomial.
 
     """
     conv = cheb.cheb2poly(T)
@@ -520,11 +704,16 @@ def conv_poly(P):
     """
     Convert a standard polynomial to a chebyshev polynomial in one dimension.
 
-    Args:
-        P (): The standard polynomial to be converted.
+    Parameters
+    ----------
+    P : array_like
+        A one dimensional array_like object that represents the coeff of a
+        power basis polynomial.
 
-    Returns:
-        new_conv (): The chebyshev polynomial.
+    Returns
+    ----------
+    ndarray
+        A one dimensional array that represents the coeff of a Chebyshev polynomial.
 
     """
     conv = cheb.poly2cheb(P)
@@ -539,6 +728,13 @@ def cheb2poly(T):
     """
     Convert a chebyshev polynomial to a standard polynomial in multiple dimensions.
 
+    Parameters
+    ----------
+    T : MultiCheb object
+
+    Returns
+    ----------
+    MultiPower object
     """
     dim = len(T.shape)
     A = T.coeff
@@ -549,12 +745,15 @@ def cheb2poly(T):
 def poly2cheb(P):
     """
     Convert a standard polynomial to a chebyshev polynomial in multiple dimensions.
-    
-    Args:
-        P (): The multi-dimensional standard polynomial. (tensor?)
+
+    Parameters
+    ----------
+    P : MultiPower object
 
     Returns:
-        (MultiCheb): The multi-dimensional chebyshev polynomial.
+    ----------
+    MultiCheb object
+        The multi-dimensional chebyshev polynomial.
 
     """
     dim = len(P.shape)
