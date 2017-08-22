@@ -27,10 +27,11 @@ class Polynomial(object):
         The total degree of the lead_term
     lead_coeff
         The coeff of the lead_term
-
+        
     Parameters
     ----------
     coeff : ndarray
+        Coefficients of the polynomial
     order : string
     lead_term : Tuple
         Default is None. Accepts tuple or tuple-like inputs
@@ -39,7 +40,7 @@ class Polynomial(object):
         removed from matrix of coefficients.
 
     Methods
-    ----------
+    -------
     clean_coeff
         Removes extra rows, columns, etc of zeroes from end of matrix of coefficients
     match_size
@@ -60,9 +61,9 @@ class Polynomial(object):
     '''
     def __init__(self, coeff, order='degrevlex', lead_term=None, clean_zeros = True):
         '''
-        terms, int- number of chebyshev polynomials each variable can have. Each dimension will have term terms
+        terms, int- number of Chebyshev polynomials each variable can have. Each dimension will have term terms
         dim, int- number of different variables, how many dim our tensor will be
-        order, string- how you want to order your polynomials. Grevlex is default
+        order, string- how you want to order your polynomials. Grevlex is default.
         '''
         if isinstance(coeff,np.ndarray):
             self.coeff = coeff
@@ -107,7 +108,21 @@ class Polynomial(object):
 
     def match_size(self,a,b):
         '''
-        Matches the shape of the matrixes of two polynomials. This might not be the best place for it.
+        Matches the shape of the matrixes of two polynomials. 
+        
+        Parameters
+        ----------
+        a, b : ndarray
+            Coefficients of polynomials a, b
+            
+        Returns
+        -------
+        a, b : ndarray
+            Coefficients of padded polynomials a, b
+            
+        Notes
+        -----
+        This might not be the best place for it.
         '''
         a_shape, b_shape = list(a.shape), list(b.shape)
         if len(a_shape) != len(b_shape):
@@ -140,9 +155,9 @@ class Polynomial(object):
 
     def monomialList(self):
         '''
-        return
-        ------
-        monomials : list of tuples
+        Returns
+        -------
+        monomials : list
             list of monomials that make up the polynomial in degrevlex order
         '''
         monomialTerms = list()
@@ -178,14 +193,14 @@ class Polynomial(object):
         by the MultiPower and MultiCheb classes, so this definition only
         checks if the polynomial can be evaluated at the given point.
 
-        parameters
+        Parameters
         ----------
         point : tuple or list
             the point at which to evaluate the polynomial
 
-        returns
+        Returns
         -------
-        complex
+        complex : complex
             value of the polynomial at the given point
         '''
         if len(point) != len(self.coeff.shape):
@@ -194,7 +209,7 @@ class Polynomial(object):
 
     def __eq__(self,other):
         '''
-        check if coeff matrix is the same
+        check if coeff matrix is the same.
         '''
         if self.shape != other.shape:
             return False
@@ -202,7 +217,7 @@ class Polynomial(object):
 
     def __ne__(self,other):
         '''
-        check if coeff matrix is not the same
+        check if coeff matrix is not the same.
         '''
         return not (self == other)
 
@@ -213,23 +228,40 @@ class Polynomial(object):
 
 class MultiCheb(Polynomial):
     """
-    Used to represent a chebyshev polynomial.
+    Used to represent a Chebyshev polynomial.
 
     Attributes
     ----------
-    See Polynomial
-
+    coeff
+        The coefficient matrix represented in the object.
+    dim
+        The number of dimensions of the coefficient matrix
+    order
+        Ordering type given as a string.
+    shape
+        The shape of the coefficient matrix.
+    lead_term
+        The polynomial term with the largest total degree.
+    degree
+        The total degree of the lead_term.
+    lead_coeff
+        The coeff of the lead_term.
+        
     Parameters
     ----------
-        dim: int, number of variables, dimension of chebyshev system
-        terms: int, highest term of single variable chebyshev polynomials
-        coeff: list(terms**dim) or np.array ([terms,] * dim), coefficents in given ordering
-        order: string, monomial ordering desired for Groebner calculations
-        lead_term: list, the index of the current leading coefficent
-
+    dim : int
+        number of variables, dimension of polynomial system.
+    terms : int
+        highest term of single variable power polynomials.
+    coeff : list(terms**dim) or np.array ([terms,] * dim)
+        coefficents in given ordering.
+    order : string
+        monomial ordering desired for Grobner calculations.
+    lead_term : list
+        the index of the current leading coefficent.
 
     Methods
-    ----------
+    -------
     __add__
         Add two MultiCheb polynomials.
     __sub__
@@ -245,15 +277,15 @@ class MultiCheb(Polynomial):
 
     def __add__(self,other):
         '''
-        Here we add an addition method
+        Addition of two MultiCheb polynomials.
 
         Parameters
         ----------
-        other : MultiCheb object
+        other : MultiCheb
 
         Returns
-        ----------
-        MultiCheb object
+        -------
+        MultiCheb
             The sum of the coeff of self and coeff of other.
 
         '''
@@ -266,15 +298,15 @@ class MultiCheb(Polynomial):
 
     def __sub__(self,other):
         '''
-        Here we subtract the two polys coeffs
+        Subtraction of two MultiCheb polynomials.
 
         Parameters
         ----------
-        other : MultiCheb object
+        other : MultiCheb
 
         Returns
-        ----------
-        MultiCheb object
+        -------
+        MultiCheb
             The coeff values are the result of self.coeff - other.coeff.
         '''
         if self.shape != other.shape:
@@ -293,16 +325,16 @@ class MultiCheb(Polynomial):
         solution_matrix : ndarray
             Polynomial to by folded.
         dim : int
-            The number of dimensions in solution_matrix
+            The number of dimensions in solution_matrix.
         fdim : int
             The dimension being folded.
         size_in_fdim : int
-            The size of the solution matrix in the dimension being folded
+            The size of the solution matrix in the dimension being folded.
         fold_idx : int
             The index to fold around.
 
         Returns
-        ----------
+        -------
         sol : ndarray
 
         """
@@ -352,18 +384,19 @@ class MultiCheb(Polynomial):
 
     def _mon_mult1(initial_matrix, idx, dim_mult):
         """
-        Executes monomial multiplication in one dimension
+        Executes monomial multiplication in one dimension.
+        
         Parameters
         ----------
         initial_matrix : array_like
-            Matrix of coefficients that represent a Chebyshev polynomial
+            Matrix of coefficients that represent a Chebyshev polynomial.
         idx : tuple of ints
-            The index of a monomial of one variable to multiply by initial_matrix
+            The index of a monomial of one variable to multiply by initial_matrix.
         dim_mult : int
             The location of the non-zero value in idx.
 
         Returns
-        ----------
+        -------
         ndarray
             Coeff that are the result of the one dimensial monomial multiplication.
 
@@ -411,10 +444,10 @@ class MultiCheb(Polynomial):
         idx : tuple of ints
             The index of the monomial to multiply self by.
         returnType : str
-            If 'Poly' then returns a polynomial object
+            If 'Poly' then returns a polynomial object.
 
         Returns
-        ----------
+        -------
         MultiCheb object if returnType is 'Poly'.
         ndarray if returnType is "Matrix".
 
@@ -439,7 +472,7 @@ class MultiCheb(Polynomial):
             The point to be evaluated at in a polynomial.
 
         Returns
-        ----------
+        -------
         float
             The result of plugging a point into a polynomial.
         """
@@ -476,29 +509,42 @@ class MultiPower(Polynomial):
 
     Attributes
     ----------
-    See Polynomial.
+    coeff
+        The coefficient matrix represented in the object.
+    dim
+        The number of dimensions of the coefficient matrix.
+    order
+        Ordering type given as a string.
+    shape
+        The shape of the coefficient matrix.
+    lead_term
+        The polynomial term with the largest total degree.
+    degree
+        The total degree of the lead_term.
+    lead_coeff
+        The coeff of the lead_term.
 
     Parameters
     ----------
     dim : int
-        number of variables, dimension of polynomial system
+        number of variables, dimension of polynomial system.
     terms : int
         highest term of single variable power polynomials
     coeff : list(terms**dim) or np.array ([terms,] * dim)
-        coefficents in given ordering
+        coefficents in given ordering.
     order : string
-        monomial ordering desired for Grobner calculations
+        monomial ordering desired for Grobner calculations.
     lead_term : list
-        the index of the current leading coefficent
-
+        the index of the current leading coefficent.
+            
     Methods
-    ----------
+    -------
     __add__
-        Add two power polynomials
+        Add two power polynomials.
     __sub__
-        Subtract two power polynomials
+        Subtract two power polynomials.
     __mul__
-        Multiply two power polynomials
+        Multiply two power polynomials.
     __eq__
         Check if two power polynomials are equal.
     __ne__
@@ -514,14 +560,14 @@ class MultiPower(Polynomial):
 
     def __add__(self,other):
         '''
-        Here we add an addition method
+        Addition of two MultiPower polynomials.
 
         Parameters
         ----------
-        other : MultiPower object
+        other : MultiPower
 
         Returns
-        ----------
+        -------
         MultiPower object
             The sum of the coeff of self and coeff of other.
 
@@ -534,15 +580,15 @@ class MultiPower(Polynomial):
 
     def __sub__(self,other):
         '''
-        Here we subtract the two polys coeffs
+        Subtraction of two MultiPower polynomials.
 
         Parameters
         ----------
-        other : MultiPower object
+        other : MultiPower
 
         Returns
-        ----------
-        MultiPower object
+        -------
+        MultiPower
             The coeff values are the result of self.coeff - other.coeff.
 
         '''
@@ -554,14 +600,14 @@ class MultiPower(Polynomial):
 
     def __mul__(self,other):
         '''
-        Method for multiplying two polynomials.
+        Multiplication of two MultiPower polynomials.
 
         Parameters
         ----------
         other : MultiPower object
 
         Returns
-        ----------
+        -------
         MultiPower object
             The result of self*other.
 
@@ -582,7 +628,7 @@ class MultiPower(Polynomial):
         other : MultiPower object
 
         Returns
-        ----------
+        -------
         bool
             True if the coeff of self and other are the same for all entries.
 
@@ -601,7 +647,7 @@ class MultiPower(Polynomial):
         other : MultiPower object
 
         Returns
-        ----------
+        -------
         bool
             True if any corresponding entries in self and other are not the same.
         '''
@@ -617,10 +663,10 @@ class MultiPower(Polynomial):
             The powers in the monomial.
             Ex: x^3*y^4*z^2 would be input as (3,4,2)
         returnType : str
-            determines what type of object to return.
+            Which type of object to return.
 
-        Return
-        ----------
+        Returns
+        -------
         MultiPower object if returnType is 'Poly'
         ndarray if returnType is 'Matrix'
         '''
@@ -646,7 +692,7 @@ class MultiPower(Polynomial):
             The point to be evaluated at in a polynomial.
 
         Returns
-        ----------
+        -------
         float
             The result of plugging a point into a polynomial.
         """
@@ -678,7 +724,7 @@ class MultiPower(Polynomial):
 
 def conv_cheb(T):
     """
-    Convert a chebyshev polynomial to the power basis representation in one dimension.
+    Convert a Chebyshev polynomial to the power basis representation in one dimension.
 
     Parameters
     ----------
@@ -687,7 +733,7 @@ def conv_cheb(T):
         Chebyshev polynomial.
 
     Returns
-    ----------
+    -------
     ndarray
         A one dimensional array that represents the coeff of a power basis polynomial.
 
@@ -702,7 +748,7 @@ def conv_cheb(T):
 
 def conv_poly(P):
     """
-    Convert a standard polynomial to a chebyshev polynomial in one dimension.
+    Convert a standard polynomial to a Chebyshev polynomial in one dimension.
 
     Parameters
     ----------
@@ -711,7 +757,7 @@ def conv_poly(P):
         power basis polynomial.
 
     Returns
-    ----------
+    -------
     ndarray
         A one dimensional array that represents the coeff of a Chebyshev polynomial.
 
@@ -726,15 +772,15 @@ def conv_poly(P):
 
 def cheb2poly(T):
     """
-    Convert a chebyshev polynomial to a standard polynomial in multiple dimensions.
+    Convert a Chebyshev polynomial to a standard polynomial in multiple dimensions.
 
     Parameters
     ----------
-    T : MultiCheb object
+    T : MultiCheb
 
     Returns
-    ----------
-    MultiPower object
+    -------
+    MultiPower
     """
     dim = len(T.shape)
     A = T.coeff
@@ -744,16 +790,16 @@ def cheb2poly(T):
 
 def poly2cheb(P):
     """
-    Convert a standard polynomial to a chebyshev polynomial in multiple dimensions.
+    Convert a standard polynomial to a Chebyshev polynomial in multiple dimensions.
 
     Parameters
     ----------
-    P : MultiPower object
+    P : MultiPower
 
-    Returns:
-    ----------
-    MultiCheb object
-        The multi-dimensional chebyshev polynomial.
+    Returns
+    -------
+    MultiCheb
+        The multi-dimensional Chebyshev polynomial.
 
     """
     dim = len(P.shape)

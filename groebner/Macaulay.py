@@ -13,18 +13,19 @@ import groebner.utils as utils
 
 def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     """
-    Macaulay will take a list of polynomials and use them to construct a Macaulay matrix.
+    Accepts a list of polynomials and use them to construct a Macaulay matrix.
 
     parameters
     --------
-    initial_poly_list: A list of polynomials
-    global_accuracy: How small we want a number to be before assuming it is zero.
-    --------
+    initial_poly_list: list
+        Polynomials for Macaulay construction.
+    global_accuracy : float
+        Round-off parameter: values within global_accuracy of zero are rounded to zero. Defaults to 1e-10.
 
     Returns
-    -----------
-    Reduced Macaulay matrix that can be passed into the root finder.
-    -----------
+    -------
+    final_polys : list
+        Reduced Macaulay matrix that can be passed into the root finder.
     """
     Power = bool
     if all([type(p) == MultiPower for p in initial_poly_list]):
@@ -63,16 +64,17 @@ def get_polys_from_matrix(matrix, matrix_terms ,rows, power):
 
     Parameters
     ----------
-    matrix : 2D numpy array
+    matrix : (M,N) ndarray
         The matrix with rows corresponding to polynomials, columns corresponding
         to monomials, and entries corresponding to coefficients.
-    matrix_terms : array-like, contains Term objects
-        The column labels for matrix in order.
-    rows : iterable, contains integers
-        The rows for which to create polynomial objects.
+    matrix_terms : array-like
+        The column labels for matrix in order. Contains Term objects.
+    rows : iterable
+        The rows for which to create polynomial objects. Contains integers.
     power : bool
         If true, the polynomials returned will be MultiPower objects.
         Otherwise, they will be MultiCheb.
+        
     Returns
     -------
     poly_list : list
@@ -104,7 +106,21 @@ def get_polys_from_matrix(matrix, matrix_terms ,rows, power):
 def get_good_rows(matrix, matrix_terms):
     '''
     Gets the rows in a matrix whose leading monomial is not divisible by the leading monomial of any other row.
-    Returns a list of rows.
+    
+    Parameters
+    ----------
+    matrix : (M,N) ndarray
+        Input matrix.
+    matrix_terms : array-like
+        The column labels for matrix in order. Contains Term objects.
+        
+    Returns
+    -------
+    keys : list
+        Rows indicies satisfying the divisibility condition.
+        
+    Notes
+    -----
     This function could probably be improved, but for now it is good enough.
     '''
     rowLMs = dict()
@@ -135,16 +151,20 @@ def get_good_rows(matrix, matrix_terms):
 def find_degree(poly_list):
     """
     Finds the degree needed for the Macaulay matrix
+
+    Parameters
+    ----------
+    poly_list : list
+        Polynomials that will be used to construct the matrix.
+    
+    Returns
     -------
-    Parameters:
-        poly_list: polynomials that will be used to construct the matrix
+    int
+        Needed degree for Macaulay matrix.
+    
+    Notes
     -------
-    Returns:
-        Integer value that is the degree needed.
-    -------
-    Example:
         For polynomials [P1,P2,P3] with degree [d1,d2,d3] the function returns d1+d2+d3-3+1
-    -------
     """
     degree_needed = 0
     for poly in poly_list:
@@ -193,14 +213,16 @@ def add_polys(degree, poly, poly_coeff_list):
 
 def sort_matrix_terms(matrix_terms):
     '''Sorts the matrix_terms by term order.
-    So the highest terms come first, the lowest ones last/.
+    So the highest terms come first, the lowest ones last.
+    
     Parameters
     ----------
-    matrix_terms : numpy array.
+    matrix_terms : ndarray
         Each row is one of the terms in the matrix.
+    
     Returns
     -------
-    matrix_terms : numpy array
+    matrix_terms : ndarray
         The sorted matrix_terms.
     '''
     termList = list()
@@ -211,9 +233,10 @@ def sort_matrix_terms(matrix_terms):
 
 def coeff_slice(coeff):
     ''' Gets the n-d slices that corespond to the dimenison of a coeff matrix.
+    
     Parameters
     ----------
-    coeff : numpy matrix.
+    coeff : numpy.matrix
         The matrix of interest.
     Returns
     -------
@@ -230,11 +253,11 @@ def create_matrix(poly_coeffs):
 
     Parameters
     ----------
-    poly_coeffs : list.
+    poly_coeffs : list
         Contains numpy arrays that hold the coefficients of the polynomials to be put in the matrix.
     Returns
     -------
-    matrix : 2D numpy array
+    matrix : (M,N) ndarray
         The Macaulay matrix.
     '''
     bigShape = np.maximum.reduce([p.shape for p in poly_coeffs])
@@ -278,16 +301,16 @@ def matrixReduce(matrix, triangular_solve = False, global_accuracy = 1.e-10):
 
     Parameters
     ----------
-    matrix : (2D numpy array)
+    matrix : (M,N) ndarray
         The matrix of interest.
-    triangular_solve: bool
+    triangular_solve : bool
         Defaults to False. If True then triangular solve is preformed.
-    global_accuracy: float
+    global_accuracy : float
         Defaults to 1.e-10. What is determined to be zero when searching for the pivot columns.
 
     Returns
     -------
-    matrix : (2D numpy array)
+    matrix : (M,N) ndarray
         The reduced matrix. It should look like this if triangluar_solve is False.
         a - - - - - - -
         0 b - - - - - -
@@ -333,14 +356,14 @@ def findPivotColumns(matrix, global_accuracy = 1.e-10):
 
     Parameters
     ----------
-    matrix : (2D numpy array)
+    matrix : (M,N) ndarray
         The matrix of interest.
-    global_accuracy: float
+    global_accuracy : float
         Defaults to 1.e-10. What is determined to be zero when searching for the pivot columns.
 
     Returns
     -------
-    matrix : (2D numpy array)
+    matrix : (M,N) ndarray
         A matrix of ones and zeros. Each row will have exactly one 1 in it, which will be a pivot column
         in the matrix. For example, a 5x8 matrix with pivot columns 1,2,4,5,8 will look like this
         1 0 0 0 0 0 0 0
