@@ -477,27 +477,13 @@ class MultiCheb(Polynomial):
             The result of plugging a point into a polynomial.
         """
         super(MultiCheb, self).evaluate_at(point)
-        if self.dim == 2:
-            return cheb.chebval2d(point[0],point[1],self.coeff)
-        elif self.dim ==3:
-            return cheb.chebval3d(point[0],point[1],point[2],self.coeff)
-        else:
-            poly_value = complex(0)
-            for mon in self.monomialList():
-                mon_value = 1
-                for i in range(len(point)):
-                    cheb_deg = mon[i]
-                    cheb_coeff = [0. for i in range(cheb_deg)]
-                    cheb_coeff.append(1.)
-                    cheb_val = cheb.chebval([point[i]], cheb_coeff)[0]
-                    mon_value *= cheb_val
-                mon_value *= self.coeff[mon]
-                poly_value += mon_value
-
-            if abs(poly_value) < 1.e-10:
-                return 0
-            else:
-                return poly_value
+        
+        c = self.coeff
+        n = len(c.shape)
+        c = cheb.chebval(point[0],c)
+        for i in range(1,n):
+            c = cheb.chebval(point[i],c,tensor=False)
+        return c
 
 ###############################################################################
 
@@ -697,24 +683,13 @@ class MultiPower(Polynomial):
             The result of plugging a point into a polynomial.
         """
         super(MultiPower, self).evaluate_at(point)
-        if self.dim == 2:
-            return poly.polyval2d(point[0],point[1],self.coeff)
-        elif self.dim ==3:
-            return poly.polyval3d(point[0],point[1],point[2],self.coeff)
-        else:
-            poly_value = 0
-            for mon in self.monomialList():
-                mon_value = 1
-                for i in range(len(point)):
-                    var_value = pow(point[i], mon[i])
-                    mon_value *= pow(point[i], mon[i])
-                mon_value *= self.coeff[mon]
-                poly_value += mon_value
-
-            if abs(poly_value) < 1.e-10:
-                return 0
-            else:
-                return poly_value
+        
+        c = self.coeff
+        n = len(c.shape)
+        c = poly.polyval(point[0],c)
+        for i in range(1,n):
+            c = poly.polyval(point[i],c,tensor=False)
+        return c
 
 ###############################################################################
 
