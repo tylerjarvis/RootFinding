@@ -22,9 +22,9 @@ def F4(polys, reducedGroebner = True, accuracy = 1.e-10, phi = True):
     ----------
     polys : list
         The polynomails for which a Groebner basis is computed.
-    reducedGroebner: bool
+    reducedGroebner : bool
         Defaults to True. If True then a reduced Groebner Basis is found. If False, just a Groebner Basis is found.
-    accuracy: float
+    accuracy : float
         Defaults to 1.e-10. What is determined to be zero in the code.
 
     Returns
@@ -50,7 +50,7 @@ def F4(polys, reducedGroebner = True, accuracy = 1.e-10, phi = True):
     return groebner_basis
 
 def sort_reducible_polys(old_polys, new_polys):
-    '''Finds which polynomials are reducable.
+    '''Finds which polynomials are reducible.
     The polynomials that are reducible aren't used in phi and r calculations, they are just added
     to the matrix. They are also removed from the poly list they are in, as whatever they are reduced
     down to will be pulled out of the matrix at the end.
@@ -63,16 +63,16 @@ def sort_reducible_polys(old_polys, new_polys):
     ----------
     old_polys : list
         The polynomails that have already gone through the reduction before.
-    new_polys: list
+    new_polys : list
         The polynomials that have not gone through the reduction before.
 
     Returns
     -------
     old_polys : list
         The old_polys that are not reducible.
-    new_polys: list
+    new_polys : list
         The new_polys that are not reducible.
-    matrix_polys: list
+    matrix_polys : list
         The polynomials that are being put in the matrix. Any polynomial that is reducible is put in the matrix,
         and if it is reducible because some other polynomials lead term divides it's lead term than the other
         polynomial is multiplied by th monomial needed to give it the same lead term, and that is put in the matrix.
@@ -149,13 +149,13 @@ def add_phi_to_matrix(old_polys, new_polys, matrix_polys, phi = True):
     Parameters
     ----------
     old_polys : list
-        The polynomails that have already gone through the reduction before.
-    new_polys: list
+        The polynomials that have already gone through the reduction before.
+    new_polys : list
         The polynomials that have not gone through the reduction before.
 
     Returns
     -------
-    matrix_polys: list
+    matrix_polys : list
         The polynomials that are being put in the matrix. Both the ones that were put in earlier and the new
         phi polynomials that are bing added.
     '''
@@ -181,20 +181,30 @@ def add_phi_to_matrix(old_polys, new_polys, matrix_polys, phi = True):
     return matrix_polys
 
 def phi_criterion(all_polys,i,j,B,phi):
-    '''
-    Parameters:
-    all_polys : A list of all the polynomials.
-    i (int) : the index of the first polynomial
-    j (int) : the index of the second polynomial
-    B (set) : index of the set of polynomials to be considered.
-
-    Returns:
-       (bool) : returns False if
+    '''Evaluates the phi criterion, given by:
+        False if:
             1) The polynomials at index i and j are relative primes or
             2) there exists an l such that (i,l) or (j,l) will not be considered in
-            the add_phi_to_matrix() method and LT(l) divides lcm(LT(i),LT(j)),
-            otherwise, returns True.
-       * See proposition 8 in "Section 10: Improvements on Buchburger's algorithm."
+            the add_phi_to_matrix() method and LT(l) divides lcm(LT(i),LT(j)).
+        Otherwise, true.
+        
+        See proposition 8 in "Section 10: Improvements on Buchburger's algorithm.
+        
+    Parameters
+    ----------
+    all_polys : list
+        List of all the polynomials.
+    i : int
+        Index of the first polynomial
+    j : int
+        Index of the second polynomial
+    B : set
+        Index of the set of polynomials to be considered.
+
+    Returns
+    -------
+    bool
+        Truth value of the phi criterion
     '''
     if phi == False:
         return True
@@ -231,16 +241,19 @@ def phi_criterion(all_polys,i,j,B,phi):
 
 def calc_phi(a,b):
     '''
-    Calculates the phi-polynomial's of the polynomials a and b.
+    Calculates the phi-polynomials of the polynomials a and b.
 
     Parameters
     ----------
-    a, b : Polynomial objects
+    a, b : Polynomial
+        Input polynomials.
 
     Returns
     -------
-    2 Polynomial objects
-        The calculated phi polynomials for a and b.
+    Polynomial
+        The calculated phi polynomial for a.
+    Polynomial
+        The calculated phi polynomial for b.
 
     Notes
     -----
@@ -249,7 +262,7 @@ def calc_phi(a,b):
         \frac{lcm(LT(a), LT(b))}_{LT(a)} * a\\
         \frac{lcm(LT(a), LT(b))}_{LT(b)} * b
 
-    The reasoning behind this definition is that both phis will have the
+    The reasoning behind this definition is that both phi polynomials will have the
     same leading term so they can be linearly reduced to produce a new,
     smaller polynomial in the ideal.
 
@@ -265,6 +278,16 @@ def add_r_to_matrix(matrix_polys, all_polys):
     Finds the r polynomials and adds them to the matrix.
     First makes Heap out of all potential monomials, then finds polynomials
     with leading terms that divide it and add them to the matrix.
+    
+    Parameters
+    ----------
+    matrix_polys : list
+    all_polys : list
+    
+    Returns
+    -------
+    matrix_polys : list
+    matrix_terms : ndarray
     '''
     matrixTermSet = set()
     leadTermSet = set()
@@ -308,7 +331,7 @@ def calc_r(m, polys):
 
     Returns
     -------
-    Polynomial object or None
+    Polynomial or None
         If no polynomial divides m, returns None. Otherwise, returns
         the r polynomial with leading monomial m.
 
@@ -336,14 +359,16 @@ def calc_r(m, polys):
 
 def sort_matrix_terms(matrix_terms):
     '''Sorts the matrix_terms by term order.
-    So the highest terms come first, the lowest ones last/.
+    So the highest terms come first, the lowest ones last.
+    
     Parameters
     ----------
-    matrix_terms : numpy array.
-        Each row is one of the terms in the matrix.
+    matrix_terms : ndarray
+        Array where each row is one of the terms in the matrix.
+        
     Returns
     -------
-    matrix_terms : numpy array
+    matrix_terms : ndarray
         The sorted matrix_terms.
     '''
     termList = list()
@@ -356,8 +381,9 @@ def coeff_slice(coeff):
     ''' Gets the n-d slices that corespond to the dimenison of a coeff matrix.
     Parameters
     ----------
-    coeff : numpy matrix.
-        The matrix of interest.
+    coeff : numpy.matrix
+        The input matrix.
+        
     Returns
     -------
     slices : list
@@ -377,12 +403,12 @@ def create_matrix(matrix_polys, matrix_terms = None):
     ----------
     matrix_polys : list.
         Contains numpy arrays that hold the polynomials to be put in the matrix.
-    matrix_terms : numpy array
+    matrix_terms : ndarray
         The terms that will exist in the matrix. Not sorted yet.
         Defaults to None, in which case it will be found in the function.
     Returns
     -------
-    matrix : 2D numpy array
+    matrix : ndarray
         The Macaulay matrix.
     '''
     bigShape = np.maximum.reduce([p.coeff.shape for p in matrix_polys])
@@ -426,13 +452,13 @@ def get_polys_from_matrix(matrix, matrix_terms, rows, power):
 
     Parameters
     ----------
-    matrix : 2D numpy array
+    matrix : (M,N) ndarray
         The matrix with rows corresponding to polynomials, columns corresponding
         to monomials, and entries corresponding to coefficients.
-    matrix_terms : array-like, contains Term objects
-        The column labels for matrix in order.
-    rows : iterable, contains integers
-        The rows for which to create polynomial objects.
+    matrix_terms : array-like
+        The column labels for matrix in order. Contains Term objects.
+    rows : iterable 
+        The rows for which to create polynomial objects. Contains integers.
     power : bool
         If true, the polynomials returned will be MultiPower objects.
         Otherwise, they will be MultiCheb.
@@ -469,12 +495,12 @@ def row_echelon(matrix, accuracy=1.e-10):
 
     Parameters
     ----------
-    matrix : 2D numpy array
+    matrix : (M,N) ndarray
         The matrix of interest.
 
     Returns
     -------
-    reduced_matrix : 2D numpy array
+    reduced_matrix : (M,N) ndarray
         The matrix in row echelon form with all zero rows removed.
 
     '''
@@ -499,14 +525,13 @@ def lead_term_columns(matrix):
 
     Parameters
     ----------
-    matrix : 2D numpy array
+    matrix : (M,N) ndarray
         The matrix of interest.
 
     Returns
     -------
     LT_columns : set
         The set of column indexes that correspond to leading terms
-
     '''
 
     LT_columns = set()
@@ -525,10 +550,10 @@ def get_new_polys(matrix, matrix_terms, accuracy=1.e-10, power=False):
 
     Parameters
     ----------
-    matrix : 2D numpy array
+    matrix : (M,N) ndarray
         The matrix where rows correspond to polynomials, columns to terms,
         and entries to coefficients.
-    matrix_terms : 2D numpy array
+    matrix_terms : (M,N) ndarray
         Each row corresponds to a column in matrix, each column corresponds
         to a variable, and entries correspond to the exponent of that variable
     accuracy : float
@@ -568,6 +593,19 @@ def get_new_polys(matrix, matrix_terms, accuracy=1.e-10, power=False):
 def reduce_groebner_basis(groebner_basis, power):
     '''
     Uses triangular solve to get a fully reduced Groebner basis.
+    
+    Parameters
+    ----------
+    groebner_basis : list
+        List of polynomials forming a Groebner basis.
+    power : bool
+        If true, the polynomials returned will be MultiPower objects.
+        Otherwise, they will be MultiCheb.
+
+    Returns
+    -------
+    list
+        List of Polynomials forming a fully reduced Groebner basis.
     '''
     if len(groebner_basis) == 1:
         poly = groebner_basis[0]
