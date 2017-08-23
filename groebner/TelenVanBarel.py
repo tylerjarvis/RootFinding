@@ -172,7 +172,6 @@ def sort_matrix_terms(matrix_terms):
     var_list = get_var_list(dim) #All the the xs. Not incuding 1 for now.
     matrix_termSet = set([tuple(term) for term in matrix_terms])
     
-    
     #Fill in behind the diagonal. This could be done better.
     diagonal_degree = np.max([np.sum(term) for term in matrix_terms])
     possible_mons = mon_combos(np.zeros(dim, dtype = int),diagonal_degree)
@@ -212,6 +211,7 @@ def sort_matrix_terms(matrix_terms):
                 bounded = False
                 break
         if bounded:
+            print(mon)
             matrix_termSet.add(tuple(mon))
             matrix_terms = np.vstack((matrix_terms,mon))    
     #Done filling
@@ -395,7 +395,7 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy
     C1,matrix[:highest_num,:highest_num],P1 = qr_multiply(matrix[:,:highest_num], matrix[:,highest_num:].T, mode = 'right', pivoting = True)
     matrix[:highest_num,highest_num:] = C1.T
     C1 = 0
-    
+    #print(matrix[:,:highest_num].diagonal())
     if abs(matrix[:,:highest_num].diagonal()[-1]) < accuracy:
         raise TVBError("HIGHEST NOT FULL RANK")
     
