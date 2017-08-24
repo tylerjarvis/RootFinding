@@ -85,15 +85,18 @@ def makeBasisDict(matrix, matrix_terms, VB):
 
 def find_degree(poly_list):
     '''
-    Takes a list of polynomials and finds the degree needed for a Macaulay matrix.
-    Adds the degree of each polynomial and then subtracts the total number of polynomials and adds one.
+    Takes a list of polynomials and finds the degree needed for a Macaulay
+    matrix.
+    Adds the degree of each polynomial and then subtracts the total number of
+    polynomials and adds one.
 
     Example:
-        For polynomials [P1,P2,P3] with degree [d1,d2,d3] the function returns d1+d2+d3-3+1
+        For polynomials [P1,P2,P3] with degree [d1,d2,d3] the function
+        returns d1+d2+d3-3+1
+        
     '''
 
-    degree_needed = sum([poly.degree for poly in poly_list]) - len(poly_list) + 1
-    return degree_needed
+    return sum(poly.degree for poly in poly_list) - len(poly_list) + 1
 
 def mon_combos(mon, numLeft, spot = 0):
     '''
