@@ -538,14 +538,12 @@ def row_swap_matrix(matrix):
            [0, 1, 3, 0]])
 
     '''
-
-    rows, columns = np.where(matrix != 0)
-    last_i = -1
     leading_mon_columns = list()
-    for i,j in zip(rows,columns):
-        if i != last_i:
-            leading_mon_columns.append(j)
-            last_i = i
+    lastRow = -1
+    for row,column in zip(*np.where(matrix != 0)):
+        if row != lastRow:
+            leading_mon_columns.append(column)
+            lastRow = row
 
     argsort_list = argsort_inc(leading_mon_columns)[0]
     return matrix[argsort_list]
@@ -838,6 +836,39 @@ def sort_matrix(matrix, matrix_terms):
     ordered_matrix = matrix[:,argsort_list]
     return ordered_matrix, matrix_terms
 
+def slice_top(matrix):
+    ''' Gets the n-d slices needed to slice a matrix into the top corner of another.
+    
+    Parameters
+    ----------
+    coeff : numpy matrix.
+        The matrix of interest.
+    Returns
+    -------
+    slices : list
+        Each value of the list is a slice of the matrix in some dimension. It is exactly the size of the matrix.
+    '''
+    slices = list()
+    for i in matrix.shape:
+        slices.append(slice(0,i))
+    return slices
+
+def slice_bottom(matrix):
+    ''' Gets the n-d slices needed to slice a matrix into the bottom corner of another.
+    
+    Parameters
+    ----------
+    coeff : numpy matrix.
+        The matrix of interest.
+    Returns
+    -------
+    slices : list
+        Each value of the list is a slice of the matrix in some dimension. It is exactly the size of the matrix.
+    '''
+    slices = list()
+    for i in matrix.shape:
+        slices.append(slice(-i,None))
+    return slices
 
 def match_size(a,b):
     '''
@@ -854,7 +885,7 @@ def match_size(a,b):
         Matrixes of equal size and dimension.
     '''
     a_shape, b_shape = list(a.shape), list(b.shape)
-    if len(a_shape) != len(b_shape):
+    if len(a_shape) != len(b_shape): #Makes the dimension sizes equal.
         add_to_shape = 0
         if len(a_shape) < len(b_shape):
             add_to_shape = len(b_shape) - len(a_shape)
@@ -868,16 +899,9 @@ def match_size(a,b):
             b = b.reshape(b_shape)
 
     new_shape = [max(i,j) for i,j in itertools.zip_longest(a.shape, b.shape, fillvalue = 0)] #finds the largest length in each dimension
-    # finds the difference between the largest length and the original shapes in each dimension.
-    add_a = [i-j for i,j in itertools.zip_longest(new_shape, a.shape, fillvalue = 0)]
-    add_b = [i-j for i,j in itertools.zip_longest(new_shape, b.shape, fillvalue = 0)]
-    #create 2 matrices with the number of rows equal to number of dimensions and 2 columns
-    add_a_list = np.zeros((len(new_shape),2))
-    add_b_list = np.zeros((len(new_shape),2))
-    #changes the second column to the values of add_a and add_b.
-    add_a_list[:,1] = add_a
-    add_b_list[:,1] = add_b
-    #uses add_a_list and add_b_list to pad each polynomial appropriately.
-    a = np.pad(a,add_a_list.astype(int),'constant')
-    b = np.pad(b,add_b_list.astype(int),'constant')
-    return a,b
+    
+    a_new = np.zeros(new_shape)
+    a_new[slice_top(a)] = a
+    b_new = np.zeros(new_shape)
+    b_new[slice_top(b)] = b
+    return a_new, b_new

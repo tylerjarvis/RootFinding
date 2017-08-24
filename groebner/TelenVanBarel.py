@@ -6,11 +6,58 @@ from scipy.linalg import lu, qr, solve_triangular, inv, solve, svd, qr_multiply
 from numpy.linalg import cond
 from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 from scipy.sparse import csc_matrix, vstack
-from groebner.utils import Term, row_swap_matrix, fill_size, clean_zeros_from_matrix, triangular_solve, divides, get_var_list, TVBError
+from groebner.utils import Term, row_swap_matrix, fill_size, clean_zeros_from_matrix, triangular_solve, divides, get_var_list, TVBError, slice_top
 import matplotlib.pyplot as plt
 from collections import defaultdict
 import gc
 import time
+
+def TVBcheck(polys, degree, power):
+    '''
+    Checks to see if TVB will run succesfully.
+    '''
+    dim = polys[0].dim
+    if len(polys) != 2 or dim != 2:
+        print("TVBcheck only works for 2 polys in 2 dimensions")
+        return True
+    hasXs = np.zeros(dim)
+    #Make everything behind diagonal 0,
+    diagPolys = list()
+    for poly in polys:
+        diagCoeff = poly.coeff.copy()
+        deg = poly.degree
+        for mon in zip(*np.where(diagCoeff!=0)):
+            if np.sum(mon) != deg:
+                diagCoeff[mon] = 0
+            else:
+                #Checks to see if it's an x^n.
+                if len(np.where(np.array(mon) != 0)[0]) == 1:
+                    hasXs[np.where(np.array(mon) != 0)[0]] = 1
+        if power:
+            diagPolys.append(MultiPower(diagCoeff))
+        else:
+            diagPolys.append(MultiCheb(diagCoeff))
+    if not np.all(hasXs):
+        raise TVBError("Doesn't have all x^n's on diagonal. Do linear transformation")
+    
+    #Now we know all the mons on the Macaulay diagonal will be hit, we just need them to all be pivot columns.
+    
+    matrixRows = list()
+    polySpots = list()
+    for poly in diagPolys:
+        deg = degree  - poly.degree
+        highMons = mon_combosHighest(np.zeros(dim, dtype = int),deg)
+        polySpots.append(len(highMons))
+        for mon in highMons[::-1]:
+            newCoeffMatrix = poly.mon_mult(mon, returnType = 'Matrix')
+            coeffMatrix = np.zeros([degree+1,degree+1])
+            coeffMatrix[slice_top(newCoeffMatrix)] = newCoeffMatrix
+            diagonal = np.rot90(coeffMatrix).diagonal()[::-1]
+            matrixRows.append(diagonal)
+    matrix = np.vstack(matrixRows)
+    Q,R,P = qr(matrix, pivoting = True)
+    if abs(R.diagonal()[-1]) < 1.e-10:
+        raise TVBError("Highest not full Rank. Try adding S Polys.")
 
 def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
     """
@@ -38,15 +85,16 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
 
     poly_coeff_list = []
     degree = find_degree(initial_poly_list)
-
+    dim = initial_poly_list[0].dim
+    
+    #if len(initial_poly_list) == 2 and dim == 2:
+    #    TVBcheck(initial_poly_list, degree, Power)
+    
     for i in initial_poly_list:
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
 
-    matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list)
+    matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list, degree, dim)
         
-    if matrix_shape_stuff[0] > matrix.shape[0]: #The matrix isn't tall enough, these can't all be pivot columns.
-        raise TVBError("HIGHEST NOT FULL RANK. TRY HIGHER DEGREE")
-                
     matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, 
                                                         accuracy = accuracy)    
     matrix = clean_zeros_from_matrix(matrix)
@@ -93,6 +141,24 @@ def find_degree(poly_list):
     for poly in poly_list:
         degree_needed += poly.degree
     return ((degree_needed - len(poly_list)) + 1)
+
+def mon_combosHighest(mon, numLeft, spot = 0):
+    '''
+    Same as mon_combos but only returns highest degree stuff.
+    '''
+    answers = list()
+    if len(mon) == spot+1: #We are at the end of mon, no more recursion.
+        mon[spot] = numLeft
+        answers.append(mon.copy())
+        return answers
+    if numLeft == 0: #Nothing else can be added.
+        answers.append(mon.copy())
+        return answers
+    temp = mon.copy() #Quicker than copying every time inside the loop.
+    for i in range(numLeft+1): #Recursively add to mon further down.
+        temp[spot] = i
+        answers += mon_combosHighest(temp, numLeft-i, spot+1)
+    return answers
 
 def mon_combos(mon, numLeft, spot = 0):
     '''
@@ -151,13 +217,15 @@ def inVarList(term, varList):
             return True
     return False
 
-def sort_matrix_terms(matrix_terms):
-    '''Sorts the matrix_terms by the term order needed for TelenVanBarel reduction.
+def sorted_matrix_terms(degree, dim):
+    '''Finds the matrix_terms sorted in the term order needed for TelenVanBarel reduction.
     So the highest terms come first,the x,y,z etc monomials last.
     Parameters
     ----------
-    matrix_terms : numpy array.
-        Each row is one of the terms in the matrix.
+    degree : int
+        The degree of the TVB Matrix
+    dim : int
+        The dimension of the polynomials going into the matrix.
     Returns
     -------
     matrix_terms : numpy array
@@ -167,96 +235,34 @@ def sort_matrix_terms(matrix_terms):
         those not in the first or third catagory. The third entry is the number of monomials of degree one of a
         single variable, as well as the monomial 1.
     '''
-    highest = list()
-    dim = len(matrix_terms[0])
-    var_list = get_var_list(dim) #All the the xs. Not incuding 1 for now.
-    matrix_termSet = set([tuple(term) for term in matrix_terms])
     
-    #Fill in behind the diagonal. This could be done better.
-    diagonal_degree = np.max([np.sum(term) for term in matrix_terms])
-    possible_mons = mon_combos(np.zeros(dim, dtype = int),diagonal_degree)
+    highest_mons = mon_combosHighest(np.zeros(dim, dtype = int),degree)
+    highest = np.vstack(highest_mons)
     
-    corners = list()
-    for term in matrix_terms:
-        corner = False
-        for var in var_list:
-            varArray = np.array(var)
-            hit = False
-            for i in range(diagonal_degree - np.sum(term)):
-                num = i+1
-                if tuple(num*varArray + term) in matrix_termSet:
-                    corner = False
-                    hit = True
-                    break
-            if not hit:
-                corner = True
-                break
-        if corner:
-            corners.append(term)
-        pass
-    for mon in possible_mons:
-        if tuple(mon) in matrix_termSet:
-            continue
-        bounded = True
-        
-        for var in var_list:
-            varArray = np.array(var)
-            hit = False
-            for i in range(diagonal_degree - np.sum(mon)):
-                num = i+1
-                if tuple(num*varArray + mon) in matrix_termSet:
-                    hit = True
-                    break
-            if not hit:
-                bounded = False
-                break
-        if bounded:
-            print(mon)
-            matrix_termSet.add(tuple(mon))
-            matrix_terms = np.vstack((matrix_terms,mon))    
-    #Done filling
-
-    for i in range(matrix_terms.shape[0]):
-        term = tuple(matrix_terms[i])
-        mons = term + np.array(var_list)
-        if not all(tuple(mon) in matrix_termSet for mon in mons):
-            highest.append(i)
-
-    var_list2 = var_list
-    var_list2.append(np.zeros(dim, dtype=int))
-
-    others = list()
-    for i in range(len(matrix_terms)):
-        term = matrix_terms[i]
-        if not inVarList(term, var_list2) and i not in highest:
-            others.append(i)
-    sorted_matrix_terms = np.vstack((matrix_terms[highest], matrix_terms[others], var_list2))
+    other_mons = list()
+    d = degree - 1
+    while d > 1:
+        other_mons += mon_combosHighest(np.zeros(dim, dtype = int),d)
+        d -= 1
+    others = np.vstack(other_mons)
     
-    return sorted_matrix_terms, tuple([len(highest),len(others),len(var_list)])
+    xs_mons = mon_combos(np.zeros(dim, dtype = int),1)
+    xs = np.vstack(xs_mons)
+    
+    sorted_matrix_terms = np.vstack((highest,others,xs))
+    return sorted_matrix_terms, tuple([len(highest),len(others),len(xs)])
 
-def coeff_slice(coeff):
-    ''' Gets the n-d slices that corespond to the dimenison of a coeff matrix.
-    Parameters
-    ----------
-    coeff : numpy matrix.
-        The matrix of interest.
-    Returns
-    -------
-    slices : list
-        Each value of the list is a slice of the matrix in some dimension. It is exactly the size of the matrix.
-    '''
-    slices = list()
-    for i in coeff.shape:
-        slices.append(slice(0,i))
-    return slices
-
-def create_matrix(poly_coeffs):
+def create_matrix(poly_coeffs, degree, dim):
     ''' Builds a Telen Van Barel matrix.
 
     Parameters
     ----------
     poly_coeffs : list.
         Contains numpy arrays that hold the coefficients of the polynomials to be put in the matrix.
+    degree : int
+        The degree of the TVB Matrix
+    dim : int
+        The dimension of the polynomials going into the matrix.
     Returns
     -------
     matrix : 2D numpy array
@@ -264,16 +270,7 @@ def create_matrix(poly_coeffs):
     '''
     bigShape = np.maximum.reduce([p.shape for p in poly_coeffs])
 
-    #Finds the matrix terms.
-    non_zeroSet = set()
-    for coeff in poly_coeffs:
-        for term in zip(*np.where(coeff != 0)):
-            non_zeroSet.add(term)
-    matrix_terms = np.array(non_zeroSet.pop())
-    for term in non_zeroSet:
-        matrix_terms = np.vstack((matrix_terms,term))
-
-    matrix_terms, matrix_shape_stuff = sort_matrix_terms(matrix_terms)
+    matrix_terms, matrix_shape_stuff = sorted_matrix_terms(degree, dim)
 
     #Get the slices needed to pull the matrix_terms from the coeff matrix.
     matrix_term_indexes = list()
@@ -284,14 +281,17 @@ def create_matrix(poly_coeffs):
     added_zeros = np.zeros(bigShape)
     flat_polys = list()
     for coeff in poly_coeffs:
-        slices = coeff_slice(coeff)
+        slices = slice_top(coeff)
         added_zeros[slices] = coeff
         flat_polys.append(added_zeros[matrix_term_indexes])
         added_zeros[slices] = np.zeros_like(coeff)
 
     #Make the matrix
     matrix = np.vstack(flat_polys[::-1])
-
+    
+    if matrix_shape_stuff[0] > matrix.shape[0]: #The matrix isn't tall enough, these can't all be pivot columns.
+        raise TVBError("HIGHEST NOT FULL RANK. TRY HIGHER DEGREE")
+    
     #Sorts the rows of the matrix so it is close to upper triangular.
     matrix = row_swap_matrix(matrix)
     return matrix, matrix_terms, matrix_shape_stuff
@@ -328,12 +328,21 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, accuracy 
     highest_num = matrix_shape_stuff[0]
     others_num = matrix_shape_stuff[1]
     xs_num = matrix_shape_stuff[2]
-
+    
+    '''
+    #Try going down to halfway down the matrix. Faster, but if not full rank may cause problems.
+    half = min(matrix.shape[0]//2, (highest_num + others_num)//2)
+    diff = half - highest_num
+    if diff > 0 and diff < others_num:
+        highest_num += diff
+        others_num -= diff
+    '''
+    
     #RRQR reduces A and D sticking the result in it's place.
     Q1,matrix[:,:highest_num],P1 = qr(matrix[:,:highest_num], pivoting = True)
     
-    if abs(matrix[:,:highest_num].diagonal()[-1]) < accuracy:
-        raise TVBError("HIGHEST NOT FULL RANK")
+    #if abs(matrix[:,:highest_num].diagonal()[-1]) < accuracy:
+    #    raise TVBError("HIGHEST NOT FULL RANK")
             
     #Multiplying the rest of the matrix by Q.T
     matrix[:,highest_num:] = Q1.T@matrix[:,highest_num:]
@@ -367,8 +376,7 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy
     ''' Reduces a Telen Van Barel Macaulay matrix.
 
     This function does the same thing as rrqr_reduceTelenVanBarel but uses qr_multiply instead of qr and a multiplication
-    to make the function faster and more memory efficient. It could be less stable, but I haven't seen any stability
-    problems while running it.
+    to make the function faster and more memory efficient.
 
     Parameters
     ----------
@@ -381,6 +389,8 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy
         Terrible name I know. It has 3 values, the first is how many columnns are in the
         'highest' part of the matrix. The second is how many are in the 'others' part of
         the matrix, and the third is how many are in the 'xs' part.
+    accuracy : float
+        What is determined to be 0.
     Returns
     -------
     matrix : numpy array
