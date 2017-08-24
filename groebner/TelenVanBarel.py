@@ -84,16 +84,26 @@ def makeBasisDict(matrix, matrix_terms, VB):
     return basisDict
 
 def find_degree(poly_list):
-    '''
-    Takes a list of polynomials and finds the degree needed for a Macaulay
-    matrix.
-    Adds the degree of each polynomial and then subtracts the total number of
-    polynomials and adds one.
+    '''Finds the degree needed for the Macaulay matrix.
 
-    Example:
-        For polynomials [P1,P2,P3] with degree [d1,d2,d3] the function
-        returns d1+d2+d3-3+1
-        
+    Parameters
+    ----------
+    poly_list : list, contains polynomial objects
+        The polynomials from which to make the Macaulay matrix
+
+    Returns
+    -------
+    int
+        The necessary degree of the Macaulay matrix
+
+    Notes
+    -----
+    The formula for finding the degree of the Macaulay matrix is
+    .. math::
+        \sum{d_i} - (n - 1)
+    Where d_i is the degree of each polynomial in poly_list, and n is the
+    total number of polynomials in poly_list.
+
     '''
 
     return sum(poly.degree for poly in poly_list) - len(poly_list) + 1
