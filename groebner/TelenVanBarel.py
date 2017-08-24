@@ -61,8 +61,9 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
 
 def makeBasisDict(matrix, matrix_terms, VB):
     '''
-    Take a matrix that has been traingular solved and returns a dictionary mapping the pivot columns terms
-    behind them, all of which will be in the vector basis. All the matrixes that are mapped to will be the same shape.
+    Take a matrix that has been traingular solved and returns a dictionary
+    mapping the pivot columns terms behind them, all of which will be in the
+    vector basis. All the matrixes that are mapped to will be the same shape.
     '''
     remainder_shape = np.maximum.reduce([mon for mon in VB])
     remainder_shape += np.ones_like(remainder_shape)
@@ -90,10 +91,9 @@ def find_degree(poly_list):
     Example:
         For polynomials [P1,P2,P3] with degree [d1,d2,d3] the function returns d1+d2+d3-3+1
     '''
-    degree_needed = 0
-    for poly in poly_list:
-        degree_needed += poly.degree
-    return ((degree_needed - len(poly_list)) + 1)
+
+    degree_needed = sum([poly.degree for poly in poly_list]) - len(poly_list) + 1
+    return degree_needed
 
 def mon_combos(mon, numLeft, spot = 0):
     '''
