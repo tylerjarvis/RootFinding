@@ -2,6 +2,7 @@
 import numpy as np
 from scipy.linalg import lu, qr, solve_triangular
 import heapq
+import itertools
 
 class InstabilityWarning(Warning):
     pass
@@ -836,3 +837,47 @@ def sort_matrix(matrix, matrix_terms):
     argsort_list, matrix_terms = argsort_dec(matrix_terms)
     ordered_matrix = matrix[:,argsort_list]
     return ordered_matrix, matrix_terms
+
+
+def match_size(a,b):
+    '''
+    Matches the shape of two matrixes. 
+
+    Parameters
+    ----------
+    a, b : ndarray
+        Matrixes whose size is to be matched.
+
+    Returns
+    -------
+    a, b : ndarray
+        Matrixes of equal size and dimension.
+    '''
+    a_shape, b_shape = list(a.shape), list(b.shape)
+    if len(a_shape) != len(b_shape):
+        add_to_shape = 0
+        if len(a_shape) < len(b_shape):
+            add_to_shape = len(b_shape) - len(a_shape)
+            for i in range(add_to_shape):
+                a_shape.insert(0,1)
+            a = a.reshape(a_shape)
+        else:
+            add_to_shape = len(a_shape) - len(b_shape)
+            for i in range(add_to_shape):
+                b_shape.insert(0,1)
+            b = b.reshape(b_shape)
+
+    new_shape = [max(i,j) for i,j in itertools.zip_longest(a.shape, b.shape, fillvalue = 0)] #finds the largest length in each dimension
+    # finds the difference between the largest length and the original shapes in each dimension.
+    add_a = [i-j for i,j in itertools.zip_longest(new_shape, a.shape, fillvalue = 0)]
+    add_b = [i-j for i,j in itertools.zip_longest(new_shape, b.shape, fillvalue = 0)]
+    #create 2 matrices with the number of rows equal to number of dimensions and 2 columns
+    add_a_list = np.zeros((len(new_shape),2))
+    add_b_list = np.zeros((len(new_shape),2))
+    #changes the second column to the values of add_a and add_b.
+    add_a_list[:,1] = add_a
+    add_b_list[:,1] = add_b
+    #uses add_a_list and add_b_list to pad each polynomial appropriately.
+    a = np.pad(a,add_a_list.astype(int),'constant')
+    b = np.pad(b,add_b_list.astype(int),'constant')
+    return a,b

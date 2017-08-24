@@ -5,6 +5,7 @@ from groebner.utils import Term, makePolyCoeffMatrix
 from numpy.polynomial import chebyshev as cheb
 from numpy.polynomial import polynomial as poly
 import math
+from groebner.utils import match_size
 
 class Polynomial(object):
     '''
@@ -105,75 +106,6 @@ class Polynomial(object):
                 if np.sum(abs(self.coeff[slices])) == 0:
                     self.coeff = np.delete(self.coeff,-1,axis=axis)
                     change = True
-
-    def match_size(self,a,b):
-        '''
-        Matches the shape of the matrixes of two polynomials. 
-        
-        Parameters
-        ----------
-        a, b : ndarray
-            Coefficients of polynomials a, b
-            
-        Returns
-        -------
-        a, b : ndarray
-            Coefficients of padded polynomials a, b
-            
-        Notes
-        -----
-        This might not be the best place for it.
-        '''
-        a_shape, b_shape = list(a.shape), list(b.shape)
-        if len(a_shape) != len(b_shape):
-            add_to_shape = 0
-            if len(a_shape) < len(b_shape):
-                add_to_shape = len(b_shape) - len(a_shape)
-                for i in range(add_to_shape):
-                    a_shape.insert(0,1)
-                a = a.reshape(a_shape)
-            else:
-                add_to_shape = len(a_shape) - len(b_shape)
-                for i in range(add_to_shape):
-                    b_shape.insert(0,1)
-                b = b.reshape(b_shape)
-
-        new_shape = [max(i,j) for i,j in itertools.zip_longest(a.shape, b.shape, fillvalue = 0)] #finds the largest length in each dimension
-        # finds the difference between the largest length and the original shapes in each dimension.
-        add_a = [i-j for i,j in itertools.zip_longest(new_shape, a.shape, fillvalue = 0)]
-        add_b = [i-j for i,j in itertools.zip_longest(new_shape, b.shape, fillvalue = 0)]
-        #create 2 matrices with the number of rows equal to number of dimensions and 2 columns
-        add_a_list = np.zeros((len(new_shape),2))
-        add_b_list = np.zeros((len(new_shape),2))
-        #changes the second column to the values of add_a and add_b.
-        add_a_list[:,1] = add_a
-        add_b_list[:,1] = add_b
-        #uses add_a_list and add_b_list to pad each polynomial appropriately.
-        a = np.pad(a,add_a_list.astype(int),'constant')
-        b = np.pad(b,add_b_list.astype(int),'constant')
-        return a,b
-
-    def monomialList(self):
-        '''
-        Returns
-        -------
-        monomials : list
-            list of monomials that make up the polynomial in degrevlex order
-        '''
-        monomialTerms = list()
-        for i in zip(*np.where(self.coeff != 0)):
-            monomialTerms.append(Term(i))
-        monomialTerms.sort()
-
-        monomials = list()
-        for i in monomialTerms[::-1]:
-            monomials.append(i.val)
-
-        self.sortedMonomials = monomials
-        return monomials
-
-    def monSort(self):
-        self.sortedMonomials = self.monomialList()
 
     def update_lead_term(self):
         non_zeros = list()
@@ -290,7 +222,7 @@ class MultiCheb(Polynomial):
 
         '''
         if self.shape != other.shape:
-            new_self, new_other = self.match_size(self.coeff,other.coeff)
+            new_self, new_other = match_size(self.coeff,other.coeff)
         else:
             new_self, new_other = self.coeff, other.coeff
 
@@ -310,7 +242,7 @@ class MultiCheb(Polynomial):
             The coeff values are the result of self.coeff - other.coeff.
         '''
         if self.shape != other.shape:
-            new_self, new_other = self.match_size(self.coeff,other.coeff)
+            new_self, new_other = match_size(self.coeff,other.coeff)
         else:
             new_self, new_other = self.coeff, other.coeff
         return MultiCheb((new_self - (new_other)), clean_zeros = False)
@@ -559,7 +491,7 @@ class MultiPower(Polynomial):
 
         '''
         if self.shape != other.shape:
-            new_self, new_other = self.match_size(self.coeff,other.coeff)
+            new_self, new_other = match_size(self.coeff,other.coeff)
         else:
             new_self, new_other = self.coeff, other.coeff
         return MultiPower((new_self + new_other), clean_zeros = False)
@@ -579,7 +511,7 @@ class MultiPower(Polynomial):
 
         '''
         if self.shape != other.shape:
-            new_self, new_other = self.match_size(self.coeff,other.coeff)
+            new_self, new_other = match_size(self.coeff,other.coeff)
         else:
             new_self, new_other = self.coeff, other.coeff
         return MultiPower((new_self - (new_other)), clean_zeros = False)
@@ -599,7 +531,7 @@ class MultiPower(Polynomial):
 
         '''
         if self.shape != other.shape:
-            new_self, new_other = self.match_size(self.coeff,other.coeff)
+            new_self, new_other = match_size(self.coeff,other.coeff)
         else:
             new_self, new_other = self.coeff, other.coeff
 
@@ -657,16 +589,15 @@ class MultiPower(Polynomial):
         ndarray if returnType is 'Matrix'
         '''
         mon = np.array(mon)
-        tuple1 = []
-        for i in mon:
-            list1 = (i,0)
-            tuple1.append(list1)
+        result = np.zeros(self.shape + mon)
+        slices = list()
+        for i in self.shape:
+            slices.append(slice(-i,None))
+        result[slices] = self.coeff
         if returnType == 'Poly':
-            poly = MultiPower(np.pad(self.coeff, tuple1, 'constant', constant_values = 0),
-                          clean_zeros = False, lead_term = self.lead_term + mon)
-            return poly
+            return MultiPower(result, clean_zeros = False, lead_term = self.lead_term + mon)
         elif returnType == 'Matrix':
-            return np.pad(self.coeff, tuple1, 'constant', constant_values = 0)
+            return result
 
     def evaluate_at(self, point):
         """
