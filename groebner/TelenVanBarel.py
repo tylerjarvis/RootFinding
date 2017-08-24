@@ -12,21 +12,25 @@ from collections import defaultdict
 import gc
 import time
 
-def TelenVanBarel(initial_poly_list, global_accuracy = 1.e-10):
-    """
+def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
+    '''
     Macaulay will take a list of polynomials and use them to construct a Macaulay matrix.
 
-    parameters
+    Parameters
     --------
     initial_poly_list: A list of polynomials
-    global_accuracy: How small we want a number to be before assuming it is zero.
-    --------
+    accuracy: float
+        How small we want a number to be before assuming it is zero.
 
     Returns
     -----------
-    Reduced Macaulay matrix that can be passed into the root finder.
-    -----------
-    """
+    basis_dict : dictionary
+        Maps terms on the diagonal of the TvB matrix to their representation
+        in the vector space basis
+    VB : ?
+        Monomials representing the vector space basis
+
+    '''
     Power = bool
     if all([type(p) == MultiPower for p in initial_poly_list]):
         Power = True
@@ -45,15 +49,15 @@ def TelenVanBarel(initial_poly_list, global_accuracy = 1.e-10):
     matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list)
 
     matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff,
-                                                        global_accuracy = global_accuracy)
+                                                        global_accuracy = accuracy)
     matrix = clean_zeros_from_matrix(matrix)
 
     matrix, matrix_terms = triangular_solve(matrix, matrix_terms, reorder = False)
     matrix = clean_zeros_from_matrix(matrix)
 
     VB = matrix_terms[matrix.shape[0]:]
-    basisDict = makeBasisDict(matrix, matrix_terms, VB)
-    return basisDict, VB
+    basis_dict = makeBasisDict(matrix, matrix_terms, VB)
+    return basis_dict, VB
 
 def makeBasisDict(matrix, matrix_terms, VB):
     '''
