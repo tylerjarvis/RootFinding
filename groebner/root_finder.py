@@ -78,7 +78,7 @@ def roots(polys, method = 'Groebner'):
     eig = e[1]
     num_vectors = eig.shape[1]
         
-    eig_vectors = [eig[:,i].tolist() for i in range(num_vectors)] # columns of eig
+    eig_vectors = [eig[:,i] for i in range(num_vectors)] # columns of eig
     roots = []
     for v in eig_vectors:
         if v[var_dict[tuple(0 for i in range(dim))]] == 0:
