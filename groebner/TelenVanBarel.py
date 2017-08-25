@@ -20,8 +20,9 @@ def TVBcheck(polys, degree, power):
     if len(polys) != 2 or dim != 2:
         print("TVBcheck only works for 2 polys in 2 dimensions")
         return True
+    
     hasXs = np.zeros(dim)
-    #Make everything behind diagonal 0,
+    #Make everything behind the diagonal 0,
     diagPolys = list()
     for poly in polys:
         diagCoeff = poly.coeff.copy()
@@ -87,8 +88,8 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
     degree = find_degree(initial_poly_list)
     dim = initial_poly_list[0].dim
     
-    #if len(initial_poly_list) == 2 and dim == 2:
-    #    TVBcheck(initial_poly_list, degree, Power)
+    if len(initial_poly_list) == 2 and dim == 2:
+        TVBcheck(initial_poly_list, degree, Power)
     
     for i in initial_poly_list:
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)

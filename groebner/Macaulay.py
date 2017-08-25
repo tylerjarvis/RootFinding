@@ -6,7 +6,7 @@ from scipy.linalg import lu, qr, solve_triangular, inv, solve, svd
 from numpy.linalg import cond
 from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 from scipy.sparse import csc_matrix, vstack
-from groebner.utils import Term, row_swap_matrix, fill_size, clean_zeros_from_matrix, inverse_P, triangular_solve, divides, argsort_dec
+from groebner.utils import Term, row_swap_matrix, fill_size, clean_zeros_from_matrix, inverse_P, triangular_solve, divides, argsort_dec, slice_top
 import matplotlib.pyplot as plt
 from collections import defaultdict
 import groebner.utils as utils
@@ -231,23 +231,6 @@ def sort_matrix_terms(matrix_terms):
     argsort_list, termList = argsort_dec(termList)
     return matrix_terms[argsort_list]
 
-def coeff_slice(coeff):
-    ''' Gets the n-d slices that corespond to the dimenison of a coeff matrix.
-    
-    Parameters
-    ----------
-    coeff : numpy.matrix
-        The matrix of interest.
-    Returns
-    -------
-    slices : list
-        Each value of the list is a slice of the matrix in some dimension. It is exactly the size of the matrix.
-    '''
-    slices = list()
-    for i in coeff.shape:
-        slices.append(slice(0,i))
-    return slices
-
 def create_matrix(poly_coeffs):
     ''' Builds a Macaulay matrix.
 
@@ -282,7 +265,7 @@ def create_matrix(poly_coeffs):
     added_zeros = np.zeros(bigShape)
     flat_polys = list()
     for coeff in poly_coeffs:
-        slices = coeff_slice(coeff)
+        slices = slice_top(coeff)
         added_zeros[slices] = coeff
         flat_polys.append(added_zeros[matrix_term_indexes])
         added_zeros[slices] = np.zeros_like(coeff)

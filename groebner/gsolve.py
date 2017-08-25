@@ -13,7 +13,7 @@ from scipy.sparse import csc_matrix, vstack
 import matplotlib.pyplot as plt
 from collections import defaultdict
 import warnings
-from groebner.utils import InstabilityWarning
+from groebner.utils import InstabilityWarning, slice_top
 
 def F4(polys, reducedGroebner = True, accuracy = 1.e-10, phi = True):
     '''Uses the F4 algorithm to find a Groebner Basis.
@@ -377,23 +377,6 @@ def sort_matrix_terms(matrix_terms):
     argsort_list, termList = utils.argsort_dec(termList)
     return matrix_terms[argsort_list]
 
-def coeff_slice(coeff):
-    ''' Gets the n-d slices that corespond to the dimenison of a coeff matrix.
-    Parameters
-    ----------
-    coeff : numpy.matrix
-        The input matrix.
-        
-    Returns
-    -------
-    slices : list
-        Each value of the list is a slice of the matrix in some dimension. It is exactly the size of the matrix.
-    '''
-    slices = list()
-    for i in coeff.shape:
-        slices.append(slice(0,i))
-    return slices
-
 def create_matrix(matrix_polys, matrix_terms = None):
     ''' Builds a Macaulay matrix.
 
@@ -434,7 +417,7 @@ def create_matrix(matrix_polys, matrix_terms = None):
     flat_polys = list()
     for poly in matrix_polys:
         coeff = poly.coeff
-        slices = coeff_slice(coeff)
+        slices = slice_top(coeff)
         added_zeros[slices] = coeff
         flat_polys.append(added_zeros[matrix_term_indexes])
         added_zeros[slices] = np.zeros_like(coeff)

@@ -5,7 +5,7 @@ from groebner.utils import Term, makePolyCoeffMatrix
 from numpy.polynomial import chebyshev as cheb
 from numpy.polynomial import polynomial as poly
 import math
-from groebner.utils import match_size
+from groebner.utils import match_size, slice_top, slice_bottom
 
 class Polynomial(object):
     '''
@@ -335,10 +335,7 @@ class MultiCheb(Polynomial):
         """
         
         p1 = np.zeros(initial_matrix.shape + idx)
-        slices = list()
-        for i in initial_matrix.shape:
-            slices.append(slice(-i,None))
-        p1[slices] = initial_matrix
+        p1[slice_bottom(initial_matrix)] = initial_matrix
 
         largest_idx = [i-1 for i in initial_matrix.shape]
         new_shape = [max(i,j) for i,j in itertools.zip_longest(largest_idx, idx, fillvalue = 0)] #finds the largest length in each dimmension
@@ -361,10 +358,7 @@ class MultiCheb(Polynomial):
             idx = [i-j for i,j in zip(p1.shape,initial_matrix.shape)]
             
             result = np.zeros(np.array(initial_matrix.shape) + idx)
-            slices = list()
-            for i in initial_matrix.shape:
-                slices.append(slice(0,i))
-            result[slices] = initial_matrix
+            result[slice_top(initial_matrix)] = initial_matrix
             initial_matrix = result            
         Pf = p1 + initial_matrix
         return .5*Pf
@@ -592,10 +586,7 @@ class MultiPower(Polynomial):
         '''
         mon = np.array(mon)
         result = np.zeros(self.shape + mon)
-        slices = list()
-        for i in self.shape:
-            slices.append(slice(-i,None))
-        result[slices] = self.coeff
+        result[slice_bottom(self.coeff)] = self.coeff
         if returnType == 'Poly':
             return MultiPower(result, clean_zeros = False, lead_term = self.lead_term + mon)
         elif returnType == 'Matrix':
