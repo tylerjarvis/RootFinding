@@ -96,66 +96,6 @@ class Term_w_InvertedOrder(Term):
     def __repr__(self):
         return str(list(self.val)) + ' with inverted grevlex order'
 
-
-class MaxHeap(object):
-    '''
-    Implementation of a set max-priority queue--one that only adds
-    terms to the queue if they aren't there already
-
-    Incoming and outgoing objects are all Terms (not Term_w_InvertedOrder)
-    '''
-
-    def __init__(self):
-        self.h = []         # empty heap
-        self._set = set()   # empty set (of things already in the heap)
-
-    def heappush(self, x):
-        if not x.val in self._set:       # check if already in the set
-            x = Term_w_InvertedOrder(x)
-            heapq.heappush(self.h,x)     # push with InvertedOrder
-            self._set.add(x.val)         # but use the tuple in the set (it is easily hashable)
-
-    def heappop(self):
-        term = heapq.heappop(self.h).term   # only keep the original term--without the InvertedOrder
-        self._set.discard(term.val)
-        return term
-
-    def __getitem__(self, i):
-        return self.h[i].term
-
-    def __len__(self):
-        return len(self.h)
-
-    def __repr__(self):
-        return('A max heap of {} unique terms with the DegRevLex term order.'.format(len(self)))
-
-class MinHeap(MaxHeap):
-    '''
-    Implementation of a set min-priorioty queue.
-    '''
-    def heappush(self,x):
-        ## Same as MaxHeap push, except that the term order is not inverted
-        if not x in self._set:
-            heapq.heappush(self.h, x)
-            self._set.add(x)
-        else:
-            pass
-
-    def heappop(self):
-        ''' Same as MaxHeap pop except that the term itself IS the underlying term.
-        '''
-        term = heapq.heappop(self.h)
-        self._set.discard(term.val)
-        return term
-
-    def __getitem__(self, i):
-        ''' Same as MaxHeap getitem except that the term itself IS the underlying term.
-        '''
-        return self.h[i]
-
-    def __repr__(self):
-        return('A min heap of {} unique terms with the DegRevLex term order.'.format(len(self)))
-
 def argsort_dec(list_):
     '''Sort the given list into decreasing order.
 
@@ -199,45 +139,6 @@ def argsort_inc(list_):
     argsort_list = sorted(range(len(list_)), key=list_.__getitem__)
     list_.sort()
     return argsort_list, list_
-
-def clean_matrix(matrix, matrix_terms, set_zeros=False, accuracy=1.e-10):
-    '''Removes columns in the matrix that are all zero along with associated
-    terms in matrix_terms.
-
-    Parameters
-    ----------
-    matrix : 2D numpy array
-        The matrix with rows corresponding to polynomials, columns corresponding
-        to monomials, and entries corresponding to coefficients.
-    matrix_terms : array-like, contains Term objects
-        The column labels for matrix in order.
-    set_zeros : bool, optional
-        If true, all entries in the matrix that are within accuracy of 0 will
-        be set to 0.
-    accuracy : float, optional
-        How close entries should be to 0 for them to be set to 0 (only applies
-        if set_zeros is True).
-
-    Returns
-    -------
-    matrix : 2D numpy array
-        Same matrix as input but with all 0 columns removed.
-    matrix_terms : array-like, contains Term objects
-        Same as input but with entries corresponding to 0 columns in the matrix
-        removed.
-
-    '''
-
-    ##This would replace all small values in the matrix with 0.
-    if set_zeros:
-        matrix = clean_zeros_from_matrix(matrix, accuracy=accuracy)
-
-    #Removes all 0 monomials
-    non_zero_monomial = np.sum(abs(matrix), axis=0) != 0
-    matrix = matrix[:,non_zero_monomial] #only keeps the non_zero_monomials
-    matrix_terms = matrix_terms[non_zero_monomial]
-
-    return matrix, matrix_terms
 
 def clean_zeros_from_matrix(array, accuracy=1.e-10):
     '''Sets all values in the array less than the given accuracy to 0.
@@ -548,25 +449,6 @@ def row_swap_matrix(matrix):
     argsort_list = argsort_inc(leading_mon_columns)[0]
     return matrix[argsort_list]
 
-
-def fill_size(bigShape,smallPolyCoeff):
-    '''
-    Pads the smallPolyCoeff so it has the same shape as bigShape. Does this by making a matrix with the shape of
-    bigShape and then dropping smallPolyCoeff into the top of it with slicing.
-    Returns the padded smallPolyCoeff.
-    '''
-    if (smallPolyCoeff.shape == bigShape).all():
-        return smallPolyCoeff
-
-    matrix = np.zeros(bigShape)
-
-    slices = list()
-    for i in smallPolyCoeff.shape:
-        s = slice(0,i)
-        slices.append(s)
-    matrix[slices] = smallPolyCoeff
-    return matrix
-
 def get_var_list(dim):
     '''Returns a list of the variables [x_1, x_2, ..., x_n] as tuples.'''
     _vars = []
@@ -805,36 +687,6 @@ def makePolyCoeffMatrix(inputString):
         coefficient = coefficients[i]
         matrix[tuple(matrixSpot)] = coefficient
     return matrix
-
-def sort_matrix(matrix, matrix_terms):
-    '''Sort matrix columns by some term order.
-
-    Sorts the matrix columns into whichever order is defined on the term objects
-    in matrix_terms (usually grevlex).
-
-    Parameters
-    ----------
-    matrix : 2D numpy array
-        The matrix with rows corresponding to polynomials, columns
-        corresponding to monomials, and each entry is a coefficient.
-    matrix_terms : array-like, contains Term objects
-        Contains the monomial labels for the matrix columns in order, i.e., if
-        the first column of matrix corresponds to the monomial x^2, then
-        matrix_terms[0] is Term(x^2).
-
-    Returns
-    -------
-    ordered_matrix : 2D numpy array
-        The same matrix as was input, but now with the columns switched so they
-        are in order.
-    matrix_terms : array-like, contains Term objects
-        Same as the input, but now ordered.
-
-    '''
-
-    argsort_list, matrix_terms = argsort_dec(matrix_terms)
-    ordered_matrix = matrix[:,argsort_list]
-    return ordered_matrix, matrix_terms
 
 def slice_top(matrix):
     ''' Gets the n-d slices needed to slice a matrix into the top corner of another.

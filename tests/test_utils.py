@@ -138,29 +138,6 @@ def test_sorted_polys_monomial():
                          [3,-3,-5,-2,0,4,-2,2,1,-6]]))
     assert(list((C,B,D,F,A,E)) == sorted_polys_monomial([F,B,D,E,C,A]))
 
-def test_push_pop():
-    a0 = Term((0,0,1,0,0))
-    a1 = Term((0,1,1,3,1))
-    a2 = Term((0,1,1,3,0,0,0,1))
-    a3 = Term((2,2,2,3,4,1,4,3))
-    a4 = Term((0,1,1,2,2))
-    maxh = MaxHeap()
-    maxh.heappush(a1)
-    maxh.heappush(a3)
-    maxh.heappush(a0)
-    maxh.heappush(a2)
-    maxh.heappush(a4)
-    assert maxh.heappop() == a3
-    assert maxh.heappop() == a2
-
-    maxh.heappush(a3)
-    maxh.heappush(a3)
-
-    assert maxh.heappop() == a3
-    assert maxh.heappop() == a1
-    assert maxh.heappop() == a4
-    assert maxh.heappop() == a0
-
 def test_sorted_polys_coeff():
     A = MultiPower(np.array([[2,0,-3,0,0],
                          [0,1,0,0,0],
@@ -177,3 +154,28 @@ def test_sorted_polys_coeff():
 
     C = MultiPower(np.array([[1]]))
     assert(list((C,A,B)) == ut.sorted_polys_coeff([A,B,C]))
+
+def test_makePolyCoeffMatrix():
+    A = MultiPower('1')
+    B = MultiPower(np.array([1]))
+    assert (A.coeff==B.coeff).all()
+    
+    A = MultiPower('x0+x1+x0*x1')
+    B = MultiPower(np.array([[0,1],[1,1]]))
+    assert (A.coeff==B.coeff).all()
+
+    A = MultiPower('-4.7x0*x1+2x1+5x0+-3')
+    B = MultiPower(np.array([[-3,2],[5,-4.7]]))
+    assert (A.coeff==B.coeff).all()
+
+    A = MultiPower('x0^2+-x1^2')
+    B = MultiPower(np.array([[0,0,-1],[0,0,0],[1,0,0]]))
+    assert (A.coeff==B.coeff).all()
+
+    A = MultiPower('x0+x1+x2+x3')
+    B = MultiPower(np.array(
+        [[[[0,1],[1,0]],
+          [[1,0],[0,0]]],
+         [[[1,0],[0,0]],
+          [[0,0],[0,0]]]]))
+    assert (A.coeff==B.coeff).all()

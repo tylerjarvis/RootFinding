@@ -6,7 +6,7 @@ from scipy.linalg import lu, qr, solve_triangular, inv, solve, svd
 from numpy.linalg import cond
 from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 from scipy.sparse import csc_matrix, vstack
-from groebner.utils import Term, row_swap_matrix, fill_size, clean_zeros_from_matrix, inverse_P, triangular_solve, divides, argsort_dec, slice_top
+from groebner.utils import Term, row_swap_matrix, clean_zeros_from_matrix, inverse_P, triangular_solve, divides, argsort_dec, slice_top
 import matplotlib.pyplot as plt
 from collections import defaultdict
 import groebner.utils as utils

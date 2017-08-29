@@ -6,7 +6,7 @@ from scipy.linalg import lu, qr, solve_triangular, inv, solve, svd, qr_multiply
 from numpy.linalg import cond
 from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 from scipy.sparse import csc_matrix, vstack
-from groebner.utils import Term, row_swap_matrix, fill_size, clean_zeros_from_matrix, triangular_solve, divides, get_var_list, TVBError, slice_top, get_var_list
+from groebner.utils import Term, row_swap_matrix, clean_zeros_from_matrix, triangular_solve, divides, get_var_list, TVBError, slice_top, get_var_list
 import matplotlib.pyplot as plt
 from collections import defaultdict
 import gc
@@ -40,6 +40,7 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
     degree = find_degree(initial_poly_list)
     dim = initial_poly_list[0].dim
     
+    
     #Checks to make sure TVB will work.
     if not has_top_xs(initial_poly_list):
         raise TVBError("Doesn't have all x^n's on diagonal. Do linear transformation")
@@ -48,6 +49,7 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
         print(S.coeff)
         initial_poly_list.append(S)
         degree = find_degree(initial_poly_list)
+    
     
     for i in initial_poly_list:
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
@@ -62,6 +64,10 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
     matrix = clean_zeros_from_matrix(matrix)
 
     VB = matrix_terms[matrix.shape[0]:]
+    Others = matrix_terms[:matrix.shape[0]]
+    
+    plt.plot(Others[:,0], Others[:,1], 'o', markersize = 5, alpha = 1)
+    
     basisDict = makeBasisDict(matrix, matrix_terms, VB)
     return basisDict, VB
 
