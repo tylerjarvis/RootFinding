@@ -542,3 +542,59 @@ def _match_poly_dim(poly1, poly2):
             poly2 = MultiCheb(coeff_reshaped)
 
     return poly1, poly2
+
+def newton_polish(polys,root,niter=100,tol=1e-5):
+    """
+    Perform Newton's method on a system of N polynomials in M variables.
+    
+    Parameters
+    ----------
+    polys : list
+        A list of polynomial objects of the same type (MultiPower or MultiCheb).
+    root : ndarray
+        An initial guess for Newton's method, intended to be a candidate root from root_finder.
+    niter : int 
+        A maximum number of iterations of Newton's method.
+    tol : float
+        Tolerance for convergence of Newton's method.
+        
+    Returns
+    -------
+    x1 : ndarray
+        The terminal point of Newton's method, an estimation for a root of the system
+    """
+        poly_type = ''
+    if (all(type(p) == MultiCheb for p in polys)):
+        poly_type = 'MultiCheb'
+    elif (all(type(p) == MultiPower for p in polys)):
+        poly_type = 'MultiPower'
+    else:
+        raise ValueError('All polynomials must be the same type')
+        
+    def f(x):
+        m = len(polys)
+        f_x = np.empty(m)
+        for i, poly in enumerate(polys):
+            f_x[i] = poly.evaluate_at(x)
+        return f_x
+        
+    def Df(x):
+        m = len(polys)
+        dim = max(poly.dim for poly in polys)
+        jac = np.empty((m,dim))
+        for i, poly in enumerate(polys):
+            jac[i] = poly.grad(x)
+        return jac
+        
+    i = 0
+    x0 = root
+    while True:
+        if i == niter:
+            break
+        delta = np.linalg.solve(Df(x0),-f(x0))
+        x1 = delta + x0
+        if np.linalg.norm(x1-x0) < tol:
+            break
+        x0 = x1
+        i+=1
+    return x1
