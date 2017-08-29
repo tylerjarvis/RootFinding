@@ -6,65 +6,17 @@ from scipy.linalg import lu, qr, solve_triangular, inv, solve, svd, qr_multiply
 from numpy.linalg import cond
 from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 from scipy.sparse import csc_matrix, vstack
-from groebner.utils import Term, row_swap_matrix, fill_size, clean_zeros_from_matrix, triangular_solve, divides, get_var_list, TVBError, slice_top
+from groebner.utils import Term, row_swap_matrix, fill_size, clean_zeros_from_matrix, triangular_solve, divides, get_var_list, TVBError, slice_top, get_var_list
 import matplotlib.pyplot as plt
 from collections import defaultdict
 import gc
 import time
 
-def TVBcheck(polys, degree, power):
-    '''
-    Checks to see if TVB will run succesfully.
-    '''
-    dim = polys[0].dim
-    if len(polys) != 2 or dim != 2:
-        print("TVBcheck only works for 2 polys in 2 dimensions")
-        return True
-    
-    hasXs = np.zeros(dim)
-    #Make everything behind the diagonal 0,
-    diagPolys = list()
-    for poly in polys:
-        diagCoeff = poly.coeff.copy()
-        deg = poly.degree
-        for mon in zip(*np.where(diagCoeff!=0)):
-            if np.sum(mon) != deg:
-                diagCoeff[mon] = 0
-            else:
-                #Checks to see if it's an x^n.
-                if len(np.where(np.array(mon) != 0)[0]) == 1:
-                    hasXs[np.where(np.array(mon) != 0)[0]] = 1
-        if power:
-            diagPolys.append(MultiPower(diagCoeff))
-        else:
-            diagPolys.append(MultiCheb(diagCoeff))
-    if not np.all(hasXs):
-        raise TVBError("Doesn't have all x^n's on diagonal. Do linear transformation")
-    
-    #Now we know all the mons on the Macaulay diagonal will be hit, we just need them to all be pivot columns.
-    
-    matrixRows = list()
-    polySpots = list()
-    for poly in diagPolys:
-        deg = degree  - poly.degree
-        highMons = mon_combosHighest(np.zeros(dim, dtype = int),deg)
-        polySpots.append(len(highMons))
-        for mon in highMons[::-1]:
-            newCoeffMatrix = poly.mon_mult(mon, returnType = 'Matrix')
-            coeffMatrix = np.zeros([degree+1,degree+1])
-            coeffMatrix[slice_top(newCoeffMatrix)] = newCoeffMatrix
-            diagonal = np.rot90(coeffMatrix).diagonal()[::-1]
-            matrixRows.append(diagonal)
-    matrix = np.vstack(matrixRows)
-    Q,R,P = qr(matrix, pivoting = True)
-    if abs(R.diagonal()[-1]) < 1.e-10:
-        raise TVBError("Highest not full Rank. Try adding S Polys.")
-
 def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
     """
     Macaulay will take a list of polynomials and use them to construct a Macaulay matrix.
 
-    parameters
+    Parameters
     --------
     initial_poly_list: A list of polynomials
     accuracy: How small we want a number to be before assuming it is zero.
@@ -88,8 +40,13 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
     degree = find_degree(initial_poly_list)
     dim = initial_poly_list[0].dim
     
-    if len(initial_poly_list) == 2 and dim == 2:
-        TVBcheck(initial_poly_list, degree, Power)
+    #Checks to make sure TVB will work.
+    if not has_top_xs(initial_poly_list):
+        raise TVBError("Doesn't have all x^n's on diagonal. Do linear transformation")
+    S = get_S_Poly(initial_poly_list)
+    if isinstance(S,Polynomial):
+        initial_poly_list.append(S)
+        #degree = find_degree(initial_poly_list)
     
     for i in initial_poly_list:
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
@@ -123,10 +80,8 @@ def makeBasisDict(matrix, matrix_terms, VB):
     for i in range(matrix.shape[0]):
         remainder = np.zeros(remainder_shape)
         row = matrix[i]
-        pivotSpot = matrix_terms[i]
-        row[i] = 0
         remainder[spots] = row[matrix.shape[0]:]
-        basisDict[tuple(pivotSpot)] = remainder
+        basisDict[tuple(matrix_terms[i])] = remainder
 
     return basisDict
 
@@ -200,24 +155,6 @@ def add_polys(degree, poly, poly_coeff_list):
         poly_coeff_list.append(poly.mon_mult(i, returnType = 'Matrix'))
     return poly_coeff_list
 
-def inVarList(term, varList):
-    ''' Checks is a term is in the varList
-    Parameters
-    ----------
-    term : numpy array.
-        The term of interest.
-    varList : list
-        Each object in the list is a numpy array corresponding to a monomial.
-    Returns
-    -------
-    bool : bool
-        True if the term is in the varList, False otherwise.
-    '''
-    for i in varList:
-        if (term == i).all():
-            return True
-    return False
-
 def sorted_matrix_terms(degree, dim):
     '''Finds the matrix_terms sorted in the term order needed for TelenVanBarel reduction.
     So the highest terms come first,the x,y,z etc monomials last.
@@ -236,7 +173,6 @@ def sorted_matrix_terms(degree, dim):
         those not in the first or third catagory. The third entry is the number of monomials of degree one of a
         single variable, as well as the monomial 1.
     '''
-    
     highest_mons = mon_combosHighest(np.zeros(dim, dtype = int),degree)
     highest = np.vstack(highest_mons)
     
@@ -329,16 +265,7 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, accuracy 
     highest_num = matrix_shape_stuff[0]
     others_num = matrix_shape_stuff[1]
     xs_num = matrix_shape_stuff[2]
-    
-    '''
-    #Try going down to halfway down the matrix. Faster, but if not full rank may cause problems.
-    half = min(matrix.shape[0]//2, (highest_num + others_num)//2)
-    diff = half - highest_num
-    if diff > 0 and diff < others_num:
-        highest_num += diff
-        others_num -= diff
-    '''
-    
+        
     #RRQR reduces A and D sticking the result in it's place.
     Q1,matrix[:,:highest_num],P1 = qr(matrix[:,:highest_num], pivoting = True)
     
@@ -402,10 +329,11 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy
     highest_num = matrix_shape_stuff[0]
     others_num = matrix_shape_stuff[1]
     xs_num = matrix_shape_stuff[2]
-
+    
     C1,matrix[:highest_num,:highest_num],P1 = qr_multiply(matrix[:,:highest_num], matrix[:,highest_num:].T, mode = 'right', pivoting = True)
     matrix[:highest_num,highest_num:] = C1.T
     C1 = 0
+    #print(matrix_terms[:highest_num][P1])
     #print(matrix[:,:highest_num].diagonal())
     if abs(matrix[:,:highest_num].diagonal()[-1]) < accuracy:
         raise TVBError("HIGHEST NOT FULL RANK")
@@ -419,7 +347,7 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy
     C,R,P = qr_multiply(matrix[highest_num:,highest_num:highest_num+others_num], matrix[highest_num:,highest_num+others_num:].T, mode = 'right', pivoting = True)
     matrix = np.vstack((matrix[:highest_num],np.hstack((np.zeros_like(matrix[highest_num:R.shape[0]+highest_num,:highest_num]),R,C.T))))
     C,R = 0,0
-
+    
     #Shifts the columns of B
     matrix[:highest_num,highest_num:highest_num+others_num] = matrix[:highest_num,highest_num:highest_num+others_num][:,P]
     matrix_terms[highest_num:highest_num+others_num] = matrix_terms[highest_num:highest_num+others_num][P]
@@ -433,3 +361,178 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy
     matrix = matrix[non_zero_rows,:]
 
     return matrix, matrix_terms
+
+
+def has_top_xs(polys):
+    '''Finds out if the Macaulay Matrix will have an x^d in each dimension.
+    
+    TVB redction will work if an only if this is true. So in 2 dimensions a Macaulay matrix of degree d
+    needs to have a x^d and y^d in it, in 3 dimensions it needs an x^d, y^d and z^d etc.
+    
+    Parameters
+    ----------
+    polys : list
+        The polynomials with which the Macaulay Matrix is created.
+    Returns
+    -------
+    value : bool
+        Whether or not it has them all.
+    '''
+    dim = polys[0].dim
+    
+    hasXs = np.zeros(dim)
+    #Make everything behind the diagonal 0,
+    for poly in polys:
+        deg = poly.degree
+        
+        possibleXs = set()
+        for row in deg*get_var_list(dim):
+            possibleXs.add(tuple(deg*np.array(row)))
+        
+        for mon in zip(*np.where(poly.coeff!=0)):
+            #Checks to see if it's an x^n.
+            if mon in possibleXs:
+                hasXs += mon
+    return np.all(hasXs)
+
+def getDiagPoly(poly):
+    '''Gets the diagonal polynomial of a polynomial.
+    
+    This is defined as only the monomials in a polynomial that are of the highest degree. Everything else is 0.
+        
+    Parameters
+    ----------
+    poly : Polynomial
+        The polynomial of interest.
+    Returns
+    -------
+    poly : Polynomial
+        The diagonal polynomial.
+    '''
+    diagCoeff = poly.coeff.copy()
+    deg = poly.degree
+    for mon in zip(*np.where(diagCoeff!=0)):
+        if np.sum(mon) != deg:
+            diagCoeff[mon] = 0
+    if isinstance(poly,MultiPower):
+        return MultiPower(diagCoeff)
+    else:
+        return MultiCheb(diagCoeff)
+
+def topDegreeMatrix(polys, degree):
+    '''Gets the upper left corner of a Macaulay Matrix, the top degree part.
+    
+    Only includes the columns that are monomials of highest degree and the rows that have non-zero elements in those columns
+    
+    Parameters
+    ----------
+    polys : list
+        The polynomials used to make the matrix.
+    degree : int
+        The degree of the Macaulay Matrix to be made.
+    Returns
+    -------
+    matrix : numpy array
+        The matrix.
+    matrixMons : list
+        A list of the monomials that were used to create the matrix. The i'th element is the monomial used to create the
+        i'th row of the matrix.
+    full : numpy array
+        An array of zeros with the shape of the degree of the matrix in each dimension.
+    '''
+    dim = polys[0].dim
+    power = isinstance(polys[0],MultiPower)
+    
+    diagPolys = list()
+    for poly in polys:
+        diagPolys.append(getDiagPoly(poly))
+
+
+    diagSpots = np.vstack(mon_combosHighest(np.zeros(dim, dtype = int),degree))
+    diagPlaces = list()
+    for i in range(dim):
+        diagPlaces.append(diagSpots.T[i])
+
+    full = np.zeros((degree+1)*np.ones(dim, dtype = int))
+    matrixRows = list()
+    matrixMons = list()
+    for diagPoly in diagPolys:
+        mons = mon_combosHighest(np.zeros(dim, dtype = int),degree - diagPoly.coeff.shape[0]+1)
+        matrixMons.append(mons)
+        for mon in mons:
+            coeff = diagPoly.mon_mult(mon, returnType = 'Matrix')
+            full[slice_top(coeff)] = coeff
+            matrixRows.append(full[diagPlaces])
+            full[slice_top(coeff)] = np.zeros_like(coeff)
+    matrix = np.vstack(matrixRows)
+    return matrix, matrixMons, full
+
+def getFPolys(fcoeffs, matrixMons, full, power):
+    fPolys = list()
+    for mons in matrixMons:
+        fCoeff = full.copy()
+        for mon in mons:
+            fCoeff[tuple(mon)] = fcoeffs[0]
+            fcoeffs = fcoeffs[1:]
+        if power:
+            fPolys.append(MultiPower(fCoeff))
+        else:
+            fPolys.append(MultiCheb(fCoeff))
+    return fPolys
+
+def finalizeS(polys, S):
+    '''
+    Takes in polys and S, makes sure S actually works. If not, it finds an S that does.
+    '''
+    if S.degree <= 0:
+        raise TVBError('Polys are non-zero dimensional')
+    
+    dim = polys[0].dim
+    power = isinstance(polys[0],MultiPower)
+    degree = find_degree(polys)
+    
+    matrix, matrixMons, full = topDegreeMatrix(polys+list([S]), degree)
+    Q,R,P = qr(matrix, pivoting = True)
+    if abs(R.diagonal()[-1]) > 1.e-10:
+        return S
+    
+    fPolys = getFPolys(clean_zeros_from_matrix(Q.T[-1]), matrixMons, full, power)
+    if power:
+        S2 = MultiPower(np.array([0]))
+    else:
+        S2 = MultiCheb(np.array([0]))
+    for i in range(len(polys)):
+        poly = polys[i]
+        f = fPolys[i]
+        S2 += poly*f
+    S2 += S*fPolys[-1]
+    S2.__init__(clean_zeros_from_matrix(S2.coeff))
+    return finalizeS(polys, S2)
+
+def get_S_Poly(polys):
+    dim = polys[0].dim
+    power = isinstance(polys[0],MultiPower)
+    degree = find_degree(polys)
+    
+    matrix, matrixMons, full = topDegreeMatrix(polys, degree)
+
+    #print(matrix)
+    Q,R,P = qr(matrix, pivoting = True)
+    #print(R)
+    if abs(R.diagonal()[-1]) > 1.e-10:
+        return -1 #It works fine.
+    fPolys = getFPolys(clean_zeros_from_matrix(Q.T[-1]), matrixMons, full, power)
+    if power:
+        S = MultiPower(np.array([0]))
+    else:
+        S = MultiCheb(np.array([0]))
+    for i in range(len(polys)):
+        poly = polys[i]
+        f = fPolys[i]
+        S += poly*f
+    #S.__init__(clean_zeros_from_matrix(S.coeff))
+    
+    #Now make a new function to check if it's done and if not keep going.
+    return finalizeS(polys, S)
+
+

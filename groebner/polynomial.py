@@ -118,6 +118,7 @@ class Polynomial(object):
         else:
             self.lead_term = None
             self.lead_coeff = 0
+            self.degree = -1
 
     def evaluate_at(self, point):
         '''

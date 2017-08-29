@@ -40,9 +40,14 @@ def roots(polys, method = 'Groebner'):
         try:
             m_f, var_dict = TVBMultMatrix(polys, poly_type)
         except TVBError as e:
-            warnings.warn("TVB method failed. Trying Groebner instead. Error message from TVB is - {}".format(e), InstabilityWarning)
-            method = 'Groebner'
-            GB, m_f, var_dict = groebnerMultMatrix(polys, poly_type, method)
+            if str(e) == "Doesn't have all x^n's on diagonal. Do linear transformation":
+                warnings.warn("TVB method failed. Trying Groebner instead. Error message from TVB is - {}".format(e), InstabilityWarning)
+                method = 'Groebner'
+                GB, m_f, var_dict = groebnerMultMatrix(polys, poly_type, method)
+            elif str(e) == 'Polys are non-zero dimensional':
+                return -1
+            else:
+                raise e
     else:
         GB, m_f, var_dict = groebnerMultMatrix(polys, poly_type, method)
 
