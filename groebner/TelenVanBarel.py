@@ -45,8 +45,9 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
         raise TVBError("Doesn't have all x^n's on diagonal. Do linear transformation")
     S = get_S_Poly(initial_poly_list)
     if isinstance(S,Polynomial):
+        print(S.coeff)
         initial_poly_list.append(S)
-        #degree = find_degree(initial_poly_list)
+        degree = find_degree(initial_poly_list)
     
     for i in initial_poly_list:
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
@@ -375,8 +376,8 @@ def has_top_xs(polys):
         The polynomials with which the Macaulay Matrix is created.
     Returns
     -------
-    value : bool
-        Whether or not it has them all.
+    has_top_xs : bool
+        True if it has all the x^d's; False otherwise.
     '''
     dim = polys[0].dim
     
@@ -447,17 +448,17 @@ def topDegreeMatrix(polys, degree):
     for poly in polys:
         diagPolys.append(getDiagPoly(poly))
 
-
     diagSpots = np.vstack(mon_combosHighest(np.zeros(dim, dtype = int),degree))
     diagPlaces = list()
     for i in range(dim):
         diagPlaces.append(diagSpots.T[i])
 
     full = np.zeros((degree+1)*np.ones(dim, dtype = int))
+        
     matrixRows = list()
     matrixMons = list()
     for diagPoly in diagPolys:
-        mons = mon_combosHighest(np.zeros(dim, dtype = int),degree - diagPoly.coeff.shape[0]+1)
+        mons = mon_combosHighest(np.zeros(dim, dtype = int),degree - diagPoly.degree)
         matrixMons.append(mons)
         for mon in mons:
             coeff = diagPoly.mon_mult(mon, returnType = 'Matrix')
@@ -468,6 +469,27 @@ def topDegreeMatrix(polys, degree):
     return matrix, matrixMons, full
 
 def getFPolys(fcoeffs, matrixMons, full, power):
+    '''Finds the f-polynomials needed to make an S polynomial.
+    
+    Given a set of polynomials p1,p2 ... pn S = p1f1 + p2f2 + ... +pnfn. matrixMons is the monomials in the fPolys
+    and fcoeffs is all the coefficients for them.
+        
+    Parameters
+    ----------
+    fcoeffs : numpy array
+        Each entry is a coefficient in one of the fpolys. It is in the same order as the monomials in matrixMons.
+    matrixMons : list
+        Each entry is a list of the monomials in one f polynomial. They are in the same order as the fcoeffs.
+    full : numpy array
+        A matrix of zeros that is the maximum size of the coefficient matrix for an f polynomial. So each f polynomial
+        starts as a copy of it and then the fcoeffs are put in the matrixMons spots.
+    power : bool
+        True if the fPolys should be MultiPower objects. False if they should be MultiCheb.
+    Returns
+    -------
+    fPolys : list
+        The f polynomials.
+    '''
     fPolys = list()
     for mons in matrixMons:
         fCoeff = full.copy()
@@ -481,18 +503,33 @@ def getFPolys(fcoeffs, matrixMons, full, power):
     return fPolys
 
 def finalizeS(polys, S):
+    '''Makes sure an S polynomial will make TVB work, if not, finds a new one.
+            
+    Parameters
+    ----------
+    polys : list
+        The original polys used to make a TVB matrix.
+    S : Polyomial
+        A potential S polynomial to make TVB work.
+    Returns
+    -------
+    finalizeS : Polynomail 
+        A polynomial that will make TVB work. If S works, S is returned, otherwise a new potential S2 is calculated
+        and finalizeS is called again on S2.
     '''
-    Takes in polys and S, makes sure S actually works. If not, it finds an S that does.
-    '''
+    #print(S.coeff)
+    
     if S.degree <= 0:
         raise TVBError('Polys are non-zero dimensional')
     
     dim = polys[0].dim
     power = isinstance(polys[0],MultiPower)
     degree = find_degree(polys)
+    #print(degree)
     
     matrix, matrixMons, full = topDegreeMatrix(polys+list([S]), degree)
     Q,R,P = qr(matrix, pivoting = True)
+    #print(R.diagonal())
     if abs(R.diagonal()[-1]) > 1.e-10:
         return S
     
@@ -510,6 +547,21 @@ def finalizeS(polys, S):
     return finalizeS(polys, S2)
 
 def get_S_Poly(polys):
+    '''Gets an S polynomial if needed to make sure TVB will work.
+    
+    The code checks if an S is needed first. If so, it calculates one potential S, and then calls finalizeS on it
+    to make sure that S is actually valid, and if not to find a better one.
+    
+    Parameters
+    ----------
+    polys : list
+        The original polys used to make a TVB matrix.
+    Returns
+    -------
+    get_S_Poly : int or Polynomial 
+        Returns -1 if no S-Poly is needed, menaing TVB will work fine as is. Otherwise, returns a Polynomial Object
+        S that when added to the basis will make TVB work.
+    '''    
     dim = polys[0].dim
     power = isinstance(polys[0],MultiPower)
     degree = find_degree(polys)
@@ -518,7 +570,7 @@ def get_S_Poly(polys):
 
     #print(matrix)
     Q,R,P = qr(matrix, pivoting = True)
-    #print(R)
+    #print(R.diagonal())
     if abs(R.diagonal()[-1]) > 1.e-10:
         return -1 #It works fine.
     fPolys = getFPolys(clean_zeros_from_matrix(Q.T[-1]), matrixMons, full, power)
@@ -530,9 +582,7 @@ def get_S_Poly(polys):
         poly = polys[i]
         f = fPolys[i]
         S += poly*f
-    #S.__init__(clean_zeros_from_matrix(S.coeff))
+    S.__init__(clean_zeros_from_matrix(S.coeff))
     
     #Now make a new function to check if it's done and if not keep going.
     return finalizeS(polys, S)
-
-

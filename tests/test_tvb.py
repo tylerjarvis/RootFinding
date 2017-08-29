@@ -116,7 +116,7 @@ def test_TVB_roots():
     C = getPoly(5,3,False)
     correctZeros([A,B,C])
 
-def test_get_S_Poly():
+def test_S_Poly():
     with warnings.catch_warnings():
         warnings.filterwarnings('error')
         try:
