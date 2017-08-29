@@ -578,12 +578,12 @@ def newton_polish(polys,root,niter=100,tol=1e-5):
             f_x[i] = poly.evaluate_at(x)
         return f_x
         
-    def jac(x):
+    def Df(x):
         m = len(polys)
         dim = max(poly.dim for poly in polys)
         jac = np.empty((m,dim))
         for i, poly in enumerate(polys):
-            jac[i] = poly.jac(x)
+            jac[i] = poly.grad(x)
         return jac
         
     i = 0
@@ -591,7 +591,7 @@ def newton_polish(polys,root,niter=100,tol=1e-5):
     while True:
         if i == niter:
             break
-        delta = np.linalg.solve(jac(x0),-f(x0))
+        delta = np.linalg.solve(Df(x0),-f(x0))
         x1 = delta + x0
         if np.linalg.norm(x1-x0) < tol:
             break
