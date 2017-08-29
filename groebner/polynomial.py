@@ -128,13 +128,33 @@ class Polynomial(object):
 
         Parameters
         ----------
-        point : tuple or list
+        point : array-like
             the point at which to evaluate the polynomial
 
         Returns
         -------
-        complex : complex
+        evaluate_at : complex
             value of the polynomial at the given point
+        '''
+        if len(point) != len(self.coeff.shape):
+            raise ValueError('Cannot evaluate polynomial in {} variables at point {}'\
+            .format(self.dim, point))
+            
+    def grad(self, point):
+        '''
+        Evaluates the gradient of the polynomial at the given point. This method is overridden
+        by the MultiPower and MultiCheb classes, so this definition only
+        checks if the polynomial can be evaluated at the given point.
+
+        Parameters
+        ----------
+        point : array-like
+            the point at which to evaluate the polynomial
+
+        Returns
+        -------
+        grad : ndarray
+            Gradient of the polynomial at the given point.
         '''
         if len(point) != len(self.coeff.shape):
             raise ValueError('Cannot evaluate polynomial in {} variables at point {}'\
@@ -392,19 +412,19 @@ class MultiCheb(Polynomial):
             return initial_matrix
 
     def evaluate_at(self, point):
-        """
-        Evaluates a Chebyshev polynomial at a given point.
+        '''
+        Evaluates the polynomial at the given point.
 
         Parameters
         ----------
-        point : array_like
-            The point to be evaluated at in a polynomial.
+        point : array-like
+            the point at which to evaluate the polynomial
 
         Returns
         -------
-        float
-            The result of plugging a point into a polynomial.
-        """
+        c : complex
+            value of the polynomial at the given point
+        '''
         super(MultiCheb, self).evaluate_at(point)
         
         c = self.coeff
@@ -413,7 +433,31 @@ class MultiCheb(Polynomial):
         for i in range(1,n):
             c = cheb.chebval(point[i],c,tensor=False)
         return c
+        
+    def grad(self, point):
+        '''
+        Evaluates the gradient of the polynomial at the given point. 
 
+        Parameters
+        ----------
+        point : array-like
+            the point at which to evaluate the polynomial
+
+        Returns
+        -------
+        out : ndarray
+            Gradient of the polynomial at the given point.
+        '''
+        super(MultiCheb, self).evaluate_at(point)
+        
+        c = self.coeff
+        n = len(c.shape)
+        out = np.empty(n)
+        for i in range(n):
+            d = cheb.chebder(c,axis=i)
+            out[i] = chebvalnd(point,d)
+        return out
+        
 ###############################################################################
 
 #### MULTI_POWER ##############################################################
@@ -594,19 +638,19 @@ class MultiPower(Polynomial):
             return result
 
     def evaluate_at(self, point):
-        """
-        Evaluates a polynomial at a given point.
+        '''
+        Evaluates the polynomial at the given point.
 
         Parameters
         ----------
-        point : array_like
-            The point to be evaluated at in a polynomial.
+        point : array-like
+            the point at which to evaluate the polynomial
 
         Returns
         -------
-        float
-            The result of plugging a point into a polynomial.
-        """
+        evaluate_at : complex
+            value of the polynomial at the given point
+        '''
         super(MultiPower, self).evaluate_at(point)
         
         c = self.coeff
@@ -615,6 +659,30 @@ class MultiPower(Polynomial):
         for i in range(1,n):
             c = poly.polyval(point[i],c,tensor=False)
         return c
+        
+    def grad(self, point):
+        '''
+        Evaluates the gradient of the polynomial at the given point. 
+
+        Parameters
+        ----------
+        point : array-like
+            the point at which to evaluate the polynomial
+
+        Returns
+        -------
+        out : ndarray
+            Gradient of the polynomial at the given point.
+        '''
+        super(MultiPower, self).evaluate_at(point)
+        
+        c = self.coeff
+        n = len(c.shape)
+        out = np.empty(n)
+        for i in range(n):
+            d = poly.polyder(c,axis=i)
+            out[i] = polyvalnd(point,d)
+        return out
 
 ###############################################################################
 
@@ -707,3 +775,53 @@ def poly2cheb(P):
     for i in range(dim):
         A = np.apply_along_axis(conv_poly, i, A)
     return MultiCheb(A)
+
+############################################################################
+
+#### CHEBVALND, POLYVALND #############################################################
+
+def chebvalnd(x,c):
+    """
+    Evaluate a MultiCheb object at a point x
+    
+    Parameters
+    ----------
+    x : ndarray 
+        Point to evaluate at
+    c : ndarray 
+        Tensor of Chebyshev coefficients
+        
+    Returns
+    -------
+    c : float
+        Value of the MultiCheb polynomial at x
+    """
+    x = np.array(x)
+    n = len(c.shape)
+    c = cheb.chebval(x[0],c)
+    for i in range(1,n):
+        c = cheb.chebval(x[i],c,tensor=False)
+    return c
+    
+def polyvalnd(x,c):
+    """
+    Evaluate a MultiPower object at a point x
+    
+    Parameters
+    ----------
+    x : ndarray 
+        Point to evaluate at
+    c : ndarray 
+        Tensor of Polynomial coefficients
+        
+    Returns
+    -------
+    c : float
+        Value of the MultiPower polynomial at x
+    """
+    x = np.array(x)
+    n = len(c.shape)
+    c = poly.polyval(x[0],c)
+    for i in range(1,n):
+        c = poly.polyval(x[i],c,tensor=False)
+    return c
