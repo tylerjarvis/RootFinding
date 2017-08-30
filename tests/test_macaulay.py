@@ -56,14 +56,14 @@ def test_Macaulay_roots():
     The following tests will run Macaulay on relatively small random upper trianguler MultiPower and MultiCheb polynomials.
     The assert statements will be inside of the correctZeros helper function.
     '''
-    #Case 1 - Two MultiPower 2D degree 5 polynomials.
-    A = getPoly(5,2,True)
-    B = getPoly(5,2,True)
+    #Case 1 - Two MultiPower 2D degree 4 polynomials.
+    A = getPoly(4,2,True)
+    B = getPoly(4,2,True)
     correctZeros([A,B])
 
-    #Case 2 - Two MultiCheb 2D degree 5 polynomials.
-    A = getPoly(5,2,False)
-    B = getPoly(5,2,False)
+    #Case 2 - Two MultiCheb 2D degree 4 polynomials.
+    A = getPoly(4,2,False)
+    B = getPoly(4,2,False)
     correctZeros([A,B])
 
     #Case 3 - Three MultiPower 3D degree 3 polynomials.

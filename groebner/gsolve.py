@@ -487,7 +487,6 @@ def row_echelon(matrix, accuracy=1.e-10):
         The matrix in row echelon form with all zero rows removed.
 
     '''
-
     independent_rows, dependent_rows, Q = utils.row_linear_dependencies(matrix, accuracy=accuracy)
     full_rank_matrix = matrix[independent_rows]
 
@@ -516,7 +515,6 @@ def lead_term_columns(matrix):
     LT_columns : set
         The set of column indexes that correspond to leading terms
     '''
-
     LT_columns = set()
 
     already_looked_at = set()
@@ -550,9 +548,7 @@ def get_new_polys(matrix, matrix_terms, accuracy=1.e-10, power=False):
     new_polys : list
         Contains polynomial objects whose leading terms weren't leading terms
         in the matrix passed in, but the were after reduction.
-
     '''
-
     lead_term_before = lead_term_columns(matrix)
     reduced_matrix = row_echelon(matrix, accuracy=accuracy)
     lead_term_after = lead_term_columns(reduced_matrix)

@@ -151,7 +151,7 @@ def divides(mon1, mon2):
     boolean
         true if mon1 divides mon2, false otherwise
     '''
-    return all(np.subtract(mon2, mon1) >= 0)
+    return np.all(np.subtract(mon2, mon1) >= 0)
 
 def inverse_P(P):
     '''The inverse of P, the array with column switching indexes.
@@ -312,7 +312,7 @@ def rrqr_reduce2(matrix, clean = True, global_accuracy = 1.e-10):
         #sub3 is the dependentRows of Q.T@B, we will recursively reduce this.
         #We then return sub1 stacked on top of sub2+sub3
         if clean:
-            Q[np.where(abs(Q) < global_accuracy)]=0
+            Q = clean_zeros_from_matrix(Q)
         bottom = matrix[dependentRows]
         BCopy = B.copy()
         sub3 = bottom[:,height:]

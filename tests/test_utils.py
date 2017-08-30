@@ -22,10 +22,11 @@ def test_inverse_P():
 
     # Find the order of columns to flip back to.
     pt = inverse_P(p)
+    print(pt)
     # Result done by hand.
     pt_inv = [4,0,3,2,1,5]
     assert(np.allclose(M,N[:,pt])), "Matrix are not the same."
-    assert(all(pt == pt_inv)), "Wrong matrix order."
+    assert(np.all(pt == pt_inv)), "Wrong matrix order."
 
 
     # Test Case 2:

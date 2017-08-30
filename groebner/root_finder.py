@@ -208,10 +208,8 @@ def TVBMultMatrix(polys, poly_type):
     for mon in VB:
         VBset.add(tuple(mon))
         
-    mMatrix = np.zeros((len(VB), len(VB)))
-
     # Build multiplication matrix m_f
-    
+    mMatrix = np.zeros((len(VB), len(VB)))
     remainder = np.zeros(degree*np.ones(dim, dtype = int))
     
     for i in range(VB.shape[0]):

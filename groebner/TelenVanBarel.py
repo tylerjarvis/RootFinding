@@ -41,7 +41,7 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
     degree = find_degree(initial_poly_list)
     dim = initial_poly_list[0].dim
     
-    '''
+    
     #Checks to make sure TVB will work.
     if not has_top_xs(initial_poly_list):
         raise TVBError("Doesn't have all x^n's on diagonal. Do linear transformation")
@@ -50,7 +50,6 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
         print(S.coeff)
         initial_poly_list.append(S)
         degree = find_degree(initial_poly_list)
-    '''
     
     for i in initial_poly_list:
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
@@ -66,9 +65,6 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
 
     VB = matrix_terms[matrix.shape[0]:]
     
-    #Others = matrix_terms[:matrix.shape[0]]
-    #plt.plot(Others[:,0], Others[:,1], 'o')
-    
     basisDict = makeBasisDict(matrix, matrix_terms, VB, Power, degree*np.ones(dim, dtype = int))
     return basisDict, VB, degree
 
@@ -79,11 +75,10 @@ def makeBasisDict(matrix, matrix_terms, VB, power, remainder_shape):
     '''
     basisDict = {}
     
-    if power:
+    if power: #We don't actually need most of the rows, so we only get the ones we need.
         neededSpots = set()
-        for term in VB:
-            for mon in get_var_list(VB.shape[1]):
-                neededSpots.add(tuple(term+mon))
+        for term, mon in itertools.product(VB,get_var_list(VB.shape[1])):
+            neededSpots.add(tuple(term+mon))
     
     spots = list()
     for dim in range(VB.shape[1]):
@@ -198,7 +193,7 @@ def sorted_matrix_terms(degree, dim):
     
     xs_mons = mon_combos(np.zeros(dim, dtype = int),1)
     
-    sorted_matrix_terms = np.reshape(highest_mons+other_mons+xs_mons, newshape=(len(highest_mons+other_mons+xs_mons),len(xs_mons[0])))
+    sorted_matrix_terms = np.reshape(highest_mons+other_mons+xs_mons, (len(highest_mons+other_mons+xs_mons),dim))
     
     return sorted_matrix_terms, tuple([len(highest_mons),len(other_mons),len(xs_mons)])
 
@@ -237,7 +232,7 @@ def create_matrix(poly_coeffs, degree, dim):
         added_zeros[slices] = np.zeros_like(coeff)
 
     #Make the matrix. Reshape is faster than stacking.
-    matrix = np.reshape(flat_polys, newshape=(len(flat_polys),len(flat_polys[0])))
+    matrix = np.reshape(flat_polys, (len(flat_polys),len(matrix_terms)))
     
     if matrix_shape_stuff[0] > matrix.shape[0]: #The matrix isn't tall enough, these can't all be pivot columns.
         raise TVBError("HIGHEST NOT FULL RANK. TRY HIGHER DEGREE")
@@ -343,8 +338,6 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy
     C1,matrix[:highest_num,:highest_num],P1 = qr_multiply(matrix[:,:highest_num], matrix[:,highest_num:].T, mode = 'right', pivoting = True)
     matrix[:highest_num,highest_num:] = C1.T
     C1 = 0
-    #print(matrix_terms[:highest_num][P1])
-    #print(matrix[:,:highest_num].diagonal())
     if abs(matrix[:,:highest_num].diagonal()[-1]) < accuracy:
         raise TVBError("HIGHEST NOT FULL RANK")
     
@@ -360,7 +353,6 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy
     matrix[highest_num:,:highest_num] = np.zeros_like(matrix[highest_num:,:highest_num])
     matrix[highest_num:,highest_num:highest_num+R.shape[1]] = R
     matrix[highest_num:,highest_num+R.shape[1]:] = C.T
-
     C,R = 0,0
     
     #Shifts the columns of B.
