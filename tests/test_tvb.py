@@ -43,11 +43,6 @@ def correctZeros(polys, checkNumber = True):
                 good = False
                 if (np.abs(zero) > 1).any():
                     outOfRange += 1
-                else:
-                    #print("ZERO OFF")
-                    #print(zero)
-                    #print(cheb.chebval2d(zero[0],zero[1],poly.coeff))
-                    pass
                 break
         if good:
             correct += 1
