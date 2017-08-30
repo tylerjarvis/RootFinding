@@ -191,7 +191,7 @@ def TVBMultMatrix(polys, poly_type):
     var_dict : dictionary
         Maps each variable to its position in the vector space basis
     '''
-    basisDict, VB = TelenVanBarel(polys)
+    basisDict, VB, degree = TelenVanBarel(polys)
         
     VB = sortVB(VB)
 
@@ -211,13 +211,11 @@ def TVBMultMatrix(polys, poly_type):
     mMatrix = np.zeros((len(VB), len(VB)))
 
     # Build multiplication matrix m_f
-    remainder_shape = np.maximum.reduce([mon for mon in VB])
-    remainder_shape += np.ones_like(remainder_shape)
-    remainder = np.zeros(remainder_shape)
+    
+    remainder = np.zeros(degree*np.ones(dim, dtype = int))
     
     for i in range(VB.shape[0]):
         f_coeff = f.mon_mult(VB[i], returnType = 'Matrix')
-        #remainder = np.zeros(remainder_shape)
         for term in zip(*np.where(f_coeff != 0)):
             if term in VBset:
                 remainder[term] += f_coeff[term]
@@ -284,10 +282,8 @@ def multMatrix(poly, GB, basisList):
         The matrix m_f
     '''
     basisSet = set(basisList)
-    basisTerms = np.zeros_like(basisList[0])
-    for term in basisList:
-        basisTerms = np.vstack((basisTerms,term))
-    basisTerms = basisTerms[1:]
+    basisTerms = np.vstack(basisList)
+
     slices = list()
     for i in range(len(basisTerms[0])):
         slices.append(basisTerms.T[i])

@@ -5,12 +5,13 @@ import math
 from scipy.linalg import lu, qr, solve_triangular, inv, solve, svd, qr_multiply
 from numpy.linalg import cond
 from groebner.polynomial import Polynomial, MultiCheb, MultiPower
-from scipy.sparse import csc_matrix, vstack
-from groebner.utils import Term, row_swap_matrix, clean_zeros_from_matrix, triangular_solve, divides, get_var_list, TVBError, slice_top, get_var_list
+from groebner.utils import Term, row_swap_matrix, clean_zeros_from_matrix, triangular_solve, divides, get_var_list, TVBError, slice_top, get_var_list, row_linear_dependencies
 import matplotlib.pyplot as plt
 from collections import defaultdict
 import gc
 import time
+
+from groebner.Macaulay import findPivotColumns
 
 def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
     """
@@ -56,11 +57,11 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
 
     matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list, degree, dim)
         
-    matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, 
-                                                        accuracy = accuracy)    
+    matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy = accuracy)    
+        
     matrix = clean_zeros_from_matrix(matrix)
     
-    matrix, matrix_terms = triangular_solve(matrix, matrix_terms, reorder = False)
+    matrix = triangular_solve(matrix)
     matrix = clean_zeros_from_matrix(matrix)
 
     VB = matrix_terms[matrix.shape[0]:]
@@ -68,16 +69,14 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
     #Others = matrix_terms[:matrix.shape[0]]
     #plt.plot(Others[:,0], Others[:,1], 'o')
     
-    basisDict = makeBasisDict(matrix, matrix_terms, VB, Power)
-    return basisDict, VB
+    basisDict = makeBasisDict(matrix, matrix_terms, VB, Power, degree*np.ones(dim, dtype = int))
+    return basisDict, VB, degree
 
-def makeBasisDict(matrix, matrix_terms, VB, power):
+def makeBasisDict(matrix, matrix_terms, VB, power, remainder_shape):
     '''
     Take a matrix that has been traingular solved and returns a dictionary mapping the pivot columns terms
     behind them, all of which will be in the vector basis. All the matrixes that are mapped to will be the same shape.
     '''
-    remainder_shape = np.maximum.reduce([mon for mon in VB])
-    remainder_shape += np.ones_like(remainder_shape)
     basisDict = {}
     
     if power:
@@ -190,20 +189,18 @@ def sorted_matrix_terms(degree, dim):
         single variable, as well as the monomial 1.
     '''
     highest_mons = mon_combosHighest(np.zeros(dim, dtype = int),degree)
-    highest = np.vstack(highest_mons)
     
     other_mons = list()
     d = degree - 1
     while d > 1:
         other_mons += mon_combosHighest(np.zeros(dim, dtype = int),d)
         d -= 1
-    others = np.vstack(other_mons)
     
     xs_mons = mon_combos(np.zeros(dim, dtype = int),1)
-    xs = np.vstack(xs_mons)
     
-    sorted_matrix_terms = np.vstack((highest,others,xs))
-    return sorted_matrix_terms, tuple([len(highest),len(others),len(xs)])
+    sorted_matrix_terms = np.reshape(highest_mons+other_mons+xs_mons, newshape=(len(highest_mons+other_mons+xs_mons),len(xs_mons[0])))
+    
+    return sorted_matrix_terms, tuple([len(highest_mons),len(other_mons),len(xs_mons)])
 
 def create_matrix(poly_coeffs, degree, dim):
     ''' Builds a Telen Van Barel matrix.
@@ -221,14 +218,14 @@ def create_matrix(poly_coeffs, degree, dim):
     matrix : 2D numpy array
         The Telen Van Barel matrix.
     '''
-    bigShape = np.maximum.reduce([p.shape for p in poly_coeffs])
+    bigShape = (degree+1)*np.ones(dim, dtype = int)
 
     matrix_terms, matrix_shape_stuff = sorted_matrix_terms(degree, dim)
 
     #Get the slices needed to pull the matrix_terms from the coeff matrix.
     matrix_term_indexes = list()
-    for i in range(len(bigShape)):
-        matrix_term_indexes.append(matrix_terms.T[i])
+    for row in matrix_terms.T:
+        matrix_term_indexes.append(row)
 
     #Adds the poly_coeffs to flat_polys, using added_zeros to make sure every term is in there.
     added_zeros = np.zeros(bigShape)
@@ -239,8 +236,8 @@ def create_matrix(poly_coeffs, degree, dim):
         flat_polys.append(added_zeros[matrix_term_indexes])
         added_zeros[slices] = np.zeros_like(coeff)
 
-    #Make the matrix
-    matrix = np.vstack(flat_polys[::-1])
+    #Make the matrix. Reshape is faster than stacking.
+    matrix = np.reshape(flat_polys, newshape=(len(flat_polys),len(flat_polys[0])))
     
     if matrix_shape_stuff[0] > matrix.shape[0]: #The matrix isn't tall enough, these can't all be pivot columns.
         raise TVBError("HIGHEST NOT FULL RANK. TRY HIGHER DEGREE")
@@ -303,11 +300,8 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, accuracy 
     matrix[:highest_num,highest_num:highest_num+others_num] = matrix[:highest_num,highest_num:highest_num+others_num][:,P]
 
     #Checks for 0 rows and gets rid of them.
-    non_zero_rows = list()
-    for i in range(min(highest_num+others_num, matrix.shape[0])):
-        if np.abs(matrix[i][i]) > accuracy:
-            non_zero_rows.append(i)
-    matrix = matrix[non_zero_rows,:]
+    rank = np.sum(np.abs(matrix.diagonal())>accuracy)
+    matrix = matrix[:rank]
 
     #Resorts the matrix_terms.
     matrix_terms[:highest_num] = matrix_terms[:highest_num][P1]
@@ -361,20 +355,22 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy
     P1 = 0
 
     C,R,P = qr_multiply(matrix[highest_num:,highest_num:highest_num+others_num], matrix[highest_num:,highest_num+others_num:].T, mode = 'right', pivoting = True)
-    matrix = np.vstack((matrix[:highest_num],np.hstack((np.zeros_like(matrix[highest_num:R.shape[0]+highest_num,:highest_num]),R,C.T))))
+    
+    matrix = matrix[:R.shape[0]+highest_num]
+    matrix[highest_num:,:highest_num] = np.zeros_like(matrix[highest_num:,:highest_num])
+    matrix[highest_num:,highest_num:highest_num+R.shape[1]] = R
+    matrix[highest_num:,highest_num+R.shape[1]:] = C.T
+
     C,R = 0,0
     
-    #Shifts the columns of B
+    #Shifts the columns of B.
     matrix[:highest_num,highest_num:highest_num+others_num] = matrix[:highest_num,highest_num:highest_num+others_num][:,P]
     matrix_terms[highest_num:highest_num+others_num] = matrix_terms[highest_num:highest_num+others_num][P]
     P = 0
 
-    #Checks for 0 rows and gets rid of them.
-    non_zero_rows = list()
-    for i in range(min(highest_num+others_num, matrix.shape[0])):
-        if np.abs(matrix[i][i]) > accuracy:
-            non_zero_rows.append(i)
-    matrix = matrix[non_zero_rows,:]
+    #Get rid of 0 rows at the bottom.
+    rank = np.sum(np.abs(matrix.diagonal())>accuracy)
+    matrix = matrix[:rank]
 
     return matrix, matrix_terms
 

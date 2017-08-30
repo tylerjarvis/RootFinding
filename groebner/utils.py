@@ -74,28 +74,6 @@ class Term(object):
     def __hash__(self):
         return hash(self.val)
 
-class Term_w_InvertedOrder(Term):
-    '''
-    Called by MaxHeap object to reverse the ordering for a min heap
-    Used exclusively with Terms
-    '''
-    def __init__(self,term):
-        '''
-        Takes in a Term.  val is the underlying tuple, term is the underlying term
-        '''
-        self.val = term.val
-        self.term = term
-
-    # Invert the order
-
-    def __lt__(self,other): return self.term > other.term
-    def __le__(self,other): return (self.term > other.term or self.term == other.term)
-    def __ge__(self,other): return (self.term < other.term or self.term == other.term)
-    def __gt__(self,other): return (self.term < other.term)
-
-    def __repr__(self):
-        return str(list(self.val)) + ' with inverted grevlex order'
-
 def argsort_dec(list_):
     '''Sort the given list into decreasing order.
 
@@ -373,9 +351,7 @@ def sorted_polys_coeff(polys):
     sorted_polys : list
         The polynomial objects in order of lead coefficient to everything else
         ratio.
-
     '''
-
     # The lead_coeff to other stuff ratio.
     lead_coeffs = [abs(poly.lead_coeff)/np.sum(np.abs(poly.coeff)) for poly in polys]
 
@@ -397,9 +373,7 @@ def sorted_polys_monomial(polys):
     -------
     sorted_polys : list
         Polynomials in order.
-
     '''
-
     # A list to contain the number of monomials with non zero coefficients.
     num_monomials = []
     for poly in polys:
@@ -437,7 +411,6 @@ def row_swap_matrix(matrix):
     array([[1, 2, 3, 4],
            [0, 2, 0, 2],
            [0, 1, 3, 0]])
-
     '''
     leading_mon_columns = list()
     lastRow = -1
@@ -479,7 +452,6 @@ def row_linear_dependencies(matrix, accuracy=1.e-10):
     Q : (2D numpy array)
         The Q matrix used in RRQR reduction in finding the rank.
     '''
-
     height = matrix.shape[0]
     Q,R,P = qr(matrix, pivoting = True)
     diagonals = np.diagonal(R) #Go along the diagonals to find the rank
@@ -505,7 +477,7 @@ def get_var_list(dim):
         _vars.append(tuple(var))
     return _vars
 
-def triangular_solve(matrix, matrix_terms = None, reorder = True):
+def triangular_solve(matrix):
     """
     Takes a matrix that is in row echelon form and reduces it into row reduced echelon form.
 
@@ -513,24 +485,11 @@ def triangular_solve(matrix, matrix_terms = None, reorder = True):
     ----------
     matrix : 2D numpy array
         The matrix of interest.
-    matrix_terms : An numpy array.
-        The i'th row matrix_terms is the term in the i'th column of the matrix.
-    reorder : bool
-        If reorder is True then the matrix is reordered after triangular solve to put it in it's
-        initial order. Otherwise it is returned so the first part of the matrix is the identity matrix.
-        The matrix_terms are reordered accordingly.
 
     Returns
     -------
     matrix : 2D numpy array
-        The matrix is row reduced echelon form if reorder it True, ordered with the pivot columns in
-        the fron otherwise.
-
-    Optional Return
-    ---------------
-    matrix_terms : An numpy array.
-        Only returned if reorder is False. The reordered matrix_terms. If reorder is True they will
-        have not been affected.
+        The matrix is row reduced echelon form.
     """
     m,n = matrix.shape
     j = 0  # The row index.
@@ -578,15 +537,9 @@ def triangular_solve(matrix, matrix_terms = None, reorder = True):
         #order = inverse_P(order_c+order_d)
 
         # Reverse the columns back.
-        if reorder:
-            solver1 = np.empty_like(solver)
-            solver1[:,order_c+order_d] = solver
-            #solver = solver[:,order]
-            return solver1
-        else:
-            matrix_terms = matrix_terms[order_c+order_d]
-            return solver, matrix_terms
-
+        solver1 = np.empty_like(solver)
+        solver1[:,order_c+order_d] = solver
+        return solver1
     else:
     # The case where the matrix passed in is a square matrix
         return np.eye(m)
@@ -605,7 +558,6 @@ def first_x(string):
     i : int
         The position in the string of the first 'x' character. If 'x' does not appear in the string
         the return value is the length of the string.
-
     '''
     for i in range(len(string)):
         if string[i] == 'x':
