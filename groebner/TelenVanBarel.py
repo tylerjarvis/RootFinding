@@ -40,7 +40,7 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
     degree = find_degree(initial_poly_list)
     dim = initial_poly_list[0].dim
     
-    
+    '''
     #Checks to make sure TVB will work.
     if not has_top_xs(initial_poly_list):
         raise TVBError("Doesn't have all x^n's on diagonal. Do linear transformation")
@@ -49,7 +49,7 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
         print(S.coeff)
         initial_poly_list.append(S)
         degree = find_degree(initial_poly_list)
-    
+    '''
     
     for i in initial_poly_list:
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
@@ -64,14 +64,14 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
     matrix = clean_zeros_from_matrix(matrix)
 
     VB = matrix_terms[matrix.shape[0]:]
-    Others = matrix_terms[:matrix.shape[0]]
     
-    plt.plot(Others[:,0], Others[:,1], 'o', markersize = 5, alpha = 1)
+    #Others = matrix_terms[:matrix.shape[0]]
+    #plt.plot(Others[:,0], Others[:,1], 'o')
     
-    basisDict = makeBasisDict(matrix, matrix_terms, VB)
+    basisDict = makeBasisDict(matrix, matrix_terms, VB, Power)
     return basisDict, VB
 
-def makeBasisDict(matrix, matrix_terms, VB):
+def makeBasisDict(matrix, matrix_terms, VB, power):
     '''
     Take a matrix that has been traingular solved and returns a dictionary mapping the pivot columns terms
     behind them, all of which will be in the vector basis. All the matrixes that are mapped to will be the same shape.
@@ -79,16 +79,25 @@ def makeBasisDict(matrix, matrix_terms, VB):
     remainder_shape = np.maximum.reduce([mon for mon in VB])
     remainder_shape += np.ones_like(remainder_shape)
     basisDict = {}
-
+    
+    if power:
+        neededSpots = set()
+        for term in VB:
+            for mon in get_var_list(VB.shape[1]):
+                neededSpots.add(tuple(term+mon))
+    
     spots = list()
-    for dim in range(matrix_terms.shape[1]):
-        spots.append(matrix_terms[matrix.shape[0]:].T[dim])
+    for dim in range(VB.shape[1]):
+        spots.append(VB.T[dim])
 
     for i in range(matrix.shape[0]):
+        term = tuple(matrix_terms[i])
+        if power and term not in neededSpots:
+            continue
         remainder = np.zeros(remainder_shape)
         row = matrix[i]
         remainder[spots] = row[matrix.shape[0]:]
-        basisDict[tuple(matrix_terms[i])] = remainder
+        basisDict[term] = remainder
 
     return basisDict
 

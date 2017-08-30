@@ -109,6 +109,7 @@ def roots(polys, method = 'Groebner'):
                 var_value = GB_poly.evaluate_at(root) * -1
                 root[pos] = var_value
         roots.append(root)
+        #roots.append(newton_polish(polys,root))
     return roots
 
 def groebnerMultMatrix(polys, poly_type, method):
@@ -508,7 +509,7 @@ def newton_polish(polys,root,niter=100,tol=1e-5):
     x1 : ndarray
         The terminal point of Newton's method, an estimation for a root of the system
     """
-        poly_type = ''
+    poly_type = ''
     if (all(type(p) == MultiCheb for p in polys)):
         poly_type = 'MultiCheb'
     elif (all(type(p) == MultiPower for p in polys)):
