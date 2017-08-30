@@ -3,6 +3,7 @@ import numpy as np
 from scipy.linalg import lu, qr, solve_triangular
 import heapq
 import itertools
+import time
 
 class InstabilityWarning(Warning):
     pass
@@ -171,12 +172,10 @@ def inverse_P(P):
     scipy.linalg.qr : QR decomposition (with pivoting=True).
 
     '''
-
-    # The elementry matrix that flips the columns of given matrix.
-    M_P= np.eye(len(P))[:,P]
-    # This finds the index that equals 1 of each row of P.
-    #(This is what we want since we want the index of 1 at each column of P.T)
-    return np.where(M_P==1)[1]
+    inverse = [0] * len(P)
+    for i, p in enumerate(P):
+        inverse[p] = i
+    return inverse    
 
 def lcm(a,b):
     '''Finds the LCM of the two leading terms of polynomials a and b
@@ -190,7 +189,6 @@ def lcm(a,b):
     numpy array
         The lcm of the leading terms of a and b. The usual representation is
         used, i.e., :math:`x^2y^3` is represented as :math:`\mathtt{(2,3)}`
-
     '''
     return np.maximum(a.lead_term, b.lead_term)
 
@@ -205,9 +203,7 @@ def quotient(a, b):
     -------
     list
         The quotient a / b
-
     '''
-
     return [i-j for i,j in zip(a, b)]
 
 def rrqr_reduce(matrix, clean = False, global_accuracy = 1.e-10):
@@ -494,51 +490,39 @@ def triangular_solve(matrix):
     m,n = matrix.shape
     j = 0  # The row index.
     k = 0  # The column index.
-    c = [] # It will contain the columns that make an upper triangular matrix.
-    d = [] # It will contain the rest of the columns.
     order_c = [] # List to keep track of original index of the columns in c.
     order_d = [] # List to keep track of the original index of the columns in d.
-
+    
     # Checks if the given matrix is not a square matrix.
     if m != n:
         # Makes sure the indicies are within the matrix.
         while j < m and k < n:
-            if matrix[j,k]!= 0:
-                c.append(matrix[:,k])
+            if matrix[j,k] != 0:
                 order_c.append(k)
                 # Move to the diagonal if the index is non-zero.
                 j+=1
                 k+=1
             else:
-                d.append(matrix[:,k])
                 order_d.append(k)
                 # Check the next column in the same row if index is zero.
                 k+=1
-        # C will be the square matrix that is upper triangular with no zeros on the diagonals.
-        C = np.vstack(c).T
-        # If d is not empty, add the rest of the columns not checked into the matrix.
-        if d:
-            D = np.vstack(d).T
-            D = np.hstack((D,matrix[:,k:]))
-        else:
-            D = matrix[:,k:]
         # Append the index of the rest of the columns to the order_d list.
-        for i in range(n-k):
-            order_d.append(k)
-            k+=1
-
+        order_d += list(np.arange(k,n))
+        
+        # C will be the square matrix that is upper triangular with no zeros on the diagonals.
+        C = matrix[:,order_c]
+        
+        # D is the rest of the columns.
+        D = matrix[:,order_d]
         # Solve for the CX = D
         X = solve_triangular(C,D)
 
         # Add I to X. [I|X]
         solver = np.hstack((np.eye(X.shape[0]),X))
 
-        # Find the order to reverse the columns back.
-        #order = inverse_P(order_c+order_d)
-
         # Reverse the columns back.
-        solver1 = np.empty_like(solver)
-        solver1[:,order_c+order_d] = solver
+        solver1 = solver[:,inverse_P(order_c+order_d)]
+
         return solver1
     else:
     # The case where the matrix passed in is a square matrix
