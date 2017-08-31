@@ -31,7 +31,7 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
     VB : ?
         Monomials representing the vector space basis
 
-    '''
+    """
     Power = bool
     if all([type(p) == MultiPower for p in initial_poly_list]):
         Power = True
