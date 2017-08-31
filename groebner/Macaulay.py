@@ -6,7 +6,7 @@ from scipy.linalg import lu, qr, solve_triangular, inv, solve, svd
 from numpy.linalg import cond
 from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 from scipy.sparse import csc_matrix, vstack
-from groebner.utils import Term, row_swap_matrix, clean_zeros_from_matrix, inverse_P, triangular_solve, divides, argsort_dec, slice_top
+from groebner.utils import Term, row_swap_matrix, clean_zeros_from_matrix, inverse_P, triangular_solve, divides, slice_top
 import matplotlib.pyplot as plt
 from collections import defaultdict
 import groebner.utils as utils
@@ -230,7 +230,7 @@ def sort_matrix_terms(matrix_terms):
     termList = list()
     for term in matrix_terms:
         termList.append(Term(term))
-    argsort_list, termList = argsort_dec(termList)
+    argsort_list = np.argsort(termList)[::-1]
     return matrix_terms[argsort_list]
 
 def create_matrix(poly_coeffs):

@@ -75,50 +75,6 @@ class Term(object):
     def __hash__(self):
         return hash(self.val)
 
-def argsort_dec(list_):
-    '''Sort the given list into decreasing order.
-
-    Parameters
-    ----------
-    list_ : list
-        The list to be sorted.
-
-    Returns
-    -------
-    argsort_list : list
-        A list of the old indexes in their new places. For example, if
-        [3,1,4] was sorted to be [4,3,1], then argsort_list would be [2,0,1]
-    list_ : list
-        The same list as was input, but now in decreasing order.
-
-    '''
-
-    argsort_list = sorted(range(len(list_)), key=list_.__getitem__)[::-1]
-    list_.sort()
-    return argsort_list, list_[::-1]
-
-def argsort_inc(list_):
-    '''Sort the given list into increasing order.
-
-    Parameters
-    ----------
-    list_ : list
-        The list to be sorted.
-
-    Returns
-    -------
-    argsort_list : list
-        A list of the old indexes in their new places. For example, if
-        [3,1,4] was sorted to be [1,3,4], then argsort_list would be [1,0,2]
-    list_ : list
-        The same list as was input, but now in increasing order.
-
-    '''
-
-    argsort_list = sorted(range(len(list_)), key=list_.__getitem__)
-    list_.sort()
-    return argsort_list, list_
-
 def clean_zeros_from_matrix(array, accuracy=1.e-10):
     '''Sets all values in the array less than the given accuracy to 0.
 
@@ -204,7 +160,7 @@ def quotient(a, b):
     list
         The quotient a / b
     '''
-    return [i-j for i,j in zip(a, b)]
+    return np.subtract(a,b)
 
 def rrqr_reduce(matrix, clean = False, global_accuracy = 1.e-10):
     '''
@@ -350,10 +306,8 @@ def sorted_polys_coeff(polys):
     '''
     # The lead_coeff to other stuff ratio.
     lead_coeffs = [abs(poly.lead_coeff)/np.sum(np.abs(poly.coeff)) for poly in polys]
-
-    argsort_list = argsort_dec(lead_coeffs)[0]
+    argsort_list = np.argsort(lead_coeffs)[::-1]
     sorted_polys = [polys[i] for i in argsort_list]
-
     return sorted_polys
 
 def sorted_polys_monomial(polys):
@@ -379,12 +333,8 @@ def sorted_polys_monomial(polys):
         num_monomials.append(len(np.where(poly.coeff != 0)[0]))
 
     # Generate a sorted index based on num_monomials.
-    # TODO: I'm pretty sure there is a numpy function that does this already.
-    argsort_list = argsort_inc(num_monomials)[0]
-
-    # Sort the polynomials according to the index argsort_list.
+    argsort_list = np.argsort(num_monomials)
     sorted_polys = [polys[i] for i in argsort_list]
-
     return sorted_polys
 
 def row_swap_matrix(matrix):
@@ -409,22 +359,19 @@ def row_swap_matrix(matrix):
            [0, 1, 3, 0]])
     '''
     leading_mon_columns = list()
-    lastRow = -1
-    for row,column in zip(*np.where(matrix != 0)):
-        if row != lastRow:
-            leading_mon_columns.append(column)
-            lastRow = row
+    for row in matrix:
+        leading_mon_columns.append(np.where(row!=0)[0][0])
 
-    argsort_list = argsort_inc(leading_mon_columns)[0]
-    return matrix[argsort_list]
+    return matrix[np.argsort(leading_mon_columns)]
 
 def get_var_list(dim):
     '''Returns a list of the variables [x_1, x_2, ..., x_n] as tuples.'''
     _vars = []
+    var = np.zeros(dim, dtype=int)
     for i in range(dim):
-        var = np.zeros(dim, dtype=int)
         var[i] = 1
         _vars.append(tuple(var))
+        var[i] = 0
     return _vars
 
 def row_linear_dependencies(matrix, accuracy=1.e-10):
@@ -508,22 +455,23 @@ def triangular_solve(matrix):
                 k+=1
         # Append the index of the rest of the columns to the order_d list.
         order_d += list(np.arange(k,n))
-        
+                
         # C will be the square matrix that is upper triangular with no zeros on the diagonals.
         C = matrix[:,order_c]
         
         # D is the rest of the columns.
         D = matrix[:,order_d]
+
         # Solve for the CX = D
         X = solve_triangular(C,D)
 
         # Add I to X. [I|X]
         solver = np.hstack((np.eye(X.shape[0]),X))
-
+        
         # Reverse the columns back.
-        solver1 = solver[:,inverse_P(order_c+order_d)]
+        solver = solver[:,inverse_P(order_c+order_d)]
 
-        return solver1
+        return solver
     else:
     # The case where the matrix passed in is a square matrix
         return np.eye(m)
@@ -686,7 +634,7 @@ def match_size(a,b):
                 b_shape.insert(0,1)
             b = b.reshape(b_shape)
 
-    new_shape = [max(i,j) for i,j in itertools.zip_longest(a.shape, b.shape, fillvalue = 0)] #finds the largest length in each dimension
+    new_shape = np.maximum(a.shape, b.shape)
     
     a_new = np.zeros(new_shape)
     a_new[slice_top(a)] = a

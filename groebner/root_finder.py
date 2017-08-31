@@ -169,8 +169,8 @@ def sortVB(VB):
     VBList = list()
     for i in VB:
         VBList.append(Term(i))
-    argsort_list = sorted(range(len(VBList)), key=VBList.__getitem__)[::]
-    return VB[argsort_list]
+
+    return VB[np.argsort(VBList)]
 
 def TVBMultMatrix(polys, poly_type):
     '''

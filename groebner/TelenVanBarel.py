@@ -51,17 +51,18 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
         initial_poly_list.append(S)
         degree = find_degree(initial_poly_list)
     
+    
     for i in initial_poly_list:
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
 
     matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list, degree, dim)
-        
+
     matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy = accuracy)    
-        
-    matrix = clean_zeros_from_matrix(matrix)
     
-    matrix = triangular_solve(matrix)
-    matrix = clean_zeros_from_matrix(matrix)
+    height = matrix.shape[0]
+    matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
+    matrix[:,:height] = np.eye(height)
+    #matrix = triangular_solve(matrix)
 
     VB = matrix_terms[matrix.shape[0]:]
     
@@ -230,7 +231,9 @@ def create_matrix(poly_coeffs, degree, dim):
         added_zeros[slices] = coeff
         flat_polys.append(added_zeros[matrix_term_indexes])
         added_zeros[slices] = np.zeros_like(coeff)
-
+        coeff = 0
+    poly_coeffs = 0
+    
     #Make the matrix. Reshape is faster than stacking.
     matrix = np.reshape(flat_polys, (len(flat_polys),len(matrix_terms)))
     

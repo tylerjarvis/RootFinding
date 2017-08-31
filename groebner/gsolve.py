@@ -374,7 +374,7 @@ def sort_matrix_terms(matrix_terms):
     termList = list()
     for term in matrix_terms:
         termList.append(Term(term))
-    argsort_list, termList = utils.argsort_dec(termList)
+    argsort_list = np.argsort(termList)[::-1]
     return matrix_terms[argsort_list]
 
 def create_matrix(matrix_polys, matrix_terms = None):

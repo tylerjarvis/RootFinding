@@ -151,10 +151,10 @@ def test_sorted_polys_coeff():
                          [4,2,5,9,0,3,2,-1,-3,-3],
                          [3,-3,-5,-2,0,4,-2,2,1,-6]]))
 
-    assert(list((A,B)) == ut.sorted_polys_coeff([A,B]))
+    assert([A,B] == ut.sorted_polys_coeff([A,B]))
 
     C = MultiPower(np.array([[1]]))
-    assert(list((C,A,B)) == ut.sorted_polys_coeff([A,B,C]))
+    assert([C,A,B] == ut.sorted_polys_coeff([A,B,C]))
 
 def test_makePolyCoeffMatrix():
     A = MultiPower('1')
