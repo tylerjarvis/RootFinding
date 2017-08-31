@@ -27,7 +27,7 @@ class Polynomial(object):
         The total degree of the lead_term
     lead_coeff
         The coeff of the lead_term
-        
+
     Parameters
     ----------
     coeff : ndarray
@@ -108,18 +108,18 @@ class Polynomial(object):
 
     def match_size(self,a,b):
         '''
-        Matches the shape of the matrixes of two polynomials. 
-        
+        Matches the shape of the matrixes of two polynomials.
+
         Parameters
         ----------
         a, b : ndarray
             Coefficients of polynomials a, b
-            
+
         Returns
         -------
         a, b : ndarray
             Coefficients of padded polynomials a, b
-            
+
         Notes
         -----
         This might not be the best place for it.
@@ -246,7 +246,7 @@ class MultiCheb(Polynomial):
         The total degree of the lead_term.
     lead_coeff
         The coeff of the lead_term.
-        
+
     Parameters
     ----------
     dim : int
@@ -385,7 +385,7 @@ class MultiCheb(Polynomial):
     def _mon_mult1(initial_matrix, idx, dim_mult):
         """
         Executes monomial multiplication in one dimension.
-        
+
         Parameters
         ----------
         initial_matrix : array_like
@@ -477,7 +477,7 @@ class MultiCheb(Polynomial):
             The result of plugging a point into a polynomial.
         """
         super(MultiCheb, self).evaluate_at(point)
-        
+
         c = self.coeff
         n = len(c.shape)
         c = cheb.chebval(point[0],c)
@@ -522,7 +522,7 @@ class MultiPower(Polynomial):
         monomial ordering desired for Grobner calculations.
     lead_term : list
         the index of the current leading coefficent.
-            
+
     Methods
     -------
     __add__
@@ -539,7 +539,7 @@ class MultiPower(Polynomial):
         Multiplies a power monomial by a power polynomial.
     evaluate_at
         Evaluate a power polynomial at a point.
-        
+
     """
     def __init__(self, coeff, order='degrevlex', lead_term=None, clean_zeros = True):
         super(MultiPower, self).__init__(coeff, order, lead_term, clean_zeros)
@@ -683,7 +683,7 @@ class MultiPower(Polynomial):
             The result of plugging a point into a polynomial.
         """
         super(MultiPower, self).evaluate_at(point)
-        
+
         c = self.coeff
         n = len(c.shape)
         c = poly.polyval(point[0],c)
@@ -782,3 +782,31 @@ def poly2cheb(P):
     for i in range(dim):
         A = np.apply_along_axis(conv_poly, i, A)
     return MultiCheb(A)
+
+###############################################################################
+
+### is_power function #########################################################
+
+def is_power(poly_list):
+    """
+    Determines the type of a list of polynomials.
+
+    Parameters
+    ----------
+    poly_list : list of polynomial objects
+
+    Returns
+    ----------
+    is_power : bool
+        If the list is all power objects then returns True, if all obects are
+        chebyshev then returns False, and if there is a mix then an error is
+        raised
+
+    """
+    if all([type(p) == MultiPower for p in poly_list]):
+        return True
+    elif all([type(p) == MultiCheb for p in poly_list]):
+        return False
+    else:
+        print([type(p) == MultiPower for p in initial_poly_list])
+        raise ValueError('Bad polynomials in list')
