@@ -1,9 +1,10 @@
 import numpy as np
 from groebner.polynomial import Polynomial, MultiCheb, MultiPower, is_power
 import itertools
+import warnings
 from groebner.Macaulay import Macaulay, new_macaulay
 from groebner.TelenVanBarel import TelenVanBarel
-from groebner.utils import Term, get_var_list, divides
+from groebner.utils import Term, get_var_list, divides, TVBError, InstabilityWarning, match_size
 from groebner.gsolve import F4
 
 '''
@@ -17,15 +18,15 @@ def roots(polys, method = 'Groebner'):
 
     Parameters
     ----------
-    polys : list
+    polys : list of polynomial objects
         Polynomials to find the common roots of.
     method : string
         The root finding method to be used. Can be either 'Groebner',
         'Macaulay', or 'TVB'.
-    Returns
+    returns
     -------
-    list
-        Common roots of the polynomials, each as a 1-D ndarray.
+    list of numpy arrays
+        the common roots of the polynomials
     '''
     # Determine polynomial type
     poly_type = ''
@@ -37,7 +38,20 @@ def roots(polys, method = 'Groebner'):
         raise ValueError('All polynomials must be the same type')
 
     if method == 'TVB':
-        m_f, var_dict = TVBMultMatrix(polys, poly_type)
+        try:
+            m_f, var_dict = TVBMultMatrix(polys, poly_type)
+        except TVBError as e:
+            if str(e) == "Doesn't have all x^n's on diagonal. Do linear transformation":
+                ''' #Optionally have it do Groebner instead in thise case.
+                warnings.warn("TVB method failed. Trying Groebner instead. Error message from TVB is - {}".format(e), InstabilityWarning)
+                method = 'Groebner'
+                GB, m_f, var_dict = groebnerMultMatrix(polys, poly_type, method)
+                '''
+                raise e
+            elif str(e) == 'Polys are non-zero dimensional':
+                return -1
+            else:
+                raise e
     else:
         GB, m_f, var_dict = groebnerMultMatrix(polys, poly_type, method)
 
@@ -50,7 +64,7 @@ def roots(polys, method = 'Groebner'):
     # in the vector space basis.
     dim = max(f.dim for f in polys)
     var_list = get_var_list(dim)
-    var_indexes = np.array([-1 for i in range(dim)])
+    var_indexes = [-1]*dim
     vars_not_in_basis = {}
     for i in range(len(var_list)):
         var = var_list[i] # x_i
@@ -73,10 +87,11 @@ def roots(polys, method = 'Groebner'):
     eig = e[1]
     num_vectors = eig.shape[1]
 
-    eig_vectors = [eig[:,i].tolist() for i in range(num_vectors)] # columns of eig
-
+    eig_vectors = [eig[:,i] for i in range(num_vectors)] # columns of eig
     roots = []
     for v in eig_vectors:
+        if v[var_dict[tuple(0 for i in range(dim))]] == 0:
+            continue
         root = np.zeros(dim, dtype=complex)
         # This will always work because var_indexes and root have the
         # same length - dim - and var_indexes has the variables in the
@@ -95,6 +110,7 @@ def roots(polys, method = 'Groebner'):
                 var_value = GB_poly.evaluate_at(root) * -1
                 root[pos] = var_value
         roots.append(root)
+        #roots.append(newton_polish(polys,root))
     return roots
 
 def groebnerMultMatrix(polys, poly_type, method):
@@ -112,13 +128,13 @@ def groebnerMultMatrix(polys, poly_type, method):
 
     Returns
     -------
-        GB : list of Polynomials
-            The calculated Groebner basis.
-        m_f : (M,N) numpy array
-            Multiplication matrix for a random polynomial f.
+        GB : list of polynomial objects
+            The calculated groebner basis.
+        m_f : 2D numpy array
+            the multiplication matrix for a random polynomial f
         var_dict : dictionary of tuples to ints
-            >aps the variable to its location in the vector space basis, so if
-            VB is [1, x, y, xy] then var_dict is {(1,0):1, (0,1):2}.
+            maps the variable to its location in the vector space basis, so if
+            VB is [1, x, y, xy] then var_dict is {(1,0):1, (0,1):2}
     '''
     # Calculate groebner basis
     if method == 'Groebner':
@@ -152,19 +168,19 @@ def sortVB(VB):
 
     Parameters
     ----------
-    VB : ndarray
+    VB : numpy array
         Each row in VB is a term in the vector basis.
 
     Returns
     -------
-    VB : ndarray
+    VB : numpy array
         The vector basis sorted so the lowest terms are at the top.
     '''
     VBList = list()
     for i in VB:
         VBList.append(Term(i))
-    argsort_list = sorted(range(len(VBList)), key=VBList.__getitem__)[::]
-    return VB[argsort_list]
+
+    return VB[np.argsort(VBList)]
 
 def TVBMultMatrix(polys, poly_type):
     '''
@@ -174,18 +190,18 @@ def TVBMultMatrix(polys, poly_type):
     Parameters
     ----------
     polys : array-like
-        The polynomials to find the common zeros of.
+        The polynomials to find the common zeros of
     poly_type : string
-        The type of the Polynomials in polys. "MultiCheb" or "MultiPower".
+        The type of the polynomials in polys
 
     Returns
     -------
-    multiplicationMatrix : (M,N) ndarray
-        The multiplication matrix for a random polynomial f.
+    multiplicationMatrix : 2D numpy array
+        The multiplication matrix for a random polynomial f
     var_dict : dictionary
-        Maps each variable to its position in the vector space basis.
+        Maps each variable to its position in the vector space basis
     '''
-    basisDict, VB = TelenVanBarel(polys)
+    basisDict, VB, degree = TelenVanBarel(polys)
 
     VB = sortVB(VB)
 
@@ -202,16 +218,12 @@ def TVBMultMatrix(polys, poly_type):
     for mon in VB:
         VBset.add(tuple(mon))
 
-    mMatrix = np.zeros((len(VB), len(VB)))
-
     # Build multiplication matrix m_f
-    remainder_shape = np.maximum.reduce([mon for mon in VB])
-    remainder_shape += np.ones_like(remainder_shape)
-    remainder = np.zeros(remainder_shape)
+    mMatrix = np.zeros((len(VB), len(VB)))
+    remainder = np.zeros([degree]*dim)
 
     for i in range(VB.shape[0]):
         f_coeff = f.mon_mult(VB[i], returnType = 'Matrix')
-        #remainder = np.zeros(remainder_shape)
         for term in zip(*np.where(f_coeff != 0)):
             if term in VBset:
                 remainder[term] += f_coeff[term]
@@ -287,22 +299,20 @@ def multMatrix(poly, GB, basisList):
     matrix with respect to the vector space basis.
     parameters
     ----------
-    poly : Polynomial
+    poly : polynomial object
         The polynomial f for which to find the matrix m_f.
-    GB: list of Polynomials
-        Polynomials that make up a Groebner basis for the ideal.
+    GB: list of polynomial objects
+        Polynomials that make up a Groebner basis for the ideal
     basisList : list of tuples
-        The monomials that make up a basis for the vector space A.
+        The monomials that make up a basis for the vector space A
     returns
     -------
-    multMatrix : (M,M) ndarray
-        The matrix m_f.
+    multMatrix : square numpy array
+        The matrix m_f
     '''
     basisSet = set(basisList)
-    basisTerms = np.zeros_like(basisList[0])
-    for term in basisList:
-        basisTerms = np.vstack((basisTerms,term))
-    basisTerms = basisTerms[1:]
+    basisTerms = np.vstack(basisList)
+
     slices = list()
     for i in range(len(basisTerms[0])):
         slices.append(basisTerms.T[i])
@@ -324,7 +334,7 @@ def multMatrix(poly, GB, basisList):
 
 def vectorSpaceBasis(GB):
     '''
-    Parameters
+    parameters
     ----------
     GB: list
         Polynomials that make up a Groebner basis for the ideal.
@@ -332,9 +342,9 @@ def vectorSpaceBasis(GB):
     Returns
     -------
     basis : list
-        Tuples representing the monomials in the vector space basis.
+        tuples representing the monomials in the vector space basis
     var_to_pos_dict : dictionary
-        Maps each variable to its position in the vector space basis.
+        maps each variable to its position in the vector space basis
     '''
     LT_G = [f.lead_term for f in GB]
     possibleVarDegrees = [range(max(tup)) for tup in zip(*LT_G)]
@@ -357,20 +367,20 @@ def vectorSpaceBasis(GB):
 
 def coordinateVector(poly, GB, basisSet, slices):
     '''
-    Parameters
+    parameters
     ----------
-    reducedPoly : Polynomial
+    reducedPoly : polynomial object
         The polynomial for which to find the coordinate vector of its coset.
-    GB : list of Polynomials
-        Polynomials that make up a Groebner basis for the ideal.
+    GB : list of polynomial objects
+        Polynomials that make up a Groebner basis for the ideal
     basisSet : set of tuples
-        The monomials that make up a basis for the vector space.
-    slices : list of ndarrays
+        The monomials that make up a basis for the vector space
+    slices : A list of np.arrays
         Contains the inexes of the vector basis so those spots can be pulled out of he coeff matrix quickly.
 
     Returns
     -------
-    coordinateVector : ndarray
+    coordinateVector : numpy array
         The coordinate vector of the given polynomial's coset in
         A = C[x_1,...x_n]/I as a vector space over C
     '''
@@ -384,15 +394,15 @@ def reduce_poly(poly, divisors, basisSet, permitted_round_error=1e-10):
     multivariate division algorithm and returns the remainder
     parameters
     ----------
-    poly : Polynomial
-        Polynomial to be divided by the Groebner basis.
-    divisors : list of Polynomials
-        Polynomials to divide poly by.
+    poly : polynomial object
+        the polynomial to be divided by the Groebner basis
+    divisors : list of polynomial objects
+        polynomials to divide poly by
     basisSet : set of tuples
-        The monomials that make up a basis for the vector space.
+        The monomials that make up a basis for the vector space
     returns
     -------
-    Polynomial
+    polynomial object
         the remainder of poly / divisors
     '''
     remainder_shape = np.maximum.reduce([p.shape for p in divisors])
@@ -418,7 +428,7 @@ def reduce_poly(poly, divisors, basisSet, permitted_round_error=1e-10):
                 poly_to_subtract_coeff = divisor.mon_mult(LT_quotient, returnType = 'Matrix')
                 # Match sizes of poly_to_subtract and poly so
                 # poly_to_subtract.coeff can be subtracted from poly.coeff
-                poly_coeff, poly_to_subtract_coeff = poly.match_size(poly.coeff, poly_to_subtract_coeff)
+                poly_coeff, poly_to_subtract_coeff = match_size(poly.coeff, poly_to_subtract_coeff)
                 new_coeff = poly_coeff - \
                     (poly.lead_coeff/poly_to_subtract_coeff[tuple(divisor.lead_term+LT_quotient)])*poly_to_subtract_coeff
 
@@ -485,7 +495,6 @@ def _get_poly_with_LT(LT, GB):
             return poly
 
 def _test_zero_dimensional(_vars, GB):
-    """Tests if the ring generated by the polynomials is zero dimensional"""
     LT_list = [p.lead_term for p in GB]
 
     for var in _vars:
@@ -544,3 +553,59 @@ def _match_poly_dim(poly1, poly2):
             poly2 = MultiCheb(coeff_reshaped)
 
     return poly1, poly2
+
+def newton_polish(polys,root,niter=100,tol=1e-5):
+    """
+    Perform Newton's method on a system of N polynomials in M variables.
+
+    Parameters
+    ----------
+    polys : list
+        A list of polynomial objects of the same type (MultiPower or MultiCheb).
+    root : ndarray
+        An initial guess for Newton's method, intended to be a candidate root from root_finder.
+    niter : int
+        A maximum number of iterations of Newton's method.
+    tol : float
+        Tolerance for convergence of Newton's method.
+
+    Returns
+    -------
+    x1 : ndarray
+        The terminal point of Newton's method, an estimation for a root of the system
+    """
+    poly_type = ''
+    if (all(type(p) == MultiCheb for p in polys)):
+        poly_type = 'MultiCheb'
+    elif (all(type(p) == MultiPower for p in polys)):
+        poly_type = 'MultiPower'
+    else:
+        raise ValueError('All polynomials must be the same type')
+
+    def f(x):
+        m = len(polys)
+        f_x = np.empty(m)
+        for i, poly in enumerate(polys):
+            f_x[i] = poly.evaluate_at(x)
+        return f_x
+
+    def Df(x):
+        m = len(polys)
+        dim = max(poly.dim for poly in polys)
+        jac = np.empty((m,dim))
+        for i, poly in enumerate(polys):
+            jac[i] = poly.grad(x)
+        return jac
+
+    i = 0
+    x0 = root
+    while True:
+        if i == niter:
+            break
+        delta = np.linalg.solve(Df(x0),-f(x0))
+        x1 = delta + x0
+        if np.linalg.norm(x1-x0) < tol:
+            break
+        x0 = x1
+        i+=1
+    return x1

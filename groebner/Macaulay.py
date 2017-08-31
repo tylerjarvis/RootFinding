@@ -6,7 +6,7 @@ from scipy.linalg import lu, qr, solve_triangular, inv, solve, svd
 from numpy.linalg import cond
 from groebner.polynomial import Polynomial, MultiCheb, MultiPower, is_power
 from scipy.sparse import csc_matrix, vstack
-from groebner.utils import Term, row_swap_matrix, fill_size, clean_zeros_from_matrix, inverse_P, triangular_solve, divides, argsort_dec
+from groebner.utils import Term, row_swap_matrix, clean_zeros_from_matrix, inverse_P, triangular_solve, divides, slice_top
 import matplotlib.pyplot as plt
 from collections import defaultdict
 import groebner.utils as utils
@@ -102,9 +102,9 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
 
     for i in initial_poly_list:
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
-    initial_poly_list = list()
-    matrix, matrix_terms, poly_coeff_list = create_matrix(poly_coeff_list)
-    print(matrix.shape)
+
+    matrix, matrix_terms = create_matrix(poly_coeff_list)
+
     #rrqr_reduce2 and rrqr_reduce same pretty matched on stability, though I feel like 2 should be better.
     matrix = utils.rrqr_reduce2(matrix, global_accuracy = global_accuracy)
     matrix = clean_zeros_from_matrix(matrix)
@@ -114,6 +114,8 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     matrix = triangular_solve(matrix)
     matrix = clean_zeros_from_matrix(matrix)
 
+    #The other reduction option. I thought it would be really stable but seems to be the worst of the three.
+    #matrix = matrixReduce(matrix, triangular_solve = True, global_accuracy = global_accuracy)
 
     rows = get_good_rows(matrix, matrix_terms)
     final_polys = get_polys_from_matrix(matrix, matrix_terms, rows, Power)
@@ -265,7 +267,7 @@ def add_polys(degree, poly, poly_coeff_list):
     poly_coeff_list.append(poly.coeff)
     deg = degree - poly.degree
     dim = poly.dim
-    mons = mon_combos(np.zeros(dim, dtype = int),deg)
+    mons = mon_combos([0]*dim,deg)
     mons = mons[1:]
     for i in mons:
         poly_coeff_list.append(poly.mon_mult(i, returnType = 'Matrix'))
@@ -289,25 +291,8 @@ def sort_matrix_terms(matrix_terms):
     termList = list()
     for term in matrix_terms:
         termList.append(Term(term))
-    argsort_list, termList = argsort_dec(termList)
+    argsort_list = np.argsort(termList)[::-1]
     return matrix_terms[argsort_list]
-
-def coeff_slice(coeff):
-    ''' Gets the n-d slices that corespond to the dimenison of a coeff matrix.
-
-    Parameters
-    ----------
-    coeff : numpy.matrix
-        The matrix of interest.
-    Returns
-    -------
-    slices : list
-        Each value of the list is a slice of the matrix in some dimension. It is exactly the size of the matrix.
-    '''
-    slices = list()
-    for i in coeff.shape:
-        slices.append(slice(0,i))
-    return slices
 
 def create_matrix(poly_coeffs):
     ''' Builds a Macaulay matrix.
@@ -343,7 +328,7 @@ def create_matrix(poly_coeffs):
     added_zeros = np.zeros(bigShape)
     flat_polys = list()
     for coeff in poly_coeffs:
-        slices = coeff_slice(coeff)
+        slices = slice_top(coeff)
         added_zeros[slices] = coeff
         flat_polys.append(added_zeros[matrix_term_indexes])
         added_zeros[slices] = np.zeros_like(coeff)
@@ -354,7 +339,7 @@ def create_matrix(poly_coeffs):
     flat_polys = 0
     #Sorts the rows of the matrix so it is close to upper triangular.
     matrix = row_swap_matrix(matrix)
-    return matrix, matrix_terms, list()
+    return matrix, matrix_terms
 
 def matrixReduce(matrix, triangular_solve = False, global_accuracy = 1.e-10):
     '''
@@ -405,10 +390,12 @@ def matrixReduce(matrix, triangular_solve = False, global_accuracy = 1.e-10):
         R = clean_zeros_from_matrix(R)
         X = solve_triangular(R[:,:R.shape[0]],R[:,R.shape[0]:])
         reduced = np.hstack((np.eye(X.shape[0]),X))
-
+    else:
+        reduced = R
     matrix = np.empty_like(reduced)
     matrix[:,pivotColumns + otherColumns] = reduced
 
+    matrix = clean_zeros_from_matrix(matrix)
     return matrix
 
 def findPivotColumns(matrix, global_accuracy = 1.e-10):

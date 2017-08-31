@@ -13,7 +13,7 @@ from scipy.sparse import csc_matrix, vstack
 import matplotlib.pyplot as plt
 from collections import defaultdict
 import warnings
-from groebner.utils import InstabilityWarning
+from groebner.utils import InstabilityWarning, slice_top
 
 def F4(polys, reducedGroebner = True, accuracy = 1.e-10, phi = True):
     '''Uses the F4 algorithm to find a Groebner Basis.
@@ -374,25 +374,8 @@ def sort_matrix_terms(matrix_terms):
     termList = list()
     for term in matrix_terms:
         termList.append(Term(term))
-    argsort_list, termList = utils.argsort_dec(termList)
+    argsort_list = np.argsort(termList)[::-1]
     return matrix_terms[argsort_list]
-
-def coeff_slice(coeff):
-    ''' Gets the n-d slices that corespond to the dimenison of a coeff matrix.
-    Parameters
-    ----------
-    coeff : numpy.matrix
-        The input matrix.
-
-    Returns
-    -------
-    slices : list
-        Each value of the list is a slice of the matrix in some dimension. It is exactly the size of the matrix.
-    '''
-    slices = list()
-    for i in coeff.shape:
-        slices.append(slice(0,i))
-    return slices
 
 def create_matrix(matrix_polys, matrix_terms = None):
     ''' Builds a Macaulay matrix.
@@ -434,7 +417,7 @@ def create_matrix(matrix_polys, matrix_terms = None):
     flat_polys = list()
     for poly in matrix_polys:
         coeff = poly.coeff
-        slices = coeff_slice(coeff)
+        slices = slice_top(coeff)
         added_zeros[slices] = coeff
         flat_polys.append(added_zeros[matrix_term_indexes])
         added_zeros[slices] = np.zeros_like(coeff)
@@ -504,7 +487,6 @@ def row_echelon(matrix, accuracy=1.e-10):
         The matrix in row echelon form with all zero rows removed.
 
     '''
-
     independent_rows, dependent_rows, Q = utils.row_linear_dependencies(matrix, accuracy=accuracy)
     full_rank_matrix = matrix[independent_rows]
 
@@ -533,7 +515,6 @@ def lead_term_columns(matrix):
     LT_columns : set
         The set of column indexes that correspond to leading terms
     '''
-
     LT_columns = set()
 
     already_looked_at = set()
@@ -567,9 +548,7 @@ def get_new_polys(matrix, matrix_terms, accuracy=1.e-10, power=False):
     new_polys : list
         Contains polynomial objects whose leading terms weren't leading terms
         in the matrix passed in, but the were after reduction.
-
     '''
-
     lead_term_before = lead_term_columns(matrix)
     reduced_matrix = row_echelon(matrix, accuracy=accuracy)
     lead_term_after = lead_term_columns(reduced_matrix)
@@ -612,6 +591,11 @@ def reduce_groebner_basis(groebner_basis, power):
         poly.coeff = poly.coeff/poly.lead_coeff
         groebner_basis[0] = poly
         return groebner_basis
+
+    #This should be done eventually, Just make sure to pull out only the original GB.
+    #matrix_polys, matrix_terms = add_r_to_matrix(groebner_basis, groebner_basis)
+    #matrix, matrix_terms = create_matrix(matrix_polys, matrix_terms)
+
     matrix, matrix_terms = create_matrix(groebner_basis)
     matrix = utils.triangular_solve(matrix)
     rows = np.arange(matrix.shape[0])
