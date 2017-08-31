@@ -2,8 +2,13 @@
 import numpy as np
 from scipy.linalg import lu, qr, solve_triangular
 import heapq
+import itertools
+import time
 
 class InstabilityWarning(Warning):
+    pass
+
+class TVBError(RuntimeError):
     pass
 
 class Term(object):
@@ -70,171 +75,6 @@ class Term(object):
     def __hash__(self):
         return hash(self.val)
 
-class Term_w_InvertedOrder(Term):
-    '''
-    Called by MaxHeap object to reverse the ordering for a min heap
-    Used exclusively with Terms
-    '''
-    def __init__(self,term):
-        '''
-        Takes in a Term.  val is the underlying tuple, term is the underlying term
-        '''
-        self.val = term.val
-        self.term = term
-
-    # Invert the order
-
-    def __lt__(self,other): return self.term > other.term
-    def __le__(self,other): return (self.term > other.term or self.term == other.term)
-    def __ge__(self,other): return (self.term < other.term or self.term == other.term)
-    def __gt__(self,other): return (self.term < other.term)
-
-    def __repr__(self):
-        return str(list(self.val)) + ' with inverted grevlex order'
-
-
-class MaxHeap(object):
-    '''
-    Implementation of a set max-priority queue--one that only adds
-    terms to the queue if they aren't there already
-
-    Incoming and outgoing objects are all Terms (not Term_w_InvertedOrder)
-    '''
-
-    def __init__(self):
-        self.h = []         # empty heap
-        self._set = set()   # empty set (of things already in the heap)
-
-    def heappush(self, x):
-        if not x.val in self._set:       # check if already in the set
-            x = Term_w_InvertedOrder(x)
-            heapq.heappush(self.h,x)     # push with InvertedOrder
-            self._set.add(x.val)         # but use the tuple in the set (it is easily hashable)
-
-    def heappop(self):
-        term = heapq.heappop(self.h).term   # only keep the original term--without the InvertedOrder
-        self._set.discard(term.val)
-        return term
-
-    def __getitem__(self, i):
-        return self.h[i].term
-
-    def __len__(self):
-        return len(self.h)
-
-    def __repr__(self):
-        return('A max heap of {} unique terms with the DegRevLex term order.'.format(len(self)))
-
-class MinHeap(MaxHeap):
-    '''
-    Implementation of a set min-priorioty queue.
-    '''
-    def heappush(self,x):
-        ## Same as MaxHeap push, except that the term order is not inverted
-        if not x in self._set:
-            heapq.heappush(self.h, x)
-            self._set.add(x)
-        else:
-            pass
-
-    def heappop(self):
-        ''' Same as MaxHeap pop except that the term itself IS the underlying term.
-        '''
-        term = heapq.heappop(self.h)
-        self._set.discard(term.val)
-        return term
-
-    def __getitem__(self, i):
-        ''' Same as MaxHeap getitem except that the term itself IS the underlying term.
-        '''
-        return self.h[i]
-
-    def __repr__(self):
-        return('A min heap of {} unique terms with the DegRevLex term order.'.format(len(self)))
-
-def argsort_dec(list_):
-    '''Sort the given list into decreasing order.
-
-    Parameters
-    ----------
-    list_ : list
-        The list to be sorted.
-
-    Returns
-    -------
-    argsort_list : list
-        A list of the old indexes in their new places. For example, if
-        [3,1,4] was sorted to be [4,3,1], then argsort_list would be [2,0,1]
-    list_ : list
-        The same list as was input, but now in decreasing order.
-
-    '''
-
-    argsort_list = sorted(range(len(list_)), key=list_.__getitem__)[::-1]
-    list_.sort()
-    return argsort_list, list_[::-1]
-
-def argsort_inc(list_):
-    '''Sort the given list into increasing order.
-
-    Parameters
-    ----------
-    list_ : list
-        The list to be sorted.
-
-    Returns
-    -------
-    argsort_list : list
-        A list of the old indexes in their new places. For example, if
-        [3,1,4] was sorted to be [1,3,4], then argsort_list would be [1,0,2]
-    list_ : list
-        The same list as was input, but now in increasing order.
-
-    '''
-
-    argsort_list = sorted(range(len(list_)), key=list_.__getitem__)
-    list_.sort()
-    return argsort_list, list_
-
-def clean_matrix(matrix, matrix_terms, set_zeros=False, accuracy=1.e-10):
-    '''Removes columns in the matrix that are all zero along with associated
-    terms in matrix_terms.
-
-    Parameters
-    ----------
-    matrix : 2D numpy array
-        The matrix with rows corresponding to polynomials, columns corresponding
-        to monomials, and entries corresponding to coefficients.
-    matrix_terms : array-like, contains Term objects
-        The column labels for matrix in order.
-    set_zeros : bool, optional
-        If true, all entries in the matrix that are within accuracy of 0 will
-        be set to 0.
-    accuracy : float, optional
-        How close entries should be to 0 for them to be set to 0 (only applies
-        if set_zeros is True).
-
-    Returns
-    -------
-    matrix : 2D numpy array
-        Same matrix as input but with all 0 columns removed.
-    matrix_terms : array-like, contains Term objects
-        Same as input but with entries corresponding to 0 columns in the matrix
-        removed.
-
-    '''
-
-    ##This would replace all small values in the matrix with 0.
-    if set_zeros:
-        matrix = clean_zeros_from_matrix(matrix, accuracy=accuracy)
-
-    #Removes all 0 monomials
-    non_zero_monomial = np.sum(abs(matrix), axis=0) != 0
-    matrix = matrix[:,non_zero_monomial] #only keeps the non_zero_monomials
-    matrix_terms = matrix_terms[non_zero_monomial]
-
-    return matrix, matrix_terms
-
 def clean_zeros_from_matrix(array, accuracy=1.e-10):
     '''Sets all values in the array less than the given accuracy to 0.
 
@@ -248,7 +88,6 @@ def clean_zeros_from_matrix(array, accuracy=1.e-10):
     -------
     array : numpy array
         Same array, but with values less than the given accuracy set to 0.
-
     '''
     array[(array < accuracy) & (array > -accuracy)] = 0
     return array
@@ -267,7 +106,7 @@ def divides(mon1, mon2):
     boolean
         true if mon1 divides mon2, false otherwise
     '''
-    return all(np.subtract(mon2, mon1) >= 0)
+    return np.all(np.subtract(mon2, mon1) >= 0)
 
 def inverse_P(P):
     '''The inverse of P, the array with column switching indexes.
@@ -288,12 +127,10 @@ def inverse_P(P):
     scipy.linalg.qr : QR decomposition (with pivoting=True).
 
     '''
-
-    # The elementry matrix that flips the columns of given matrix.
-    M_P= np.eye(len(P))[:,P]
-    # This finds the index that equals 1 of each row of P.
-    #(This is what we want since we want the index of 1 at each column of P.T)
-    return np.where(M_P==1)[1]
+    inverse = [0] * len(P)
+    for i, p in enumerate(P):
+        inverse[p] = i
+    return inverse    
 
 def lcm(a,b):
     '''Finds the LCM of the two leading terms of polynomials a and b
@@ -307,7 +144,6 @@ def lcm(a,b):
     numpy array
         The lcm of the leading terms of a and b. The usual representation is
         used, i.e., :math:`x^2y^3` is represented as :math:`\mathtt{(2,3)}`
-
     '''
     return np.maximum(a.lead_term, b.lead_term)
 
@@ -322,10 +158,8 @@ def quotient(a, b):
     -------
     list
         The quotient a / b
-
     '''
-
-    return [i-j for i,j in zip(a, b)]
+    return np.subtract(a,b)
 
 def rrqr_reduce(matrix, clean = False, global_accuracy = 1.e-10):
     '''
@@ -368,10 +202,10 @@ def rrqr_reduce(matrix, clean = False, global_accuracy = 1.e-10):
     else: #not full rank
         A = R[:,PT] #Switch the columns back
         if clean:
-            Q[np.where(abs(Q) < global_accuracy)]=0
+            Q = np.clean_zeros_from_matrix(Q)
         B = Q.T.dot(B) #Multiply B by Q transpose
         if clean:
-            B[np.where(abs(B) < global_accuracy)]=0
+            B = np.clean_zeros_from_matrix(B)
         #sub1 is the top part of the matrix, we will recursively reduce this
         #sub2 is the bottom part of A, we will set this all to 0
         #sub3 is the bottom part of B, we will recursively reduce this.
@@ -433,11 +267,10 @@ def rrqr_reduce2(matrix, clean = True, global_accuracy = 1.e-10):
         #sub3 is the dependentRows of Q.T@B, we will recursively reduce this.
         #We then return sub1 stacked on top of sub2+sub3
         if clean:
-            Q[np.where(abs(Q) < global_accuracy)]=0
+            Q = clean_zeros_from_matrix(Q)
         bottom = matrix[dependentRows]
-        BCopy = B.copy()
         sub3 = bottom[:,height:]
-        sub3 = Q.T[-nullSpaceSize:]@BCopy
+        sub3 = Q.T[-nullSpaceSize:]@B
         if clean:
             sub3 = clean_zeros_from_matrix(sub3)
         sub3 = rrqr_reduce2(sub3)
@@ -468,15 +301,11 @@ def sorted_polys_coeff(polys):
     sorted_polys : list
         The polynomial objects in order of lead coefficient to everything else
         ratio.
-
     '''
-
     # The lead_coeff to other stuff ratio.
     lead_coeffs = [abs(poly.lead_coeff)/np.sum(np.abs(poly.coeff)) for poly in polys]
-
-    argsort_list = argsort_dec(lead_coeffs)[0]
+    argsort_list = np.argsort(lead_coeffs)[::-1]
     sorted_polys = [polys[i] for i in argsort_list]
-
     return sorted_polys
 
 def sorted_polys_monomial(polys):
@@ -492,9 +321,7 @@ def sorted_polys_monomial(polys):
     -------
     sorted_polys : list
         Polynomials in order.
-
     '''
-
     # A list to contain the number of monomials with non zero coefficients.
     num_monomials = []
     for poly in polys:
@@ -504,12 +331,8 @@ def sorted_polys_monomial(polys):
         num_monomials.append(len(np.where(poly.coeff != 0)[0]))
 
     # Generate a sorted index based on num_monomials.
-    # TODO: I'm pretty sure there is a numpy function that does this already.
-    argsort_list = argsort_inc(num_monomials)[0]
-
-    # Sort the polynomials according to the index argsort_list.
+    argsort_list = np.argsort(num_monomials)
     sorted_polys = [polys[i] for i in argsort_list]
-
     return sorted_polys
 
 def row_swap_matrix(matrix):
@@ -532,46 +355,21 @@ def row_swap_matrix(matrix):
     array([[1, 2, 3, 4],
            [0, 2, 0, 2],
            [0, 1, 3, 0]])
-
     '''
-
-    rows, columns = np.where(matrix != 0)
-    last_i = -1
     leading_mon_columns = list()
-    for i,j in zip(rows,columns):
-        if i != last_i:
-            leading_mon_columns.append(j)
-            last_i = i
+    for row in matrix:
+        leading_mon_columns.append(np.where(row!=0)[0][0])
 
-    argsort_list = argsort_inc(leading_mon_columns)[0]
-    return matrix[argsort_list]
-
-
-def fill_size(bigShape,smallPolyCoeff):
-    '''
-    Pads the smallPolyCoeff so it has the same shape as bigShape. Does this by making a matrix with the shape of
-    bigShape and then dropping smallPolyCoeff into the top of it with slicing.
-    Returns the padded smallPolyCoeff.
-    '''
-    if (smallPolyCoeff.shape == bigShape).all():
-        return smallPolyCoeff
-
-    matrix = np.zeros(bigShape)
-
-    slices = list()
-    for i in smallPolyCoeff.shape:
-        s = slice(0,i)
-        slices.append(s)
-    matrix[slices] = smallPolyCoeff
-    return matrix
+    return matrix[np.argsort(leading_mon_columns)]
 
 def get_var_list(dim):
     '''Returns a list of the variables [x_1, x_2, ..., x_n] as tuples.'''
     _vars = []
+    var = [0]*dim
     for i in range(dim):
-        var = np.zeros(dim, dtype=int)
         var[i] = 1
         _vars.append(tuple(var))
+        var[i] = 0
     return _vars
 
 def row_linear_dependencies(matrix, accuracy=1.e-10):
@@ -595,7 +393,6 @@ def row_linear_dependencies(matrix, accuracy=1.e-10):
     Q : (2D numpy array)
         The Q matrix used in RRQR reduction in finding the rank.
     '''
-
     height = matrix.shape[0]
     Q,R,P = qr(matrix, pivoting = True)
     diagonals = np.diagonal(R) #Go along the diagonals to find the rank
@@ -613,15 +410,7 @@ def row_linear_dependencies(matrix, accuracy=1.e-10):
         dependentRows = P1[:R1.shape[0]] #Pivot Columns
         return independentRows, dependentRows, Q
 
-def get_var_list(dim):
-    _vars = [] # list of the variables: [x_1, x_2, ..., x_n]
-    for i in range(dim):
-        var = np.zeros(dim, dtype=int)
-        var[i] = 1
-        _vars.append(tuple(var))
-    return _vars
-
-def triangular_solve(matrix, matrix_terms = None, reorder = True):
+def triangular_solve(matrix):
     """
     Takes a matrix that is in row echelon form and reduces it into row reduced echelon form.
 
@@ -629,80 +418,50 @@ def triangular_solve(matrix, matrix_terms = None, reorder = True):
     ----------
     matrix : 2D numpy array
         The matrix of interest.
-    matrix_terms : An numpy array.
-        The i'th row matrix_terms is the term in the i'th column of the matrix.
-    reorder : bool
-        If reorder is True then the matrix is reordered after triangular solve to put it in it's
-        initial order. Otherwise it is returned so the first part of the matrix is the identity matrix.
-        The matrix_terms are reordered accordingly.
 
     Returns
     -------
     matrix : 2D numpy array
-        The matrix is row reduced echelon form if reorder it True, ordered with the pivot columns in
-        the fron otherwise.
-
-    Optional Return
-    ---------------
-    matrix_terms : An numpy array.
-        Only returned if reorder is False. The reordered matrix_terms. If reorder is True they will
-        have not been affected.
+        The matrix is row reduced echelon form.
     """
     m,n = matrix.shape
     j = 0  # The row index.
     k = 0  # The column index.
-    c = [] # It will contain the columns that make an upper triangular matrix.
-    d = [] # It will contain the rest of the columns.
     order_c = [] # List to keep track of original index of the columns in c.
     order_d = [] # List to keep track of the original index of the columns in d.
-
+    
     # Checks if the given matrix is not a square matrix.
     if m != n:
         # Makes sure the indicies are within the matrix.
         while j < m and k < n:
-            if matrix[j,k]!= 0:
-                c.append(matrix[:,k])
+            if matrix[j,k] != 0:
                 order_c.append(k)
                 # Move to the diagonal if the index is non-zero.
                 j+=1
                 k+=1
             else:
-                d.append(matrix[:,k])
                 order_d.append(k)
                 # Check the next column in the same row if index is zero.
                 k+=1
-        # C will be the square matrix that is upper triangular with no zeros on the diagonals.
-        C = np.vstack(c).T
-        # If d is not empty, add the rest of the columns not checked into the matrix.
-        if d:
-            D = np.vstack(d).T
-            D = np.hstack((D,matrix[:,k:]))
-        else:
-            D = matrix[:,k:]
         # Append the index of the rest of the columns to the order_d list.
-        for i in range(n-k):
-            order_d.append(k)
-            k+=1
+        order_d += list(np.arange(k,n))
+                
+        # C will be the square matrix that is upper triangular with no zeros on the diagonals.
+        C = matrix[:,order_c]
+        
+        # D is the rest of the columns.
+        D = matrix[:,order_d]
 
         # Solve for the CX = D
         X = solve_triangular(C,D)
 
         # Add I to X. [I|X]
         solver = np.hstack((np.eye(X.shape[0]),X))
-
-        # Find the order to reverse the columns back.
-        #order = inverse_P(order_c+order_d)
-
+        
         # Reverse the columns back.
-        if reorder:
-            solver1 = np.empty_like(solver)
-            solver1[:,order_c+order_d] = solver
-            #solver = solver[:,order]
-            return solver1
-        else:
-            matrix_terms = matrix_terms[order_c+order_d]
-            return solver, matrix_terms
+        solver = solver[:,inverse_P(order_c+order_d)]
 
+        return solver
     else:
     # The case where the matrix passed in is a square matrix
         return np.eye(m)
@@ -721,7 +480,6 @@ def first_x(string):
     i : int
         The position in the string of the first 'x' character. If 'x' does not appear in the string
         the return value is the length of the string.
-
     '''
     for i in range(len(string)):
         if string[i] == 'x':
@@ -770,7 +528,7 @@ def makePolyCoeffMatrix(inputString):
         else:
             coefficient = float(coefficientString)
         mons = monomial[first_x(monomial):].split('*')
-        matrixSpot = np.zeros(1, dtype = int)
+        matrixSpot = [0]
         for mon in mons:
             stuff = mon.split('^')
             if len(stuff) == 1:
@@ -783,7 +541,7 @@ def makePolyCoeffMatrix(inputString):
                 varDegree = int(stuff[0][1:])
             if varDegree != -1:
                 if len(matrixSpot) <= varDegree:
-                    matrixSpot = np.append(matrixSpot, np.zeros(varDegree - len(matrixSpot)+1, dtype = int))
+                    matrixSpot = np.append(matrixSpot, [0]*(varDegree - len(matrixSpot)+1))
                 matrixSpot[varDegree] = power
         matrixSpots.append(matrixSpot)
         coefficients.append(coefficient)
@@ -793,7 +551,7 @@ def makePolyCoeffMatrix(inputString):
     for i in range(len(matrixSpots)):
         matrixSpot = matrixSpots[i]
         if len(matrixSpot) < length:
-            matrixSpot = np.append(matrixSpot, np.zeros(length - len(matrixSpot), dtype = int))
+            matrixSpot = np.append(matrixSpot, [0]*(length - len(matrixSpot)))
             matrixSpots[i] = matrixSpot
     matrixSize = np.maximum.reduce([matrixSpot for matrixSpot in matrixSpots])
     matrixSize = matrixSize + np.ones_like(matrixSize)
@@ -804,32 +562,72 @@ def makePolyCoeffMatrix(inputString):
         matrix[tuple(matrixSpot)] = coefficient
     return matrix
 
-def sort_matrix(matrix, matrix_terms):
-    '''Sort matrix columns by some term order.
+def slice_top(matrix):
+    ''' Gets the n-d slices needed to slice a matrix into the top corner of another.
+    
+    Parameters
+    ----------
+    coeff : numpy matrix.
+        The matrix of interest.
+    Returns
+    -------
+    slices : list
+        Each value of the list is a slice of the matrix in some dimension. It is exactly the size of the matrix.
+    '''
+    slices = list()
+    for i in matrix.shape:
+        slices.append(slice(0,i))
+    return slices
 
-    Sorts the matrix columns into whichever order is defined on the term objects
-    in matrix_terms (usually grevlex).
+def slice_bottom(matrix):
+    ''' Gets the n-d slices needed to slice a matrix into the bottom corner of another.
+    
+    Parameters
+    ----------
+    coeff : numpy matrix.
+        The matrix of interest.
+    Returns
+    -------
+    slices : list
+        Each value of the list is a slice of the matrix in some dimension. It is exactly the size of the matrix.
+    '''
+    slices = list()
+    for i in matrix.shape:
+        slices.append(slice(-i,None))
+    return slices
+
+def match_size(a,b):
+    '''
+    Matches the shape of two matrixes. 
 
     Parameters
     ----------
-    matrix : 2D numpy array
-        The matrix with rows corresponding to polynomials, columns
-        corresponding to monomials, and each entry is a coefficient.
-    matrix_terms : array-like, contains Term objects
-        Contains the monomial labels for the matrix columns in order, i.e., if
-        the first column of matrix corresponds to the monomial x^2, then
-        matrix_terms[0] is Term(x^2).
+    a, b : ndarray
+        Matrixes whose size is to be matched.
 
     Returns
     -------
-    ordered_matrix : 2D numpy array
-        The same matrix as was input, but now with the columns switched so they
-        are in order.
-    matrix_terms : array-like, contains Term objects
-        Same as the input, but now ordered.
-
+    a, b : ndarray
+        Matrixes of equal size and dimension.
     '''
+    a_shape, b_shape = list(a.shape), list(b.shape)
+    if len(a_shape) != len(b_shape): #Makes the dimension sizes equal.
+        add_to_shape = 0
+        if len(a_shape) < len(b_shape):
+            add_to_shape = len(b_shape) - len(a_shape)
+            for i in range(add_to_shape):
+                a_shape.insert(0,1)
+            a = a.reshape(a_shape)
+        else:
+            add_to_shape = len(a_shape) - len(b_shape)
+            for i in range(add_to_shape):
+                b_shape.insert(0,1)
+            b = b.reshape(b_shape)
 
-    argsort_list, matrix_terms = argsort_dec(matrix_terms)
-    ordered_matrix = matrix[:,argsort_list]
-    return ordered_matrix, matrix_terms
+    new_shape = np.maximum(a.shape, b.shape)
+    
+    a_new = np.zeros(new_shape)
+    a_new[slice_top(a)] = a
+    b_new = np.zeros(new_shape)
+    b_new[slice_top(b)] = b
+    return a_new, b_new
