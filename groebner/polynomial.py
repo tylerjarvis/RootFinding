@@ -1,11 +1,9 @@
 import numpy as np
-from scipy.signal import fftconvolve, convolve
 import itertools
-from groebner.utils import Term, makePolyCoeffMatrix
 from numpy.polynomial import chebyshev as cheb
 from numpy.polynomial import polynomial as poly
-import math
-from groebner.utils import match_size, slice_top, slice_bottom
+from scipy.signal import fftconvolve, convolve
+from groebner.utils import Term, makePolyCoeffMatrix, match_size, slice_top, slice_bottom
 
 class Polynomial(object):
     '''

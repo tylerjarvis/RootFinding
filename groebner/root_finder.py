@@ -1,11 +1,11 @@
 import numpy as np
-from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 import itertools
 import warnings
+from groebner.polynomial import MultiCheb, MultiPower
 from groebner.Macaulay import Macaulay
 from groebner.TelenVanBarel import TelenVanBarel
-from groebner.utils import Term, get_var_list, divides, TVBError, InstabilityWarning, match_size
 from groebner.gsolve import F4
+from groebner.utils import Term, get_var_list, divides, TVBError, InstabilityWarning, match_size
 
 '''
 This module contains the tools necessary to find the points of the variety of the
@@ -41,12 +41,13 @@ def roots(polys, method = 'Groebner'):
             m_f, var_dict = TVBMultMatrix(polys, poly_type)
         except TVBError as e:
             if str(e) == "Doesn't have all x^n's on diagonal. Do linear transformation":
-                ''' #Optionally have it do Groebner instead in thise case.
-                warnings.warn("TVB method failed. Trying Groebner instead. Error message from TVB is - {}".format(e), InstabilityWarning)
+                raise e
+                ''' #Optionally have it do F4 instead in thise case.
+                warnings.warn("TVB method failed. Trying F4 instead. \
+                    Error message from TVB is - {}".format(e), InstabilityWarning)
                 method = 'Groebner'
                 GB, m_f, var_dict = groebnerMultMatrix(polys, poly_type, method)
                 '''
-                raise e
             elif str(e) == 'Polys are non-zero dimensional':
                 return -1
             else:
@@ -153,8 +154,7 @@ def groebnerMultMatrix(polys, poly_type, method):
     return GB, m_f, var_dict
 
 def sortVB(VB):
-    '''
-    Sorts the Vector Basis into degrevlex order so the eigensolve is faster (in theory).
+    '''Sorts the Vector Basis into degrevlex order so the eigensolve is faster (in theory).
     
     Parameters
     ----------
@@ -191,7 +191,7 @@ def TVBMultMatrix(polys, poly_type):
     var_dict : dictionary
         Maps each variable to its position in the vector space basis
     '''
-    basisDict, VB, degree = TelenVanBarel(polys)
+    basisDict, VB, degree = TelenVanBarel(polys, run_checks = True)
         
     VB = sortVB(VB)
 
@@ -319,7 +319,6 @@ def vectorSpaceBasis(GB):
     possibleMonomials = itertools.product(*possibleVarDegrees)
     basis = []
     var_to_pos_dict = {}
-
     for mon in possibleMonomials:
         divisible = False
         for LT in LT_G:

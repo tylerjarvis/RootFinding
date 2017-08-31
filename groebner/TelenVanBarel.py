@@ -1,32 +1,31 @@
-from operator import itemgetter
-import itertools
 import numpy as np
-import math
-from scipy.linalg import lu, qr, solve_triangular, inv, solve, svd, qr_multiply
-from numpy.linalg import cond
+import itertools
+from scipy.linalg import qr, solve_triangular, qr_multiply
 from groebner.polynomial import Polynomial, MultiCheb, MultiPower
-from groebner.utils import Term, row_swap_matrix, clean_zeros_from_matrix, triangular_solve, divides, get_var_list, TVBError, slice_top, get_var_list, row_linear_dependencies
-import matplotlib.pyplot as plt
-from collections import defaultdict
-import gc
-import time
+from groebner.utils import row_swap_matrix, clean_zeros_from_matrix, TVBError, slice_top, get_var_list, mon_combos, mon_combosHighest
 
-from groebner.Macaulay import findPivotColumns
-
-def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
-    """
-    Macaulay will take a list of polynomials and use them to construct a Macaulay matrix.
+def TelenVanBarel(initial_poly_list, run_checks = True, accuracy = 1.e-10):
+    """Uses Telen and VanBarels matrix reduction method to find a vector basis for the system of polynomials.
 
     Parameters
     --------
-    initial_poly_list: A list of polynomials
-    accuracy: How small we want a number to be before assuming it is zero.
-    --------
+    initial_poly_list: list
+        The polynomials in the system we are solving.
+    run_checks : bool
+        If True, checks will be run to make sure TVB works and if it doesn't an S-polynomial will be searched
+        for to fix it.
+    accuracy: float
+        How small we want a number to be before assuming it is zero.
 
     Returns
     -----------
-    Reduced Macaulay matrix that can be passed into the root finder.
-    -----------
+    basisDict : dict
+        A dictionary of terms not in the vector basis a matrixes of things in the vector basis that the term
+        can be reduced to.
+    VB : numpy array
+        The terms in the vector basis, each row being a term.
+    degree : int
+        The degree of the Macaualy matrix that was constructed.
     """
     Power = bool
     if all([type(p) == MultiPower for p in initial_poly_list]):
@@ -41,16 +40,15 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
     degree = find_degree(initial_poly_list)
     dim = initial_poly_list[0].dim
     
-    
-    #Checks to make sure TVB will work.
-    if not has_top_xs(initial_poly_list):
-        raise TVBError("Doesn't have all x^n's on diagonal. Do linear transformation")
-    S = get_S_Poly(initial_poly_list)
-    if isinstance(S,Polynomial):
-        print(S.coeff)
-        initial_poly_list.append(S)
-        degree = find_degree(initial_poly_list)
-    
+    if run_checks:
+        #Checks to make sure TVB will work.
+        if not has_top_xs(initial_poly_list):
+            raise TVBError("Doesn't have all x^n's on diagonal. Do linear transformation")
+        S = get_S_Poly(initial_poly_list)
+        if isinstance(S,Polynomial):
+            print(S.coeff)
+            initial_poly_list.append(S)
+            degree = find_degree(initial_poly_list)
     
     for i in initial_poly_list:
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
@@ -69,9 +67,29 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
     return basisDict, VB, degree
 
 def makeBasisDict(matrix, matrix_terms, VB, power, remainder_shape):
-    '''
-    Take a matrix that has been traingular solved and returns a dictionary mapping the pivot columns terms
-    behind them, all of which will be in the vector basis. All the matrixes that are mapped to will be the same shape.
+    '''Calculates and returns the basisDict.
+    
+    This is a dictionary of the terms on the diagonal of the reduced TVB matrix to the terms in the Vector Basis.
+    It is used to create the multiplication matrix in root_finder.
+    
+    Parameters
+    --------
+    matrix: numpy array
+        The reduced TVB matrix.
+    matrix_terms : numpy array
+        The terms in the matrix. The i'th row is the term represented by the i'th column of the matrix.
+    VB : numpy array
+        Each row is a term in the vector basis.
+    power : bool
+        If True, the initial polynomials were MultiPower. If False, they were MultiCheb.
+    remainder_shape: list
+        The shape of the numpy arrays that will be mapped to in the basisDict.
+
+    Returns
+    -----------
+    basisDict : dict
+        Maps terms on the diagonal of the reduced TVB matrix (tuples) to numpy arrays of the shape remainder_shape
+        that represent the terms reduction into the Vector Basis.
     '''
     basisDict = {}
     
@@ -96,9 +114,17 @@ def makeBasisDict(matrix, matrix_terms, VB, power, remainder_shape):
     return basisDict
 
 def find_degree(poly_list):
-    '''
-    Takes a list of polynomials and finds the degree needed for a Macaulay matrix.
-    Adds the degree of each polynomial and then subtracts the total number of polynomials and adds one.
+    '''Finds the degree of a Macaulay Matrix.
+    
+    Parameters
+    --------
+    poly_list: list
+        The polynomials used to construct the matrix.
+
+    Returns
+    -----------
+    find_degree : int
+        The degree of the Macaulay Matrix.
 
     Example:
         For polynomials [P1,P2,P3] with degree [d1,d2,d3] the function returns d1+d2+d3-3+1
@@ -108,53 +134,23 @@ def find_degree(poly_list):
         degree_needed += poly.degree
     return ((degree_needed - len(poly_list)) + 1)
 
-def mon_combosHighest(mon, numLeft, spot = 0):
-    '''
-    Same as mon_combos but only returns highest degree stuff.
-    '''
-    answers = list()
-    if len(mon) == spot+1: #We are at the end of mon, no more recursion.
-        mon[spot] = numLeft
-        answers.append(mon.copy())
-        return answers
-    if numLeft == 0: #Nothing else can be added.
-        answers.append(mon.copy())
-        return answers
-    temp = mon.copy() #Quicker than copying every time inside the loop.
-    for i in range(numLeft+1): #Recursively add to mon further down.
-        temp[spot] = i
-        answers += mon_combosHighest(temp, numLeft-i, spot+1)
-    return answers
-
-def mon_combos(mon, numLeft, spot = 0):
-    '''
-    This function finds all the monomials up to a given degree (here numLeft) and returns them.
-    mon is a tuple that starts as all 0's and gets changed as needed to get all the monomials.
-    numLeft starts as the dimension, but as the code goes is how much can still be added to mon.
-    spot is the place in mon we are currently adding things to.
-    Returns a list of all the possible monomials.
-    '''
-    answers = list()
-    if len(mon) == spot+1: #We are at the end of mon, no more recursion.
-        for i in range(numLeft+1):
-            mon[spot] = i
-            answers.append(mon.copy())
-        return answers
-    if numLeft == 0: #Nothing else can be added.
-        answers.append(mon.copy())
-        return answers
-    temp = mon.copy() #Quicker than copying every time inside the loop.
-    for i in range(numLeft+1): #Recursively add to mon further down.
-        temp[spot] = i
-        answers += mon_combos(temp, numLeft-i, spot+1)
-    return answers
-
 def add_polys(degree, poly, poly_coeff_list):
-    """
-    Take each polynomial and adds it to a poly_list
-    Then uses monomial multiplication and adds all polynomials with degree less than
-        or equal to the total degree needed.
-    Returns a list of polynomials.
+    """Adds polynomials to a Macaulay Matrix.
+    
+    This function is called on one polynomial and adds all monomial multiples of it to the matrix.
+    
+    Parameters
+    ----------
+    degree : int
+        The degree of the TVB Matrix
+    poly : Polynomial
+        One of the polynomials used to make the matrix. 
+    poly_coeff_list : list
+        A list of all the current polynomials in the matrix.
+    Returns
+    -------
+    poly_coeff_list : list
+        The original list of polynomials in the matrix with the new monomial multiplications of poly added.
     """
     poly_coeff_list.append(poly.coeff)
     deg = degree - poly.degree

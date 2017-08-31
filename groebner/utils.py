@@ -1,9 +1,6 @@
-# A collection of functions used in the F4 and Macaulay solvers
+# A collection of functions used in the F4 Macaulay and TVB solvers
 import numpy as np
-from scipy.linalg import lu, qr, solve_triangular
-import heapq
-import itertools
-import time
+from scipy.linalg import qr, solve_triangular
 
 class InstabilityWarning(Warning):
     pass
@@ -631,3 +628,73 @@ def match_size(a,b):
     b_new = np.zeros(new_shape)
     b_new[slice_top(b)] = b
     return a_new, b_new
+
+def mon_combosHighest(mon, numLeft, spot = 0):
+    '''Finds all the monomials of a given degree and returns them. Works recursively.
+    
+    Very similar to mon_combos, but only returns the monomials of the desired degree.
+    
+    Parameters
+    --------
+    mon: list
+        A list of zeros, the length of which is the dimension of the desired monomials. Will change
+        as the function searches recursively.
+    numLeft : int
+        The degree of the monomials desired. Will decrease as the function searches recursively.
+    spot : int
+        The current position in the list the function is iterating through. Defaults to 0, but increases
+        in each step of the recursion.
+    
+    Returns
+    -----------
+    answers : list
+        A list of all the monomials.
+    '''
+    answers = list()
+    if len(mon) == spot+1: #We are at the end of mon, no more recursion.
+        mon[spot] = numLeft
+        answers.append(mon.copy())
+        return answers
+    if numLeft == 0: #Nothing else can be added.
+        answers.append(mon.copy())
+        return answers
+    temp = mon.copy() #Quicker than copying every time inside the loop.
+    for i in range(numLeft+1): #Recursively add to mon further down.
+        temp[spot] = i
+        answers += mon_combosHighest(temp, numLeft-i, spot+1)
+    return answers
+
+def mon_combos(mon, numLeft, spot = 0):
+    '''Finds all the monomials up to a given degree and returns them. Works recursively.
+    
+    Parameters
+    --------
+    mon: list
+        A list of zeros, the length of which is the dimension of the desired monomials. Will change
+        as the function searches recursively.
+    numLeft : int
+        The degree of the monomials desired. Will decrease as the function searches recursively.
+    spot : int
+        The current position in the list the function is iterating through. Defaults to 0, but increases
+        in each step of the recursion.
+    
+    Returns
+    -----------
+    answers : list
+        A list of all the monomials.
+    '''
+    answers = list()
+    if len(mon) == spot+1: #We are at the end of mon, no more recursion.
+        for i in range(numLeft+1):
+            mon[spot] = i
+            answers.append(mon.copy())
+        return answers
+    if numLeft == 0: #Nothing else can be added.
+        answers.append(mon.copy())
+        return answers
+    temp = mon.copy() #Quicker than copying every time inside the loop.
+    for i in range(numLeft+1): #Recursively add to mon further down.
+        temp[spot] = i
+        answers += mon_combos(temp, numLeft-i, spot+1)
+    return answers
+
