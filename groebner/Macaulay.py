@@ -206,7 +206,7 @@ def add_polys(degree, poly, poly_coeff_list):
     poly_coeff_list.append(poly.coeff)
     deg = degree - poly.degree
     dim = poly.dim
-    mons = mon_combos(np.zeros(dim, dtype = int),deg)
+    mons = mon_combos([0]*dim,deg)
     mons = mons[1:]
     for i in mons:
         poly_coeff_list.append(poly.mon_mult(i, returnType = 'Matrix'))

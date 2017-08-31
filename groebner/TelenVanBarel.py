@@ -62,11 +62,10 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
     height = matrix.shape[0]
     matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
     matrix[:,:height] = np.eye(height)
-    #matrix = triangular_solve(matrix)
 
     VB = matrix_terms[matrix.shape[0]:]
     
-    basisDict = makeBasisDict(matrix, matrix_terms, VB, Power, degree*np.ones(dim, dtype = int))
+    basisDict = makeBasisDict(matrix, matrix_terms, VB, Power, [degree]*dim)
     return basisDict, VB, degree
 
 def makeBasisDict(matrix, matrix_terms, VB, power, remainder_shape):
@@ -160,9 +159,8 @@ def add_polys(degree, poly, poly_coeff_list):
     poly_coeff_list.append(poly.coeff)
     deg = degree - poly.degree
     dim = poly.dim
-    mons = mon_combos(np.zeros(dim, dtype = int),deg)
-    mons = mons[1:]
-    for i in mons:
+    mons = mon_combos([0]*dim,deg)
+    for i in mons[1:]: #skips the first all 0 mon
         poly_coeff_list.append(poly.mon_mult(i, returnType = 'Matrix'))
     return poly_coeff_list
 
@@ -184,15 +182,15 @@ def sorted_matrix_terms(degree, dim):
         those not in the first or third catagory. The third entry is the number of monomials of degree one of a
         single variable, as well as the monomial 1.
     '''
-    highest_mons = mon_combosHighest(np.zeros(dim, dtype = int),degree)
+    highest_mons = mon_combosHighest([0]*dim,degree)
     
     other_mons = list()
     d = degree - 1
     while d > 1:
-        other_mons += mon_combosHighest(np.zeros(dim, dtype = int),d)
+        other_mons += mon_combosHighest([0]*dim,d)
         d -= 1
     
-    xs_mons = mon_combos(np.zeros(dim, dtype = int),1)
+    xs_mons = mon_combos([0]*dim,1)
     
     sorted_matrix_terms = np.reshape(highest_mons+other_mons+xs_mons, (len(highest_mons+other_mons+xs_mons),dim))
     
@@ -214,7 +212,7 @@ def create_matrix(poly_coeffs, degree, dim):
     matrix : 2D numpy array
         The Telen Van Barel matrix.
     '''
-    bigShape = (degree+1)*np.ones(dim, dtype = int)
+    bigShape = [degree+1]*dim
 
     matrix_terms, matrix_shape_stuff = sorted_matrix_terms(degree, dim)
 
@@ -280,8 +278,8 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, accuracy 
     #RRQR reduces A and D sticking the result in it's place.
     Q1,matrix[:,:highest_num],P1 = qr(matrix[:,:highest_num], pivoting = True)
     
-    #if abs(matrix[:,:highest_num].diagonal()[-1]) < accuracy:
-    #    raise TVBError("HIGHEST NOT FULL RANK")
+    if abs(matrix[:,:highest_num].diagonal()[-1]) < accuracy:
+        raise TVBError("HIGHEST NOT FULL RANK")
             
     #Multiplying the rest of the matrix by Q.T
     matrix[:,highest_num:] = Q1.T@matrix[:,highest_num:]
@@ -341,6 +339,7 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy
     C1,matrix[:highest_num,:highest_num],P1 = qr_multiply(matrix[:,:highest_num], matrix[:,highest_num:].T, mode = 'right', pivoting = True)
     matrix[:highest_num,highest_num:] = C1.T
     C1 = 0
+    
     if abs(matrix[:,:highest_num].diagonal()[-1]) < accuracy:
         raise TVBError("HIGHEST NOT FULL RANK")
     
@@ -454,17 +453,17 @@ def topDegreeMatrix(polys, degree):
     for poly in polys:
         diagPolys.append(getDiagPoly(poly))
 
-    diagSpots = np.vstack(mon_combosHighest(np.zeros(dim, dtype = int),degree))
+    diagSpots = np.vstack(mon_combosHighest([0]*dim,degree))
     diagPlaces = list()
     for i in range(dim):
         diagPlaces.append(diagSpots.T[i])
 
-    full = np.zeros((degree+1)*np.ones(dim, dtype = int))
+    full = np.zeros([degree+1]*dim)
         
     matrixRows = list()
     matrixMons = list()
     for diagPoly in diagPolys:
-        mons = mon_combosHighest(np.zeros(dim, dtype = int),degree - diagPoly.degree)
+        mons = mon_combosHighest([0]*dim,degree - diagPoly.degree)
         matrixMons.append(mons)
         for mon in mons:
             coeff = diagPoly.mon_mult(mon, returnType = 'Matrix')

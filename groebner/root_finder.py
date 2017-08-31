@@ -63,7 +63,7 @@ def roots(polys, method = 'Groebner'):
     # in the vector space basis.
     dim = max(f.dim for f in polys)
     var_list = get_var_list(dim)
-    var_indexes = np.array([-1 for i in range(dim)])
+    var_indexes = [-1]*dim
     vars_not_in_basis = {}
     for i in range(len(var_list)):
         var = var_list[i] # x_i
@@ -210,7 +210,7 @@ def TVBMultMatrix(polys, poly_type):
         
     # Build multiplication matrix m_f
     mMatrix = np.zeros((len(VB), len(VB)))
-    remainder = np.zeros(degree*np.ones(dim, dtype = int))
+    remainder = np.zeros([degree]*dim)
     
     for i in range(VB.shape[0]):
         f_coeff = f.mon_mult(VB[i], returnType = 'Matrix')

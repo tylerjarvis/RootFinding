@@ -402,10 +402,11 @@ class MultiCheb(Polynomial):
 
         """
         initial_matrix = self.coeff
+        idx_zeros = np.zeros(len(idx),dtype = int)
         for i in range(len(idx)):
-            idx_zeros = np.zeros(len(idx),dtype = int)
             idx_zeros[i] = idx[i]
             initial_matrix = MultiCheb._mon_mult1(initial_matrix, idx_zeros, i)
+            idx_zeros[i] = 0
         if returnType == 'Poly':
             return MultiCheb(initial_matrix, lead_term = self.lead_term + np.array(idx), clean_zeros = False)
         elif returnType == 'Matrix':

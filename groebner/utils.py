@@ -88,7 +88,6 @@ def clean_zeros_from_matrix(array, accuracy=1.e-10):
     -------
     array : numpy array
         Same array, but with values less than the given accuracy set to 0.
-
     '''
     array[(array < accuracy) & (array > -accuracy)] = 0
     return array
@@ -203,10 +202,10 @@ def rrqr_reduce(matrix, clean = False, global_accuracy = 1.e-10):
     else: #not full rank
         A = R[:,PT] #Switch the columns back
         if clean:
-            Q[np.where(abs(Q) < global_accuracy)]=0
+            Q = np.clean_zeros_from_matrix(Q)
         B = Q.T.dot(B) #Multiply B by Q transpose
         if clean:
-            B[np.where(abs(B) < global_accuracy)]=0
+            B = np.clean_zeros_from_matrix(B)
         #sub1 is the top part of the matrix, we will recursively reduce this
         #sub2 is the bottom part of A, we will set this all to 0
         #sub3 is the bottom part of B, we will recursively reduce this.
@@ -270,9 +269,8 @@ def rrqr_reduce2(matrix, clean = True, global_accuracy = 1.e-10):
         if clean:
             Q = clean_zeros_from_matrix(Q)
         bottom = matrix[dependentRows]
-        BCopy = B.copy()
         sub3 = bottom[:,height:]
-        sub3 = Q.T[-nullSpaceSize:]@BCopy
+        sub3 = Q.T[-nullSpaceSize:]@B
         if clean:
             sub3 = clean_zeros_from_matrix(sub3)
         sub3 = rrqr_reduce2(sub3)
@@ -367,7 +365,7 @@ def row_swap_matrix(matrix):
 def get_var_list(dim):
     '''Returns a list of the variables [x_1, x_2, ..., x_n] as tuples.'''
     _vars = []
-    var = np.zeros(dim, dtype=int)
+    var = [0]*dim
     for i in range(dim):
         var[i] = 1
         _vars.append(tuple(var))
@@ -411,14 +409,6 @@ def row_linear_dependencies(matrix, accuracy=1.e-10):
         independentRows = P1[R1.shape[0]:] #Other Columns
         dependentRows = P1[:R1.shape[0]] #Pivot Columns
         return independentRows, dependentRows, Q
-
-def get_var_list(dim):
-    _vars = [] # list of the variables: [x_1, x_2, ..., x_n]
-    for i in range(dim):
-        var = np.zeros(dim, dtype=int)
-        var[i] = 1
-        _vars.append(tuple(var))
-    return _vars
 
 def triangular_solve(matrix):
     """
@@ -538,7 +528,7 @@ def makePolyCoeffMatrix(inputString):
         else:
             coefficient = float(coefficientString)
         mons = monomial[first_x(monomial):].split('*')
-        matrixSpot = np.zeros(1, dtype = int)
+        matrixSpot = [0]
         for mon in mons:
             stuff = mon.split('^')
             if len(stuff) == 1:
@@ -551,7 +541,7 @@ def makePolyCoeffMatrix(inputString):
                 varDegree = int(stuff[0][1:])
             if varDegree != -1:
                 if len(matrixSpot) <= varDegree:
-                    matrixSpot = np.append(matrixSpot, np.zeros(varDegree - len(matrixSpot)+1, dtype = int))
+                    matrixSpot = np.append(matrixSpot, [0]*(varDegree - len(matrixSpot)+1))
                 matrixSpot[varDegree] = power
         matrixSpots.append(matrixSpot)
         coefficients.append(coefficient)
@@ -561,7 +551,7 @@ def makePolyCoeffMatrix(inputString):
     for i in range(len(matrixSpots)):
         matrixSpot = matrixSpots[i]
         if len(matrixSpot) < length:
-            matrixSpot = np.append(matrixSpot, np.zeros(length - len(matrixSpot), dtype = int))
+            matrixSpot = np.append(matrixSpot, [0]*(length - len(matrixSpot)))
             matrixSpots[i] = matrixSpot
     matrixSize = np.maximum.reduce([matrixSpot for matrixSpot in matrixSpots])
     matrixSize = matrixSize + np.ones_like(matrixSize)
