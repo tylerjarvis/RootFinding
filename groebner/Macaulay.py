@@ -168,11 +168,22 @@ def find_degree(poly_list):
     return ((degree_needed - len(poly_list)) + 1)
 
 def add_polys(degree, poly, poly_coeff_list):
-    """
-    Take each polynomial and adds it to a poly_list
-    Then uses monomial multiplication and adds all polynomials with degree less than
-        or equal to the total degree needed.
-    Returns a list of polynomials.
+    """Adds polynomials to a Macaulay Matrix.
+    
+    This function is called on one polynomial and adds all monomial multiples of it to the matrix.
+    
+    Parameters
+    ----------
+    degree : int
+        The degree of the TVB Matrix
+    poly : Polynomial
+        One of the polynomials used to make the matrix. 
+    poly_coeff_list : list
+        A list of all the current polynomials in the matrix.
+    Returns
+    -------
+    poly_coeff_list : list
+        The original list of polynomials in the matrix with the new monomial multiplications of poly added.
     """
     poly_coeff_list.append(poly.coeff)
     deg = degree - poly.degree
