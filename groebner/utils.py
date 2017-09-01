@@ -542,7 +542,6 @@ def makePolyCoeffMatrix(inputString):
                 matrixSpot[varDegree] = power
         matrixSpots.append(matrixSpot)
         coefficients.append(coefficient)
-
     #Pad the matrix spots so they are all the same length.
     length = max(len(matrixSpot) for matrixSpot in matrixSpots)
     for i in range(len(matrixSpots)):
@@ -552,9 +551,10 @@ def makePolyCoeffMatrix(inputString):
             matrixSpots[i] = matrixSpot
     matrixSize = np.maximum.reduce([matrixSpot for matrixSpot in matrixSpots])
     matrixSize = matrixSize + np.ones_like(matrixSize)
+    matrixSize = matrixSize[::-1] #So the variables are in the right order.
     matrix = np.zeros(matrixSize)
     for i in range(len(matrixSpots)):
-        matrixSpot = matrixSpots[i]
+        matrixSpot = matrixSpots[i][::-1] #So the variables are in the right order.
         coefficient = coefficients[i]
         matrix[tuple(matrixSpot)] = coefficient
     return matrix
@@ -593,9 +593,33 @@ def slice_bottom(matrix):
         slices.append(slice(-i,None))
     return slices
 
+def match_poly_dimensions(polys):
+    '''Matches the dimensions of a list of polynomials.
+    
+    Parameters
+    ----------
+    polys : list
+        Polynomials of possibly different dimensions.
+
+    Returns
+    -------
+    new_polys : list
+        The same polynomials but of the same dimensions.
+    '''
+    dim = max(poly.dim for poly in polys)
+    new_polys = list()
+    for poly in polys:
+        if poly.dim != dim:
+            coeff_shape = list(poly.shape)
+            for i in range(dim - poly.dim):
+                coeff_shape.insert(0,1)
+            poly.__init__(poly.coeff.reshape(coeff_shape))
+        new_polys.append(poly)
+    return new_polys
+
 def match_size(a,b):
     '''
-    Matches the shape of two matrixes. 
+    Matches the shape of two matrixes. Assumes the matrixes are the same dimension.
 
     Parameters
     ----------
@@ -605,22 +629,8 @@ def match_size(a,b):
     Returns
     -------
     a, b : ndarray
-        Matrixes of equal size and dimension.
+        Matrixes of equal size.
     '''
-    a_shape, b_shape = list(a.shape), list(b.shape)
-    if len(a_shape) != len(b_shape): #Makes the dimension sizes equal.
-        add_to_shape = 0
-        if len(a_shape) < len(b_shape):
-            add_to_shape = len(b_shape) - len(a_shape)
-            for i in range(add_to_shape):
-                a_shape.insert(0,1)
-            a = a.reshape(a_shape)
-        else:
-            add_to_shape = len(a_shape) - len(b_shape)
-            for i in range(add_to_shape):
-                b_shape.insert(0,1)
-            b = b.reshape(b_shape)
-
     new_shape = np.maximum(a.shape, b.shape)
     
     a_new = np.zeros(new_shape)
