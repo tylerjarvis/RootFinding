@@ -1,15 +1,9 @@
-from operator import itemgetter
-import itertools
 import numpy as np
-import math
-from scipy.linalg import lu, qr, solve_triangular, inv, solve, svd
-from numpy.linalg import cond
-from groebner.polynomial import Polynomial, MultiCheb, MultiPower
-from scipy.sparse import csc_matrix, vstack
-from groebner.utils import Term, row_swap_matrix, clean_zeros_from_matrix, inverse_P, triangular_solve, divides, slice_top
-import matplotlib.pyplot as plt
-from collections import defaultdict
+from scipy.linalg import qr, solve_triangular
+from groebner.polynomial import MultiCheb, MultiPower
+from groebner.utils import Term, clean_zeros_from_matrix, triangular_solve, divides, slice_top, mon_combos, mon_combosHighest
 import groebner.utils as utils
+import matplotlib.pyplot as plt
 
 def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     """
@@ -52,7 +46,7 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     
     matrix = triangular_solve(matrix)
     matrix = clean_zeros_from_matrix(matrix)
-
+    
     #The other reduction option. I thought it would be really stable but seems to be the worst of the three.
     #matrix = matrixReduce(matrix, triangular_solve = True, global_accuracy = global_accuracy)
 
@@ -173,35 +167,23 @@ def find_degree(poly_list):
         degree_needed += poly.degree
     return ((degree_needed - len(poly_list)) + 1)
 
-def mon_combos(mon, numLeft, spot = 0):
-    '''
-    This function finds all the monomials up to a given degree (here numLeft) and returns them.
-    mon is a tuple that starts as all 0's and gets changed as needed to get all the monomials.
-    numLeft starts as the dimension, but as the code goes is how much can still be added to mon.
-    spot is the place in mon we are currently adding things to.
-    Returns a list of all the possible monomials.
-    '''
-    answers = list()
-    if len(mon) == spot+1: #We are at the end of mon, no more recursion.
-        for i in range(numLeft+1):
-            mon[spot] = i
-            answers.append(mon.copy())
-        return answers
-    if numLeft == 0: #Nothing else can be added.
-        answers.append(mon.copy())
-        return answers
-    temp = mon.copy() #Quicker than copying every time inside the loop.
-    for i in range(numLeft+1): #Recursively add to mon further down.
-        temp[spot] = i
-        answers += mon_combos(temp, numLeft-i, spot+1)
-    return answers
-
 def add_polys(degree, poly, poly_coeff_list):
-    """
-    Take each polynomial and adds it to a poly_list
-    Then uses monomial multiplication and adds all polynomials with degree less than
-        or equal to the total degree needed.
-    Returns a list of polynomials.
+    """Adds polynomials to a Macaulay Matrix.
+    
+    This function is called on one polynomial and adds all monomial multiples of it to the matrix.
+    
+    Parameters
+    ----------
+    degree : int
+        The degree of the TVB Matrix
+    poly : Polynomial
+        One of the polynomials used to make the matrix. 
+    poly_coeff_list : list
+        A list of all the current polynomials in the matrix.
+    Returns
+    -------
+    poly_coeff_list : list
+        The original list of polynomials in the matrix with the new monomial multiplications of poly added.
     """
     poly_coeff_list.append(poly.coeff)
     deg = degree - poly.degree
@@ -276,7 +258,7 @@ def create_matrix(poly_coeffs):
     matrix = np.vstack(flat_polys[::-1])
 
     #Sorts the rows of the matrix so it is close to upper triangular.
-    matrix = row_swap_matrix(matrix)
+    matrix = utils.row_swap_matrix(matrix)
     return matrix, matrix_terms
 
 def matrixReduce(matrix, triangular_solve = False, global_accuracy = 1.e-10):
@@ -331,7 +313,7 @@ def matrixReduce(matrix, triangular_solve = False, global_accuracy = 1.e-10):
     else:
         reduced = R
     matrix = np.empty_like(reduced)
-    matrix[:,pivotColumns + otherColumns] = reduced
+    matrix = reduced[:,utils.inverse_P(pivotColumns + otherColumns)]
 
     matrix = clean_zeros_from_matrix(matrix)
     return matrix

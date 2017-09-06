@@ -222,18 +222,18 @@ def test_TVB_roots():
     C = getPoly(2,3,False)
     correctZeros([A,B,C])
 
-    #Case 5 - Four MultiPower 4D degree 2 polynomials.
+    #Case 5 - Four MultiPower 4D degree, three degree 2 and a degree 1.
     A = getPoly(2,4,True)
     B = getPoly(2,4,True)
     C = getPoly(2,4,True)
-    D = getPoly(2,4,True)
+    D = getPoly(1,4,True)
     correctZeros([A,B,C,D])
 
-    #Case 6 - Four MultiCheb 4D degree 2 polynomials.
+    #Case 6 - Four MultiCheb 4D degree three degree 2 and a degree 1.
     A = getPoly(2,4,False)
     B = getPoly(2,4,False)
     C = getPoly(2,4,False)
-    D = getPoly(2,4,False)
+    D = getPoly(1,4,False)
     correctZeros([A,B,C,D])
 
     #Case 7 - Two MultiPower 2D, one degree 3 and one degree 5
