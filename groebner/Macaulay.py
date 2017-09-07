@@ -4,6 +4,7 @@ from groebner.polynomial import MultiCheb, MultiPower
 from groebner.utils import Term, clean_zeros_from_matrix, triangular_solve, divides, slice_top, mon_combos, mon_combosHighest
 import groebner.utils as utils
 import matplotlib.pyplot as plt
+import sympy
 
 def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     """
@@ -46,10 +47,11 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     
     matrix = triangular_solve(matrix)
     matrix = clean_zeros_from_matrix(matrix)
-    
+    '''
     #The other reduction option. I thought it would be really stable but seems to be the worst of the three.
-    #matrix = matrixReduce(matrix, triangular_solve = True, global_accuracy = global_accuracy)
-
+    matrix = matrixReduce(matrix, triangular_solve = True, global_accuracy = global_accuracy)
+    '''
+    
     rows = get_good_rows(matrix, matrix_terms)
     final_polys = get_polys_from_matrix(matrix, matrix_terms, rows, Power)
 
@@ -306,6 +308,7 @@ def matrixReduce(matrix, triangular_solve = False, global_accuracy = 1.e-10):
     matrix = matrix[:,pivotColumns + otherColumns]
         
     Q,R = qr(matrix)
+    
     if triangular_solve:
         R = clean_zeros_from_matrix(R)
         X = solve_triangular(R[:,:R.shape[0]],R[:,R.shape[0]:])
@@ -380,3 +383,4 @@ def findPivotColumns(matrix, global_accuracy = 1.e-10):
         pivot_columns = np.vstack((sub1,np.hstack((sub2,sub3))))
         return pivot_columns
     pass
+

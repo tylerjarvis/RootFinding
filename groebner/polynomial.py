@@ -677,7 +677,7 @@ class MultiPower(Polynomial):
         
         c = self.coeff
         n = len(c.shape)
-        out = np.empty(n)
+        out = np.empty(n, dtype = complex)
         for i in range(n):
             d = poly.polyder(c,axis=i)
             out[i] = polyvalnd(point,d)

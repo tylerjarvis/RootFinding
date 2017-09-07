@@ -3,6 +3,7 @@ import itertools
 from scipy.linalg import qr, solve_triangular, qr_multiply
 from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 from groebner.utils import row_swap_matrix, clean_zeros_from_matrix, TVBError, slice_top, get_var_list, mon_combos, mon_combosHighest
+import time
 
 def TelenVanBarel(initial_poly_list, run_checks = True, accuracy = 1.e-10):
     """Uses Telen and VanBarels matrix reduction method to find a vector basis for the system of polynomials.
@@ -46,15 +47,14 @@ def TelenVanBarel(initial_poly_list, run_checks = True, accuracy = 1.e-10):
             raise TVBError("Doesn't have all x^n's on diagonal. Do linear transformation")
         S = get_S_Poly(initial_poly_list)
         if isinstance(S,Polynomial):
-            print(S.coeff)
             initial_poly_list.append(S)
             degree = find_degree(initial_poly_list)
-    
+        
     for i in initial_poly_list:
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
-
+        
     matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list, degree, dim)
-
+        
     matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy = accuracy)    
     
     height = matrix.shape[0]
@@ -97,7 +97,7 @@ def makeBasisDict(matrix, matrix_terms, VB, power, remainder_shape):
         neededSpots = set()
         for term, mon in itertools.product(VB,get_var_list(VB.shape[1])):
             neededSpots.add(tuple(term+mon))
-    
+        
     spots = list()
     for dim in range(VB.shape[1]):
         spots.append(VB.T[dim])
@@ -155,6 +155,7 @@ def add_polys(degree, poly, poly_coeff_list):
     poly_coeff_list.append(poly.coeff)
     deg = degree - poly.degree
     dim = poly.dim
+    
     mons = mon_combos([0]*dim,deg)
     for i in mons[1:]: #skips the first all 0 mon
         poly_coeff_list.append(poly.mon_mult(i, returnType = 'Matrix'))
@@ -301,7 +302,6 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, accuracy 
 
     return matrix, matrix_terms
 
-
 def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy = 1.e-10):
     ''' Reduces a Telen Van Barel Macaulay matrix.
 
@@ -339,9 +339,20 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy
     if abs(matrix[:,:highest_num].diagonal()[-1]) < accuracy:
         raise TVBError("HIGHEST NOT FULL RANK")
     
+    
+    k = highest_num
+    notNeeded = list()
+    while np.any(matrix[k][:highest_num]):
+        notNeeded.append(k)
+        k += 1
+    matrix = np.delete(matrix, notNeeded, axis=0)
+    #print(len(notNeeded))
+    '''
     matrix[:highest_num,highest_num:] = solve_triangular(matrix[:highest_num,:highest_num],matrix[:highest_num,highest_num:])
     matrix[:highest_num,:highest_num] = np.eye(highest_num)
     matrix[highest_num:,highest_num:] -= (matrix[highest_num:,:highest_num][:,P1])@matrix[:highest_num,highest_num:]
+    '''
+    
     matrix_terms[:highest_num] = matrix_terms[:highest_num][P1]
     P1 = 0
 

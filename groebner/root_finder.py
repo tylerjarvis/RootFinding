@@ -112,7 +112,7 @@ def roots(polys, method = 'Groebner'):
                 var_value = GB_poly.evaluate_at(root) * -1
                 root[pos] = var_value
         roots.append(root)
-        #roots.append(newton_polish(polys,root))
+        #roots.append(newton_polish(polys,root,niter=1000,tol=1e-10))
     return roots
 
 def groebnerMultMatrix(polys, poly_type, method):
@@ -193,7 +193,7 @@ def TVBMultMatrix(polys, poly_type):
     var_dict : dictionary
         Maps each variable to its position in the vector space basis
     '''
-    basisDict, VB, degree = TelenVanBarel(polys, run_checks = True)
+    basisDict, VB, degree = TelenVanBarel(polys, run_checks = False)
         
     VB = sortVB(VB)
 
@@ -476,7 +476,7 @@ def newton_polish(polys,root,niter=100,tol=1e-5):
         
     def f(x):
         m = len(polys)
-        f_x = np.empty(m)
+        f_x = np.empty(m, dtype = complex)
         for i, poly in enumerate(polys):
             f_x[i] = poly.evaluate_at(x)
         return f_x
@@ -484,7 +484,7 @@ def newton_polish(polys,root,niter=100,tol=1e-5):
     def Df(x):
         m = len(polys)
         dim = max(poly.dim for poly in polys)
-        jac = np.empty((m,dim))
+        jac = np.empty((m,dim),dtype = complex)
         for i, poly in enumerate(polys):
             jac[i] = poly.grad(x)
         return jac
