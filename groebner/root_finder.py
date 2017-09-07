@@ -476,7 +476,7 @@ def newton_polish(polys,root,niter=100,tol=1e-5):
         
     def f(x):
         m = len(polys)
-        f_x = np.empty(m, dtype = complex)
+        f_x = np.empty(m,dtype="complex_")
         for i, poly in enumerate(polys):
             f_x[i] = poly.evaluate_at(x)
         return f_x
@@ -484,7 +484,7 @@ def newton_polish(polys,root,niter=100,tol=1e-5):
     def Df(x):
         m = len(polys)
         dim = max(poly.dim for poly in polys)
-        jac = np.empty((m,dim),dtype = complex)
+        jac = np.empty((m,dim),dtype="complex_")
         for i, poly in enumerate(polys):
             jac[i] = poly.grad(x)
         return jac
