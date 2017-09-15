@@ -3,6 +3,7 @@
 import numpy as np
 from scipy.sparse import diags, kron, eye
 import groebner.utils as utils
+import scipy.linalg as sLA
 
 def bivariate_roots(f, g):
     """Calculates the common roots of f and g using the bezout resultant method.
@@ -52,12 +53,17 @@ def bivariate_roots(f, g):
     n = ns[0]
     v = np.random.rand(n, 1)
     a, b, c = (np.vstack([np.ones((n-1,1)), 2])/2).T, np.zeros(n), np.ones(n)/2
-    # X,Y = DLP(AA,v,a,b,c)
-    # V,yvals = np.linalg.eig(Y,-X)
-    #
-    # y = np.diagonal(yvals)
+    X,Y = DLP(AA,v,a,b,c)
+    yvals,V = sLA.eig(Y,-X)
 
-    return A
+    y = yvals
+    x = np.divide(V[-2,:],V[-1,:])
+
+    t = np.copy(x)
+    x = x[np.logical_and(np.logical_and(np.imag(y)==0,abs(y)<1),abs(x)<1)]
+    y = y[np.logical_and(np.logical_and(np.imag(y)==0,abs(y)<1),abs(t)<1)]
+
+    return list(zip(x,y))
 
 def DLP(AA, v, a, b, c):
     '''DLP constructs the DL pencil with ansatz vector v.
@@ -90,10 +96,10 @@ def DLP(AA, v, a, b, c):
     Y = np.copy(X)
     ii = np.array([num for num in range(n, n+s)])
     nn = np.array([num for num in range(n)])
-    Y[nn,:] = R[nn,ii]/M[0,0]
+    Y[nn,:] = R[nn][:,ii]/M[0,0]
     X[nn,:] = T[nn,:]/M[0,0]
     index = np.array([num for num in range(n,s+n)])
-    Y[nn+n,:] = (R[nn+n,ii] - (M[0,n] * Y[nn,:]) + (Y[nn,:] @ M[:,index])) / M[n,n]
+    Y[nn+n,:] = (R[nn+n][:,ii] - (M[0,n] * Y[nn,:]) + (Y[nn,:] @ M[:,index])) / M[n,n]
     X[nn+n,:] = (T[nn+n,:] - Y[nn,:] - (M[0,n] * X[nn,:])) / M[n,n]
 
     for i in range(3,k+1):
@@ -104,7 +110,7 @@ def DLP(AA, v, a, b, c):
         M0, M1, m = M[ni-2*n-1, ni-1], M[ni-n-1, ni-1], M[ni-1, ni-1]
         Y0, Y1, X0, X1 = Y[j0,:], Y[j1,:], X[j0,:], X[j1,:]
         index = np.array([num for num in range(n, s+n)])
-        Y[jj,:] = (R[jj,ii] - (M1 * Y1) - (M0 * Y0) + (Y1 @ M[:,index])) / m
+        Y[jj,:] = (R[jj][:,ii] - (M1 * Y1) - (M0 * Y0) + (Y1 @ M[:,index])) / m
         X[jj,:] = (T[jj,:] - Y1 - (M1 * X1) - (M0 * X0)) / m
 
     return X, Y
