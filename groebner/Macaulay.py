@@ -38,46 +38,87 @@ def new_macaulay(initial_poly_list, global_accuracy = 1.e-10):
     for i in initial_poly_list:
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
     initial_poly_list = list()
-    polys_old = create_reduce(poly_coeff_list, Power)
+    polys_old = create_reduce(poly_coeff_list, Power, False, 'matrix')
     poly_coeff_list = list()
     for i in polys_old:
-        poly_coeff_list.append(i.coeff)
+        poly_coeff_list.append(i)
     polys_new = list()
     mons = mon_combos(np.zeros(dim, dtype = int),1)
     mons = mons[1:]
 
     while degree < total_degree:
-        poly_coeff_list, polys_old, polys_new = add_polys_to_deg_x(degree, poly_coeff_list, polys_old, polys_new, mons, Power)
+        poly_coeff_list, polys_old = add_polys_to_deg_x(degree, poly_coeff_list, polys_old, mons, Power)
+        print("Reducing large matrix")
+        poly_coeff_list = create_reduce(poly_coeff_list, Power, False, "matrix")
         degree += 1
-
+    print("Final reduction")
     final_polys = create_reduce(poly_coeff_list, Power, True)
 
     return final_polys
 
-def add_polys_to_deg_x(degree, poly_coeff_list, polys_old, polys_new, mons, Power):
+def build_matrix(matrix, dim, degree):
+
+    height = matrix.shape[0]*dim
+    length = 1
+    np.zeros((height, length))
+
+
+
+def add_polys_to_deg_x(degree, poly_coeff_list, polys_old, mons, Power):
+    """
+    Adds polynomials to a given degree.
+
+    Parameters
+    ----------
+    degree : int
+        which degree to go to
+    poly_coeff_list : list of matrices
+
+    polys_old : list of polynomials
+    polys_new : list of polynomials
+    mons : list of monomials
+    Power : bool
+    """
+    polys_new = list()
     for i in polys_old:
         for j in mons:
-            polys_new.append(i.mon_mult(j, returnType = 'Matrix'))
-    polys_old = create_reduce(polys_new, Power)
+            polys_new.append(utils.mon_mult2(i,j, Power))
+    print("Reducing new polys")
+    polys_old = create_reduce(polys_new, Power, False, "matrix")
     for i in polys_old:
-        poly_coeff_list.append(i.coeff)
-    polys_new = list()
-    return poly_coeff_list, polys_old, polys_new
+        poly_coeff_list.append(i)
+    return poly_coeff_list, polys_old
 
-def create_reduce(poly_list, Power, Print = False):
-    matrix, matrix_terms, poly_list = create_matrix(poly_list)
-    if Print == True:
+def create_reduce(poly_list, Power, last_iteration = False, r_type = 'poly'):
+    if last_iteration == False:
+        """
+        matrix, matrix_terms = create_matrix(poly_list)
+        rows_good, rows_trash, Q = utils.row_linear_dependencies(matrix)
+        poly_list = get_polys_from_matrix(matrix, matrix_terms, rows_good, Power, r_type)
+        """
+        matrix, matrix_terms = create_matrix(poly_list)
+        print("Before: ", matrix.shape)
+        matrix = utils.rrqr_reduce2(matrix)
+        print("After: ", matrix.shape)
+        matrix = clean_zeros_from_matrix(matrix)
+        non_zero_rows = np.sum(np.abs(matrix),axis=1) != 0
+        matrix = matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
+        #rows = get_good_rows(matrix, matrix_terms)
+        poly_list = get_polys_from_matrix(matrix, matrix_terms, np.arange(matrix.shape[0]), Power, r_type)
+        return poly_list
+
+    else:
+        matrix, matrix_terms = create_matrix(poly_list)
         print(matrix.shape)
-    matrix = utils.rrqr_reduce2(matrix)
-    matrix = clean_zeros_from_matrix(matrix)
-    non_zero_rows = np.sum(np.abs(matrix),axis=1) != 0
-    matrix = matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
-    if Print == True:
+        matrix = utils.rrqr_reduce2(matrix)
+        matrix = clean_zeros_from_matrix(matrix)
+        non_zero_rows = np.sum(np.abs(matrix),axis=1) != 0
+        matrix = matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
         matrix = triangular_solve(matrix)
-    matrix = clean_zeros_from_matrix(matrix)
-    rows = get_good_rows(matrix, matrix_terms)
-    poly_list = get_polys_from_matrix(matrix, matrix_terms, rows, Power)
-    return poly_list
+        matrix = clean_zeros_from_matrix(matrix)
+        rows = get_good_rows(matrix, matrix_terms)
+        poly_list = get_polys_from_matrix(matrix, matrix_terms, rows, Power, r_type)
+        return poly_list
 
 def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     """
@@ -104,7 +145,7 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
 
     matrix, matrix_terms = create_matrix(poly_coeff_list)
-
+    print(matrix.shape)
     #rrqr_reduce2 and rrqr_reduce same pretty matched on stability, though I feel like 2 should be better.
     matrix = utils.rrqr_reduce2(matrix, global_accuracy = global_accuracy)
     matrix = clean_zeros_from_matrix(matrix)
@@ -122,7 +163,7 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
 
     return final_polys
 
-def get_polys_from_matrix(matrix, matrix_terms ,rows, power):
+def get_polys_from_matrix(matrix, matrix_terms ,rows, power, r_type = "poly"):
     '''Creates polynomial objects from the specified rows of the given matrix.
 
     Parameters
@@ -157,13 +198,15 @@ def get_polys_from_matrix(matrix, matrix_terms ,rows, power):
         p = matrix[i]
         coeff = np.zeros(shape)
         coeff[spots] = p
-        if power:
-            poly = MultiPower(coeff)
+        if r_type == "poly":
+            if power:
+                poly = MultiPower(coeff)
+            else:
+                poly = MultiCheb(coeff)
+            if poly.lead_term != None:
+                p_list.append(poly)
         else:
-            poly = MultiCheb(coeff)
-
-        if poly.lead_term != None:
-            p_list.append(poly)
+            p_list.append(coeff)
     return p_list
 
 def get_good_rows(matrix, matrix_terms):

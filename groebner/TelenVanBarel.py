@@ -5,76 +5,12 @@ import math
 from scipy.linalg import lu, qr, solve_triangular, inv, solve, svd, qr_multiply
 from numpy.linalg import cond
 from groebner.polynomial import Polynomial, MultiCheb, MultiPower, is_power
-from groebner.utils import Term, row_swap_matrix, clean_zeros_from_matrix, triangular_solve, divides, get_var_list, TVBError, slice_top, get_var_list, row_linear_dependencies
+from groebner.utils import rrqr_reduce2, Term, row_swap_matrix, clean_zeros_from_matrix, triangular_solve, divides, get_var_list, TVBError, slice_top, get_var_list, row_linear_dependencies, mon_mult2
 import matplotlib.pyplot as plt
 from collections import defaultdict
 import gc
 import time
-
-def new_TelenVanBarel(initial_poly_list, global_accuracy = 1.e-10):
-    """
-    Macaulay will take a list of polynomials and use them to construct a Macaulay matrix.
-    Will reduce as the matrix is created.
-    parameters
-    --------
-    initial_poly_list : A list of polynomials
-    global_accuracy : How small we want a number to be before assuming it is zero.
-    --------
-
-    Returns
-    -----------
-    Reduced Macaulay matrix that can be passed into the root finder.
-    -----------
-    """
-    Power = is_power(initial_poly_list)
-
-    poly_coeff_list = list()
-    dim = initial_poly_list[0].dim
-    degree = max([i.degree for i in initial_poly_list])
-    total_degree = find_degree(initial_poly_list)
-
-    for i in initial_poly_list:
-        poly_coeff_list = add_polys(degree, i, poly_coeff_list)
-    initial_poly_list = list()
-    polys_old = create_reduce(poly_coeff_list, Power)
-    for i in polys_old:
-        poly_coeff_list.append(i.coeff)
-    polys_new = list()
-    mons = mon_combos(np.zeros(dim, dtype = int),1)
-    mons = mons[1:]
-
-    while degree < total_degree:
-        poly_coeff_list, polys_old, polys_new = add_polys_to_deg_x(degree, poly_coeff_list, polys_old, polys_new, mons, Power)
-        degree += 1
-
-    VB = matrix_terms[matrix.shape[0]:]
-    basisDict = makeBasisDict(matrix, matrix_terms, VB)
-    return basisDict, VB
-
-def add_polys_to_deg_x(degree, poly_coeff_list, polys_old, polys_new, mons, Power):
-    for i in polys_old:
-        for j in mons:
-            polys_new.append(i.mon_mult(j, returnType = 'Matrix'))
-    polys_old = create_reduce(polys_new, Power)
-    for i in polys_old:
-        poly_coeff_list.append(i.coeff)
-    polys_new = list()
-    return poly_coeff_list, polys_old, polys_new
-
-def create_reduce(poly_list, Power, Print = False):
-    matrix, matrix_terms, matrix_shape_stuff, poly_coeff_list = create_matrix(poly_coeff_list)
-    if Print == True:
-        print(matrix.shape)
-    matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff,
-                                                        global_accuracy = global_accuracy)
-    matrix = clean_zeros_from_matrix(matrix)
-    non_zero_rows = np.sum(np.abs(matrix),axis=1) != 0
-    matrix = matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
-    if Print == True:
-        matrix, matrix_terms = triangular_solve(matrix, matrix_terms, reorder = False)
-    matrix = clean_zeros_from_matrix(matrix)
-    poly_list = get_polys_from_matrix(matrix, matrix_terms, rows, Power)
-    return poly_list
+from matplotlib import pyplot as plt
 
 def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
     """
@@ -112,7 +48,7 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
 
     matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list, degree, dim)
-
+    print(matrix.shape)
     matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy = accuracy)
 
     height = matrix.shape[0]
@@ -330,7 +266,8 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, accuracy 
     highest_num = matrix_shape_stuff[0]
     others_num = matrix_shape_stuff[1]
     xs_num = matrix_shape_stuff[2]
-
+    #plt.matshow([i==0 for i in matrix])
+    #print(highest_num)
     #RRQR reduces A and D sticking the result in it's place.
     Q1,matrix[:,:highest_num],P1 = qr(matrix[:,:highest_num], pivoting = True)
 
@@ -360,7 +297,6 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, accuracy 
     matrix_terms[highest_num:highest_num+others_num] = matrix_terms[highest_num:highest_num+others_num][P]
 
     return matrix, matrix_terms
-
 
 def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy = 1.e-10):
     ''' Reduces a Telen Van Barel Macaulay matrix.

@@ -130,7 +130,7 @@ def inverse_P(P):
     inverse = [0] * len(P)
     for i, p in enumerate(P):
         inverse[p] = i
-    return inverse    
+    return inverse
 
 def lcm(a,b):
     '''Finds the LCM of the two leading terms of polynomials a and b
@@ -429,7 +429,7 @@ def triangular_solve(matrix):
     k = 0  # The column index.
     order_c = [] # List to keep track of original index of the columns in c.
     order_d = [] # List to keep track of the original index of the columns in d.
-    
+
     # Checks if the given matrix is not a square matrix.
     if m != n:
         # Makes sure the indicies are within the matrix.
@@ -445,10 +445,10 @@ def triangular_solve(matrix):
                 k+=1
         # Append the index of the rest of the columns to the order_d list.
         order_d += list(np.arange(k,n))
-                
+
         # C will be the square matrix that is upper triangular with no zeros on the diagonals.
         C = matrix[:,order_c]
-        
+
         # D is the rest of the columns.
         D = matrix[:,order_d]
 
@@ -457,7 +457,7 @@ def triangular_solve(matrix):
 
         # Add I to X. [I|X]
         solver = np.hstack((np.eye(X.shape[0]),X))
-        
+
         # Reverse the columns back.
         solver = solver[:,inverse_P(order_c+order_d)]
 
@@ -564,7 +564,7 @@ def makePolyCoeffMatrix(inputString):
 
 def slice_top(matrix):
     ''' Gets the n-d slices needed to slice a matrix into the top corner of another.
-    
+
     Parameters
     ----------
     coeff : numpy matrix.
@@ -581,7 +581,7 @@ def slice_top(matrix):
 
 def slice_bottom(matrix):
     ''' Gets the n-d slices needed to slice a matrix into the bottom corner of another.
-    
+
     Parameters
     ----------
     coeff : numpy matrix.
@@ -598,7 +598,7 @@ def slice_bottom(matrix):
 
 def match_size(a,b):
     '''
-    Matches the shape of two matrixes. 
+    Matches the shape of two matrixes.
 
     Parameters
     ----------
@@ -625,9 +625,139 @@ def match_size(a,b):
             b = b.reshape(b_shape)
 
     new_shape = np.maximum(a.shape, b.shape)
-    
+
     a_new = np.zeros(new_shape)
     a_new[slice_top(a)] = a
     b_new = np.zeros(new_shape)
     b_new[slice_top(b)] = b
     return a_new, b_new
+
+def _fold_in_i_dir(solution_matrix, dim, fdim, size_in_fdim, fold_idx):
+    """
+    Finds T_|m-n| (Referred to as folding in proceeding documentation)
+    for a given dimension of a matrix.
+
+    Parameters
+    ----------
+    solution_matrix : ndarray
+        Polynomial to by folded.
+    dim : int
+        The number of dimensions in solution_matrix.
+    fdim : int
+        The dimension being folded.
+    size_in_fdim : int
+        The size of the solution matrix in the dimension being folded.
+    fold_idx : int
+        The index to fold around.
+
+    Returns
+    -------
+    sol : ndarray
+
+    """
+    if fold_idx == 0:
+        return solution_matrix
+
+    sol = np.zeros_like(solution_matrix) #Matrix of zeroes used to insert the new values..
+    slice_0 = slice(None, 1, None) # index to take first slice
+    slice_1 = slice(fold_idx, fold_idx+1, None) # index to take slice that contains the axis folding around.
+
+    #indexers are made with a slice index for every dimension.
+    indexer1 = [slice(None)]*dim
+    indexer2 = [slice(None)]*dim
+    indexer3 = [slice(None)]*dim
+
+    #Changes the index in each indexer for the correct dimension
+    indexer1[fdim] = slice_0
+    indexer2[fdim] = slice_1
+
+    #makes first slice in sol equal to the slice we fold around in solution_matrix
+    sol[indexer1] = solution_matrix[indexer2]
+
+    #Loop adds the slices above and below the slice we rotate around and inserts solutions in sol.
+    for n in range(size_in_fdim):
+
+        slice_2 = slice(n+1, n+2, None) #Used to imput new values in sol.
+        slice_3 = slice(fold_idx+n+1, fold_idx+n+2, None) #Used to find slices that are n above fold_idx
+        slice_4 = slice(fold_idx-n-1, fold_idx-n, None) #Used to find slices that are n below fold_idx
+
+        indexer1[fdim] = slice_2
+        indexer2[fdim] = slice_3
+        indexer3[fdim] = slice_4
+
+        #if statement checks to ensure that slices to be added are contained in the matrix.
+        if fold_idx-n-1 < 0:
+            if fold_idx+n+2 > size_in_fdim:
+                break
+            else:
+                sol[indexer1] = solution_matrix[indexer2]
+        else:
+            if fold_idx+n+2 > size_in_fdim:
+                sol[indexer1] = solution_matrix[indexer3]
+            else:
+                sol[indexer1] = solution_matrix[indexer3] + solution_matrix[indexer2]
+
+    return sol
+
+def _mon_mult1(initial_matrix, idx, dim_mult):
+    """
+    Executes monomial multiplication in one dimension.
+
+    Parameters
+    ----------
+    initial_matrix : array_like
+        Matrix of coefficients that represent a Chebyshev polynomial.
+    idx : tuple of ints
+        The index of a monomial of one variable to multiply by initial_matrix.
+    dim_mult : int
+        The location of the non-zero value in idx.
+
+    Returns
+    -------
+    ndarray
+        Coeff that are the result of the one dimensial monomial multiplication.
+
+    """
+
+    p1 = np.zeros(initial_matrix.shape + idx)
+    p1[slice_bottom(initial_matrix)] = initial_matrix
+
+    largest_idx = [i-1 for i in initial_matrix.shape]
+    new_shape = [max(i,j) for i,j in itertools.zip_longest(largest_idx, idx, fillvalue = 0)] #finds the largest length in each dimmension
+    if initial_matrix.shape[dim_mult] <= idx[dim_mult]:
+        add_a = [i-j for i,j in itertools.zip_longest(new_shape, largest_idx, fillvalue = 0)]
+        add_a_list = np.zeros((len(new_shape),2))
+        #changes the second column to the values of add_a and add_b.
+        add_a_list[:,1] = add_a
+        #uses add_a_list and add_b_list to pad each polynomial appropriately.
+        initial_matrix = np.pad(initial_matrix,add_a_list.astype(int),'constant')
+
+    number_of_dim = initial_matrix.ndim
+    shape_of_self = initial_matrix.shape
+
+    #Loop iterates through each dimension of the polynomial and folds in that dimension
+    for i in range(number_of_dim):
+        if idx[i] != 0:
+            initial_matrix = _fold_in_i_dir(initial_matrix, number_of_dim, i, shape_of_self[i], idx[i])
+    if p1.shape != initial_matrix.shape:
+        idx = [i-j for i,j in zip(p1.shape,initial_matrix.shape)]
+
+        result = np.zeros(np.array(initial_matrix.shape) + idx)
+        result[slice_top(initial_matrix)] = initial_matrix
+        initial_matrix = result
+    Pf = p1 + initial_matrix
+    return .5*Pf
+
+def mon_mult2(matrix, mon, power):
+    if power == True:
+        mon = np.array(mon)
+        result = np.zeros(matrix.shape + mon)
+        result[slice_bottom(matrix)] = matrix
+        return result
+    else:
+        idx_zeros = np.zeros(len(mon),dtype = int)
+        for i in range(len(mon)):
+            idx_zeros[i] = mon[i]
+            matrix = _mon_mult1(matrix, idx_zeros, i)
+            idx_zeros[i] = 0
+        return matrix

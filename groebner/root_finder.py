@@ -4,6 +4,7 @@ import itertools
 import warnings
 from groebner.Macaulay import Macaulay, new_macaulay
 from groebner.TelenVanBarel import TelenVanBarel
+from groebner.new_TelanVanBarel import new_TelenVanBarel
 from groebner.utils import Term, get_var_list, divides, TVBError, InstabilityWarning, match_size
 from groebner.gsolve import F4
 
@@ -29,17 +30,11 @@ def roots(polys, method = 'Groebner'):
         the common roots of the polynomials
     '''
     # Determine polynomial type
-    poly_type = ''
-    if (all(isinstance(p,MultiCheb) for p in polys)):
-        poly_type = 'MultiCheb'
-    elif (all(isinstance(p,MultiPower) for p in polys)):
-        poly_type = 'MultiPower'
-    else:
-        raise ValueError('All polynomials must be the same type')
+    poly_type = is_power(polys, return_string = True)
 
-    if method == 'TVB':
+    if method == 'TVB' or method == 'new_TVB':
         try:
-            m_f, var_dict = TVBMultMatrix(polys, poly_type)
+            m_f, var_dict = TVBMultMatrix(polys, poly_type, method)
         except TVBError as e:
             if str(e) == "Doesn't have all x^n's on diagonal. Do linear transformation":
                 ''' #Optionally have it do Groebner instead in thise case.
@@ -182,7 +177,7 @@ def sortVB(VB):
 
     return VB[np.argsort(VBList)]
 
-def TVBMultMatrix(polys, poly_type):
+def TVBMultMatrix(polys, poly_type, method):
     '''
     Finds the multiplication matrix using the reduced Macaulay matrix from the
     TVB method.
@@ -201,7 +196,10 @@ def TVBMultMatrix(polys, poly_type):
     var_dict : dictionary
         Maps each variable to its position in the vector space basis
     '''
-    basisDict, VB, degree = TelenVanBarel(polys)
+    if method == 'TVB':
+        basisDict, VB, degree = TelenVanBarel(polys)
+    else:
+        basisDict, VB, degree = new_TelenVanBarel(polys)
 
     VB = sortVB(VB)
 
@@ -525,13 +523,7 @@ def _match_poly_dim(poly1, poly2):
     if poly1.dim == poly2.dim:
         return poly1, poly2
 
-    poly_type = ''
-    if type(poly1) == MultiPower and type(poly2) == MultiPower:
-        poly_type = 'MultiPower'
-    elif type(poly1) == MultiCheb and type(poly2) == MultiCheb:
-        poly_type = 'MultiCheb'
-    else:
-        raise ValueError('Polynomials must be the same type')
+    poly_type = is_power([poly1,poly2], return_string = True)
 
     poly1_vars = poly1.dim
     poly2_vars = poly2.dim
@@ -574,13 +566,7 @@ def newton_polish(polys,root,niter=100,tol=1e-5):
     x1 : ndarray
         The terminal point of Newton's method, an estimation for a root of the system
     """
-    poly_type = ''
-    if (all(type(p) == MultiCheb for p in polys)):
-        poly_type = 'MultiCheb'
-    elif (all(type(p) == MultiPower for p in polys)):
-        poly_type = 'MultiPower'
-    else:
-        raise ValueError('All polynomials must be the same type')
+    poly_type = is_power(polys, return_string = True)
 
     def f(x):
         m = len(polys)

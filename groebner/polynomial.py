@@ -777,7 +777,11 @@ def poly2cheb(P):
         A = np.apply_along_axis(conv_poly, i, A)
     return MultiCheb(A)
 
-def is_power(poly_list):
+###############################################################################
+
+#### is_power function ########################################################
+
+def is_power(poly_list, return_string = False):
     """
     Determines the type of a list of polynomials.
 
@@ -794,9 +798,15 @@ def is_power(poly_list):
 
     """
     if all([type(p) == MultiPower for p in poly_list]):
-        return True
+        if return_string == False:
+            return True
+        else:
+            return 'MultiPower'
     elif all([type(p) == MultiCheb for p in poly_list]):
-        return False
+        if return_string == False:
+            return False
+        else:
+            return 'MultiCheb'
     else:
         print([type(p) == MultiPower for p in initial_poly_list])
         raise ValueError('Bad polynomials in list')
