@@ -1,9 +1,6 @@
-# A collection of functions used in the F4 and Macaulay solvers
+# A collection of functions used in the F4 Macaulay and TVB solvers
 import numpy as np
-from scipy.linalg import lu, qr, solve_triangular
-import heapq
-import itertools
-import time
+from scipy.linalg import qr, solve_triangular
 
 class InstabilityWarning(Warning):
     pass
@@ -545,7 +542,6 @@ def makePolyCoeffMatrix(inputString):
                 matrixSpot[varDegree] = power
         matrixSpots.append(matrixSpot)
         coefficients.append(coefficient)
-
     #Pad the matrix spots so they are all the same length.
     length = max(len(matrixSpot) for matrixSpot in matrixSpots)
     for i in range(len(matrixSpots)):
@@ -555,9 +551,10 @@ def makePolyCoeffMatrix(inputString):
             matrixSpots[i] = matrixSpot
     matrixSize = np.maximum.reduce([matrixSpot for matrixSpot in matrixSpots])
     matrixSize = matrixSize + np.ones_like(matrixSize)
+    matrixSize = matrixSize[::-1] #So the variables are in the right order.
     matrix = np.zeros(matrixSize)
     for i in range(len(matrixSpots)):
-        matrixSpot = matrixSpots[i]
+        matrixSpot = matrixSpots[i][::-1] #So the variables are in the right order.
         coefficient = coefficients[i]
         matrix[tuple(matrixSpot)] = coefficient
     return matrix
@@ -596,6 +593,30 @@ def slice_bottom(matrix):
         slices.append(slice(-i,None))
     return slices
 
+def match_poly_dimensions(polys):
+    '''Matches the dimensions of a list of polynomials.
+    
+    Parameters
+    ----------
+    polys : list
+        Polynomials of possibly different dimensions.
+
+    Returns
+    -------
+    new_polys : list
+        The same polynomials but of the same dimensions.
+    '''
+    dim = max(poly.dim for poly in polys)
+    new_polys = list()
+    for poly in polys:
+        if poly.dim != dim:
+            coeff_shape = list(poly.shape)
+            for i in range(dim - poly.dim):
+                coeff_shape.insert(0,1)
+            poly.__init__(poly.coeff.reshape(coeff_shape))
+        new_polys.append(poly)
+    return new_polys
+
 def match_size(a,b):
     '''
     Matches the shape of two matrixes.
@@ -608,22 +629,8 @@ def match_size(a,b):
     Returns
     -------
     a, b : ndarray
-        Matrixes of equal size and dimension.
+        Matrixes of equal size.
     '''
-    a_shape, b_shape = list(a.shape), list(b.shape)
-    if len(a_shape) != len(b_shape): #Makes the dimension sizes equal.
-        add_to_shape = 0
-        if len(a_shape) < len(b_shape):
-            add_to_shape = len(b_shape) - len(a_shape)
-            for i in range(add_to_shape):
-                a_shape.insert(0,1)
-            a = a.reshape(a_shape)
-        else:
-            add_to_shape = len(a_shape) - len(b_shape)
-            for i in range(add_to_shape):
-                b_shape.insert(0,1)
-            b = b.reshape(b_shape)
-
     new_shape = np.maximum(a.shape, b.shape)
 
     a_new = np.zeros(new_shape)
@@ -761,3 +768,73 @@ def mon_mult2(matrix, mon, power):
             matrix = _mon_mult1(matrix, idx_zeros, i)
             idx_zeros[i] = 0
         return matrix
+
+def mon_combosHighest(mon, numLeft, spot = 0):
+    '''Finds all the monomials of a given degree and returns them. Works recursively.
+    
+    Very similar to mon_combos, but only returns the monomials of the desired degree.
+    
+    Parameters
+    --------
+    mon: list
+        A list of zeros, the length of which is the dimension of the desired monomials. Will change
+        as the function searches recursively.
+    numLeft : int
+        The degree of the monomials desired. Will decrease as the function searches recursively.
+    spot : int
+        The current position in the list the function is iterating through. Defaults to 0, but increases
+        in each step of the recursion.
+    
+    Returns
+    -----------
+    answers : list
+        A list of all the monomials.
+    '''
+    answers = list()
+    if len(mon) == spot+1: #We are at the end of mon, no more recursion.
+        mon[spot] = numLeft
+        answers.append(mon.copy())
+        return answers
+    if numLeft == 0: #Nothing else can be added.
+        answers.append(mon.copy())
+        return answers
+    temp = mon.copy() #Quicker than copying every time inside the loop.
+    for i in range(numLeft+1): #Recursively add to mon further down.
+        temp[spot] = i
+        answers += mon_combosHighest(temp, numLeft-i, spot+1)
+    return answers
+
+def mon_combos(mon, numLeft, spot = 0):
+    '''Finds all the monomials up to a given degree and returns them. Works recursively.
+    
+    Parameters
+    --------
+    mon: list
+        A list of zeros, the length of which is the dimension of the desired monomials. Will change
+        as the function searches recursively.
+    numLeft : int
+        The degree of the monomials desired. Will decrease as the function searches recursively.
+    spot : int
+        The current position in the list the function is iterating through. Defaults to 0, but increases
+        in each step of the recursion.
+    
+    Returns
+    -----------
+    answers : list
+        A list of all the monomials.
+    '''
+    answers = list()
+    if len(mon) == spot+1: #We are at the end of mon, no more recursion.
+        for i in range(numLeft+1):
+            mon[spot] = i
+            answers.append(mon.copy())
+        return answers
+    if numLeft == 0: #Nothing else can be added.
+        answers.append(mon.copy())
+        return answers
+    temp = mon.copy() #Quicker than copying every time inside the loop.
+    for i in range(numLeft+1): #Recursively add to mon further down.
+        temp[spot] = i
+        answers += mon_combos(temp, numLeft-i, spot+1)
+    return answers
+
