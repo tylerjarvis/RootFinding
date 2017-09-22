@@ -124,10 +124,9 @@ def inverse_P(P):
     scipy.linalg.qr : QR decomposition (with pivoting=True).
 
     '''
-    inverse = [0] * len(P)
-    for i, p in enumerate(P):
-        inverse[p] = i
-    return inverse    
+    inverse = np.empty_like(P)
+    inverse[P] = np.arange(len(P))
+    return inverse
 
 def lcm(a,b):
     '''Finds the LCM of the two leading terms of polynomials a and b

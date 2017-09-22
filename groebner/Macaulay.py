@@ -39,6 +39,7 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
 
     matrix, matrix_terms = create_matrix(poly_coeff_list)
     
+    
     #rrqr_reduce2 and rrqr_reduce same pretty matched on stability, though I feel like 2 should be better.
     matrix = utils.rrqr_reduce2(matrix, global_accuracy = global_accuracy)
     matrix = clean_zeros_from_matrix(matrix)
@@ -47,10 +48,9 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     
     matrix = triangular_solve(matrix)
     matrix = clean_zeros_from_matrix(matrix)
-    '''
+    
     #The other reduction option. I thought it would be really stable but seems to be the worst of the three.
-    matrix = matrixReduce(matrix, triangular_solve = True, global_accuracy = global_accuracy)
-    '''
+    #matrix = matrixReduce(matrix, triangular_solve = True, global_accuracy = global_accuracy)
     
     rows = get_good_rows(matrix, matrix_terms)
     final_polys = get_polys_from_matrix(matrix, matrix_terms, rows, Power)
@@ -306,7 +306,7 @@ def matrixReduce(matrix, triangular_solve = False, global_accuracy = 1.e-10):
             otherColumns.append(i)
 
     matrix = matrix[:,pivotColumns + otherColumns]
-        
+    
     Q,R = qr(matrix)
     
     if triangular_solve:
@@ -315,7 +315,7 @@ def matrixReduce(matrix, triangular_solve = False, global_accuracy = 1.e-10):
         reduced = np.hstack((np.eye(X.shape[0]),X))
     else:
         reduced = R
-    matrix = np.empty_like(reduced)
+
     matrix = reduced[:,utils.inverse_P(pivotColumns + otherColumns)]
 
     matrix = clean_zeros_from_matrix(matrix)
