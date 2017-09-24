@@ -48,7 +48,7 @@ def bivariate_roots(f, g):
     A = A[:,:,ii:]
 
     ns = A.shape
-    AA = A.reshape(ns[0], ns[1]*ns[2])
+    AA = A.reshape(ns[0], ns[1]*ns[2], order='F')
 
     n = ns[0]
     v = np.random.rand(n, 1)
@@ -80,11 +80,10 @@ def DLP(AA, v, a, b, c):
     k = m // n - 1
     s = n * k
     M = diags(np.vstack([a,b,c]),[0,1,2],(k,k+1))
-    M = kron(M, eye(n))
+    M = kron(M, np.eye(n))
     M = M.tocsr()
 
-    S = kron(v, AA)
-    S = S.tocsr()
+    S = np.kron(v, AA)
     for j in range(k):
         jj = np.array([num for num in range(n*j, n*j+n)])
         AA[:,jj] = AA[:,jj].conj().T
@@ -103,11 +102,11 @@ def DLP(AA, v, a, b, c):
     X[nn+n,:] = (T[nn+n,:] - Y[nn,:] - (M[0,n] * X[nn,:])) / M[n,n]
 
     for i in range(3,k+1):
-        ni = n*i
-        jj = np.array([num for num in range(ni-n, ni)])
+        ni = n*i-1
+        jj = np.array([num for num in range(ni-n+1, ni+1)])
         j0 = jj-2*n
         j1 = jj-n
-        M0, M1, m = M[ni-2*n-1, ni-1], M[ni-n-1, ni-1], M[ni-1, ni-1]
+        M0, M1, m = M[ni-2*n, ni], M[ni-n, ni], M[ni, ni]
         Y0, Y1, X0, X1 = Y[j0,:], Y[j1,:], X[j0,:], X[j1,:]
         index = np.array([num for num in range(n, s+n)])
         Y[jj,:] = (R[jj][:,ii] - (M1 * Y1) - (M0 * Y0) + (Y1 @ M[:,index])) / m
