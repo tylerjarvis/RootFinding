@@ -1,11 +1,9 @@
 import numpy as np
-from scipy.signal import fftconvolve, convolve
 import itertools
-from groebner.utils import Term, makePolyCoeffMatrix
 from numpy.polynomial import chebyshev as cheb
 from numpy.polynomial import polynomial as poly
-import math
-from groebner.utils import match_size, slice_top, slice_bottom
+from scipy.signal import fftconvolve, convolve
+from groebner.utils import Term, makePolyCoeffMatrix, match_size, slice_top, slice_bottom
 
 class Polynomial(object):
     '''
@@ -453,7 +451,7 @@ class MultiCheb(Polynomial):
         
         c = self.coeff
         n = len(c.shape)
-        out = np.empty(n)
+        out = np.empty(n,dtype="complex_")
         for i in range(n):
             d = cheb.chebder(c,axis=i)
             out[i] = chebvalnd(point,d)
@@ -679,7 +677,7 @@ class MultiPower(Polynomial):
         
         c = self.coeff
         n = len(c.shape)
-        out = np.empty(n)
+        out = np.empty(n,dtype="complex_")
         for i in range(n):
             d = poly.polyder(c,axis=i)
             out[i] = polyvalnd(point,d)
