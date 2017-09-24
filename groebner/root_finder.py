@@ -1,11 +1,11 @@
 import numpy as np
-from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 import itertools
 import warnings
+from groebner.polynomial import MultiCheb, MultiPower
 from groebner.Macaulay import Macaulay
 from groebner.TelenVanBarel import TelenVanBarel
-from groebner.utils import Term, get_var_list, divides, TVBError, InstabilityWarning, match_size
 from groebner.gsolve import F4
+from groebner.utils import Term, get_var_list, divides, TVBError, InstabilityWarning, match_size, match_poly_dimensions
 
 '''
 This module contains the tools necessary to find the points of the variety of the
@@ -27,6 +27,8 @@ def roots(polys, method = 'Groebner'):
     list of numpy arrays
         the common roots of the polynomials
     '''
+    polys = match_poly_dimensions(polys)
+    
     # Determine polynomial type
     poly_type = ''
     if (all(isinstance(p,MultiCheb) for p in polys)):
@@ -41,12 +43,13 @@ def roots(polys, method = 'Groebner'):
             m_f, var_dict = TVBMultMatrix(polys, poly_type)
         except TVBError as e:
             if str(e) == "Doesn't have all x^n's on diagonal. Do linear transformation":
-                ''' #Optionally have it do Groebner instead in thise case.
-                warnings.warn("TVB method failed. Trying Groebner instead. Error message from TVB is - {}".format(e), InstabilityWarning)
+                raise e
+                ''' #Optionally have it do F4 instead in thise case.
+                warnings.warn("TVB method failed. Trying F4 instead. \
+                    Error message from TVB is - {}".format(e), InstabilityWarning)
                 method = 'Groebner'
                 GB, m_f, var_dict = groebnerMultMatrix(polys, poly_type, method)
                 '''
-                raise e
             elif str(e) == 'Polys are non-zero dimensional':
                 return -1
             else:
@@ -153,8 +156,7 @@ def groebnerMultMatrix(polys, poly_type, method):
     return GB, m_f, var_dict
 
 def sortVB(VB):
-    '''
-    Sorts the Vector Basis into degrevlex order so the eigensolve is faster (in theory).
+    '''Sorts the Vector Basis into degrevlex order so the eigensolve is faster (in theory).
     
     Parameters
     ----------
@@ -191,7 +193,7 @@ def TVBMultMatrix(polys, poly_type):
     var_dict : dictionary
         Maps each variable to its position in the vector space basis
     '''
-    basisDict, VB, degree = TelenVanBarel(polys)
+    basisDict, VB, degree = TelenVanBarel(polys, run_checks = True)
         
     VB = sortVB(VB)
 
@@ -288,9 +290,6 @@ def multMatrix(poly, GB, basisList):
     
     GB = sorted_polys_coeff(GB)
 
-    # All polys in GB will be in the same dimension, so just match poly with
-    # the first Groebner basis element
-    poly = _match_poly_dim(poly, GB[0])[0]
     dim = len(basisList) # Dimension of the vector space basis
     
     multMatrix = np.zeros((dim, dim))
@@ -319,7 +318,6 @@ def vectorSpaceBasis(GB):
     possibleMonomials = itertools.product(*possibleVarDegrees)
     basis = []
     var_to_pos_dict = {}
-
     for mon in possibleMonomials:
         divisible = False
         for LT in LT_G:
@@ -386,7 +384,6 @@ def reduce_poly(poly, divisors, basisSet, permitted_round_error=1e-10):
         divisible = False
         # Go through polynomials in set of divisors
         for divisor in divisors:
-            poly, divisor = _match_poly_dim(poly, divisor)
             # If the LT of the divisor divides the LT of poly
             if divides(divisor.lead_term, poly.lead_term):
                 # Get the quotient LT(poly)/LT(divisor)
@@ -449,40 +446,6 @@ def _test_zero_dimensional(_vars, GB):
 
     return True
 
-def _match_poly_dim(poly1, poly2):
-    # Do nothing if they are already the same dimension
-    if poly1.dim == poly2.dim:
-        return poly1, poly2
-
-    poly_type = ''
-    if type(poly1) == MultiPower and type(poly2) == MultiPower:
-        poly_type = 'MultiPower'
-    elif type(poly1) == MultiCheb and type(poly2) == MultiCheb:
-        poly_type = 'MultiCheb'
-    else:
-        raise ValueError('Polynomials must be the same type')
-
-    poly1_vars = poly1.dim
-    poly2_vars = poly2.dim
-    max_vars = max(poly1_vars, poly2_vars)
-
-    if poly1_vars < max_vars:
-         for j in range(max_vars-poly1_vars):
-             coeff_reshaped = poly1.coeff[...,np.newaxis]
-         if poly_type == 'MultiPower':
-             poly1 = MultiPower(coeff_reshaped)
-         elif poly_type == 'MultiCheb':
-             poly1 = MultiCheb(coeff_reshaped)
-    elif poly2_vars < max_vars:
-        for j in range(max_vars-poly2_vars):
-            coeff_reshaped = poly2.coeff[...,np.newaxis]
-        if poly_type == 'MultiPower':
-            poly2 = MultiPower(coeff_reshaped)
-        elif poly_type == 'MultiCheb':
-            poly2 = MultiCheb(coeff_reshaped)
-
-    return poly1, poly2
-
 def newton_polish(polys,root,niter=100,tol=1e-5):
     """
     Perform Newton's method on a system of N polynomials in M variables.
@@ -513,7 +476,7 @@ def newton_polish(polys,root,niter=100,tol=1e-5):
         
     def f(x):
         m = len(polys)
-        f_x = np.empty(m)
+        f_x = np.empty(m,dtype="complex_")
         for i, poly in enumerate(polys):
             f_x[i] = poly.evaluate_at(x)
         return f_x
@@ -521,7 +484,7 @@ def newton_polish(polys,root,niter=100,tol=1e-5):
     def Df(x):
         m = len(polys)
         dim = max(poly.dim for poly in polys)
-        jac = np.empty((m,dim))
+        jac = np.empty((m,dim),dtype="complex_")
         for i, poly in enumerate(polys):
             jac[i] = poly.grad(x)
         return jac

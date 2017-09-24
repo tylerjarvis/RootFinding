@@ -161,22 +161,29 @@ def test_makePolyCoeffMatrix():
     B = MultiPower(np.array([1]))
     assert (A.coeff==B.coeff).all()
     
-    A = MultiPower('x0+x1+x0*x1')
-    B = MultiPower(np.array([[0,1],[1,1]]))
+    A = MultiPower('2x0+x1+x0*x1')
+    B = MultiPower(np.array([[0,2],[1,1]]))
     assert (A.coeff==B.coeff).all()
 
     A = MultiPower('-4.7x0*x1+2x1+5x0+-3')
-    B = MultiPower(np.array([[-3,2],[5,-4.7]]))
+    B = MultiPower(np.array([[-3,5],[2,-4.7]]))
     assert (A.coeff==B.coeff).all()
 
     A = MultiPower('x0^2+-x1^2')
-    B = MultiPower(np.array([[0,0,-1],[0,0,0],[1,0,0]]))
+    B = MultiPower(np.array([[0,0,1],[0,0,0],[-1,0,0]]))
     assert (A.coeff==B.coeff).all()
 
-    A = MultiPower('x0+x1+x2+x3')
+    A = MultiPower('x0+2x1+3x2+4x3')
     B = MultiPower(np.array(
-        [[[[0,1],[1,0]],
-          [[1,0],[0,0]]],
-         [[[1,0],[0,0]],
+        [[[[0,1],[2,0]],
+          [[3,0],[0,0]]],
+         [[[4,0],[0,0]],
           [[0,0],[0,0]]]]))
     assert (A.coeff==B.coeff).all()
+    
+    A = MultiPower('1+x0')
+    B = MultiPower('1+x1')
+    A1 = MultiPower(np.array([1,1]))
+    B1 = MultiPower(np.array([[1],[1]]))
+    
+    assert (A.coeff==A1.coeff).all() and (B.coeff==B1.coeff).all()
