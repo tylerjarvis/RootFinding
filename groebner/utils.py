@@ -1,5 +1,6 @@
 # A collection of functions used in the F4 Macaulay and TVB solvers
 import numpy as np
+import itertools
 from scipy.linalg import qr, solve_triangular
 
 class InstabilityWarning(Warning):
@@ -595,7 +596,7 @@ def slice_bottom(matrix):
 
 def match_poly_dimensions(polys):
     '''Matches the dimensions of a list of polynomials.
-    
+
     Parameters
     ----------
     polys : list
@@ -771,9 +772,9 @@ def mon_mult2(matrix, mon, power):
 
 def mon_combosHighest(mon, numLeft, spot = 0):
     '''Finds all the monomials of a given degree and returns them. Works recursively.
-    
+
     Very similar to mon_combos, but only returns the monomials of the desired degree.
-    
+
     Parameters
     --------
     mon: list
@@ -784,7 +785,7 @@ def mon_combosHighest(mon, numLeft, spot = 0):
     spot : int
         The current position in the list the function is iterating through. Defaults to 0, but increases
         in each step of the recursion.
-    
+
     Returns
     -----------
     answers : list
@@ -806,7 +807,7 @@ def mon_combosHighest(mon, numLeft, spot = 0):
 
 def mon_combos(mon, numLeft, spot = 0):
     '''Finds all the monomials up to a given degree and returns them. Works recursively.
-    
+
     Parameters
     --------
     mon: list
@@ -817,7 +818,7 @@ def mon_combos(mon, numLeft, spot = 0):
     spot : int
         The current position in the list the function is iterating through. Defaults to 0, but increases
         in each step of the recursion.
-    
+
     Returns
     -----------
     answers : list
@@ -837,4 +838,3 @@ def mon_combos(mon, numLeft, spot = 0):
         temp[spot] = i
         answers += mon_combos(temp, numLeft-i, spot+1)
     return answers
-
