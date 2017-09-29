@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 import groebner.utils as utils
 import matplotlib.pyplot as plt
+import sympy
 
 def new_macaulay(initial_poly_list, global_accuracy = 1.e-10):
     """
@@ -144,7 +145,12 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
 
     matrix, matrix_terms = create_matrix(poly_coeff_list)
+<<<<<<< HEAD
     print(matrix.shape)
+=======
+    
+    
+>>>>>>> 49f30481343358331bcb3e35d71f531cce067ae6
     #rrqr_reduce2 and rrqr_reduce same pretty matched on stability, though I feel like 2 should be better.
     matrix = utils.rrqr_reduce2(matrix, global_accuracy = global_accuracy)
     matrix = clean_zeros_from_matrix(matrix)
@@ -156,7 +162,7 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
 
     #The other reduction option. I thought it would be really stable but seems to be the worst of the three.
     #matrix = matrixReduce(matrix, triangular_solve = True, global_accuracy = global_accuracy)
-
+    
     rows = get_good_rows(matrix, matrix_terms)
     final_polys = get_polys_from_matrix(matrix, matrix_terms, rows, Power)
 
@@ -414,15 +420,20 @@ def matrixReduce(matrix, triangular_solve = False, global_accuracy = 1.e-10):
             otherColumns.append(i)
 
     matrix = matrix[:,pivotColumns + otherColumns]
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> 49f30481343358331bcb3e35d71f531cce067ae6
     Q,R = qr(matrix)
+    
     if triangular_solve:
         R = clean_zeros_from_matrix(R)
         X = solve_triangular(R[:,:R.shape[0]],R[:,R.shape[0]:])
         reduced = np.hstack((np.eye(X.shape[0]),X))
     else:
         reduced = R
-    matrix = np.empty_like(reduced)
+
     matrix = reduced[:,utils.inverse_P(pivotColumns + otherColumns)]
 
     matrix = clean_zeros_from_matrix(matrix)
@@ -490,3 +501,4 @@ def findPivotColumns(matrix, global_accuracy = 1.e-10):
         pivot_columns = np.vstack((sub1,np.hstack((sub2,sub3))))
         return pivot_columns
     pass
+

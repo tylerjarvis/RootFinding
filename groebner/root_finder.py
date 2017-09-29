@@ -108,7 +108,7 @@ def roots(polys, method = 'Groebner'):
                 var_value = GB_poly.evaluate_at(root) * -1
                 root[pos] = var_value
         roots.append(root)
-        #roots.append(newton_polish(polys,root))
+        #roots.append(newton_polish(polys,root,niter=1000,tol=1e-10))
     return roots
 
 def groebnerMultMatrix(polys, poly_type, method):
@@ -200,11 +200,16 @@ def TVBMultMatrix(polys, poly_type, method):
     var_dict : dictionary
         Maps each variable to its position in the vector space basis
     '''
+<<<<<<< HEAD
     if method == 'TVB':
         basisDict, VB, degree = TelenVanBarel(polys, run_checks = True)
     else:
         basisDict, VB, degree = new_TelenVanBarel(polys)
 
+=======
+    basisDict, VB, degree = TelenVanBarel(polys, run_checks = False)
+        
+>>>>>>> 49f30481343358331bcb3e35d71f531cce067ae6
     VB = sortVB(VB)
 
     dim = max(f.dim for f in polys)
