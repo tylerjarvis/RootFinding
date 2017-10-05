@@ -39,7 +39,7 @@ def TelenVanBarel(initial_poly_list, run_checks = True, accuracy = 1.e-10):
     poly_coeff_list = []
     degree = find_degree(initial_poly_list)
     dim = initial_poly_list[0].dim
-    
+
     if run_checks:
         #Checks to make sure TVB will work.
         if not has_top_xs(initial_poly_list):
@@ -49,29 +49,29 @@ def TelenVanBarel(initial_poly_list, run_checks = True, accuracy = 1.e-10):
             print(S.coeff)
             initial_poly_list.append(S)
             degree = find_degree(initial_poly_list)
-    
+
     for i in initial_poly_list:
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
 
     matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list, degree, dim)
 
-    matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy = accuracy)    
-    
+    matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy = accuracy)
+
     height = matrix.shape[0]
     matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
     matrix[:,:height] = np.eye(height)
 
     VB = matrix_terms[matrix.shape[0]:]
-    
+
     basisDict = makeBasisDict(matrix, matrix_terms, VB, Power, [degree]*dim)
     return basisDict, VB, degree
 
 def makeBasisDict(matrix, matrix_terms, VB, power, remainder_shape):
     '''Calculates and returns the basisDict.
-    
+
     This is a dictionary of the terms on the diagonal of the reduced TVB matrix to the terms in the Vector Basis.
     It is used to create the multiplication matrix in root_finder.
-    
+
     Parameters
     --------
     matrix: numpy array
@@ -92,12 +92,12 @@ def makeBasisDict(matrix, matrix_terms, VB, power, remainder_shape):
         that represent the terms reduction into the Vector Basis.
     '''
     basisDict = {}
-    
+
     if power: #We don't actually need most of the rows, so we only get the ones we need.
         neededSpots = set()
         for term, mon in itertools.product(VB,get_var_list(VB.shape[1])):
             neededSpots.add(tuple(term+mon))
-    
+
     spots = list()
     for dim in range(VB.shape[1]):
         spots.append(VB.T[dim])
@@ -115,7 +115,7 @@ def makeBasisDict(matrix, matrix_terms, VB, power, remainder_shape):
 
 def find_degree(poly_list):
     '''Finds the degree of a Macaulay Matrix.
-    
+
     Parameters
     --------
     poly_list: list
@@ -126,25 +126,21 @@ def find_degree(poly_list):
     find_degree : int
         The degree of the Macaulay Matrix.
 
-    Example:
-        For polynomials [P1,P2,P3] with degree [d1,d2,d3] the function returns d1+d2+d3-3+1
     '''
-    degree_needed = 0
-    for poly in poly_list:
-        degree_needed += poly.degree
-    return ((degree_needed - len(poly_list)) + 1)
+
+    return sum(poly.degree for poly in poly_list) - len(poly_list) + 1
 
 def add_polys(degree, poly, poly_coeff_list):
     """Adds polynomials to a Macaulay Matrix.
-    
+
     This function is called on one polynomial and adds all monomial multiples of it to the matrix.
-    
+
     Parameters
     ----------
     degree : int
         The degree of the TVB Matrix
     poly : Polynomial
-        One of the polynomials used to make the matrix. 
+        One of the polynomials used to make the matrix.
     poly_coeff_list : list
         A list of all the current polynomials in the matrix.
     Returns
@@ -179,17 +175,17 @@ def sorted_matrix_terms(degree, dim):
         single variable, as well as the monomial 1.
     '''
     highest_mons = mon_combosHighest([0]*dim,degree)
-    
+
     other_mons = list()
     d = degree - 1
     while d > 1:
         other_mons += mon_combosHighest([0]*dim,d)
         d -= 1
-    
+
     xs_mons = mon_combos([0]*dim,1)
-    
+
     sorted_matrix_terms = np.reshape(highest_mons+other_mons+xs_mons, (len(highest_mons+other_mons+xs_mons),dim))
-    
+
     return sorted_matrix_terms, tuple([len(highest_mons),len(other_mons),len(xs_mons)])
 
 def create_matrix(poly_coeffs, degree, dim):
@@ -227,13 +223,13 @@ def create_matrix(poly_coeffs, degree, dim):
         added_zeros[slices] = np.zeros_like(coeff)
         coeff = 0
     poly_coeffs = 0
-    
+
     #Make the matrix. Reshape is faster than stacking.
     matrix = np.reshape(flat_polys, (len(flat_polys),len(matrix_terms)))
-    
+
     if matrix_shape_stuff[0] > matrix.shape[0]: #The matrix isn't tall enough, these can't all be pivot columns.
         raise TVBError("HIGHEST NOT FULL RANK. TRY HIGHER DEGREE")
-    
+
     #Sorts the rows of the matrix so it is close to upper triangular.
     matrix = row_swap_matrix(matrix)
     return matrix, matrix_terms, matrix_shape_stuff
@@ -270,13 +266,13 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, accuracy 
     highest_num = matrix_shape_stuff[0]
     others_num = matrix_shape_stuff[1]
     xs_num = matrix_shape_stuff[2]
-        
+
     #RRQR reduces A and D sticking the result in it's place.
     Q1,matrix[:,:highest_num],P1 = qr(matrix[:,:highest_num], pivoting = True)
-    
+
     if abs(matrix[:,:highest_num].diagonal()[-1]) < accuracy:
         raise TVBError("HIGHEST NOT FULL RANK")
-            
+
     #Multiplying the rest of the matrix by Q.T
     matrix[:,highest_num:] = Q1.T@matrix[:,highest_num:]
     Q1 = 0 #Get rid of Q1 for memory purposes.
@@ -331,14 +327,14 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy
     highest_num = matrix_shape_stuff[0]
     others_num = matrix_shape_stuff[1]
     xs_num = matrix_shape_stuff[2]
-    
+
     C1,matrix[:highest_num,:highest_num],P1 = qr_multiply(matrix[:,:highest_num], matrix[:,highest_num:].T, mode = 'right', pivoting = True)
     matrix[:highest_num,highest_num:] = C1.T
     C1 = 0
-    
+
     if abs(matrix[:,:highest_num].diagonal()[-1]) < accuracy:
         raise TVBError("HIGHEST NOT FULL RANK")
-    
+
     matrix[:highest_num,highest_num:] = solve_triangular(matrix[:highest_num,:highest_num],matrix[:highest_num,highest_num:])
     matrix[:highest_num,:highest_num] = np.eye(highest_num)
     matrix[highest_num:,highest_num:] -= (matrix[highest_num:,:highest_num][:,P1])@matrix[:highest_num,highest_num:]
@@ -346,13 +342,13 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy
     P1 = 0
 
     C,R,P = qr_multiply(matrix[highest_num:,highest_num:highest_num+others_num], matrix[highest_num:,highest_num+others_num:].T, mode = 'right', pivoting = True)
-    
+
     matrix = matrix[:R.shape[0]+highest_num]
     matrix[highest_num:,:highest_num] = np.zeros_like(matrix[highest_num:,:highest_num])
     matrix[highest_num:,highest_num:highest_num+R.shape[1]] = R
     matrix[highest_num:,highest_num+R.shape[1]:] = C.T
     C,R = 0,0
-    
+
     #Shifts the columns of B.
     matrix[:highest_num,highest_num:highest_num+others_num] = matrix[:highest_num,highest_num:highest_num+others_num][:,P]
     matrix_terms[highest_num:highest_num+others_num] = matrix_terms[highest_num:highest_num+others_num][P]
@@ -367,10 +363,10 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy
 
 def has_top_xs(polys):
     '''Finds out if the Macaulay Matrix will have an x^d in each dimension.
-    
+
     TVB redction will work if an only if this is true. So in 2 dimensions a Macaulay matrix of degree d
     needs to have a x^d and y^d in it, in 3 dimensions it needs an x^d, y^d and z^d etc.
-    
+
     Parameters
     ----------
     polys : list
@@ -381,16 +377,16 @@ def has_top_xs(polys):
         True if it has all the x^d's; False otherwise.
     '''
     dim = polys[0].dim
-    
+
     hasXs = np.zeros(dim)
     #Make everything behind the diagonal 0,
     for poly in polys:
         deg = poly.degree
-        
+
         possibleXs = set()
         for row in deg*get_var_list(dim):
             possibleXs.add(tuple(deg*np.array(row)))
-        
+
         for mon in zip(*np.where(poly.coeff!=0)):
             #Checks to see if it's an x^n.
             if mon in possibleXs:
@@ -399,9 +395,9 @@ def has_top_xs(polys):
 
 def getDiagPoly(poly):
     '''Gets the diagonal polynomial of a polynomial.
-    
+
     This is defined as only the monomials in a polynomial that are of the highest degree. Everything else is 0.
-        
+
     Parameters
     ----------
     poly : Polynomial
@@ -423,9 +419,9 @@ def getDiagPoly(poly):
 
 def topDegreeMatrix(polys, degree):
     '''Gets the upper left corner of a Macaulay Matrix, the top degree part.
-    
+
     Only includes the columns that are monomials of highest degree and the rows that have non-zero elements in those columns
-    
+
     Parameters
     ----------
     polys : list
@@ -444,7 +440,7 @@ def topDegreeMatrix(polys, degree):
     '''
     dim = polys[0].dim
     power = isinstance(polys[0],MultiPower)
-    
+
     diagPolys = list()
     for poly in polys:
         diagPolys.append(getDiagPoly(poly))
@@ -455,7 +451,7 @@ def topDegreeMatrix(polys, degree):
         diagPlaces.append(diagSpots.T[i])
 
     full = np.zeros([degree+1]*dim)
-        
+
     matrixRows = list()
     matrixMons = list()
     for diagPoly in diagPolys:
@@ -471,10 +467,10 @@ def topDegreeMatrix(polys, degree):
 
 def getFPolys(fcoeffs, matrixMons, full, power):
     '''Finds the f-polynomials needed to make an S polynomial.
-    
+
     Given a set of polynomials p1,p2 ... pn S = p1f1 + p2f2 + ... +pnfn. matrixMons is the monomials in the fPolys
     and fcoeffs is all the coefficients for them.
-        
+
     Parameters
     ----------
     fcoeffs : numpy array
@@ -505,7 +501,7 @@ def getFPolys(fcoeffs, matrixMons, full, power):
 
 def finalizeS(polys, S):
     '''Makes sure an S polynomial will make TVB work, if not, finds a new one.
-            
+
     Parameters
     ----------
     polys : list
@@ -514,26 +510,26 @@ def finalizeS(polys, S):
         A potential S polynomial to make TVB work.
     Returns
     -------
-    finalizeS : Polynomail 
+    finalizeS : Polynomail
         A polynomial that will make TVB work. If S works, S is returned, otherwise a new potential S2 is calculated
         and finalizeS is called again on S2.
     '''
     #print(S.coeff)
-    
+
     if S.degree <= 0:
         raise TVBError('Polys are non-zero dimensional')
-    
+
     dim = polys[0].dim
     power = isinstance(polys[0],MultiPower)
     degree = find_degree(polys)
     #print(degree)
-    
+
     matrix, matrixMons, full = topDegreeMatrix(polys+list([S]), degree)
     Q,R,P = qr(matrix, pivoting = True)
     #print(R.diagonal())
     if abs(R.diagonal()[-1]) > 1.e-10:
         return S
-    
+
     fPolys = getFPolys(clean_zeros_from_matrix(Q.T[-1]), matrixMons, full, power)
     if power:
         S2 = MultiPower(np.array([0]))
@@ -549,24 +545,24 @@ def finalizeS(polys, S):
 
 def get_S_Poly(polys):
     '''Gets an S polynomial if needed to make sure TVB will work.
-    
+
     The code checks if an S is needed first. If so, it calculates one potential S, and then calls finalizeS on it
     to make sure that S is actually valid, and if not to find a better one.
-    
+
     Parameters
     ----------
     polys : list
         The original polys used to make a TVB matrix.
     Returns
     -------
-    get_S_Poly : int or Polynomial 
+    get_S_Poly : int or Polynomial
         Returns -1 if no S-Poly is needed, menaing TVB will work fine as is. Otherwise, returns a Polynomial Object
         S that when added to the basis will make TVB work.
-    '''    
+    '''
     dim = polys[0].dim
     power = isinstance(polys[0],MultiPower)
     degree = find_degree(polys)
-    
+
     matrix, matrixMons, full = topDegreeMatrix(polys, degree)
 
     #print(matrix)
@@ -584,6 +580,6 @@ def get_S_Poly(polys):
         f = fPolys[i]
         S += poly*f
     S.__init__(clean_zeros_from_matrix(S.coeff))
-    
+
     #Now make a new function to check if it's done and if not keep going.
     return finalizeS(polys, S)
