@@ -827,11 +827,23 @@ def polyvalnd(x,c):
     
 #polynomial generator
 def solve(poly1, poly2):
+    """
+    multiplies two polynomials given only their coefficients
+    
+    parameters
+    ----------
+    poly1,poly2 (tuple) 
+        tuples of coefficients of polynomials, in descending order of degree 
+        
+    returns
+    -------
+    a tuple of coefficents for the resultant polynomial
+    
+    """
     v1 = np.array(poly1)
     v2 = np.array(poly2)
 
     #multiply coefficients
-    #print("in solve",v1,v2.T)
     M = np.outer(v2,v1.T)
     
     poly_coeffs = []
@@ -840,7 +852,6 @@ def solve(poly1, poly2):
     M2 = M[:,np.arange(M.shape[1])[::-1]]
     
     #sum diagonals
-    
     rows,cols = M2.shape 
     for i in range(-(rows-1),cols):
         poly_coeffs.append(np.trace(M2, i))
@@ -857,12 +868,9 @@ def solve_poly(mylist):
         return mylist[0]
 
     tuples = []
-    #print("mylist",mylist)
     size = len(mylist)
     if size % 2 == 0: #even number of roots
-        #tuples.append(solve(mylist[i], mylist[-1]))
         for i in range(size//2):
-            #print("i:", i, "tuples passed:", mylist[i], mylist[-i-1], "\nsolved:", solve(mylist[i], mylist[-i]))
             tuples.append(solve(mylist[i], mylist[-(i+1)]))
     else: #odd number of roots
         size -= 1
@@ -887,16 +895,15 @@ def gen_poly(degree, variables=1):
     
     T_m*T_n=.5(T_(m+n)+T_(m-n))
 
+    returns roots - list of roots
+            solve_poly - tuple with coefficients of resultant polynomial in descending degree order
     """
     #generate <degree> random numbers
     deg = []
     for _ in range(degree):
-        #append tuples of form (1,x) where x is a root
-        deg.append((1,np.random.uniform(-1,1)))
-
-    #print(deg)
-
-    #solve for coefficients
-    #solve = solve_poly(deg)
-    #print(solve)
-    return solve_poly(deg)
+        #append tuples of form (1,-x) where x is a root
+        deg.append((1,-1*np.random.uniform(-1,1)))
+    roots = []
+    for i in range(degree):
+        roots.append(list(deg[i])[1])
+    return roots, solve_poly(deg)
