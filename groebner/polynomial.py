@@ -856,7 +856,9 @@ def solve(poly1, poly2):
     for i in range(-(rows-1),cols):
         poly_coeffs.append(np.trace(M2, i))
     
+    #print('\n', poly1, poly2, poly_coeffs[::-1])
     return tuple(poly_coeffs[::-1])
+
 
 def solve_poly(mylist):
     """give it the list of tuples to solve
@@ -896,14 +898,32 @@ def gen_poly(degree, variables=1):
     T_m*T_n=.5(T_(m+n)+T_(m-n))
 
     returns roots - list of roots
-            solve_poly - tuple with coefficients of resultant polynomial in descending degree order
+            solve_poly[::-1] - tuple with coefficients of resultant polynomial in ascending degree order
     """
     #generate <degree> random numbers
     deg = []
-    for _ in range(degree):
+    for i in range(degree):
         #append tuples of form (1,-x) where x is a root
-        deg.append((1,-1*np.random.uniform(-1,1)))
+        deg.append((1,np.random.uniform(-1,1)))
+
     roots = []
     for i in range(degree):
-        roots.append(list(deg[i])[1])
-    return roots, solve_poly(deg)
+        roots.append(-1*list(deg[i])[1])
+    return roots, np.array(solve_poly(deg))[::-1]
+
+def gen_poly2(rootList = [], variables=1):
+    """
+    generate degree number of random numbers from a list of roots
+
+    returns roots - list of roots
+            solve_poly - tuple with coefficients of resultant polynomial in ascending degree order
+    """
+    if rootList is None:
+        return [], []
+    
+    deg = np.zeros((len(rootList),2))
+    for i,v in enumerate(rootList):
+        #append tuples of form (1,-x) where x is a root
+        deg[i] = (1,-1*v)
+    return rootList, np.array(solve_poly(deg))[::-1]
+
