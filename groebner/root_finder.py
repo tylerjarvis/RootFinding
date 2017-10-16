@@ -200,16 +200,11 @@ def TVBMultMatrix(polys, poly_type, method):
     var_dict : dictionary
         Maps each variable to its position in the vector space basis
     '''
-<<<<<<< HEAD
     if method == 'TVB':
         basisDict, VB, degree = TelenVanBarel(polys, run_checks = True)
     else:
         basisDict, VB, degree = new_TelenVanBarel(polys)
 
-=======
-    basisDict, VB, degree = TelenVanBarel(polys, run_checks = False)
-        
->>>>>>> 49f30481343358331bcb3e35d71f531cce067ae6
     VB = sortVB(VB)
 
     dim = max(f.dim for f in polys)
