@@ -824,3 +824,109 @@ def polyvalnd(x,c):
     for i in range(1,n):
         c = poly.polyval(x[i],c,tensor=False)
     return c
+<<<<<<< HEAD
+=======
+    
+#polynomial generator
+def solve(poly1, poly2):
+    """
+    multiplies two polynomials given only their coefficients
+    
+    parameters
+    ----------
+    poly1,poly2 (tuple) 
+        tuples of coefficients of polynomials, in descending order of degree 
+        
+    returns
+    -------
+    a tuple of coefficents for the resultant polynomial
+    
+    """
+    v1 = np.array(poly1)
+    v2 = np.array(poly2)
+
+    #multiply coefficients
+    M = np.outer(v2,v1.T)
+    
+    poly_coeffs = []
+    #sum reverse diagonals
+    #reverse matrix
+    M2 = M[:,np.arange(M.shape[1])[::-1]]
+    
+    #sum diagonals
+    rows,cols = M2.shape 
+    for i in range(-(rows-1),cols):
+        poly_coeffs.append(np.trace(M2, i))
+    
+    #print('\n', poly1, poly2, poly_coeffs[::-1])
+    return tuple(poly_coeffs[::-1])
+
+
+def solve_poly(mylist):
+    """give it the list of tuples to solve
+
+        returns:
+        tuple of solved polynomial
+    """
+    if len(mylist) == 1:
+        return mylist[0]
+
+    tuples = []
+    size = len(mylist)
+    if size % 2 == 0: #even number of roots
+        for i in range(size//2):
+            tuples.append(solve(mylist[i], mylist[-(i+1)]))
+    else: #odd number of roots
+        size -= 1
+        extra = mylist[size//2]
+        for i in range(size//2):
+            tuples.append(solve(mylist[i], mylist[-(i+1)]))
+        tuples.append(extra)
+    return solve_poly(tuples)
+
+
+def gen_poly(degree, variables=1):
+    """
+    generate degree number of random numbers in [-1,1]
+    p=(x-n)(x-n)... for n in random numbers
+    return n for n in numbers (roots), and the polynomial p
+
+    (x-2)(x-3)(x-4)(x-5)
+
+    |      1  -2 |
+    |  1   1  -2 | = 1 -5 6 => x^2 -5x +6
+    | -3  -3   6 |
+    
+    T_m*T_n=.5(T_(m+n)+T_(m-n))
+
+    returns roots - list of roots
+            solve_poly[::-1] - tuple with coefficients of resultant polynomial in ascending degree order
+    """
+    #generate <degree> random numbers
+    deg = []
+    for i in range(degree):
+        #append tuples of form (1,-x) where x is a root
+        deg.append((1,np.random.uniform(-1,1)))
+
+    roots = []
+    for i in range(degree):
+        roots.append(-1*list(deg[i])[1])
+    return roots, np.array(solve_poly(deg))[::-1]
+
+def gen_poly2(rootList = [], variables=1):
+    """
+    generate degree number of random numbers from a list of roots
+
+    returns roots - list of roots
+            solve_poly - tuple with coefficients of resultant polynomial in ascending degree order
+    """
+    if rootList is None:
+        return [], []
+    
+    deg = np.zeros((len(rootList),2))
+    for i,v in enumerate(rootList):
+        #append tuples of form (1,-x) where x is a root
+        deg[i] = (1,-1*v)
+    return rootList, np.array(solve_poly(deg))[::-1]
+
+>>>>>>> b2491cd244be81cad238a09e341ddac91611f8db
