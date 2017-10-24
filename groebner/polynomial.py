@@ -68,6 +68,11 @@ class Polynomial(object):
             self.coeff = coeff
         elif isinstance(coeff,str):
             self.coeff = makePolyCoeffMatrix(coeff)
+        elif isinstance(coeff, tuple):
+            dim = len(coeff[0])
+            deg = coeff[1]
+            self.coeff = np.zeros([deg+1 for i in range(dim)])
+            self.coeff[coeff[0]] = 1
         else:
             raise ValueError('coeff must be an np.array or a string!')
         if clean_zeros:
@@ -824,3 +829,9 @@ def polyvalnd(x,c):
     for i in range(1,n):
         c = poly.polyval(x[i],c,tensor=False)
     return c
+
+############################################################################
+
+#### CHEBYSHEV APPROXIMATOR ################################################
+def cheb_approx(data):
+    pass
