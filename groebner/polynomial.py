@@ -824,40 +824,38 @@ def polyvalnd(x,c):
     for i in range(1,n):
         c = poly.polyval(x[i],c,tensor=False)
     return c
-<<<<<<< HEAD
-=======
-    
+
 #polynomial generator
 def solve(poly1, poly2):
     """
     multiplies two polynomials given only their coefficients
-    
+
     parameters
     ----------
-    poly1,poly2 (tuple) 
-        tuples of coefficients of polynomials, in descending order of degree 
-        
+    poly1,poly2 (tuple)
+        tuples of coefficients of polynomials, in descending order of degree
+
     returns
     -------
     a tuple of coefficents for the resultant polynomial
-    
+
     """
     v1 = np.array(poly1)
     v2 = np.array(poly2)
 
     #multiply coefficients
     M = np.outer(v2,v1.T)
-    
+
     poly_coeffs = []
     #sum reverse diagonals
     #reverse matrix
     M2 = M[:,np.arange(M.shape[1])[::-1]]
-    
+
     #sum diagonals
-    rows,cols = M2.shape 
+    rows,cols = M2.shape
     for i in range(-(rows-1),cols):
         poly_coeffs.append(np.trace(M2, i))
-    
+
     #print('\n', poly1, poly2, poly_coeffs[::-1])
     return tuple(poly_coeffs[::-1])
 
@@ -896,7 +894,7 @@ def gen_poly(degree, variables=1):
     |      1  -2 |
     |  1   1  -2 | = 1 -5 6 => x^2 -5x +6
     | -3  -3   6 |
-    
+
     T_m*T_n=.5(T_(m+n)+T_(m-n))
 
     returns roots - list of roots
@@ -922,11 +920,9 @@ def gen_poly2(rootList = [], variables=1):
     """
     if rootList is None:
         return [], []
-    
+
     deg = np.zeros((len(rootList),2))
     for i,v in enumerate(rootList):
         #append tuples of form (1,-x) where x is a root
         deg[i] = (1,-1*v)
     return rootList, np.array(solve_poly(deg))[::-1]
-
->>>>>>> b2491cd244be81cad238a09e341ddac91611f8db
