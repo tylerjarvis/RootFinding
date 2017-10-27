@@ -2,148 +2,12 @@ import numpy as np
 import itertools
 from scipy.linalg import qr, solve_triangular, qr_multiply
 from groebner.polynomial import Polynomial, MultiCheb, MultiPower
-from groebner.utils import row_swap_matrix, clean_zeros_from_matrix, TVBError, slice_top, get_var_list, mon_combos, mon_combosHighest, inverse_P
+from groebner.utils import row_swap_matrix, clean_zeros_from_matrix, TVBError, slice_top, get_var_list, mon_combos, mon_combosHighest, inverse_P, sort_polys_by_degree, deg_d_polys, all_permutations
 import time
 import random
 from matplotlib import pyplot as plt
 from scipy.misc import comb
 from math import factorial
-
-def numMons(deg, dim):
-    return comb(deg+dim-1,deg,exact=True)
-
-def sort_polys_by_degree(polys, ascending = True):
-    '''
-    Sorts the polynomials by their degree.
-    '''
-    degs = [poly.degree for poly in polys]
-    argsort_list = np.argsort(degs)
-    sorted_polys = list()
-    for i in argsort_list:
-        sorted_polys.append(polys[i])
-    if ascending:
-        return sorted_polys
-    else:
-        return sorted_polys[::-1]
-
-def deg_d_polys(polys, d, dim, keep = False):
-    ignoreVar = 0
-    poly_coeff_list = list()
-    for poly in polys:
-        mons = mon_combosHighest([0]*dim,d - poly.degree)
-        for mon in mons:
-            if np.all([mon[i] <= (polys[i].degree - 1) for i in range(ignoreVar)]):
-                poly_coeff_list.append(poly.mon_mult(mon, returnType = 'Matrix'))
-            #elif random.random() > 1:
-            #    poly_coeff_list.append(poly.mon_mult(mon, returnType = 'Matrix'))
-            #elif keep and random.random() > 0:
-            #    poly_coeff_list.append(poly.mon_mult(mon, returnType = 'Matrix'))
-        ignoreVar += 1
-    return poly_coeff_list
-
-def arrays(deg,dim,mon):
-    '''mon = 0 is lowest mon, mon == dim-1 is highest'''
-    if dim-1==mon:
-        total = numMons(deg, dim)
-        end = numMons(deg, dim-1)
-        return [True]*(total-end)+[False]*end
-    elif deg==1:
-        temp = [False]*(dim)
-        temp[dim-mon-1] = True
-        return temp
-    else:
-        return arrays(deg-1,dim,mon)+arrays(deg,dim-1,mon)
-
-def permutationArray(deg,dim,mon):
-    if mon == dim -1:
-        array = [False]
-        for d in range(1,deg+1):
-            array = arrays(d,dim,mon) + array
-    else:
-        array = [False]
-        first = [False]*(dim)
-        first[dim-mon-1] = True
-        array = first + array
-        for d in range(2,deg+1):
-            first = first + arrays(d,dim-1,mon)
-            array = first+array        
-    return np.array(inverse_P(np.hstack((np.where(~np.array(array))[0],np.where(array)[0]))))
-
-def all_permutations(deg, dim, matrixDegree, permutations = None, current_degree = 2):
-    '''Find all permuations matrixes of all monomials up to a certain degree, for a matrix of given degree.
-    '''
-    if permutations is None:
-        permutations = {}
-        permutations[tuple([0]*dim)] = np.arange(np.sum([numMons(deg,dim) for deg in range(matrixDegree+1)]))
-        for i in range(dim):
-            mon = [0]*dim
-            mon[i] = 1
-            mon = tuple(mon)
-            permutations[mon] = permutationArray(matrixDegree,dim,dim-1-i)
-
-    varList = get_var_list(dim)
-
-    for d in range(current_degree,deg+1):
-        mons = mon_combosHighest([0]*dim,d)
-        for mon in mons:
-            for var in varList:
-                diff = tuple(np.subtract(mon,var))
-                if diff in permutations:
-                    permutations[tuple(mon)] = permutations[var][permutations[diff]]
-                    break
-    return permutations
-
-def createMatrix2(polys, degree, dim):
-    ''' Builds a Telen Van Barel matrix.
-
-    Parameters
-    ----------
-    poly_coeffs : list.
-        Contains numpy arrays that hold the coefficients of the polynomials to be put in the matrix.
-    degree : int
-        The degree of the TVB Matrix
-    dim : int
-        The dimension of the polynomials going into the matrix.
-    Returns
-    -------
-    matrix : 2D numpy array
-        The Telen Van Barel matrix.
-    '''
-    bigShape = [degree+1]*dim
-
-    matrix_terms, matrix_shape_stuff = sorted_matrix_terms(degree, dim)
-    columns = len(matrix_terms)
-
-    #Get the slices needed to pull the matrix_terms from the coeff matrix.
-    matrix_term_indexes = list()
-    for row in matrix_terms.T:
-        matrix_term_indexes.append(row)
-
-    permutations = None
-    currentDegree = 2
-    #Adds the poly_coeffs to flat_polys, using added_zeros to make sure every term is in there.
-    added_zeros = np.zeros(bigShape)
-    parts = list()
-    for poly in polys:
-        slices = slice_top(poly.coeff)
-        added_zeros[slices] = poly.coeff
-        array = added_zeros[matrix_term_indexes]
-        added_zeros[slices] = np.zeros_like(poly.coeff)
-        
-        permutations = all_permutations(degree - poly.degree, dim, degree, permutations, currentDegree)
-        currentDegree = degree - poly.degree
-        permList = list(permutations.values())
-        parts.append(array[np.reshape(permList, (len(permList), columns))])
-    
-    matrix = np.concatenate(parts)
-
-    if matrix_shape_stuff[0] > matrix.shape[0]: #The matrix isn't tall enough, these can't all be pivot columns.
-        raise TVBError("HIGHEST NOT FULL RANK. TRY HIGHER DEGREE")
-    
-    #Sorts the rows of the matrix so it is close to upper triangular.
-    matrix = row_swap_matrix(matrix)
-    #print(matrix)
-    return matrix, matrix_terms, matrix_shape_stuff
 
 def TelenVanBarel(initial_poly_list, run_checks = True, accuracy = 1.e-10):
     """Uses Telen and VanBarels matrix reduction method to find a vector basis for the system of polynomials.
@@ -181,7 +45,8 @@ def TelenVanBarel(initial_poly_list, run_checks = True, accuracy = 1.e-10):
     poly_coeff_list = []
     degree = find_degree(initial_poly_list)
     
-    initial_poly_list = sort_polys_by_degree(initial_poly_list, ascending = True)
+    #This sorting is required for fast matrix construction. Ascending should be False.
+    initial_poly_list = sort_polys_by_degree(initial_poly_list, ascending = False)
 
     if run_checks:
         #Checks to make sure TVB will work.
@@ -191,35 +56,34 @@ def TelenVanBarel(initial_poly_list, run_checks = True, accuracy = 1.e-10):
         if isinstance(S,Polynomial):
             initial_poly_list.append(S)
             degree = find_degree(initial_poly_list)
-    start = time.time()
+
+    """This is the first construction option, simple monomial multiplication."""
     for i in initial_poly_list:
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
     
-    #for d in reversed(range(min([poly.degree for poly in initial_poly_list]), degree+1)):
-    #    poly_coeff_list += deg_d_polys(initial_poly_list, d, dim, d==(degree))
+    """This is the second construction option, it uses the fancy triangle method that is faster but less stable."""
+    #for deg in reversed(range(min([poly.degree for poly in initial_poly_list]), degree+1)):
+    #    poly_coeff_list += deg_d_polys(initial_poly_list, deg, dim)
     
+    #Creates the matrix for either of the above two methods. Comment out if using the third method.
     matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list, degree, dim)
-    #print(matrix)
-    print(time.time() - start)
-    #start = time.time()
-    #matrix, matrix_terms, matrix_shape_stuff = createMatrix2(initial_poly_list, degree, dim)
-    #print(time.time() - start)
     
-    #print(matrix.shape)
+    """This is the thrid matrix construction option, it uses the permutation arrays, only works for power."""
+    #if Power:
+    #    matrix, matrix_terms, matrix_shape_stuff = createMatrix2(initial_poly_list, degree, dim)
+    #else:
+    #    for i in initial_poly_list:
+    #        poly_coeff_list = add_polys(degree, i, poly_coeff_list)
+    #    matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list, degree, dim)
     
-    matrix, matrix_terms = rrqr_reduceTelenVanBarelFullRank(matrix, matrix_terms, matrix_shape_stuff, accuracy = accuracy)
+    matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy = accuracy)
     
     height = matrix.shape[0]
     matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
     matrix[:,:height] = np.eye(height)
 
     VB = matrix_terms[height:]
-    
-    #print(VB)
-    
-    #plt.plot(VB[:,0],VB[:,1], 'k.')
-    #plt.show()
-    
+        
     basisDict = makeBasisDict(matrix, matrix_terms, VB, Power, [degree]*dim)
     return basisDict, VB, degree
 
@@ -259,9 +123,6 @@ def makeBasisDict(matrix, matrix_terms, VB, power, remainder_shape):
         for term, mon in itertools.product(VB,get_var_list(VB.shape[1])):
             if tuple(term+mon) not in VBSet:
                 neededSpots.add(tuple(term+mon))
-    #neededList = np.vstack(neededSpots)
-    #plt.plot(neededList[:,0],neededList[:,1], 'k.')
-    #plt.show()
     
     spots = list()
     for dim in range(VB.shape[1]):
@@ -399,8 +260,59 @@ def create_matrix(poly_coeffs, degree, dim):
     
     if matrix_shape_stuff[0] > matrix.shape[0]: #The matrix isn't tall enough, these can't all be pivot columns.
         raise TVBError("HIGHEST NOT FULL RANK. TRY HIGHER DEGREE")
+        
+    #Sorts the rows of the matrix so it is close to upper triangular.
+    matrix = row_swap_matrix(matrix)
+    return matrix, matrix_terms, matrix_shape_stuff
+
+def createMatrix2(polys, degree, dim):
+    ''' Builds a Telen Van Barel matrix using fast construction.
     
-    #plt.matshow([i == 0 for i in matrix])
+    Parameters
+    ----------
+    poly_coeffs : list.
+        Contains numpy arrays that hold the coefficients of the polynomials to be put in the matrix.
+    degree : int
+        The degree of the TVB Matrix
+    dim : int
+        The dimension of the polynomials going into the matrix.
+    Returns
+    -------
+    matrix : 2D numpy array
+        The Telen Van Barel matrix.
+    '''
+    bigShape = [degree+1]*dim
+
+    matrix_terms, matrix_shape_stuff = sorted_matrix_terms(degree, dim)
+    columns = len(matrix_terms)
+
+    #Get the slices needed to pull the matrix_terms from the coeff matrix.
+    matrix_term_indexes = list()
+    for row in matrix_terms.T:
+        matrix_term_indexes.append(row)
+
+    permutations = None
+    currentDegree = 2
+    #Adds the poly_coeffs to flat_polys, using added_zeros to make sure every term is in there.
+    added_zeros = np.zeros(bigShape)
+    parts = list()
+    for poly in polys:
+        print(poly.degree)
+        slices = slice_top(poly.coeff)
+        added_zeros[slices] = poly.coeff
+        array = added_zeros[matrix_term_indexes]
+        added_zeros[slices] = np.zeros_like(poly.coeff)
+        
+        permutations = all_permutations(degree - poly.degree, dim, degree, permutations, currentDegree)
+        currentDegree = degree - poly.degree
+        permList = list(permutations.values())
+        print(len(permList))
+        parts.append(array[np.reshape(permList, (len(permList), columns))])
+    
+    matrix = np.concatenate(parts)
+
+    if matrix_shape_stuff[0] > matrix.shape[0]: #The matrix isn't tall enough, these can't all be pivot columns.
+        raise TVBError("HIGHEST NOT FULL RANK. TRY HIGHER DEGREE")
     
     #Sorts the rows of the matrix so it is close to upper triangular.
     matrix = row_swap_matrix(matrix)
@@ -434,16 +346,7 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, accuracy 
         The reduced matrix.
     matrix_terms: numpy array
         The resorted matrix_terms.
-    '''
-    #Q,R,P = qr(matrix, pivoting = True)
-    #rank = len(np.where(np.abs(R.diagonal()) > 1.e-10)[0])
-    
-    #original = matrix
-    #original_terms = matrix_terms
-    #Q,R,P = qr(matrix[:,:rank], pivoting = True)
-    #print(R[0][0]/R[rank-1][rank-1])
-    #permutations = np.arange(matrix.shape[1])
-    
+    '''    
     highest_num = matrix_shape_stuff[0]
     others_num = matrix_shape_stuff[1]
     xs_num = matrix_shape_stuff[2]
@@ -478,18 +381,14 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, accuracy 
     matrix_terms[highest_num:highest_num+others_num] = matrix_terms[highest_num:highest_num+others_num][P]
     #permutations[highest_num:highest_num+others_num] = permutations[highest_num:highest_num+others_num][P]
 
-    #new = original[:,permutations]
-    #Q,R,P = qr(new[:,:rank], pivoting = True)
-    #print(R.diagonal()[-5:])
-    #print(original_terms[:rank][P][-5:])
-    #print(R[0][0]/R[rank-1][rank-1])
-
     return matrix, matrix_terms
 
 def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy = 1.e-10):
     ''' Reduces a Telen Van Barel Macaulay matrix.
+    
     This function does the same thing as rrqr_reduceTelenVanBarel but uses qr_multiply instead of qr and a multiplication
     to make the function faster and more memory efficient.
+    
     Parameters
     ----------
     matrix : numpy array.
@@ -517,7 +416,6 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy
     C1,matrix[:highest_num,:highest_num],P1 = qr_multiply(matrix[:,:highest_num], matrix[:,highest_num:].T, mode = 'right', pivoting = True)
     matrix[:highest_num,highest_num:] = C1.T
     C1 = 0
-    
     
     if abs(matrix[:,:highest_num].diagonal()[-1]) < accuracy:
         raise TVBError("HIGHEST NOT FULL RANK")
