@@ -2,7 +2,7 @@ import numpy as np
 from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 from groebner.TelenVanBarel import find_degree, mon_combos, sorted_matrix_terms, get_S_Poly
 from groebner.root_finder import roots
-from groebner.utils import InstabilityWarning
+from groebner.utils import InstabilityWarning, arrays
 from itertools import product
 import warnings
 
@@ -231,6 +231,34 @@ def test_mon_combos():
             mons2.append(i)
     for i in range(len(mons)):
         assert((mons[i] == mons2[i]).all())
+
+def test_arrays():
+    deg = 3
+    dim = 4
+    k = 0
+    a = arrays(deg,dim,k)
+    assert (a == [False,False, False, True, False, False, True, False, True, True,\
+                 False, False, True, False, True, True, False, True, True, True])
+    
+    deg = 3
+    dim = 4
+    k = 1
+    a = arrays(deg,dim,k)
+    assert(a == [False,False, True, False, False, True, False, True, True, False, False,\
+             True, False, True, True, False, True, True, True, False])
+
+    deg = 3
+    dim = 4
+    k = 2
+    a = arrays(deg,dim,k)
+    assert(a == [False,True,False, False, True, True, True, False, False, False,\
+                True, True, True, True, True, True, False, False, False, False])
+    
+    deg = 3
+    dim = 4
+    k = 3
+    a = arrays(deg,dim,k)
+    assert(a == [True]*10+[False]*10)
 
 def test_add_polys():
 

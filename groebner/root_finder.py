@@ -80,7 +80,11 @@ def roots(polys, method = 'Groebner'):
         vnib = True
 
     # Get left eigenvectors
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> a45fac974b1981ec69bf2aeecef1c761d0ecf920
     e = np.linalg.eig(m_f.T)
     eig = e[1]
     num_vectors = eig.shape[1]
@@ -108,7 +112,7 @@ def roots(polys, method = 'Groebner'):
                 var_value = GB_poly.evaluate_at(root) * -1
                 root[pos] = var_value
         roots.append(root)
-        #roots.append(newton_polish(polys,root,niter=1000,tol=1e-10))
+        #roots.append(newton_polish(polys,root))
     return roots
 
 def groebnerMultMatrix(polys, poly_type, method):
@@ -200,11 +204,16 @@ def TVBMultMatrix(polys, poly_type, method):
     var_dict : dictionary
         Maps each variable to its position in the vector space basis
     '''
+<<<<<<< HEAD
     if method == 'TVB':
         basisDict, VB, degree = TelenVanBarel(polys, run_checks = True)
     else:
         basisDict, VB, degree = new_TelenVanBarel(polys)
 
+=======
+    basisDict, VB, degree = TelenVanBarel(polys, run_checks = True)
+        
+>>>>>>> a45fac974b1981ec69bf2aeecef1c761d0ecf920
     VB = sortVB(VB)
 
     dim = max(f.dim for f in polys)
