@@ -838,12 +838,10 @@ def mon_combos(mon, numLeft, spot = 0):
         temp[spot] = i
         answers += mon_combos(temp, numLeft-i, spot+1)
     return answers
-<<<<<<< HEAD
-=======
 
 def num_mons(deg, dim):
     '''Returns the number of monomials of a certain degree and dimension.
-    
+
     Parameters
     ----------
     deg : int.
@@ -859,7 +857,7 @@ def num_mons(deg, dim):
 
 def sort_polys_by_degree(polys, ascending = True):
     '''Sorts the polynomials by their degree.
-    
+
     Parameters
     ----------
     polys : list.
@@ -870,7 +868,7 @@ def sort_polys_by_degree(polys, ascending = True):
     Returns
     -------
     sorted_polys : list
-        A list of the same polynomials, now sorted.   
+        A list of the same polynomials, now sorted.
     '''
     degs = [poly.degree for poly in polys]
     argsort_list = np.argsort(degs)
@@ -884,15 +882,15 @@ def sort_polys_by_degree(polys, ascending = True):
 
 def deg_d_polys(polys, deg, dim):
     '''Finds the rows of the Macaulay Matrix of degree deg.
-    
-    Iterating through this for each needed degree creates a full rank matrix in all dimensions, 
+
+    Iterating through this for each needed degree creates a full rank matrix in all dimensions,
     getting rid of the extra rows that are there when we do all the monomial multiplications.
-    
+
     The idea behind this algorithm comes from that cool triangle thing I drew on a board once, I have
     no proof of it, but it seems to work real good.
-    
+
     It is also less stable than the other version.
-    
+
     Parameters
     ----------
     polys : list.
@@ -904,7 +902,7 @@ def deg_d_polys(polys, deg, dim):
     Returns
     -------
     poly_coeff_list : list
-        A list of the polynomials of degree deg to be added to the Macaulay Matrix. 
+        A list of the polynomials of degree deg to be added to the Macaulay Matrix.
     '''
     ignoreVar = 0
     poly_coeff_list = list()
@@ -918,7 +916,7 @@ def deg_d_polys(polys, deg, dim):
 
 def arrays(deg,dim,mon):
     '''Finds a part of the permutation array.
-        
+
     Parameters
     ----------
     deg : int.
@@ -949,7 +947,7 @@ def arrays(deg,dim,mon):
 
 def permutation_array(deg,dim,mon):
     '''Finds the permutation array to multiply a row of a matrix by a certain monomial.
-            
+
     Parameters
     ----------
     deg : int.
@@ -978,12 +976,12 @@ def permutation_array(deg,dim,mon):
         array = first + array
         for d in range(2,deg+1):
             first = first + arrays(d,dim-1,mon)
-            array = first+array        
+            array = first+array
     return np.array(inverse_P(np.hstack((np.where(~np.array(array))[0],np.where(array)[0]))))
 
 def all_permutations(deg, dim, matrixDegree, permutations = None, current_degree = 2):
     '''Finds all the permutation arrays needed to create a Macaulay Matrix.
-        
+
     Parameters
     ----------
     deg: int
@@ -1001,7 +999,7 @@ def all_permutations(deg, dim, matrixDegree, permutations = None, current_degree
     permutations : dict
         The keys of the dictionary are tuple representation of the monomials, and each value is
         the permutation array corresponding to multiplying by that monomial.
-    '''    
+    '''
     if permutations is None:
         permutations = {}
         permutations[tuple([0]*dim)] = np.arange(np.sum([num_mons(deg,dim) for deg in range(matrixDegree+1)]))
@@ -1022,4 +1020,41 @@ def all_permutations(deg, dim, matrixDegree, permutations = None, current_degree
                     permutations[tuple(mon)] = permutations[var][permutations[diff]]
                     break
     return permutations
->>>>>>> a45fac974b1981ec69bf2aeecef1c761d0ecf920
+
+def mons_ordered(dim, deg):
+    mons_ordered = []
+    for i in range(deg):
+        for j in mon_combosHighest([0]*dim,i):
+            mons_ordered.append(j)
+    return np.array(mons_ordered)
+
+def all_permutations_cheb(deg,dim,matrixDegree):
+    permutations = {}
+    mons = mons_ordered(dim,matrixDegree)
+    #print(mons)
+    for i in range(dim):
+        mon = [0]*dim
+        mon[i] = 1
+        mon = tuple(mon)
+        #print(deg)
+        #print(dim)
+        num_in_top = num_mons(matrixDegree, dim) + num_mons(matrixDegree-1, dim)
+        #print(num_in_top)
+        P = permutation_array(matrixDegree,dim,dim-1-i)
+        P_inv = inverse_P(P)
+        A = np.where(mons[:,i] == 1)
+        #print("This is A")
+        #print(A)
+        P2 = np.zeros_like(P)
+        P2[::-1][A] = P[::-1][A]
+        #print("This is P")
+        #print(P)
+        #print("This is P2")
+        #print(P2)
+        P_inv[:num_in_top] = np.zeros(num_in_top)
+        #print("This is P_inv")
+        #print(P_inv)
+        permutations[mon] = np.array([P, P_inv, P2])
+    #print("Cheb permutations made")
+    #print(permutations)
+    return permutations

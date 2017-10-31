@@ -4,7 +4,6 @@ import warnings
 from groebner.polynomial import MultiCheb, MultiPower, is_power
 from groebner.Macaulay import Macaulay, new_macaulay
 from groebner.TelenVanBarel import TelenVanBarel
-from groebner.new_TelanVanBarel import new_TelenVanBarel
 from groebner.gsolve import F4
 from groebner.utils import Term, get_var_list, divides, TVBError, InstabilityWarning, match_size, match_poly_dimensions
 
@@ -80,11 +79,7 @@ def roots(polys, method = 'Groebner'):
         vnib = True
 
     # Get left eigenvectors
-<<<<<<< HEAD
 
-=======
-        
->>>>>>> a45fac974b1981ec69bf2aeecef1c761d0ecf920
     e = np.linalg.eig(m_f.T)
     eig = e[1]
     num_vectors = eig.shape[1]
@@ -204,16 +199,8 @@ def TVBMultMatrix(polys, poly_type, method):
     var_dict : dictionary
         Maps each variable to its position in the vector space basis
     '''
-<<<<<<< HEAD
-    if method == 'TVB':
-        basisDict, VB, degree = TelenVanBarel(polys, run_checks = True)
-    else:
-        basisDict, VB, degree = new_TelenVanBarel(polys)
-
-=======
     basisDict, VB, degree = TelenVanBarel(polys, run_checks = True)
-        
->>>>>>> a45fac974b1981ec69bf2aeecef1c761d0ecf920
+
     VB = sortVB(VB)
 
     dim = max(f.dim for f in polys)
