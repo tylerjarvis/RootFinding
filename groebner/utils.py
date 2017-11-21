@@ -1023,38 +1023,205 @@ def all_permutations(deg, dim, matrixDegree, permutations = None, current_degree
 
 def mons_ordered(dim, deg):
     mons_ordered = []
-    for i in range(deg):
+    for i in range(deg+1):
         for j in mon_combosHighest([0]*dim,i):
             mons_ordered.append(j)
     return np.array(mons_ordered)
 
-def all_permutations_cheb(deg,dim,matrixDegree):
+def cheb_perturbation3(mult_mon, mons, mon_dict, var):
+    """
+    Calculates the Cheb perturbation for the case where mon is greater than poly_mon
+
+    Parameters
+    ----------
+    mult_mon : tuple
+        the monomial that multiplies the polynomial
+    mons : array
+        Array of monomials in the polynomial
+    mon_dict : dict
+        Dictionary of the index of each monomial.
+    var : int
+        index of the variable that is being calculated
+
+    Returns
+    --------
+    cheb_pertubation3 : list
+        list of indexes for the 3rd case of cheb mon mult
+
+    """
+    perturb = [0]*len(mon_dict)
+    #print(mons)
+    mons_needed = mons[np.where(mons[:,var] < mult_mon[var])]
+    #print(mult_mon)
+    #print(mons_needed)
+    for monomial in mons_needed:
+        idx = mon_dict[tuple(monomial)]
+        diff = tuple(np.abs(np.subtract(monomial,mult_mon)))
+        try:
+            idx2 = mon_dict[diff]
+            perturb[idx2] = idx
+        except KeyError as k:
+            pass
+
+    return perturb
+
+def cheb_perturbation2(mult_mon, mons, mon_dict, var):
+    """
+    Calculates the Cheb perturbation for the case where mon is greater than poly_mon
+
+    Parameters
+    ----------
+    mult_mon : tuple
+        the monomial that multiplies the polynomial
+    mons : array
+        Array of monomials in the polynomial
+    mon_dict : dict
+        Dictionary of the index of each monomial.
+    var : int
+        index of the variable that is being calculated
+
+    Returns
+    --------
+    cheb_pertubation3 : list
+        list of indexes for the 3rd case of cheb mon mult
+
+    """
+    perturb = [int(0)]*len(mon_dict)
+    mons_needed = mons[np.where(mons[:,var] >= mult_mon[var])]
+    for monomial in mons_needed:
+        idx = mon_dict[tuple(monomial)]
+        diff = tuple(np.abs(np.subtract(monomial,mult_mon)))
+        try:
+            idx2 = mon_dict[diff]
+            perturb[idx2] = idx
+        except KeyError as k:
+            pass
+
+        #print()
+        #print(mon_dict)
+        #print(perturb)
+    return perturb
+
+# def cheb_perturbation1(mult_mon, mons, mon_dict, var):
+#     """
+#     Calculates the Cheb perturbation for the case where mon is greater than poly_mon
+#
+#     Parameters
+#     ----------
+#     mult_mon : tuple
+#         the monomial that multiplies the polynomial
+#     mons : array
+#         Array of monomials in the polynomial
+#     mon_dict : dict
+#         Dictionary of the index of each monomial.
+#     var : int
+#         index of the variable that is being calculated
+#
+#     Returns
+#     --------
+#     cheb_pertubation3 : list
+#         list of indexes for the 3rd case of cheb mon mult
+#
+#     """
+#     perturb = [int(0)]*len(mon_dict)
+#     #mons_needed = mons[np.where(mons[:,var] >= mult_mon[var])]
+#     for monomial in mons:
+#         idx = mon_dict[tuple(monomial)]
+#         diff = diff = tuple(np.abs(np.subtract(monomial,mult_mon)))
+#         idx2 = mon_dict[diff]
+#         perturb[idx2] = idx
+#         #print(mon_dict)
+#         #print(perturb)
+#     return perturb
+
+def all_permutations_cheb(deg,dim,matrixDegree, current_degree = 2):
+    '''Finds all the permutation arrays needed to create a Macaulay Matrix for Chebyshev Basis.
+
+    Parameters
+    ----------
+    deg: int
+        Permutation arrays will be computed for all monomials up to this degree.
+    dim: int
+        The dimension the monomials for which permutation degrees.
+    matrixDegree: int
+        The degree of the Macaulay Matrix that will be created. This is needed to get the length of the rows.
+    current_degree: int
+        Defaults to 2. The degree of permutations that have already been computed.
+    Returns
+    -------
+    permutations : dict
+        The keys of the dictionary are tuple representation of the monomials, and each value is
+        the permutation array corresponding to multiplying by that monomial.
+    '''
     permutations = {}
     mons = mons_ordered(dim,matrixDegree)
     #print(mons)
+    mon_dict = {}
+    for i,j in zip(mons[::-1], range(len(mons))):
+        mon_dict[tuple(i)] = j
     for i in range(dim):
         mon = [0]*dim
         mon[i] = 1
         mon = tuple(mon)
-        #print(deg)
-        #print(dim)
         num_in_top = num_mons(matrixDegree, dim) + num_mons(matrixDegree-1, dim)
-        #print(num_in_top)
         P = permutation_array(matrixDegree,dim,dim-1-i)
         P_inv = inverse_P(P)
         A = np.where(mons[:,i] == 1)
-        #print("This is A")
-        #print(A)
         P2 = np.zeros_like(P)
         P2[::-1][A] = P[::-1][A]
-        #print("This is P")
-        #print(P)
-        #print("This is P2")
-        #print(P2)
         P_inv[:num_in_top] = np.zeros(num_in_top)
-        #print("This is P_inv")
-        #print(P_inv)
         permutations[mon] = np.array([P, P_inv, P2])
-    #print("Cheb permutations made")
+    mons2 = mons_ordered(dim,matrixDegree-1)
+    for i in range(dim):
+        mons = mons_1D(dim, deg, i)
+        mon = [0]*dim
+        mon[i] = 1
+        #print(mons)
+        for calc in mons:
+            diff = tuple(np.subtract(calc, mon))
+            if diff in permutations:
+                mon = tuple(mon)
+                #print(num_mons(matrixDegree, dim))
+                #print(calc, calc[i])
+                #print(num_mons(matrixDegree-calc[i], dim))
+                num_in_top = num_mons(matrixDegree, dim) + num_mons(matrixDegree-calc[i]+2, dim)
+                P = permutations[mon][0][permutations[diff][0]]
+                #ptest = cheb_perturbation1(calc, mons2, mon_dict, i)
+                #print(P, '\n', ptest, '\n')
+                #P_inv = inverse_P(P)
+                #P_inv[:num_in_top] = int(0)
+                P_inv = cheb_perturbation2(calc, mons2, mon_dict, i)
+                #P_inv[:num_in_top] = np.zeros(num_in_top)
+                P2 = cheb_perturbation3(calc, mons2, mon_dict, i)
+                #print(P_inv)
+                #print(calc, " : " , P2)
+                permutations[tuple(calc)] = np.array([P, P_inv, P2])
     #print(permutations)
+
     return permutations
+
+def mons_1D(dim, deg, var):
+    """
+    Finds the monomials of one variable up to a given degree.
+
+    Parameters
+    ---------
+    dim: int
+        Dimension of the monomial
+    deg : int
+        Desired degree of highest monomial returned
+    var : int
+        index of the variable of desired monomials
+
+    Returns
+    --------
+    mons_1D : ndarray
+        Array of monomials where each row is a monomial.
+
+    """
+    mons = []
+    for i in range(2, deg+1):
+        mon = [0]*dim
+        mon[var] = i
+        mons.append(mon)
+    return np.array(mons)
