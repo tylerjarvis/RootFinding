@@ -481,3 +481,39 @@ def chebvalnd(x,c):
     for i in range(1,n):
         c = cheb.chebval(x[i],c,tensor=False)
     return c
+
+def polyList(deg,dim,Type = 'random'):
+    """
+    Creates random polynomials for root finding.
+
+    Parameters
+    ----------
+    deg : int
+        Desired degree of the polynomials.
+    dim : int
+        Desired number of dimensions for the polynomials
+    Type : str
+        Either 'random' or 'int.
+
+    Returns
+    ----------
+    polys : list
+        polynomial objects that are used to test the root finding.
+
+    """
+    deg += 1
+    polys = []
+    if Type == 'random':
+        for i in range(dim):
+            polys.append(np.random.random_sample(deg*np.ones(dim, dtype = int)))
+    elif Type == 'int':
+        Range = 10
+        for i in range(dim):
+            polys.append(np.random.randint(-Range,Range,deg*np.ones(dim, dtype = int)))
+    for i,j in np.ndenumerate(polys[0]):
+        if np.sum(i) >= deg:
+            for h in range(len(polys)):
+                polys[h][i] = 0
+    for i in range(len(polys)):
+        polys[i] = MultiCheb(polys[i])
+    return polys

@@ -323,86 +323,35 @@ def sort_polys_by_degree(polys, ascending = True):
     else:
         return sorted_polys[::-1]
 
-def deg_d_polys(polys, deg, dim):
-    '''Finds the rows of the Macaulay Matrix of degree deg.
-
-    Iterating through this for each needed degree creates a full rank matrix in all dimensions,
-    getting rid of the extra rows that are there when we do all the monomial multiplications.
-
-    The idea behind this algorithm comes from that cool triangle thing I drew on a board once, I have
-    no proof of it, but it seems to work real good.
-
-    It is also less stable than the other version.
+def check_zeros(zeros, polys):
+    """
+    Function that checks the zeros.
 
     Parameters
     ----------
-    polys : list.
-        A list of polynomials.
-    deg: int
-        The desired degree.
-    dim: int
-        The dimension of the polynomials.
-    Returns
-    -------
-    poly_coeff_list : list
-        A list of the polynomials of degree deg to be added to the Macaulay Matrix.
-    '''
-    ignoreVar = 0
-    poly_coeff_list = list()
-    for poly in polys:
-        mons = mon_combosHighest([0]*dim,deg - poly.degree)
-        for mon in mons:
-            if np.all([mon[i] <= (polys[i].degree - 1) for i in range(ignoreVar)]):
-                poly_coeff_list.append(poly.mon_mult(mon, returnType = 'Matrix'))
-        ignoreVar += 1
-    return poly_coeff_list
+    zeros : list
+        The list of roots found using the root finder.
+    polys : list
+        The polynomials that were used for root finding.
 
-def num_mons(deg, dim):
-    '''Returns the number of monomials of a certain degree and dimension.
-
-    Parameters
+    Prints
     ----------
-    deg : int.
-        The degree desired.
-    dim : int
-        The dimension desired.
-    Returns
-    -------
-    num_mons : int
-        The number of monomials of the given degree and dimension.
-    '''
-    return comb(deg+dim-1,deg,exact=True)
+    The number of correct zeroes found with the total number.
+    The number of zeros that were out of range.
 
-def deg_d_polys(polys, deg, dim):
-    '''Finds the rows of the Macaulay Matrix of degree deg.
-
-    Iterating through this for each needed degree creates a full rank matrix in all dimensions,
-    getting rid of the extra rows that are there when we do all the monomial multiplications.
-
-    The idea behind this algorithm comes from that cool triangle thing I drew on a board once, I have
-    no proof of it, but it seems to work real good.
-
-    It is also less stable than the other version.
-
-    Parameters
-    ----------
-    polys : list.
-        A list of polynomials.
-    deg: int
-        The desired degree.
-    dim: int
-        The dimension of the polynomials.
-    Returns
-    -------
-    poly_coeff_list : list
-        A list of the polynomials of degree deg to be added to the Macaulay Matrix.
-    '''
-    ignoreVar = 0
-    poly_coeff_list = list()
-    for poly in polys:
-        mons = mon_combosHighest([0]*dim,deg - poly.degree)
-        for mon in mons:
-            if np.all([mon[i] <= (polys[i].degree - 1) for i in range(ignoreVar)]):
-                poly_coeff_list.append(poly.mon_mult(mon, returnType = 'Matrix'))
-        ignoreVar += 1
-    return poly_coeff_list
+    """
+    correct = 0
+    outOfRange = 0
+    if zeros != -1:
+        for zero in zeros:
+            good = True
+            for poly in polys:
+                if not np.isclose(0, poly.evaluate_at(zero), atol = 1.e-3):
+                    good = False
+                    if (np.abs(zero) > 1).any():
+                        outOfRange += 1
+                    break
+            if good:
+                correct += 1
+    print("{} ZEROS ARE CORRECT OUT OF {}".format(correct, len(zeros)))
+    print("{} of them were about of range".format(outOfRange))

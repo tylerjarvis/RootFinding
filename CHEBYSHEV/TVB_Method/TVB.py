@@ -4,8 +4,7 @@ from scipy.linalg import qr, solve_triangular, qr_multiply
 from CHEBYSHEV.cheb_class import Polynomial, MultiCheb
 from CHEBYSHEV.cheb_utils import row_swap_matrix, clean_zeros_from_matrix, TVBError, \
                             slice_top, get_var_list, mon_combos, mon_combosHighest, inverse_P, \
-                            sort_polys_by_degree, deg_d_polys, all_permutations, \
-                            mons_ordered, all_permutations_cheb, num_mons
+                            sort_polys_by_degree
 import time
 import random
 from matplotlib import pyplot as plt
@@ -235,44 +234,6 @@ def create_matrix(poly_coeffs, degree, dim):
         raise TVBError("HIGHEST NOT FULL RANK. TRY HIGHER DEGREE")
 
     #Sorts the rows of the matrix so it is close to upper triangular.
-    matrix = row_swap_matrix(matrix)
-    return matrix, matrix_terms, matrix_shape_stuff
-
-def construction(polys, degree, dim):
-    bigShape = [degree+1]*dim
-    matrix_terms, matrix_shape_stuff = sorted_matrix_terms(degree, dim)
-
-    matrix_term_indexes = list()
-    for row in matrix_terms.T:
-        matrix_term_indexes.append(row)
-
-    permutations = all_permutations_cheb(degree - np.min([poly.degree for poly in polys]), dim, degree)
-    added_zeros = np.zeros(bigShape)
-    flat_polys = dict()
-    i = 0;
-    for poly in polys:
-        slices = slice_top(poly.coeff)
-        added_zeros[slices] = poly.coeff
-        array = added_zeros[matrix_term_indexes]
-        added_zeros[slices] = np.zeros_like(poly.coeff)
-        #print(array)
-
-        #flat_polys.append(array[np.vstack(permutations.values())])
-        degreeNeeded = degree - poly.degree
-        mons = mons_ordered(dim,degreeNeeded)
-        mons = np.pad(mons, (0,1), 'constant', constant_values = i)
-        i += 1
-        flat_polys[tuple(mons[0])] = array
-        for mon in mons[1:-1]:
-            not_zero = np.nonzero(mon)[0]
-            mult = mon.copy()
-            mult[not_zero[0]] -= 1
-            var_to_mult = [0]*dim
-            var_to_mult[not_zero[0]] = 1
-            flat_polys[tuple(mon)] = np.sum(flat_polys[tuple(mult)][permutations[tuple(var_to_mult)]], axis = 0)
-    matrix = np.vstack(flat_polys.values())
-    if matrix_shape_stuff[0] > matrix.shape[0]: #The matrix isn't tall enough, these can't all be pivot columns.
-        raise TVBError("HIGHEST NOT FULL RANK. TRY HIGHER DEGREE")
     matrix = row_swap_matrix(matrix)
     return matrix, matrix_terms, matrix_shape_stuff
 
