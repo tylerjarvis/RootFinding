@@ -1,9 +1,9 @@
 import numpy as np
 import itertools
 import warnings
-from CHEBYSHEV.cheb_class import MultiCheb
-from CHEBYSHEV.TVB import TelenVanBarel
-from CHEBYSHEV.cheb_utils import Term, get_var_list, divides, TVBError, InstabilityWarning, match_size, match_poly_dimensions
+from TVB_Method.cheb_class import MultiCheb
+from TVB_Method.TVB import TelenVanBarel
+from TVB_Method.cheb_utils import Term, get_var_list, divides, TVBError, InstabilityWarning, match_size, match_poly_dimensions
 
 '''
 This module contains the tools necessary to find the points of the variety of the
@@ -47,7 +47,7 @@ def roots(polys, method = 'Groebner'):
                 return -1
             else:
                 raise e
-    
+
     # both TVBMultMatrix and groebnerMultMatrix will return m_f as
     # -1 if the ideal is not zero dimensional or if there are no roots
     if type(m_f) == int:
