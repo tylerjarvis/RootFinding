@@ -1,29 +1,25 @@
-from operator import itemgetter
-import itertools
 import numpy as np
-import math
-from scipy.linalg import lu, qr, solve_triangular, inv, solve, svd
-from numpy.linalg import cond
-from groebner.polynomial import Polynomial, MultiCheb, MultiPower
-from scipy.sparse import csc_matrix, vstack
-from groebner.utils import Term, row_swap_matrix, fill_size, clean_zeros_from_matrix, inverse_P, triangular_solve, divides, fullRank
+from scipy.linalg import qr, solve_triangular
+from groebner.polynomial import MultiCheb, MultiPower
+from groebner.utils import Term, clean_zeros_from_matrix, triangular_solve, divides, slice_top, mon_combos, mon_combosHighest
+import groebner.utils as utils
 import matplotlib.pyplot as plt
-from collections import defaultdict
 
 def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     """
-    Macaulay will take a list of polynomials and use them to construct a Macaulay matrix.
+    Accepts a list of polynomials and use them to construct a Macaulay matrix.
 
     parameters
     --------
-    initial_poly_list: A list of polynomials
-    global_accuracy: How small we want a number to be before assuming it is zero.
-    --------
+    initial_poly_list: list
+        Polynomials for Macaulay construction.
+    global_accuracy : float
+        Round-off parameter: values within global_accuracy of zero are rounded to zero. Defaults to 1e-10.
 
     Returns
-    -----------
-    Reduced Macaulay matrix that can be passed into the root finder.
-    -----------
+    -------
+    final_polys : list
+        Reduced Macaulay matrix that can be passed into the root finder.
     """
     Power = bool
     if all([type(p) == MultiPower for p in initial_poly_list]):
@@ -41,41 +37,59 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
 
     matrix, matrix_terms = create_matrix(poly_coeff_list)
-
+    
     #rrqr_reduce2 and rrqr_reduce same pretty matched on stability, though I feel like 2 should be better.
-    matrix = rrqr_reduce(matrix, global_accuracy = global_accuracy)
+    matrix = utils.rrqr_reduce2(matrix, global_accuracy = global_accuracy)
     matrix = clean_zeros_from_matrix(matrix)
-    non_zero_rows = np.sum(abs(matrix),axis=1) != 0
+    non_zero_rows = np.sum(np.abs(matrix),axis=1) != 0
     matrix = matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
-
+    
     matrix = triangular_solve(matrix)
     matrix = clean_zeros_from_matrix(matrix)
+    
+    #The other reduction option. I thought it would be really stable but seems to be the worst of the three.
+    #matrix = matrixReduce(matrix, triangular_solve = True, global_accuracy = global_accuracy)
 
     rows = get_good_rows(matrix, matrix_terms)
-    final_polys = get_polys_from_matrix(rows,matrix,matrix_terms,Power)
+    final_polys = get_polys_from_matrix(matrix, matrix_terms, rows, Power)
 
     return final_polys
 
-def get_polys_from_matrix(rows,matrix,matrix_terms,power):
+def get_polys_from_matrix(matrix, matrix_terms ,rows, power):
+    '''Creates polynomial objects from the specified rows of the given matrix.
+
+    Parameters
+    ----------
+    matrix : (M,N) ndarray
+        The matrix with rows corresponding to polynomials, columns corresponding
+        to monomials, and entries corresponding to coefficients.
+    matrix_terms : array-like
+        The column labels for matrix in order. Contains Term objects.
+    rows : iterable
+        The rows for which to create polynomial objects. Contains integers.
+    power : bool
+        If true, the polynomials returned will be MultiPower objects.
+        Otherwise, they will be MultiCheb.
+        
+    Returns
+    -------
+    poly_list : list
+        Polynomial objects corresponding to the specified rows.
     '''
-    Takes a list of indicies corresponding to the rows of the reduced matrix and
-    returns a list of polynomial objects
-    '''
+
     shape = []
     p_list = []
-    matrix_term_vals = [i.val for i in matrix_terms]
+    shape = np.maximum.reduce([term for term in matrix_terms])
+    shape += np.ones_like(shape)
+    spots = list()
+    for dim in range(matrix_terms.shape[1]):
+        spots.append(matrix_terms.T[dim])
 
-    # Finds the maximum size needed for each of the poly coeff tensors
-    for i in range(len(matrix_term_vals[0])):
-        # add 1 to each to compensate for constant term
-        shape.append(max(matrix_term_vals, key=itemgetter(i))[i]+1)
     # Grabs each polynomial, makes coeff matrix and constructs object
     for i in rows:
         p = matrix[i]
         coeff = np.zeros(shape)
-        for j,term in enumerate(matrix_term_vals):
-            coeff[term] = p[j]
-
+        coeff[spots] = p
         if power:
             poly = MultiPower(coeff)
         else:
@@ -88,7 +102,21 @@ def get_polys_from_matrix(rows,matrix,matrix_terms,power):
 def get_good_rows(matrix, matrix_terms):
     '''
     Gets the rows in a matrix whose leading monomial is not divisible by the leading monomial of any other row.
-    Returns a list of rows.
+    
+    Parameters
+    ----------
+    matrix : (M,N) ndarray
+        Input matrix.
+    matrix_terms : array-like
+        The column labels for matrix in order. Contains Term objects.
+        
+    Returns
+    -------
+    keys : list
+        Rows indicies satisfying the divisibility condition.
+        
+    Notes
+    -----
     This function could probably be improved, but for now it is good enough.
     '''
     rowLMs = dict()
@@ -109,7 +137,7 @@ def get_good_rows(matrix, matrix_terms):
         toRemove = list()
         for i in range(spot+1, len(keys)):
             term2 = rowLMs[keys[i]]
-            if divides(term1.val,term2.val):
+            if divides(term1,term2):
                 toRemove.append(keys[i])
         for i in toRemove:
             keys.remove(i)
@@ -119,237 +147,236 @@ def get_good_rows(matrix, matrix_terms):
 def find_degree(poly_list):
     """
     Finds the degree needed for the Macaulay matrix
+
+    Parameters
+    ----------
+    poly_list : list
+        Polynomials that will be used to construct the matrix.
+    
+    Returns
     -------
-    Parameters:
-        poly_list: polynomials that will be used to construct the matrix
+    int
+        Needed degree for Macaulay matrix.
+    
+    Notes
     -------
-    Returns:
-        Integer value that is the degree needed.
-    -------
-    Example:
         For polynomials [P1,P2,P3] with degree [d1,d2,d3] the function returns d1+d2+d3-3+1
-    -------
     """
     degree_needed = 0
     for poly in poly_list:
         degree_needed += poly.degree
     return ((degree_needed - len(poly_list)) + 1)
 
-def mon_combos(mon, numLeft, spot = 0):
-    '''
-    This function finds all the monomials up to a given degree (here numLeft) and returns them.
-    mon is a tuple that starts as all 0's and gets changed as needed to get all the monomials.
-    numLeft starts as the dimension, but as the code goes is how much can still be added to mon.
-    spot is the place in mon we are currently adding things to.
-    Returns a list of all the possible monomials.
-    '''
-    answers = list()
-    if len(mon) == spot+1: #We are at the end of mon, no more recursion.
-        for i in range(numLeft+1):
-            mon[spot] = i
-            answers.append(mon.copy())
-        return answers
-    if numLeft == 0: #Nothing else can be added.
-        answers.append(mon.copy())
-        return answers
-    temp = mon.copy() #Quicker than copying every time inside the loop.
-    for i in range(numLeft+1): #Recursively add to mon further down.
-        temp[spot] = i
-        answers += mon_combos(temp, numLeft-i, spot+1)
-    return answers
-
 def add_polys(degree, poly, poly_coeff_list):
-    """
-    Take each polynomial and adds it to a poly_list
-    Then uses monomial multiplication and adds all polynomials with degree less than
-        or equal to the total degree needed.
-    Returns a list of polynomials.
+    """Adds polynomials to a Macaulay Matrix.
+    
+    This function is called on one polynomial and adds all monomial multiples of it to the matrix.
+    
+    Parameters
+    ----------
+    degree : int
+        The degree of the TVB Matrix
+    poly : Polynomial
+        One of the polynomials used to make the matrix. 
+    poly_coeff_list : list
+        A list of all the current polynomials in the matrix.
+    Returns
+    -------
+    poly_coeff_list : list
+        The original list of polynomials in the matrix with the new monomial multiplications of poly added.
     """
     poly_coeff_list.append(poly.coeff)
     deg = degree - poly.degree
     dim = poly.dim
-    mons = mon_combos(np.zeros(dim, dtype = int),deg)
+    mons = mon_combos([0]*dim,deg)
     mons = mons[1:]
     for i in mons:
         poly_coeff_list.append(poly.mon_mult(i, returnType = 'Matrix'))
     return poly_coeff_list
 
-def sort_matrix(matrix, matrix_terms):
-    '''
-    Takes a matrix and matrix_terms (holding the terms in each column of the matrix), and sorts them both
-    by term order.
-    Returns the sorted matrix and matrix_terms.
-    '''
-    #argsort_list gives the ordering by which the matrix should be sorted.
-    argsort_list = sorted(range(len(matrix_terms)), key=matrix_terms.__getitem__)[::-1]
-    matrix_terms.sort()
-    matrix = matrix[:,argsort_list]
-    return matrix, matrix_terms[::-1]
 
-def clean_matrix(matrix, matrix_terms):
+def sort_matrix_terms(matrix_terms):
+    '''Sorts the matrix_terms by term order.
+    So the highest terms come first, the lowest ones last.
+    
+    Parameters
+    ----------
+    matrix_terms : ndarray
+        Each row is one of the terms in the matrix.
+    
+    Returns
+    -------
+    matrix_terms : ndarray
+        The sorted matrix_terms.
     '''
-    Gets rid of columns in the matrix that are all zero and returns it and the updated matrix_terms.
-    '''
-    non_zero_monomial = np.sum(abs(matrix), axis=0) != 0
-    matrix = matrix[:,non_zero_monomial] #Only keeps the non_zero_monomials
-    matrix_terms = matrix_terms[non_zero_monomial] #Only keeps the non_zero_monomials
-    return matrix, matrix_terms
+    termList = list()
+    for term in matrix_terms:
+        termList.append(Term(term))
+    argsort_list = np.argsort(termList)[::-1]
+    return matrix_terms[argsort_list]
 
-def create_matrix(polys_coeffs):
+def create_matrix(poly_coeffs):
+    ''' Builds a Macaulay matrix.
+
+    Parameters
+    ----------
+    poly_coeffs : list
+        Contains numpy arrays that hold the coefficients of the polynomials to be put in the matrix.
+    Returns
+    -------
+    matrix : (M,N) ndarray
+        The Macaulay matrix.
     '''
-    Takes a list of polynomial objects (polys) and uses them to create a matrix. That is ordered by the monomial
-    ordering. Returns the matrix and the matrix_terms, a list of the monomials corresponding to the rows of the matrix.
-    '''
-    #Gets an empty polynomial whose lm all other polynomial divide into.
-    bigShape = np.maximum.reduce([p.shape for p in polys_coeffs])
-    #Gets a list of all the flattened polynomials.
+    bigShape = np.maximum.reduce([p.shape for p in poly_coeffs])
+
+    #Finds the matrix terms.
+    non_zeroSet = set()
+    for coeff in poly_coeffs:
+        for term in zip(*np.where(coeff != 0)):
+            non_zeroSet.add(term)
+    matrix_terms = np.array(non_zeroSet.pop())
+    for term in non_zeroSet:
+        matrix_terms = np.vstack((matrix_terms,term))
+
+    matrix_terms = sort_matrix_terms(matrix_terms)
+
+    #Get the slices needed to pull the matrix_terms from the coeff matrix.
+    matrix_term_indexes = list()
+    for i in range(len(bigShape)):
+        matrix_term_indexes.append(matrix_terms.T[i])
+
+    #Adds the poly_coeffs to flat_polys, using added_zeros to make sure every term is in there.
+    added_zeros = np.zeros(bigShape)
     flat_polys = list()
-    for coeff in polys_coeffs:
-        #Gets a matrix that is padded so it is the same size as biggest, and flattens it. This is so
-        #all flattened polynomials look the same.
-        newMatrix = fill_size(bigShape, coeff)
-        flat_polys.append(newMatrix.ravel())
+    for coeff in poly_coeffs:
+        slices = slice_top(coeff)
+        added_zeros[slices] = coeff
+        flat_polys.append(added_zeros[matrix_term_indexes])
+        added_zeros[slices] = np.zeros_like(coeff)
 
     #Make the matrix
     matrix = np.vstack(flat_polys[::-1])
 
-    #Makes matrix_terms, a list of all the terms in the matrix.
-    terms = np.zeros(bigShape, dtype = Term)
-    for i,j in np.ndenumerate(terms):
-        terms[i] = Term(i)
-    matrix_terms = terms.ravel()
-
-    #Gets rid of any columns that are all 0.
-    matrix, matrix_terms = clean_matrix(matrix, matrix_terms)
-
-    #Sorts the matrix and matrix_terms by term order.
-    matrix, matrix_terms = sort_matrix(matrix, matrix_terms)
-
     #Sorts the rows of the matrix so it is close to upper triangular.
-    matrix = row_swap_matrix(matrix)
+    matrix = utils.row_swap_matrix(matrix)
     return matrix, matrix_terms
 
-def create_matrix2(polys):
+def matrixReduce(matrix, triangular_solve = False, global_accuracy = 1.e-10):
     '''
-    Takes a list of polynomial objects (polys) and uses them to create a matrix. That is ordered by the monomial
-    ordering. Returns the matrix and the matrix_terms, a list of the monomials corresponding to the rows of the matrix.
+    Reduces the matrix into row echelon form, so each row has a unique leading term. If triangular_solve is
+    True it is reduces to reduced row echelon form, so everything above the leading terms is 0.
+
+    Parameters
+    ----------
+    matrix : (M,N) ndarray
+        The matrix of interest.
+    triangular_solve : bool
+        Defaults to False. If True then triangular solve is preformed.
+    global_accuracy : float
+        Defaults to 1.e-10. What is determined to be zero when searching for the pivot columns.
+
+    Returns
+    -------
+    matrix : (M,N) ndarray
+        The reduced matrix. It should look like this if triangluar_solve is False.
+        a - - - - - - -
+        0 b - - - - - -
+        0 0 0 c - - - -
+        0 0 0 0 d - - -
+        0 0 0 0 0 0 0 e
+
+        If triangular solve is True it will look like this.
+        a 0 - 0 0 - - 0
+        0 b - 0 0 - - 0
+        0 0 0 c 0 - - 0
+        0 0 0 0 d - - 0
+        0 0 0 0 0 0 0 e
+
     '''
-    #Gets an empty polynomial whose lm all other polynomial divide into.
-    termSet = set()
-    for poly in polys:
-        for i in zip(*np.where(poly.coeff != 0)):
-            termSet.add(i)
+    independentRows,dependentRows,Q = utils.row_linear_dependencies(matrix, accuracy = global_accuracy)
+    matrix = matrix[independentRows]
 
-    matrix_terms = np.zeros(len(termSet), dtype = Term)
-    spot = 0
-    for term in termSet:
-        matrix_terms[spot] = Term(term)
-        spot += 1
-    matrix_terms = np.sort(matrix_terms)[::-1]
+    pivotColumnMatrix = findPivotColumns(matrix, global_accuracy = global_accuracy)
+    pivotColumns = list(np.where(pivotColumnMatrix == 1)[1])
+    otherColumns = list()
+    for i in range(matrix.shape[1]):
+        if i not in pivotColumns:
+            otherColumns.append(i)
 
-    termSpots = {}
+    matrix = matrix[:,pivotColumns + otherColumns]
+        
+    Q,R = qr(matrix)
+    if triangular_solve:
+        R = clean_zeros_from_matrix(R)
+        X = solve_triangular(R[:,:R.shape[0]],R[:,R.shape[0]:])
+        reduced = np.hstack((np.eye(X.shape[0]),X))
+    else:
+        reduced = R
+    matrix = np.empty_like(reduced)
+    matrix = reduced[:,utils.inverse_P(pivotColumns + otherColumns)]
 
-    for i in range(len(matrix_terms)):
-        termSpots[matrix_terms[i].val] = i
-    matrix = np.random.rand(0,len(matrix_terms))
+    matrix = clean_zeros_from_matrix(matrix)
+    return matrix
 
-    start = time.time()
-    for poly in polys:
-        matrix = np.vstack((matrix, np.zeros(matrix.shape[1])))
-        for term in zip(*np.where(poly.coeff != 0)):
-            matrix[-1,termSpots[term]] = poly.coeff[term]
-    end = time.time()
-    print(end-start)
+def findPivotColumns(matrix, global_accuracy = 1.e-10):
+    ''' Finds the pivot columns of a matrix.
+    Uses rank revealing QR to determine which columns in a matrix are the pivot columns. This is done using
+    this function recursively.
 
-    #Sorts the rows of the matrix so it is close to upper triangular.
-    matrix = row_swap_matrix(matrix)
-    return matrix, matrix_terms
+    Parameters
+    ----------
+    matrix : (M,N) ndarray
+        The matrix of interest.
+    global_accuracy : float
+        Defaults to 1.e-10. What is determined to be zero when searching for the pivot columns.
 
-def rrqr_reduce(matrix, clean = False, global_accuracy = 1.e-10):
+    Returns
+    -------
+    matrix : (M,N) ndarray
+        A matrix of ones and zeros. Each row will have exactly one 1 in it, which will be a pivot column
+        in the matrix. For example, a 5x8 matrix with pivot columns 1,2,4,5,8 will look like this
+        1 0 0 0 0 0 0 0
+        0 1 0 0 0 0 0 0
+        0 0 0 1 0 0 0 0
+        0 0 0 0 1 0 0 0
+        0 0 0 0 0 0 0 1
     '''
-    Recursively reduces the matrix using rrqr reduction so it returns a reduced matrix, where each row has
-    a unique leading monomial.
-    '''
-    if matrix.shape[0]==0 or matrix.shape[1]==0:
+
+    if matrix.shape[0] == 0 or matrix.shape[1] == 0:
         return matrix
+    elif matrix.shape[1] == 1:
+        column = np.zeros_like(matrix)
+        if np.sum(np.abs(matrix)) < global_accuracy:
+            return column
+        else:
+            column[0] = 1
+            return column
+
     height = matrix.shape[0]
     A = matrix[:height,:height] #Get the square submatrix
     B = matrix[:,height:] #The rest of the matrix to the right
-    Q,R,P = qr(A, pivoting = True) #rrqr reduce it
-    PT = inverse_P(P)
-    diagonals = np.diagonal(R) #Go along the diagonals to find the rank
-    rank = np.sum(np.abs(diagonals)>global_accuracy)
-    if rank == height: #full rank, do qr on it
-        Q,R = qr(A)
-        A = R #qr reduce A
-        B = Q.T.dot(B) #Transform B the same way
-    else: #not full rank
-        A = R[:,PT] #Switch the columns back
-        if clean:
-            Q[np.where(abs(Q) < global_accuracy)]=0
-        B = Q.T.dot(B) #Multiply B by Q transpose
-        if clean:
-            B[np.where(abs(B) < global_accuracy)]=0
-        #sub1 is the top part of the matrix, we will recursively reduce this
-        #sub2 is the bottom part of A, we will set this all to 0
-        #sub3 is the bottom part of B, we will recursively reduce this.
-        #All submatrices are then put back in the matrix and it is returned.
-        sub1 = np.hstack((A[:rank,],B[:rank,])) #Takes the top parts of A and B
-        result = rrqr_reduce(sub1) #Reduces it
-        A[:rank,] = result[:,:height] #Puts the A part back in A
-        B[:rank,] = result[:,height:] #And the B part back in B
-
-        sub2 = A[rank:,]
-        zeros = np.zeros_like(sub2)
-        A[rank:,] = np.zeros_like(sub2)
-
-        sub3 = B[rank:,]
-        B[rank:,] = rrqr_reduce(sub3)
-
-    reduced_matrix = np.hstack((A,B))
-    return reduced_matrix
-
-def rrqr_reduce2(matrix, clean = True, global_accuracy = 1.e-10):
-    '''
-    This function does the same thing as rrqr_reduce. It is an attempt at higher stability, although currenlty rrqr_reduce
-    appears to be more stable so it is being used instead.
-    '''
-    if matrix.shape[0] <= 1 or matrix.shape[0]==1 or  matrix.shape[1]==0:
-        return matrix
-    height = matrix.shape[0]
-    A = matrix[:height,:height] #Get the square submatrix
-    B = matrix[:,height:] #The rest of the matrix to the right
-    independentRows, dependentRows, Q = fullRank(A, global_accuracy = global_accuracy)
+    independentRows, dependentRows, Q = utils.row_linear_dependencies(A, accuracy = global_accuracy)
     nullSpaceSize = len(dependentRows)
     if nullSpaceSize == 0: #A is full rank
-        #print("FULL RANK")
-        Q,R = qr(matrix)
-        return clean_zeros_from_matrix(R)
+        #The columns of A are all pivot columns
+        return np.hstack((np.eye(height),np.zeros_like(B)))
     else: #A is not full rank
-        #print("NOT FULL RANK")
         #sub1 is the independentRows of the matrix, we will recursively reduce this
         #sub2 is the dependentRows of A, we will set this all to 0
         #sub3 is the dependentRows of Q.T@B, we will recursively reduce this.
         #We then return sub1 stacked on top of sub2+sub3
-        if clean:
-            Q[np.where(abs(Q) < global_accuracy)]=0
         bottom = matrix[dependentRows]
         BCopy = B.copy()
         sub3 = bottom[:,height:]
-        sub3 = Q.T[-nullSpaceSize:]@BCopy
-        if clean:
-            sub3 = clean_zeros_from_matrix(sub3)
-        sub3 = rrqr_reduce2(sub3)
+        sub3 = Q.T[-nullSpaceSize:]@BCopy #I think this line can be taked out for this code.
+        sub3 = findPivotColumns(sub3)
 
         sub1 = matrix[independentRows]
-        sub1 = rrqr_reduce2(sub1)
+        sub1 = findPivotColumns(sub1)
 
         sub2 = bottom[:,:height]
         sub2[:] = np.zeros_like(sub2)
 
-        reduced_matrix = np.vstack((sub1,np.hstack((sub2,sub3))))
-        if clean:
-            return clean_zeros_from_matrix(reduced_matrix)
-        else:
-            return reduced_matrix
+        pivot_columns = np.vstack((sub1,np.hstack((sub2,sub3))))
+        return pivot_columns
     pass

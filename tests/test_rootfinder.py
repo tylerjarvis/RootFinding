@@ -1,7 +1,7 @@
 import numpy as np
 from groebner import root_finder as rf
 from groebner.polynomial import MultiPower, MultiCheb
-from groebner.groebner_class import Groebner
+from groebner.gsolve import F4
 import pytest
 import pdb
 
@@ -118,9 +118,12 @@ def testCoordinateVector():
     poly = MultiCheb(np.array([[0,1,0],[0,0,1],[1,0,0]]))
     VB = [(2,0),(1,2),(0,1),(1,0)]
     GB = [MultiCheb(np.array([[0,0,0],[0,0,0],[0,0,1]]))] # LT is big so nothing gets reduced
+    
+    slices = ([2,1,0,1],[0,2,1,0])
 
-    cv = rf.coordinateVector(poly, GB, set(VB))
-    assert((cv == np.array([0,1,0,0,0,1,1,0,0])).all())
+    cv = rf.coordinateVector(poly, GB, set(VB), slices)
+    print(cv)
+    assert((cv == np.array([1,1,1,0])).all())
 
 def testMultMatrix():
     f1 = MultiPower(np.array([[[5,0,0],[0,0,0],[0,0,0]],
@@ -136,14 +139,13 @@ def testMultMatrix():
                           [[0,0,0],[0,0,0],[0,0,0]]]))
 
     F = [f1, f2, f3]
-    Gr = Groebner(F)
 
-    GB = Gr.solve()
+    GB = F4(F)
     VB = rf.vectorSpaceBasis(GB)[0]
 
-    x = MultiPower(np.array([[0],[1]]))
-    y = MultiPower(np.array([[0,1]]))
-    z = MultiPower(np.array([[[0,1]]]))
+    x = MultiPower(np.array([[[0,1]]]))
+    y = MultiPower(np.array([[[0],[1]]]))
+    z = MultiPower(np.array([[[0]],[[1]]]))
 
     mx_RealEig = [eig.real for eig in \
         np.linalg.eigvals(rf.multMatrix(x, GB, VB)) if (eig.imag == 0)]
@@ -157,9 +159,9 @@ def testMultMatrix():
     assert(len(mx_RealEig) == 2)
     assert(len(my_RealEig) == 2)
     assert(len(mz_RealEig) == 2)
-    assert(np.allclose(mx_RealEig, [-1.100987715, .9657124563], atol=1.e-8))
+    assert(np.allclose(mx_RealEig, [3.071618528, -2.821182227], atol=1.e-8))
     assert(np.allclose(my_RealEig, [-2.878002536, -2.81249605], atol=1.e-8))
-    assert(np.allclose(mz_RealEig, [3.071618528, -2.821182227], atol=1.e-8))
+    assert(np.allclose(mz_RealEig, [-1.100987715, .9657124563], atol=1.e-8))
 
 def testMultMatrix_2():
     f1 = MultiPower(np.array([[0,-1.5,.5],[-1.5,1.5,0],[1,0,0]]))

@@ -22,10 +22,11 @@ def test_inverse_P():
 
     # Find the order of columns to flip back to.
     pt = inverse_P(p)
+    print(pt)
     # Result done by hand.
     pt_inv = [4,0,3,2,1,5]
     assert(np.allclose(M,N[:,pt])), "Matrix are not the same."
-    assert(all(pt == pt_inv)), "Wrong matrix order."
+    assert(np.all(pt == pt_inv)), "Wrong matrix order."
 
 
     # Test Case 2:
@@ -138,25 +139,51 @@ def test_sorted_polys_monomial():
                          [3,-3,-5,-2,0,4,-2,2,1,-6]]))
     assert(list((C,B,D,F,A,E)) == sorted_polys_monomial([F,B,D,E,C,A]))
 
-def test_push_pop():
-    a0 = Term((0,0,1,0,0))
-    a1 = Term((0,1,1,3,1))
-    a2 = Term((0,1,1,3,0,0,0,1))
-    a3 = Term((2,2,2,3,4,1,4,3))
-    a4 = Term((0,1,1,2,2))
-    maxh = MaxHeap()
-    maxh.heappush(a1)
-    maxh.heappush(a3)
-    maxh.heappush(a0)
-    maxh.heappush(a2)
-    maxh.heappush(a4)
-    assert maxh.heappop() == a3
-    assert maxh.heappop() == a2
+def test_sorted_polys_coeff():
+    A = MultiPower(np.array([[2,0,-3,0,0],
+                         [0,1,0,0,0],
+                         [-2,0,0,0,0],
+                         [0,0,4,0,0],
+                         [0,0,0,0,-2]]))
+    B = MultiPower(np.array([[3,0,-5,0,0,4,2,-6,3,-6],
+                         [-2,0,-1,1,-1,4,2,-6,-5,-2],
+                         [-1,3,2,-2,0,4,-1,-2,-4,6],
+                         [4,2,5,9,0,3,2,-1,-3,-3],
+                         [3,-3,-5,-2,0,4,-2,2,1,-6]]))
 
-    maxh.heappush(a3)
-    maxh.heappush(a3)
+    assert([A,B] == ut.sorted_polys_coeff([A,B]))
 
-    assert maxh.heappop() == a3
-    assert maxh.heappop() == a1
-    assert maxh.heappop() == a4
-    assert maxh.heappop() == a0
+    C = MultiPower(np.array([[1]]))
+    assert([C,A,B] == ut.sorted_polys_coeff([A,B,C]))
+
+def test_makePolyCoeffMatrix():
+    A = MultiPower('1')
+    B = MultiPower(np.array([1]))
+    assert (A.coeff==B.coeff).all()
+    
+    A = MultiPower('2x0+x1+x0*x1')
+    B = MultiPower(np.array([[0,2],[1,1]]))
+    assert (A.coeff==B.coeff).all()
+
+    A = MultiPower('-4.7x0*x1+2x1+5x0+-3')
+    B = MultiPower(np.array([[-3,5],[2,-4.7]]))
+    assert (A.coeff==B.coeff).all()
+
+    A = MultiPower('x0^2+-x1^2')
+    B = MultiPower(np.array([[0,0,1],[0,0,0],[-1,0,0]]))
+    assert (A.coeff==B.coeff).all()
+
+    A = MultiPower('x0+2x1+3x2+4x3')
+    B = MultiPower(np.array(
+        [[[[0,1],[2,0]],
+          [[3,0],[0,0]]],
+         [[[4,0],[0,0]],
+          [[0,0],[0,0]]]]))
+    assert (A.coeff==B.coeff).all()
+    
+    A = MultiPower('1+x0')
+    B = MultiPower('1+x1')
+    A1 = MultiPower(np.array([1,1]))
+    B1 = MultiPower(np.array([[1],[1]]))
+    
+    assert (A.coeff==A1.coeff).all() and (B.coeff==B1.coeff).all()
