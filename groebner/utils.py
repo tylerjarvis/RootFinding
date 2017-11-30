@@ -339,7 +339,7 @@ def row_swap_matrix(matrix):
     ----------
     matrix : 2D numpy array
         The matrix whose rows need to be switched
-
+    
     Returns
     -------
     2D numpy array
@@ -356,7 +356,7 @@ def row_swap_matrix(matrix):
     leading_mon_columns = list()
     for row in matrix:
         leading_mon_columns.append(np.where(row!=0)[0][0])
-
+    #print(np.argsort(leading_mon_columns))
     return matrix[np.argsort(leading_mon_columns)]
 
 def get_var_list(dim):
@@ -708,6 +708,22 @@ def mon_combos(mon, numLeft, spot = 0):
         answers += mon_combos(temp, numLeft-i, spot+1)
     return answers
 
+def num_mons_full(deg, dim):
+    '''Returns the number of monomials of a certain dimension and less than or equal to a certian degree.
+    
+    Parameters
+    ----------
+    deg : int.
+        The degree desired.
+    dim : int
+        The dimension desired.
+    Returns
+    -------
+    num_mons : int
+        The number of monomials of the given degree and dimension.
+    '''
+    return comb(deg+dim,dim,exact=True)
+
 def num_mons(deg, dim):
     '''Returns the number of monomials of a certain degree and dimension.
     
@@ -812,7 +828,20 @@ def arrays(deg,dim,mon):
         temp[dim-mon-1] = True
         return temp
     else:
-        return arrays(deg-1,dim,mon)+arrays(deg,dim-1,mon)
+        return memoized_arrays(deg-1,dim,mon)+memoized_arrays(deg,dim-1,mon)
+
+def memoize(function):
+    cache = {}
+    def decorated_function(*args):
+        if args in cache:
+            return cache[args]
+        else:
+            val = function(*args)
+            cache[args] = val
+            return val
+    return decorated_function
+
+memoized_arrays = memoize(arrays)
 
 def permutation_array(deg,dim,mon):
     '''Finds the permutation array to multiply a row of a matrix by a certain monomial.
@@ -845,7 +874,7 @@ def permutation_array(deg,dim,mon):
         array = first + array
         for d in range(2,deg+1):
             first = first + arrays(d,dim-1,mon)
-            array = first+array        
+            array = first+array
     return np.array(inverse_P(np.hstack((np.where(~np.array(array))[0],np.where(array)[0]))))
 
 def all_permutations(deg, dim, matrixDegree, permutations = None, current_degree = 2):
@@ -889,3 +918,20 @@ def all_permutations(deg, dim, matrixDegree, permutations = None, current_degree
                     permutations[tuple(mon)] = permutations[var][permutations[diff]]
                     break
     return permutations
+
+def memoize_permutaions(function):
+    """Specially designed for memoizing all_permutations.
+    """
+    cache = {}
+    def decorated_function(*args):
+        if args[0] == 'cache':
+            return cache
+        if args[:3] in cache:
+            return cache[args[:3]]
+        else:
+            val = function(*args)
+            cache[args[:3]] = val
+            return val
+    return decorated_function
+
+memoized_all_permutations = memoize_permutaions(all_permutations)

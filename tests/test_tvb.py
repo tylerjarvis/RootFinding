@@ -1,6 +1,6 @@
 import numpy as np
 from groebner.polynomial import Polynomial, MultiCheb, MultiPower
-from groebner.TelenVanBarel import find_degree, mon_combos, sorted_matrix_terms, get_S_Poly
+from groebner.TelenVanBarel import find_degree, mon_combos, sorted_matrix_terms
 from groebner.root_finder import roots
 from groebner.utils import InstabilityWarning, arrays
 from itertools import product
@@ -111,37 +111,6 @@ def test_TVB_roots():
     C = getPoly(5,3,False)
     correctZeros([A,B,C])
 
-def test_S_Poly():
-    with warnings.catch_warnings():
-        warnings.filterwarnings('error')
-        try:
-            A = MultiPower('x0^3+x0^2*x1+x0*x1^2+x1^3+1')
-            B = MultiPower('x0^2+2x0*x1+x1^2+1')
-            polys = [A,B]
-            correctZeros(polys, checkNumber = False)
-
-            A = MultiPower('x0^3+-x1^3+1')
-            B = MultiPower('x0^2+-x1^2+1')
-            polys = [A,B]
-            correctZeros(polys, checkNumber = False)
-
-            A = MultiPower('x0^2+x1^2')
-            B = MultiPower('x0^4+2x0^2*x1^2+x1^4')
-            polys = [A,B]
-            zeros = roots(polys, method = 'TVB')
-            assert(zeros == -1)
-
-            A = MultiPower('x0^2+x1^2+1+x0')
-            B = MultiPower('x0^4+2x0^2*x1^2+x1^4+1')
-            polys = [A,B]
-            correctZeros(polys, checkNumber = False)
-
-            A = MultiPower(np.rot90(np.eye(8)))+MultiPower('1')
-            B = MultiPower(np.rot90(np.eye(6)))+MultiPower('1')
-            correctZeros(polys, checkNumber = False)
-        except InstabilityWarning:
-            assert(False) #Had to use Groebner instead.
-    
 def test_makeBasisDict():
 
 
