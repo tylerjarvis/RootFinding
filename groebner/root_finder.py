@@ -28,7 +28,7 @@ def roots(polys, method = 'Groebner'):
         the common roots of the polynomials
     '''
     polys = match_poly_dimensions(polys)
-    
+
     # Determine polynomial type
     poly_type = ''
     if (all(isinstance(p,MultiCheb) for p in polys)):
@@ -84,11 +84,11 @@ def roots(polys, method = 'Groebner'):
         vnib = True
 
     # Get left eigenvectors
-    
+
     e = np.linalg.eig(m_f.T)
     eig = e[1]
     num_vectors = eig.shape[1]
-        
+
     eig_vectors = [eig[:,i] for i in range(num_vectors)] # columns of eig
     roots = []
     for v in eig_vectors:
@@ -133,8 +133,6 @@ def groebnerMultMatrix(polys, poly_type, method):
     '''
     # Calculate groebner basis
     if method == 'Groebner':
-        #G = Groebner(polys)
-        #GB = G.solve()
         GB = F4(polys)
     else:
         GB = Macaulay(polys)
@@ -157,12 +155,12 @@ def groebnerMultMatrix(polys, poly_type, method):
 
 def sortVB(VB):
     '''Sorts the Vector Basis into degrevlex order so the eigensolve is faster (in theory).
-    
+
     Parameters
     ----------
     VB : numpy array
         Each row in VB is a term in the vector basis.
-    
+
     Returns
     -------
     VB : numpy array
@@ -194,9 +192,7 @@ def TVBMultMatrix(polys, poly_type):
         Maps each variable to its position in the vector space basis
     '''
     basisDict, VB, degree = TelenVanBarel(polys, run_checks = True)
-        
     VB = sortVB(VB)
-
     dim = max(f.dim for f in polys)
 
     # Get random polynomial f
@@ -205,15 +201,14 @@ def TVBMultMatrix(polys, poly_type):
     slices = list()
     for i in range(len(VB[0])):
         slices.append(VB.T[i])
-    
+
     VBset = set()
     for mon in VB:
         VBset.add(tuple(mon))
-        
+
     # Build multiplication matrix m_f
     mMatrix = np.zeros((len(VB), len(VB)))
     remainder = np.zeros([degree]*dim)
-    
     for i in range(VB.shape[0]):
         f_coeff = f.mon_mult(VB[i], returnType = 'Matrix')
         for term in zip(*np.where(f_coeff != 0)):
@@ -230,7 +225,7 @@ def TVBMultMatrix(polys, poly_type):
         mon = VB[i]
         if np.sum(mon) == 1 or np.sum(mon) == 0:
             var_dict[tuple(mon)] = i
-        
+
     return mMatrix, var_dict
 
 def _finitelyManySolutions(GB, var_list):
@@ -287,11 +282,11 @@ def multMatrix(poly, GB, basisList):
     slices = list()
     for i in range(len(basisTerms[0])):
         slices.append(basisTerms.T[i])
-    
+
     GB = sorted_polys_coeff(GB)
 
     dim = len(basisList) # Dimension of the vector space basis
-    
+
     multMatrix = np.zeros((dim, dim))
     for i in range(dim):
         monomial = basisList[i]
@@ -299,7 +294,7 @@ def multMatrix(poly, GB, basisList):
         multMatrix[:,i] = coordinateVector(poly_, GB, basisSet, slices)
 
     return multMatrix
-    
+
 def vectorSpaceBasis(GB):
     '''
     parameters
@@ -449,18 +444,18 @@ def _test_zero_dimensional(_vars, GB):
 def newton_polish(polys,root,niter=100,tol=1e-5):
     """
     Perform Newton's method on a system of N polynomials in M variables.
-    
+
     Parameters
     ----------
     polys : list
         A list of polynomial objects of the same type (MultiPower or MultiCheb).
     root : ndarray
         An initial guess for Newton's method, intended to be a candidate root from root_finder.
-    niter : int 
+    niter : int
         A maximum number of iterations of Newton's method.
     tol : float
         Tolerance for convergence of Newton's method.
-        
+
     Returns
     -------
     x1 : ndarray
@@ -473,14 +468,14 @@ def newton_polish(polys,root,niter=100,tol=1e-5):
         poly_type = 'MultiPower'
     else:
         raise ValueError('All polynomials must be the same type')
-        
+
     def f(x):
         m = len(polys)
         f_x = np.empty(m,dtype="complex_")
         for i, poly in enumerate(polys):
             f_x[i] = poly.evaluate_at(x)
         return f_x
-        
+
     def Df(x):
         m = len(polys)
         dim = max(poly.dim for poly in polys)
@@ -488,7 +483,7 @@ def newton_polish(polys,root,niter=100,tol=1e-5):
         for i, poly in enumerate(polys):
             jac[i] = poly.grad(x)
         return jac
-        
+
     i = 0
     x0 = root
     while True:
