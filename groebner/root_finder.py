@@ -84,7 +84,7 @@ def roots(polys, method = 'Groebner'):
         vnib = True
 
     # Get left eigenvectors
-    
+
     e = np.linalg.eig(m_f.T)
     eig = e[1]
     num_vectors = eig.shape[1]
@@ -193,7 +193,7 @@ def TVBMultMatrix(polys, poly_type):
     var_dict : dictionary
         Maps each variable to its position in the vector space basis
     '''
-    basisDict, VB, degree = TelenVanBarel(polys, run_checks = True)
+    basisDict, VB, degree = TelenVanBarel(polys)
         
     VB = sortVB(VB)
 
@@ -473,30 +473,33 @@ def newton_polish(polys,root,niter=100,tol=1e-5):
         poly_type = 'MultiPower'
     else:
         raise ValueError('All polynomials must be the same type')
-        
+    
+    m = len(polys)
+    dim = max(poly.dim for poly in polys)
+    f_x = np.empty(m,dtype="complex_")
+    jac = np.empty((m,dim),dtype="complex_")
+    
     def f(x):
-        m = len(polys)
-        f_x = np.empty(m,dtype="complex_")
+        #f_x = np.empty(m,dtype="complex_")
         for i, poly in enumerate(polys):
             f_x[i] = poly.evaluate_at(x)
         return f_x
         
     def Df(x):
-        m = len(polys)
-        dim = max(poly.dim for poly in polys)
-        jac = np.empty((m,dim),dtype="complex_")
+        #jac = np.empty((m,dim),dtype="complex_")
         for i, poly in enumerate(polys):
             jac[i] = poly.grad(x)
         return jac
         
     i = 0
-    x0 = root
+    x0, x1 = root, root
     while True:
         if i == niter:
             break
         delta = np.linalg.solve(Df(x0),-f(x0))
+        norm = np.linalg.norm(delta)
         x1 = delta + x0
-        if np.linalg.norm(x1-x0) < tol:
+        if norm < tol or norm > .1:
             break
         x0 = x1
         i+=1
