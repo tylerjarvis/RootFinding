@@ -26,7 +26,7 @@ class Polynomial(object):
         The total degree of the lead_term
     lead_coeff
         The coeff of the lead_term
-        
+
     Parameters
     ----------
     coeff : ndarray
@@ -68,6 +68,11 @@ class Polynomial(object):
             self.coeff = coeff
         elif isinstance(coeff,str):
             self.coeff = makePolyCoeffMatrix(coeff)
+        elif isinstance(coeff, tuple):
+            dim = len(coeff[0])
+            deg = coeff[1]
+            self.coeff = np.zeros([deg+1 for i in range(dim)])
+            self.coeff[coeff[0]] = 1
         else:
             raise ValueError('coeff must be an np.array or a string!')
         if clean_zeros:
@@ -138,7 +143,7 @@ class Polynomial(object):
         if len(point) != len(self.coeff.shape):
             raise ValueError('Cannot evaluate polynomial in {} variables at point {}'\
             .format(self.dim, point))
-            
+
     def grad(self, point):
         '''
         Evaluates the gradient of the polynomial at the given point. This method is overridden
@@ -198,7 +203,7 @@ class MultiCheb(Polynomial):
         The total degree of the lead_term.
     lead_coeff
         The coeff of the lead_term.
-        
+
     Parameters
     ----------
     dim : int
@@ -337,7 +342,7 @@ class MultiCheb(Polynomial):
     def _mon_mult1(initial_matrix, idx, dim_mult):
         """
         Executes monomial multiplication in one dimension.
-        
+
         Parameters
         ----------
         initial_matrix : array_like
@@ -353,7 +358,7 @@ class MultiCheb(Polynomial):
             Coeff that are the result of the one dimensial monomial multiplication.
 
         """
-        
+
         p1 = np.zeros(initial_matrix.shape + idx)
         p1[slice_bottom(initial_matrix)] = initial_matrix
 
@@ -376,10 +381,10 @@ class MultiCheb(Polynomial):
                 initial_matrix = MultiCheb._fold_in_i_dir(initial_matrix, number_of_dim, i, shape_of_self[i], idx[i])
         if p1.shape != initial_matrix.shape:
             idx = [i-j for i,j in zip(p1.shape,initial_matrix.shape)]
-            
+
             result = np.zeros(np.array(initial_matrix.shape) + idx)
             result[slice_top(initial_matrix)] = initial_matrix
-            initial_matrix = result            
+            initial_matrix = result
         Pf = p1 + initial_matrix
         return .5*Pf
 
@@ -426,17 +431,17 @@ class MultiCheb(Polynomial):
             value of the polynomial at the given point
         '''
         super(MultiCheb, self).evaluate_at(point)
-        
+
         c = self.coeff
         n = len(c.shape)
         c = cheb.chebval(point[0],c)
         for i in range(1,n):
             c = cheb.chebval(point[i],c,tensor=False)
         return c
-        
+
     def grad(self, point):
         '''
-        Evaluates the gradient of the polynomial at the given point. 
+        Evaluates the gradient of the polynomial at the given point.
 
         Parameters
         ----------
@@ -461,7 +466,7 @@ class MultiCheb(Polynomial):
             out[spot] = chebvalnd(point,i)
             spot+=1
         return out
-        
+
 ###############################################################################
 
 #### MULTI_POWER ##############################################################
@@ -499,7 +504,7 @@ class MultiPower(Polynomial):
         monomial ordering desired for Grobner calculations.
     lead_term : list
         the index of the current leading coefficent.
-            
+
     Methods
     -------
     __add__
@@ -516,7 +521,7 @@ class MultiPower(Polynomial):
         Multiplies a power monomial by a power polynomial.
     evaluate_at
         Evaluate a power polynomial at a point.
-        
+
     """
     def __init__(self, coeff, order='degrevlex', lead_term=None, clean_zeros = True):
         super(MultiPower, self).__init__(coeff, order, lead_term, clean_zeros)
@@ -656,7 +661,7 @@ class MultiPower(Polynomial):
             value of the polynomial at the given point
         '''
         super(MultiPower, self).evaluate_at(point)
-        
+
         c = self.coeff
         n = len(c.shape)
         c = poly.polyval(point[0],c)
@@ -666,7 +671,7 @@ class MultiPower(Polynomial):
             
     def grad(self, point):
         '''
-        Evaluates the gradient of the polynomial at the given point. 
+        Evaluates the gradient of the polynomial at the given point.
 
         Parameters
         ----------
@@ -791,14 +796,14 @@ def poly2cheb(P):
 def chebvalnd(x,c):
     """
     Evaluate a MultiCheb object at a point x
-    
+
     Parameters
     ----------
-    x : ndarray 
+    x : ndarray
         Point to evaluate at
-    c : ndarray 
+    c : ndarray
         Tensor of Chebyshev coefficients
-        
+
     Returns
     -------
     c : float
@@ -810,18 +815,18 @@ def chebvalnd(x,c):
     for i in range(1,n):
         c = cheb.chebval(x[i],c,tensor=False)
     return c
-    
+
 def polyvalnd(x,c):
     """
     Evaluate a MultiPower object at a point x
-    
+
     Parameters
     ----------
-    x : ndarray 
+    x : ndarray
         Point to evaluate at
-    c : ndarray 
+    c : ndarray
         Tensor of Polynomial coefficients
-        
+
     Returns
     -------
     c : float
@@ -833,38 +838,44 @@ def polyvalnd(x,c):
     for i in range(1,n):
         c = poly.polyval(x[i],c,tensor=False)
     return c
-    
+
+############################################################################
+
+#### CHEBYSHEV APPROXIMATOR ################################################
+def cheb_approx(data):
+    pass
+
 #polynomial generator
 def solve(poly1, poly2):
     """
     multiplies two polynomials given only their coefficients
-    
+
     parameters
     ----------
-    poly1,poly2 (tuple) 
-        tuples of coefficients of polynomials, in descending order of degree 
-        
+    poly1,poly2 (tuple)
+        tuples of coefficients of polynomials, in descending order of degree
+
     returns
     -------
     a tuple of coefficents for the resultant polynomial
-    
+
     """
     v1 = np.array(poly1)
     v2 = np.array(poly2)
 
     #multiply coefficients
     M = np.outer(v2,v1.T)
-    
+
     poly_coeffs = []
     #sum reverse diagonals
     #reverse matrix
     M2 = M[:,np.arange(M.shape[1])[::-1]]
-    
+
     #sum diagonals
-    rows,cols = M2.shape 
+    rows,cols = M2.shape
     for i in range(-(rows-1),cols):
         poly_coeffs.append(np.trace(M2, i))
-    
+
     #print('\n', poly1, poly2, poly_coeffs[::-1])
     return tuple(poly_coeffs[::-1])
 
@@ -903,7 +914,7 @@ def gen_poly(degree, variables=1):
     |      1  -2 |
     |  1   1  -2 | = 1 -5 6 => x^2 -5x +6
     | -3  -3   6 |
-    
+
     T_m*T_n=.5(T_(m+n)+T_(m-n))
 
     returns roots - list of roots
@@ -929,10 +940,9 @@ def gen_poly2(rootList = [], variables=1):
     """
     if rootList is None:
         return [], []
-    
+
     deg = np.zeros((len(rootList),2))
     for i,v in enumerate(rootList):
         #append tuples of form (1,-x) where x is a root
         deg[i] = (1,-1*v)
     return rootList, np.array(solve_poly(deg))[::-1]
-
