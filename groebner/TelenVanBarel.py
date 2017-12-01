@@ -478,7 +478,7 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy
         Each row of the array contains a term in the matrix. The i'th row corresponds to
         the i'th column in the matrix.
     matrix_shape_stuff : tuple
-        Terrible name I know. It has 3 values, the first is how many columnns are in the
+        Terrible name I know. It has 3 values, the first is how many columns are in the
         'highest' part of the matrix. The second is how many are in the 'others' part of
         the matrix, and the third is how many are in the 'xs' part.
     accuracy : float
@@ -520,8 +520,14 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy
     matrix_terms[highest_num:highest_num+others_num] = matrix_terms[highest_num:highest_num+others_num][P]
     P = 0
 
-    #Get rid of 0 rows at the bottom.
+    # Check if there are no solutions
     rank = np.sum(np.abs(matrix.diagonal())>accuracy)
+    # extra_block = matrix[rank:, -matrix_shape_stuff[2]:]
+    # Q,R = qr(extra_block)
+    # if np.sum(np.abs(R.diagonal())>accuracy) == matrix_shape_stuff[2]:
+    #     raise ValueError("The system given has no roots.")
+
+    #Get rid of 0 rows at the bottom.
     matrix = matrix[:rank]
     return matrix, matrix_terms
 

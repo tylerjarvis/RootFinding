@@ -135,8 +135,6 @@ def groebnerMultMatrix(polys, poly_type, method):
     '''
     # Calculate groebner basis
     if method == 'Groebner':
-        #G = Groebner(polys)
-        #GB = G.solve()
         GB = F4(polys)
     elif method == 'Macaulay':
         GB = Macaulay(polys)
@@ -160,10 +158,7 @@ def groebnerMultMatrix(polys, poly_type, method):
     return GB, m_f, var_dict
 
 def sortVB(VB):
-    '''
-
-    Sorts the Vector Basis into degrevlex order so the eigensolve is faster (in theory).
-
+    '''Sorts the Vector Basis into degrevlex order so the eigensolve is faster (in theory).
     Parameters
     ----------
     VB : numpy array
@@ -202,7 +197,6 @@ def TVBMultMatrix(polys, poly_type, method):
     basisDict, VB, degree = TelenVanBarel(polys)
         
     VB = sortVB(VB)
-
     dim = max(f.dim for f in polys)
 
     # Get random polynomial f
