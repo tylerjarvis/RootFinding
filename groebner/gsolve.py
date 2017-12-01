@@ -1,5 +1,5 @@
 # imports from groebner
-from groebner.polynomial import Polynomial, MultiCheb, MultiPower
+from groebner.polynomial import Polynomial, MultiCheb, MultiPower, is_power
 from groebner.utils import Term
 import groebner.utils as utils
 
@@ -33,7 +33,7 @@ def F4(polys, reducedGroebner = True, accuracy = 1.e-10, phi = True):
         The polynomials in the Groebner Basis.
     '''
 
-    power = isinstance(polys[0],MultiPower)
+    power = is_power(polys)
     old_polys = list()
     new_polys = polys
     polys_were_added = True
@@ -187,9 +187,9 @@ def phi_criterion(all_polys,i,j,B,phi):
             2) there exists an l such that (i,l) or (j,l) will not be considered in
             the add_phi_to_matrix() method and LT(l) divides lcm(LT(i),LT(j)).
         Otherwise, true.
-        
+
         See proposition 8 in "Section 10: Improvements on Buchburger's algorithm.
-        
+
     Parameters
     ----------
     all_polys : list
@@ -278,12 +278,12 @@ def add_r_to_matrix(matrix_polys, all_polys):
     Finds the r polynomials and adds them to the matrix.
     First makes Heap out of all potential monomials, then finds polynomials
     with leading terms that divide it and add them to the matrix.
-    
+
     Parameters
     ----------
     matrix_polys : list
     all_polys : list
-    
+
     Returns
     -------
     matrix_polys : list
@@ -360,12 +360,12 @@ def calc_r(m, polys):
 def sort_matrix_terms(matrix_terms):
     '''Sorts the matrix_terms by term order.
     So the highest terms come first, the lowest ones last.
-    
+
     Parameters
     ----------
     matrix_terms : ndarray
         Array where each row is one of the terms in the matrix.
-        
+
     Returns
     -------
     matrix_terms : ndarray
@@ -440,7 +440,7 @@ def get_polys_from_matrix(matrix, matrix_terms, rows, power):
         to monomials, and entries corresponding to coefficients.
     matrix_terms : array-like
         The column labels for matrix in order. Contains Term objects.
-    rows : iterable 
+    rows : iterable
         The rows for which to create polynomial objects. Contains integers.
     power : bool
         If true, the polynomials returned will be MultiPower objects.
@@ -572,7 +572,7 @@ def get_new_polys(matrix, matrix_terms, accuracy=1.e-10, power=False):
 def reduce_groebner_basis(groebner_basis, power):
     '''
     Uses triangular solve to get a fully reduced Groebner basis.
-    
+
     Parameters
     ----------
     groebner_basis : list
@@ -591,11 +591,11 @@ def reduce_groebner_basis(groebner_basis, power):
         poly.coeff = poly.coeff/poly.lead_coeff
         groebner_basis[0] = poly
         return groebner_basis
-    
+
     #This should be done eventually, Just make sure to pull out only the original GB.
     #matrix_polys, matrix_terms = add_r_to_matrix(groebner_basis, groebner_basis)
     #matrix, matrix_terms = create_matrix(matrix_polys, matrix_terms)
-        
+
     matrix, matrix_terms = create_matrix(groebner_basis)
     matrix = utils.triangular_solve(matrix)
     rows = np.arange(matrix.shape[0])
