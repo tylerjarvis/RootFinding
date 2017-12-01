@@ -56,14 +56,6 @@ def new_macaulay(initial_poly_list, global_accuracy = 1.e-10):
 
     return final_polys
 
-def build_matrix(matrix, dim, degree):
-
-    height = matrix.shape[0]*dim
-    length = 1
-    np.zeros((height, length))
-
-
-
 def add_polys_to_deg_x(degree, poly_coeff_list, polys_old, mons, Power):
     """
     Adds polynomials to a given degree.
