@@ -1,6 +1,7 @@
 # A collection of functions used in the F4 Macaulay and TVB solvers
 import numpy as np
 from scipy.linalg import qr, solve_triangular
+from scipy.misc import comb
 
 class InstabilityWarning(Warning):
     pass
@@ -124,10 +125,9 @@ def inverse_P(P):
     scipy.linalg.qr : QR decomposition (with pivoting=True).
 
     '''
-    inverse = [0] * len(P)
-    for i, p in enumerate(P):
-        inverse[p] = i
-    return inverse    
+    inverse = np.empty_like(P)
+    inverse[P] = np.arange(len(P))
+    return inverse
 
 def lcm(a,b):
     '''Finds the LCM of the two leading terms of polynomials a and b
@@ -339,7 +339,7 @@ def row_swap_matrix(matrix):
     ----------
     matrix : 2D numpy array
         The matrix whose rows need to be switched
-
+    
     Returns
     -------
     2D numpy array
@@ -356,7 +356,7 @@ def row_swap_matrix(matrix):
     leading_mon_columns = list()
     for row in matrix:
         leading_mon_columns.append(np.where(row!=0)[0][0])
-
+    #print(np.argsort(leading_mon_columns))
     return matrix[np.argsort(leading_mon_columns)]
 
 def get_var_list(dim):
@@ -708,3 +708,230 @@ def mon_combos(mon, numLeft, spot = 0):
         answers += mon_combos(temp, numLeft-i, spot+1)
     return answers
 
+def num_mons_full(deg, dim):
+    '''Returns the number of monomials of a certain dimension and less than or equal to a certian degree.
+    
+    Parameters
+    ----------
+    deg : int.
+        The degree desired.
+    dim : int
+        The dimension desired.
+    Returns
+    -------
+    num_mons : int
+        The number of monomials of the given degree and dimension.
+    '''
+    return comb(deg+dim,dim,exact=True)
+
+def num_mons(deg, dim):
+    '''Returns the number of monomials of a certain degree and dimension.
+    
+    Parameters
+    ----------
+    deg : int.
+        The degree desired.
+    dim : int
+        The dimension desired.
+    Returns
+    -------
+    num_mons : int
+        The number of monomials of the given degree and dimension.
+    '''
+    return comb(deg+dim-1,deg,exact=True)
+
+def sort_polys_by_degree(polys, ascending = True):
+    '''Sorts the polynomials by their degree.
+    
+    Parameters
+    ----------
+    polys : list.
+        A list of polynomials.
+    ascending : bool
+        Defaults to True. If True the polynomials are sorted in order of ascending degree. If False they
+        are sorted in order of descending degree.
+    Returns
+    -------
+    sorted_polys : list
+        A list of the same polynomials, now sorted.   
+    '''
+    degs = [poly.degree for poly in polys]
+    argsort_list = np.argsort(degs)
+    sorted_polys = list()
+    for i in argsort_list:
+        sorted_polys.append(polys[i])
+    if ascending:
+        return sorted_polys
+    else:
+        return sorted_polys[::-1]
+
+def deg_d_polys(polys, deg, dim):
+    '''Finds the rows of the Macaulay Matrix of degree deg.
+    
+    Iterating through this for each needed degree creates a full rank matrix in all dimensions, 
+    getting rid of the extra rows that are there when we do all the monomial multiplications.
+    
+    The idea behind this algorithm comes from that cool triangle thing I drew on a board once, I have
+    no proof of it, but it seems to work real good.
+    
+    It is also less stable than the other version.
+    
+    Parameters
+    ----------
+    polys : list.
+        A list of polynomials.
+    deg: int
+        The desired degree.
+    dim: int
+        The dimension of the polynomials.
+    Returns
+    -------
+    poly_coeff_list : list
+        A list of the polynomials of degree deg to be added to the Macaulay Matrix. 
+    '''
+    ignoreVar = 0
+    poly_coeff_list = list()
+    for poly in polys:
+        mons = mon_combosHighest([0]*dim,deg - poly.degree)
+        for mon in mons:
+            if np.all([mon[i] <= (polys[i].degree - 1) for i in range(ignoreVar)]):
+                poly_coeff_list.append(poly.mon_mult(mon, returnType = 'Matrix'))
+        ignoreVar += 1
+    return poly_coeff_list
+
+def arrays(deg,dim,mon):
+    '''Finds a part of the permutation array.
+        
+    Parameters
+    ----------
+    deg : int.
+        The degree of the Macaulay matrix that the row is in.
+    dim: int
+        The dimension of the polynomials in the Macaualy matrix that the row is in.
+    mon: int
+        The monomial we are multiplying by.
+        0 -> multiplying by x0
+        1 -> multiplying by x1
+        ...
+        n -> multiplying by xn
+    Returns
+    -------
+    arrays : numpy array
+        The array is full of True/False values, using np.where the array is True will generate the permutation array.
+    '''
+    if dim-1==mon:
+        total = num_mons(deg, dim)
+        end = num_mons(deg, dim-1)
+        return [True]*(total-end)+[False]*end
+    elif deg==1:
+        temp = [False]*(dim)
+        temp[dim-mon-1] = True
+        return temp
+    else:
+        return memoized_arrays(deg-1,dim,mon)+memoized_arrays(deg,dim-1,mon)
+
+def memoize(function):
+    cache = {}
+    def decorated_function(*args):
+        if args in cache:
+            return cache[args]
+        else:
+            val = function(*args)
+            cache[args] = val
+            return val
+    return decorated_function
+
+memoized_arrays = memoize(arrays)
+
+def permutation_array(deg,dim,mon):
+    '''Finds the permutation array to multiply a row of a matrix by a certain monomial.
+            
+    Parameters
+    ----------
+    deg : int.
+        The degree of the Macaulay matrix that the row is in.
+    dim: int
+        The dimension of the polynomials in the Macaualy matrix that the row is in.
+    mon: int
+        The monomial we are multiplying by.
+        0 -> multiplying by x0
+        1 -> multiplying by x1
+        ...
+        n -> multiplying by xn
+    Returns
+    -------
+    permutation_array : numpy array
+        Permutting a row in the Macaulay matrix by this array will be equivalent to multiplying by mon.
+    '''
+    if mon == dim -1:
+        array = [False]
+        for d in range(1,deg+1):
+            array = arrays(d,dim,mon) + array
+    else:
+        array = [False]
+        first = [False]*(dim)
+        first[dim-mon-1] = True
+        array = first + array
+        for d in range(2,deg+1):
+            first = first + arrays(d,dim-1,mon)
+            array = first+array
+    return np.array(inverse_P(np.hstack((np.where(~np.array(array))[0],np.where(array)[0]))))
+
+def all_permutations(deg, dim, matrixDegree, permutations = None, current_degree = 2):
+    '''Finds all the permutation arrays needed to create a Macaulay Matrix.
+        
+    Parameters
+    ----------
+    deg: int
+        Permutation arrays will be computed for all monomials up to this degree.
+    dim: int
+        The dimension the monomials for which permutation degrees.
+    matrixDegree: int
+        The degree of the Macaulay Matrix that will be created. This is needed to get the length of the rows.
+    permutations: dict
+        Defaults to none. The permutations that have already been computed.
+    current_degree: int
+        Defaults to 2. The degree of permutations that have already been computed.
+    Returns
+    -------
+    permutations : dict
+        The keys of the dictionary are tuple representation of the monomials, and each value is
+        the permutation array corresponding to multiplying by that monomial.
+    '''    
+    if permutations is None:
+        permutations = {}
+        permutations[tuple([0]*dim)] = np.arange(np.sum([num_mons(deg,dim) for deg in range(matrixDegree+1)]))
+        for i in range(dim):
+            mon = [0]*dim
+            mon[i] = 1
+            mon = tuple(mon)
+            permutations[mon] = permutation_array(matrixDegree,dim,dim-1-i)
+
+    varList = get_var_list(dim)
+
+    for d in range(current_degree,deg+1):
+        mons = mon_combosHighest([0]*dim,d)
+        for mon in mons:
+            for var in varList:
+                diff = tuple(np.subtract(mon,var))
+                if diff in permutations:
+                    permutations[tuple(mon)] = permutations[var][permutations[diff]]
+                    break
+    return permutations
+
+def memoize_permutaions(function):
+    """Specially designed for memoizing all_permutations.
+    """
+    cache = {}
+    def decorated_function(*args):
+        if args[0] == 'cache':
+            return cache
+        if args[:3] in cache:
+            return cache[args[:3]]
+        else:
+            val = function(*args)
+            cache[args[:3]] = val
+            return val
+    return decorated_function
+
+memoized_all_permutations = memoize_permutaions(all_permutations)

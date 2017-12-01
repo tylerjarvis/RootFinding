@@ -80,6 +80,7 @@ class Polynomial(object):
         self.dim = self.coeff.ndim
         self.order = order
         self.shape = self.coeff.shape
+        self.jac = None
         if lead_term is None:
             self.update_lead_term()
         else:
@@ -453,13 +454,17 @@ class MultiCheb(Polynomial):
             Gradient of the polynomial at the given point.
         '''
         super(MultiCheb, self).evaluate_at(point)
-
-        c = self.coeff
-        n = len(c.shape)
-        out = np.empty(n,dtype="complex_")
-        for i in range(n):
-            d = cheb.chebder(c,axis=i)
-            out[i] = chebvalnd(point,d)
+        
+        out = np.empty(self.dim,dtype="complex_")
+        if self.jac is None:
+            jac = list()
+            for i in range(self.dim):
+                jac.append(cheb.chebder(self.coeff,axis=i))
+            self.jac = jac
+        spot = 0
+        for i in self.jac:
+            out[spot] = chebvalnd(point,i)
+            spot+=1
         return out
 
 ###############################################################################
@@ -663,7 +668,7 @@ class MultiPower(Polynomial):
         for i in range(1,n):
             c = poly.polyval(point[i],c,tensor=False)
         return c
-
+            
     def grad(self, point):
         '''
         Evaluates the gradient of the polynomial at the given point.
@@ -679,13 +684,17 @@ class MultiPower(Polynomial):
             Gradient of the polynomial at the given point.
         '''
         super(MultiPower, self).evaluate_at(point)
-
-        c = self.coeff
-        n = len(c.shape)
-        out = np.empty(n,dtype="complex_")
-        for i in range(n):
-            d = poly.polyder(c,axis=i)
-            out[i] = polyvalnd(point,d)
+        
+        out = np.empty(self.dim,dtype="complex_")
+        if self.jac is None:
+            jac = list()
+            for i in range(self.dim):
+                jac.append(poly.polyder(self.coeff,axis=i))
+            self.jac = jac
+        spot = 0
+        for i in self.jac:
+            out[spot] = polyvalnd(point,i)
+            spot+=1
         return out
 
 ###############################################################################
