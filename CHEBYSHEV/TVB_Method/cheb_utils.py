@@ -4,9 +4,6 @@ import itertools
 from scipy.linalg import qr, solve_triangular
 from scipy.misc import comb
 
-class InstabilityWarning(Warning):
-    pass
-
 class TVBError(RuntimeError):
     pass
 
@@ -55,22 +52,6 @@ class Term(object):
                     if i > j:
                         return False
                 return False
-
-def divides(mon1, mon2):
-    '''
-    parameters
-    ----------
-    mon1 : tuple
-        contains the exponents of the monomial divisor
-    mon2 : tuple
-        contains the exponents of the monomial dividend
-
-    returns
-    -------
-    boolean
-        true if mon1 divides mon2, false otherwise
-    '''
-    return np.all(np.subtract(mon2, mon1) >= 0)
 
 def row_swap_matrix(matrix):
     '''Rearrange the rows of matrix so it is close to upper traingular.
@@ -274,29 +255,6 @@ def mon_combos(mon, numLeft, spot = 0):
         temp[spot] = i
         answers += mon_combos(temp, numLeft-i, spot+1)
     return answers
-
-def inverse_P(P):
-    '''The inverse of P, the array with column switching indexes.
-
-    Parameters
-    ----------
-    P : array-like
-        1D array P returned by scipy's QRP decomposition.
-
-    Returns
-    -------
-    1D numpy array
-        The indexes needed to switch the columns back to their original
-        positions.
-
-    See Also
-    --------
-    scipy.linalg.qr : QR decomposition (with pivoting=True).
-
-    '''
-    inverse = np.empty_like(P)
-    inverse[P] = np.arange(len(P))
-    return inverse
 
 def sort_polys_by_degree(polys, ascending = True):
     '''Sorts the polynomials by their degree.
