@@ -3,7 +3,7 @@ import itertools
 from scipy.linalg import qr, solve_triangular, qr_multiply
 from TVB_Method.cheb_class import Polynomial, MultiCheb
 from TVB_Method.cheb_utils import row_swap_matrix, clean_zeros_from_matrix, TVBError, \
-                            slice_top, get_var_list, mon_combos, mon_combosHighest, inverse_P, \
+                            slice_top, get_var_list, mon_combos, mon_combosHighest, \
                             sort_polys_by_degree
 import time
 import random
@@ -11,7 +11,7 @@ from matplotlib import pyplot as plt
 from scipy.misc import comb
 from math import factorial
 
-def TelenVanBarel(initial_poly_list, run_checks = True, accuracy = 1.e-10):
+def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
     """Uses Telen and VanBarels matrix reduction method to find a vector basis for the system of polynomials.
 
     Parameters
@@ -34,7 +34,6 @@ def TelenVanBarel(initial_poly_list, run_checks = True, accuracy = 1.e-10):
     degree : int
         The degree of the Macaualy matrix that was constructed.
     """
-    power = False
     dim = initial_poly_list[0].dim
     poly_coeff_list = []
     degree = find_degree(initial_poly_list)
@@ -42,21 +41,12 @@ def TelenVanBarel(initial_poly_list, run_checks = True, accuracy = 1.e-10):
     #This sorting is required for fast matrix construction. Ascending should be False.
     initial_poly_list = sort_polys_by_degree(initial_poly_list, ascending = False)
 
-    if run_checks:
-        #Checks to make sure TVB will work.
-        if not has_top_xs(initial_poly_list):
-            raise TVBError("Doesn't have all x^n's on diagonal. Do linear transformation")
-        S = get_S_Poly(initial_poly_list)
-        if isinstance(S,Polynomial):
-            initial_poly_list.append(S)
-            degree = find_degree(initial_poly_list)
-
     #matrix, matrix_terms, matrix_shape_stuff = construction(initial_poly_list, degree, dim)
     for i in initial_poly_list:
-       poly_coeff_list = add_polys(degree, i, poly_coeff_list)
+        poly_coeff_list = add_polys(degree, i, poly_coeff_list)
     matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list, degree, dim)
 
-    matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy = accuracy)
+    matrix, matrix_terms = rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, accuracy = accuracy)
 
     height = matrix.shape[0]
     matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
@@ -64,10 +54,10 @@ def TelenVanBarel(initial_poly_list, run_checks = True, accuracy = 1.e-10):
 
     VB = matrix_terms[height:]
 
-    basisDict = makeBasisDict(matrix, matrix_terms, VB, power, [degree]*dim)
+    basisDict = makeBasisDict(matrix, matrix_terms, VB, [degree]*dim)
     return basisDict, VB, degree
 
-def makeBasisDict(matrix, matrix_terms, VB, power, remainder_shape):
+def makeBasisDict(matrix, matrix_terms, VB, remainder_shape):
     '''Calculates and returns the basisDict.
 
     This is a dictionary of the terms on the diagonal of the reduced TVB matrix to the terms in the Vector Basis.
@@ -237,7 +227,7 @@ def create_matrix(poly_coeffs, degree, dim):
     matrix = row_swap_matrix(matrix)
     return matrix, matrix_terms, matrix_shape_stuff
 
-def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy = 1.e-10):
+def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, accuracy = 1.e-10):
     ''' Reduces a Telen Van Barel Macaulay matrix.
 
     This function does the same thing as rrqr_reduceTelenVanBarel but uses qr_multiply instead of qr and a multiplication
@@ -296,224 +286,3 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy
     rank = np.sum(np.abs(matrix.diagonal())>accuracy)
     matrix = matrix[:rank]
     return matrix, matrix_terms
-
-def has_top_xs(polys):
-    '''Finds out if the Macaulay Matrix will have an x^d in each dimension.
-
-    TVB redction will work if an only if this is true. So in 2 dimensions a Macaulay matrix of degree d
-    needs to have a x^d and y^d in it, in 3 dimensions it needs an x^d, y^d and z^d etc.
-
-    Parameters
-    ----------
-    polys : list
-        The polynomials with which the Macaulay Matrix is created.
-    Returns
-    -------
-    has_top_xs : bool
-        True if it has all the x^d's; False otherwise.
-    '''
-    dim = polys[0].dim
-
-    hasXs = np.zeros(dim)
-    #Make everything behind the diagonal 0,
-    for poly in polys:
-        deg = poly.degree
-
-        possibleXs = set()
-        for row in deg*get_var_list(dim):
-            possibleXs.add(tuple(deg*np.array(row)))
-
-        for mon in zip(*np.where(poly.coeff!=0)):
-            #Checks to see if it's an x^n.
-            if mon in possibleXs:
-                hasXs += mon
-    return np.all(hasXs)
-
-def getDiagPoly(poly):
-    '''Gets the diagonal polynomial of a polynomial.
-
-    This is defined as only the monomials in a polynomial that are of the highest degree. Everything else is 0.
-
-    Parameters
-    ----------
-    poly : Polynomial
-        The polynomial of interest.
-    Returns
-    -------
-    poly : Polynomial
-        The diagonal polynomial.
-    '''
-    diagCoeff = poly.coeff.copy()
-    deg = poly.degree
-    for mon in zip(*np.where(diagCoeff!=0)):
-        if np.sum(mon) != deg:
-            diagCoeff[mon] = 0
-    return MultiCheb(diagCoeff)
-
-def topDegreeMatrix(polys, degree):
-    '''Gets the upper left corner of a Macaulay Matrix, the top degree part.
-
-    Only includes the columns that are monomials of highest degree and the rows that have non-zero elements in those columns
-
-    Parameters
-    ----------
-    polys : list
-        The polynomials used to make the matrix.
-    degree : int
-        The degree of the Macaulay Matrix to be made.
-    Returns
-    -------
-    matrix : numpy array
-        The matrix.
-    matrixMons : list
-        A list of the monomials that were used to create the matrix. The i'th element is the monomial used to create the
-        i'th row of the matrix.
-    full : numpy array
-        An array of zeros with the shape of the degree of the matrix in each dimension.
-    '''
-    dim = polys[0].dim
-    power = False
-
-    diagPolys = list()
-    for poly in polys:
-        diagPolys.append(getDiagPoly(poly))
-
-    diagSpots = np.vstack(mon_combosHighest([0]*dim,degree))
-    diagPlaces = list()
-    for i in range(dim):
-        diagPlaces.append(diagSpots.T[i])
-
-    full = np.zeros([degree+1]*dim)
-
-    matrixRows = list()
-    matrixMons = list()
-    for diagPoly in diagPolys:
-        mons = mon_combosHighest([0]*dim,degree - diagPoly.degree)
-        matrixMons.append(mons)
-        for mon in mons:
-            coeff = diagPoly.mon_mult(mon, returnType = 'Matrix')
-            full[slice_top(coeff)] = coeff
-            matrixRows.append(full[diagPlaces])
-            full[slice_top(coeff)] = np.zeros_like(coeff)
-    matrix = np.vstack(matrixRows)
-    return matrix, matrixMons, full
-
-def getFPolys(fcoeffs, matrixMons, full, power):
-    '''Finds the f-polynomials needed to make an S polynomial.
-
-    Given a set of polynomials p1,p2 ... pn S = p1f1 + p2f2 + ... +pnfn. matrixMons is the monomials in the fPolys
-    and fcoeffs is all the coefficients for them.
-
-    Parameters
-    ----------
-    fcoeffs : numpy array
-        Each entry is a coefficient in one of the fpolys. It is in the same order as the monomials in matrixMons.
-    matrixMons : list
-        Each entry is a list of the monomials in one f polynomial. They are in the same order as the fcoeffs.
-    full : numpy array
-        A matrix of zeros that is the maximum size of the coefficient matrix for an f polynomial. So each f polynomial
-        starts as a copy of it and then the fcoeffs are put in the matrixMons spots.
-    power : bool
-        True if the fPolys should be MultiPower objects. False if they should be MultiCheb.
-    Returns
-    -------
-    fPolys : list
-        The f polynomials.
-    '''
-    fPolys = list()
-    for mons in matrixMons:
-        fCoeff = full.copy()
-        for mon in mons:
-            fCoeff[tuple(mon)] = fcoeffs[0]
-            fcoeffs = fcoeffs[1:]
-        if power:
-            fPolys.append(MultiPower(fCoeff))
-        else:
-            fPolys.append(MultiCheb(fCoeff))
-    return fPolys
-
-def finalizeS(polys, S):
-    '''Makes sure an S polynomial will make TVB work, if not, finds a new one.
-
-    Parameters
-    ----------
-    polys : list
-        The original polys used to make a TVB matrix.
-    S : Polyomial
-        A potential S polynomial to make TVB work.
-    Returns
-    -------
-    finalizeS : Polynomail
-        A polynomial that will make TVB work. If S works, S is returned, otherwise a new potential S2 is calculated
-        and finalizeS is called again on S2.
-    '''
-    #print(S.coeff)
-
-    if S.degree <= 0:
-        raise TVBError('Polys are non-zero dimensional')
-
-    dim = polys[0].dim
-    power = isinstance(polys[0],MultiPower)
-    degree = find_degree(polys)
-    #print(degree)
-
-    matrix, matrixMons, full = topDegreeMatrix(polys+list([S]), degree)
-    Q,R,P = qr(matrix, pivoting = True)
-    #print(R.diagonal())
-    if abs(R.diagonal()[-1]) > 1.e-10:
-        return S
-
-    fPolys = getFPolys(clean_zeros_from_matrix(Q.T[-1]), matrixMons, full, power)
-    if power:
-        S2 = MultiPower(np.array([0]))
-    else:
-        S2 = MultiCheb(np.array([0]))
-    for i in range(len(polys)):
-        poly = polys[i]
-        f = fPolys[i]
-        S2 += poly*f
-    S2 += S*fPolys[-1]
-    S2.__init__(clean_zeros_from_matrix(S2.coeff))
-    return finalizeS(polys, S2)
-
-def get_S_Poly(polys):
-    '''Gets an S polynomial if needed to make sure TVB will work.
-
-    The code checks if an S is needed first. If so, it calculates one potential S, and then calls finalizeS on it
-    to make sure that S is actually valid, and if not to find a better one.
-
-    Parameters
-    ----------
-    polys : list
-        The original polys used to make a TVB matrix.
-    Returns
-    -------
-    get_S_Poly : int or Polynomial
-        Returns -1 if no S-Poly is needed, menaing TVB will work fine as is. Otherwise, returns a Polynomial Object
-        S that when added to the basis will make TVB work.
-    '''
-    dim = polys[0].dim
-    power = False
-    degree = find_degree(polys)
-
-    matrix, matrixMons, full = topDegreeMatrix(polys, degree)
-
-    #print(matrix)
-    Q,R,P = qr(matrix, pivoting = True)
-    #print(R.diagonal())
-    if abs(R.diagonal()[-1]) > 1.e-10:
-        return -1 #It works fine.
-    #return -1 #For testing, this breaks it.
-    fPolys = getFPolys(clean_zeros_from_matrix(Q.T[-1]), matrixMons, full, power)
-    if power:
-        S = MultiPower(np.array([0]))
-    else:
-        S = MultiCheb(np.array([0]))
-    for i in range(len(polys)):
-        poly = polys[i]
-        f = fPolys[i]
-        S += poly*f
-    S.__init__(clean_zeros_from_matrix(S.coeff))
-
-    #Now make a new function to check if it's done and if not keep going.
-    return finalizeS(polys, S)
