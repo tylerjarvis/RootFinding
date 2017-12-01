@@ -1,11 +1,9 @@
 import numpy as np
 import itertools
 import warnings
-from groebner.polynomial import MultiCheb, MultiPower, is_power
-from groebner.Macaulay import Macaulay, new_macaulay
-from groebner.TelenVanBarel import TelenVanBarel
-from groebner.gsolve import F4
-from groebner.utils import Term, get_var_list, divides, TVBError, InstabilityWarning, match_size, match_poly_dimensions
+from TVB_Method.cheb_class import MultiCheb
+from TVB_Method.TVB import TelenVanBarel
+from TVB_Method.cheb_utils import Term, get_var_list, divides, TVBError, InstabilityWarning, match_size, match_poly_dimensions
 
 '''
 This module contains the tools necessary to find the points of the variety of the
@@ -31,9 +29,9 @@ def roots(polys, method = 'Groebner'):
     polys = match_poly_dimensions(polys)
 
     # Determine polynomial type
-    poly_type = is_power(polys, return_string = True)
+    poly_type = "MultiCheb"
 
-    if method == 'TVB' or method == 'new_TVB':
+    if method == 'TVB':
         try:
             m_f, var_dict = TVBMultMatrix(polys, poly_type, method)
         except TVBError as e:
@@ -49,8 +47,6 @@ def roots(polys, method = 'Groebner'):
                 return -1
             else:
                 raise e
-    else:
-        GB, m_f, var_dict = groebnerMultMatrix(polys, poly_type, method)
 
     # both TVBMultMatrix and groebnerMultMatrix will return m_f as
     # -1 if the ideal is not zero dimensional or if there are no roots
@@ -107,7 +103,7 @@ def roots(polys, method = 'Groebner'):
                 var_value = GB_poly.evaluate_at(root) * -1
                 root[pos] = var_value
         roots.append(root)
-        #roots.append(newton_polish(polys,root))
+        #roots.append(newton_polish(polys,root,niter=1000,tol=1e-10))
     return roots
 
 def groebnerMultMatrix(polys, poly_type, method):
@@ -199,8 +195,11 @@ def TVBMultMatrix(polys, poly_type, method):
     var_dict : dictionary
         Maps each variable to its position in the vector space basis
     '''
-    basisDict, VB, degree = TelenVanBarel(polys)
-        
+    if method == 'TVB':
+        basisDict, VB, degree = TelenVanBarel(polys, run_checks = True)
+    else:
+        basisDict, VB, degree = new_TelenVanBarel(polys)
+
     VB = sortVB(VB)
 
     dim = max(f.dim for f in polys)
@@ -523,33 +522,30 @@ def newton_polish(polys,root,niter=100,tol=1e-5):
         The terminal point of Newton's method, an estimation for a root of the system
     """
     poly_type = is_power(polys, return_string = True)
-    
-    m = len(polys)
-    dim = max(poly.dim for poly in polys)
-    f_x = np.empty(m,dtype="complex_")
-    jac = np.empty((m,dim),dtype="complex_")
-    
+
     def f(x):
-        #f_x = np.empty(m,dtype="complex_")
+        m = len(polys)
+        f_x = np.empty(m,dtype="complex_")
         for i, poly in enumerate(polys):
             f_x[i] = poly.evaluate_at(x)
         return f_x
 
     def Df(x):
-        #jac = np.empty((m,dim),dtype="complex_")
+        m = len(polys)
+        dim = max(poly.dim for poly in polys)
+        jac = np.empty((m,dim),dtype="complex_")
         for i, poly in enumerate(polys):
             jac[i] = poly.grad(x)
         return jac
 
     i = 0
-    x0, x1 = root, root
+    x0 = root
     while True:
         if i == niter:
             break
         delta = np.linalg.solve(Df(x0),-f(x0))
-        norm = np.linalg.norm(delta)
         x1 = delta + x0
-        if norm < tol or norm > .1:
+        if np.linalg.norm(x1-x0) < tol:
             break
         x0 = x1
         i+=1
