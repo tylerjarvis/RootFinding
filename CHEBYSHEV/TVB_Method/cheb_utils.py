@@ -187,7 +187,7 @@ def get_var_list(dim):
         var[i] = 0
     return _vars
 
-def mon_combosHighest(mon, numLeft, spot = 0):
+def mon_combos_highest(mon, num_left, spot = 0):
     '''Finds all the monomials of a given degree and returns them. Works recursively.
 
     Very similar to mon_combos, but only returns the monomials of the desired degree.
@@ -197,7 +197,7 @@ def mon_combosHighest(mon, numLeft, spot = 0):
     mon: list
         A list of zeros, the length of which is the dimension of the desired monomials. Will change
         as the function searches recursively.
-    numLeft : int
+    num_left : int
         The degree of the monomials desired. Will decrease as the function searches recursively.
     spot : int
         The current position in the list the function is iterating through. Defaults to 0, but increases
@@ -210,19 +210,19 @@ def mon_combosHighest(mon, numLeft, spot = 0):
     '''
     answers = list()
     if len(mon) == spot+1: #We are at the end of mon, no more recursion.
-        mon[spot] = numLeft
+        mon[spot] = num_left
         answers.append(mon.copy())
         return answers
-    if numLeft == 0: #Nothing else can be added.
+    if num_left == 0: #Nothing else can be added.
         answers.append(mon.copy())
         return answers
     temp = mon.copy() #Quicker than copying every time inside the loop.
-    for i in range(numLeft+1): #Recursively add to mon further down.
+    for i in range(num_left+1): #Recursively add to mon further down.
         temp[spot] = i
-        answers += mon_combosHighest(temp, numLeft-i, spot+1)
+        answers += mon_combos_highest(temp, num_left-i, spot+1)
     return answers
 
-def mon_combos(mon, numLeft, spot = 0):
+def mon_combos(mon, num_left, spot = 0):
     '''Finds all the monomials up to a given degree and returns them. Works recursively.
 
     Parameters
@@ -230,7 +230,7 @@ def mon_combos(mon, numLeft, spot = 0):
     mon: list
         A list of zeros, the length of which is the dimension of the desired monomials. Will change
         as the function searches recursively.
-    numLeft : int
+    num_left : int
         The degree of the monomials desired. Will decrease as the function searches recursively.
     spot : int
         The current position in the list the function is iterating through. Defaults to 0, but increases
@@ -243,17 +243,17 @@ def mon_combos(mon, numLeft, spot = 0):
     '''
     answers = list()
     if len(mon) == spot+1: #We are at the end of mon, no more recursion.
-        for i in range(numLeft+1):
+        for i in range(num_left+1):
             mon[spot] = i
             answers.append(mon.copy())
         return answers
-    if numLeft == 0: #Nothing else can be added.
+    if num_left == 0: #Nothing else can be added.
         answers.append(mon.copy())
         return answers
     temp = mon.copy() #Quicker than copying every time inside the loop.
-    for i in range(numLeft+1): #Recursively add to mon further down.
+    for i in range(num_left+1): #Recursively add to mon further down.
         temp[spot] = i
-        answers += mon_combos(temp, numLeft-i, spot+1)
+        answers += mon_combos(temp, num_left-i, spot+1)
     return answers
 
 def sort_polys_by_degree(polys, ascending = True):
@@ -281,7 +281,7 @@ def sort_polys_by_degree(polys, ascending = True):
     else:
         return sorted_polys[::-1]
 
-def makePolyCoeffMatrix(inputString):
+def make_poly_coeff_matrix(input_string):
     '''
     Takes a string input of a polynomaial and returns the coefficient matrix for it. Usefull for making things of high
     degree of dimension so you don't have to make it by hand.
@@ -294,18 +294,18 @@ def makePolyCoeffMatrix(inputString):
     3. All variables inside a monomial are seperated by a '*'.
     4. The power of a variable in a monomial is given folowing a '^' sign.
     '''
-    matrixSpots = list()
+    matrix_spots = list()
     coefficients = list()
-    for monomial in inputString.split('+'):
-        coefficientString = monomial[:first_x(monomial)]
-        if coefficientString == '-':
+    for monomial in input_string.split('+'):
+        coefficient_string = monomial[:first_x(monomial)]
+        if coefficient_string == '-':
             coefficient = -1
-        elif coefficientString == '':
+        elif coefficient_string == '':
             coefficient = 1
         else:
-            coefficient = float(coefficientString)
+            coefficient = float(coefficient_string)
         mons = monomial[first_x(monomial):].split('*')
-        matrixSpot = [0]
+        matrix_spot = [0]
         for mon in mons:
             stuff = mon.split('^')
             if len(stuff) == 1:
@@ -313,30 +313,30 @@ def makePolyCoeffMatrix(inputString):
             else:
                 power = int(stuff[1])
             if stuff[0] == '':
-                varDegree = -1
+                var_degree = -1
             else:
-                varDegree = int(stuff[0][1:])
-            if varDegree != -1:
-                if len(matrixSpot) <= varDegree:
-                    matrixSpot = np.append(matrixSpot, [0]*(varDegree - len(matrixSpot)+1))
-                matrixSpot[varDegree] = power
-        matrixSpots.append(matrixSpot)
+                var_degree = int(stuff[0][1:])
+            if var_degree != -1:
+                if len(matrix_spot) <= var_degree:
+                    matrix_spot = np.append(matrix_spot, [0]*(var_degree - len(matrix_spot)+1))
+                matrix_spot[var_degree] = power
+        matrix_spots.append(matrix_spot)
         coefficients.append(coefficient)
     #Pad the matrix spots so they are all the same length.
-    length = max(len(matrixSpot) for matrixSpot in matrixSpots)
-    for i in range(len(matrixSpots)):
-        matrixSpot = matrixSpots[i]
-        if len(matrixSpot) < length:
-            matrixSpot = np.append(matrixSpot, [0]*(length - len(matrixSpot)))
-            matrixSpots[i] = matrixSpot
-    matrixSize = np.maximum.reduce([matrixSpot for matrixSpot in matrixSpots])
-    matrixSize = matrixSize + np.ones_like(matrixSize)
-    matrixSize = matrixSize[::-1] #So the variables are in the right order.
-    matrix = np.zeros(matrixSize)
-    for i in range(len(matrixSpots)):
-        matrixSpot = matrixSpots[i][::-1] #So the variables are in the right order.
+    length = max(len(matrix_spot) for matrix_spot in matrix_spots)
+    for i in range(len(matrix_spots)):
+        matrix_spot = matrix_spots[i]
+        if len(matrix_spot) < length:
+            matrix_spot = np.append(matrix_spot, [0]*(length - len(matrix_spot)))
+            matrix_spots[i] = matrix_spot
+    matrix_size = np.maximum.reduce([matrix_spot for matrix_spot in matrix_spots])
+    matrix_size = matrix_size + np.ones_like(matrix_size)
+    matrix_size = matrix_size[::-1] #So the variables are in the right order.
+    matrix = np.zeros(matrix_size)
+    for i in range(len(matrix_spots)):
+        matrix_spot = matrix_spots[i][::-1] #So the variables are in the right order.
         coefficient = coefficients[i]
-        matrix[tuple(matrixSpot)] = coefficient
+        matrix[tuple(matrix_spot)] = coefficient
     return matrix
 
 def check_zeros(zeros, polys):
@@ -357,7 +357,7 @@ def check_zeros(zeros, polys):
 
     """
     correct = 0
-    outOfRange = 0
+    out_of_range = 0
     if zeros != -1:
         for zero in zeros:
             good = True
@@ -365,9 +365,9 @@ def check_zeros(zeros, polys):
                 if not np.isclose(0, poly.evaluate_at(zero), atol = 1.e-3):
                     good = False
                     if (np.abs(zero) > 1).any():
-                        outOfRange += 1
+                        out_of_range += 1
                     break
             if good:
                 correct += 1
     print("{} ZEROS ARE CORRECT OUT OF {}".format(correct, len(zeros)))
-    print("{} of them were about of range".format(outOfRange))
+    print("{} of them were about of range".format(out_of_range))

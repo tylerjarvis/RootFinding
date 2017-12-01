@@ -11,7 +11,7 @@ from matplotlib import pyplot as plt
 from scipy.misc import comb
 from math import factorial
 
-def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
+def telen_van_barel(initial_poly_list, accuracy = 1.e-10):
     """Uses Telen and VanBarels matrix reduction method to find a vector basis for the system of polynomials.
 
     Parameters
@@ -26,7 +26,7 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
 
     Returns
     -----------
-    basisDict : dict
+    basis_dict : dict
         A dictionary of terms not in the vector basis a matrixes of things in the vector basis that the term
         can be reduced to.
     VB : numpy array
@@ -46,7 +46,7 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
     matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list, degree, dim)
 
-    matrix, matrix_terms = rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, accuracy = accuracy)
+    matrix, matrix_terms = rrqr_reduce_telen_van_barel(matrix, matrix_terms, matrix_shape_stuff, accuracy = accuracy)
 
     height = matrix.shape[0]
     matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
@@ -54,11 +54,11 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
 
     VB = matrix_terms[height:]
 
-    basisDict = makeBasisDict(matrix, matrix_terms, VB, [degree]*dim)
-    return basisDict, VB, degree
+    basis_dict = make_basis_dict(matrix, matrix_terms, VB, [degree]*dim)
+    return basis_dict, VB, degree
 
-def makeBasisDict(matrix, matrix_terms, VB, remainder_shape):
-    '''Calculates and returns the basisDict.
+def make_basis_dict(matrix, matrix_terms, VB, remainder_shape):
+    '''Calculates and returns the basis_dict.
 
     This is a dictionary of the terms on the diagonal of the reduced TVB matrix to the terms in the Vector Basis.
     It is used to create the multiplication matrix in root_finder.
@@ -74,15 +74,15 @@ def makeBasisDict(matrix, matrix_terms, VB, remainder_shape):
     power : bool
         If True, the initial polynomials were MultiPower. If False, they were MultiCheb.
     remainder_shape: list
-        The shape of the numpy arrays that will be mapped to in the basisDict.
+        The shape of the numpy arrays that will be mapped to in the basis_dict.
 
     Returns
     -----------
-    basisDict : dict
+    basis_dict : dict
         Maps terms on the diagonal of the reduced TVB matrix (tuples) to numpy arrays of the shape remainder_shape
         that represent the terms reduction into the Vector Basis.
     '''
-    basisDict = {}
+    basis_dict = {}
 
     VBSet = set()
     for i in VB:
@@ -97,9 +97,9 @@ def makeBasisDict(matrix, matrix_terms, VB, remainder_shape):
         remainder = np.zeros(remainder_shape)
         row = matrix[i]
         remainder[spots] = row[matrix.shape[0]:]
-        basisDict[term] = remainder
+        basis_dict[term] = remainder
 
-    return basisDict
+    return basis_dict
 
 def find_degree(poly_list):
     '''Finds the degree of a Macaulay Matrix.
@@ -150,7 +150,7 @@ def add_polys(degree, poly, poly_coeff_list):
     return poly_coeff_list
 
 def sorted_matrix_terms(degree, dim):
-    '''Finds the matrix_terms sorted in the term order needed for TelenVanBarel reduction.
+    '''Finds the matrix_terms sorted in the term order needed for telen_van_barel reduction.
     So the highest terms come first,the x,y,z etc monomials last.
     Parameters
     ----------
@@ -227,10 +227,10 @@ def create_matrix(poly_coeffs, degree, dim):
     matrix = row_swap_matrix(matrix)
     return matrix, matrix_terms, matrix_shape_stuff
 
-def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, accuracy = 1.e-10):
+def rrqr_reduce_telen_van_barel(matrix, matrix_terms, matrix_shape_stuff, accuracy = 1.e-10):
     ''' Reduces a Telen Van Barel Macaulay matrix.
 
-    This function does the same thing as rrqr_reduceTelenVanBarel but uses qr_multiply instead of qr and a multiplication
+    This function does the same thing as rrqr_reduce_telen_van_barel but uses qr_multiply instead of qr and a multiplication
     to make the function faster and more memory efficient.
 
     Parameters
