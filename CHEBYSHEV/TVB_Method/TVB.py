@@ -16,7 +16,7 @@ def telen_van_barel(initial_poly_list, accuracy = 1.e-10):
 
     Parameters
     --------
-    initial_poly_list: list
+    initial_poly_list: list (polynomial objects)
         The polynomials in the system we are solving.
     run_checks : bool
         If True, checks will be run to make sure TVB works and if it doesn't an S-polynomial will be searched

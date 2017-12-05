@@ -30,14 +30,14 @@ def roots(polys, method = 'Groebner'):
 
     m_f, var_dict = TVB_mult_matrix(polys)
 
-    # Get list of indexes of single variables and store vars that were not
+    # Get list of indices of single variables and store vars that were not
     # in the vector space basis.
     dim = max(f.dim for f in polys)
     var_list = get_var_list(dim)
-    var_indexes = [-1]*dim
+    var_indices = [-1]*dim
     for i in range(len(var_list)):
         var = var_list[i] # x_i
-        var_indexes[i] = var_dict[var]
+        var_indices[i] = var_dict[var]
 
     # Get left eigenvectors
 
@@ -51,11 +51,11 @@ def roots(polys, method = 'Groebner'):
         if v[var_dict[tuple(0 for i in range(dim))]] == 0:
             continue
         root = np.zeros(dim, dtype=complex)
-        # This will always work because var_indexes and root have the
-        # same length - dim - and var_indexes has the variables in the
+        # This will always work because var_indices and root have the
+        # same length - dim - and var_indices has the variables in the
         # order they should be in the root
         for i in range(dim):
-            x_i_pos = var_indexes[i]
+            x_i_pos = var_indices[i]
             if x_i_pos != -1:
                 root[i] = v[x_i_pos]/v[var_dict[tuple(0 for i in range(dim))]]
         roots.append(root)
