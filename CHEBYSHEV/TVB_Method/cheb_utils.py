@@ -374,4 +374,8 @@ def check_zeros(zeros, polys):
             if good:
                 correct += 1
     print("{} ZEROS ARE CORRECT OUT OF {}".format(correct, len(zeros)))
+<<<<<<< HEAD
     print("{} of them were out of range".format(out_of_range))
+=======
+    print("{} of them were out of range".format(outOfRange))
+>>>>>>> 95a66c69ca1a260d01326921302cae7b8dd68a47
