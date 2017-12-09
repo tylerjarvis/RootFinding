@@ -107,6 +107,9 @@ class Polynomial(object):
                     change = True
 
     def update_lead_term(self):
+        """
+        Update the lead term of the polynomial.
+        """
         non_zeros = list()
         for i in zip(*np.where(self.coeff != 0)):
             non_zeros.append(Term(i))
@@ -449,7 +452,7 @@ class MultiCheb(Polynomial):
             Gradient of the polynomial at the given point.
         '''
         super(MultiCheb, self).evaluate_at(point)
-        
+
         out = np.empty(self.dim,dtype="complex_")
         if self.jac is None:
             jac = list()

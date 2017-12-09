@@ -370,4 +370,4 @@ def check_zeros(zeros, polys):
             if good:
                 correct += 1
     print("{} ZEROS ARE CORRECT OUT OF {}".format(correct, len(zeros)))
-    print("{} of them were about of range".format(outOfRange))
+    print("{} of them were out of range".format(outOfRange))
