@@ -41,19 +41,22 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
     initial_poly_list = sort_polys_by_degree(initial_poly_list, ascending = False)
 
     """This is the first construction option, simple monomial multiplication."""
-    #for i in initial_poly_list:
-    #    poly_coeff_list = add_polys(degree, i, poly_coeff_list)
+    for i in initial_poly_list:
+        poly_coeff_list = add_polys(degree, i, poly_coeff_list)
     """This is the second construction option, it uses the fancy triangle method that is faster but less stable."""
     #for deg in reversed(range(min([poly.degree for poly in initial_poly_list]), degree+1)):
     #    poly_coeff_list += deg_d_polys(initial_poly_list, deg, dim)
 
     #Creates the matrix for either of the above two methods. Comment out if using the third method.
-
+    matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list, degree, dim)
+    
+    #print(matrix.shape)
+    
     """This is the thrid matrix construction option, it uses the permutation arrays."""
-    if power:
-        matrix, matrix_terms, matrix_shape_stuff = createMatrixFast(initial_poly_list, degree, dim)
-    else:
-        matrix, matrix_terms, matrix_shape_stuff = construction(initial_poly_list, degree, dim)
+    #if power:
+    #    matrix, matrix_terms, matrix_shape_stuff = createMatrixFast(initial_poly_list, degree, dim)
+    #else:
+    #    matrix, matrix_terms, matrix_shape_stuff = construction(initial_poly_list, degree, dim)
 
     matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, matrix_shape_stuff, accuracy = accuracy)
 
