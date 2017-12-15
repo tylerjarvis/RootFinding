@@ -115,7 +115,7 @@ def find_degree(poly_list):
         The degree of the Macaulay Matrix.
 
     Example:
-        For polynomials [P1,P2,P3] with degree [d1,d2,d3] the function returns d1+d2+d3-3+1
+        For polynomials [P1,P2,P3] with degree [d1,d2,d3] the function returns d1+d2+d3-(number of Polynomaials)+1
     '''
     degree_needed = 0
     for poly in poly_list:

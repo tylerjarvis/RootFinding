@@ -3,7 +3,7 @@ import itertools
 from numpy.polynomial import chebyshev as cheb
 from numpy.polynomial import polynomial as poly
 from scipy.signal import fftconvolve, convolve
-from TVB_Method.cheb_utils import Term, makePolyCoeffMatrix, match_size, slice_top, slice_bottom
+from TVB_Method.cheb_utils import Term, match_size, slice_top, slice_bottom
 
 class Polynomial(object):
     '''
@@ -66,8 +66,6 @@ class Polynomial(object):
         '''
         if isinstance(coeff,np.ndarray):
             self.coeff = coeff
-        elif isinstance(coeff,str):
-            self.coeff = makePolyCoeffMatrix(coeff)
         else:
             raise ValueError('coeff must be an np.array or a string!')
         if clean_zeros:
@@ -228,6 +226,20 @@ class MultiCheb(Polynomial):
 
     """
     def __init__(self, coeff, order='degrevlex', lead_term=None, clean_zeros = True):
+        """
+        Initialize a chebyshev polynomial object.
+
+        Parameters
+        ----------
+        coeff : list(terms**dim) or np.array ([terms,] * dim)
+            coefficents in given ordering.
+        order : string
+            monomial ordering desired for Grobner calculations.
+        lead_term : list
+            the index of the current leading coefficent.
+        clean_zeros : bool
+            If true, remove extra zeros from the matrix.
+        """
         super(MultiCheb, self).__init__(coeff, order, lead_term, clean_zeros)
 
     def __add__(self,other):

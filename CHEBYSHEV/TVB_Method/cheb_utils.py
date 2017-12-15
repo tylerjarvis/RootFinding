@@ -33,25 +33,6 @@ class Term(object):
                     if i > j:
                         return True
                 return False
-        elif order == 'lexographic': #Lexographical Order
-            for i,j in zip(self.val,other.val):
-                if i < j:
-                    return True
-                if i > j:
-                    return False
-            return False
-        elif order == 'grlex': #Graded Lexographical Order
-            if sum(self.val) < sum(other.val):
-                return True
-            elif sum(self.val) > sum(other.val):
-                return False
-            else:
-                for i,j in zip(self.val,other.val):
-                    if i < j:
-                        return True
-                    if i > j:
-                        return False
-                return False
 
 def row_swap_matrix(matrix):
     '''Rearrange the rows of matrix so it is close to upper traingular.
@@ -280,64 +261,6 @@ def sort_polys_by_degree(polys, ascending = True):
         return sorted_polys
     else:
         return sorted_polys[::-1]
-
-def makePolyCoeffMatrix(inputString):
-    '''
-    Takes a string input of a polynomaial and returns the coefficient matrix for it. Usefull for making things of high
-    degree of dimension so you don't have to make it by hand.
-
-    All strings must be of the following syntax. Ex. '3x0^2+2.1x1^2*x2+-14.73x0*x2^3'
-
-    1. There can be no spaces.
-    2. All monomials must be seperated by a '+'. If the coefficient of the monomial is negative then the '-' sign
-       should come after the '+'. This is not needed for the first monomial.
-    3. All variables inside a monomial are seperated by a '*'.
-    4. The power of a variable in a monomial is given folowing a '^' sign.
-    '''
-    matrixSpots = list()
-    coefficients = list()
-    for monomial in inputString.split('+'):
-        coefficientString = monomial[:first_x(monomial)]
-        if coefficientString == '-':
-            coefficient = -1
-        elif coefficientString == '':
-            coefficient = 1
-        else:
-            coefficient = float(coefficientString)
-        mons = monomial[first_x(monomial):].split('*')
-        matrixSpot = [0]
-        for mon in mons:
-            stuff = mon.split('^')
-            if len(stuff) == 1:
-                power = 1
-            else:
-                power = int(stuff[1])
-            if stuff[0] == '':
-                varDegree = -1
-            else:
-                varDegree = int(stuff[0][1:])
-            if varDegree != -1:
-                if len(matrixSpot) <= varDegree:
-                    matrixSpot = np.append(matrixSpot, [0]*(varDegree - len(matrixSpot)+1))
-                matrixSpot[varDegree] = power
-        matrixSpots.append(matrixSpot)
-        coefficients.append(coefficient)
-    #Pad the matrix spots so they are all the same length.
-    length = max(len(matrixSpot) for matrixSpot in matrixSpots)
-    for i in range(len(matrixSpots)):
-        matrixSpot = matrixSpots[i]
-        if len(matrixSpot) < length:
-            matrixSpot = np.append(matrixSpot, [0]*(length - len(matrixSpot)))
-            matrixSpots[i] = matrixSpot
-    matrixSize = np.maximum.reduce([matrixSpot for matrixSpot in matrixSpots])
-    matrixSize = matrixSize + np.ones_like(matrixSize)
-    matrixSize = matrixSize[::-1] #So the variables are in the right order.
-    matrix = np.zeros(matrixSize)
-    for i in range(len(matrixSpots)):
-        matrixSpot = matrixSpots[i][::-1] #So the variables are in the right order.
-        coefficient = coefficients[i]
-        matrix[tuple(matrixSpot)] = coefficient
-    return matrix
 
 def check_zeros(zeros, polys):
     """
