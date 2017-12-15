@@ -16,17 +16,20 @@ def telen_van_barel(initial_poly_list, accuracy = 1.e-10):
 
     Parameters
     --------
-    initial_poly_list: list (polynomial objects)
+    initial_poly_list: list
         The polynomials in the system we are solving.
+    run_checks : bool
+        If True, checks will be run to make sure TVB works and if it doesn't an S-polynomial will be searched
+        for to fix it.
     accuracy: float
         How small we want a number to be before assuming it is zero.
 
     Returns
     -----------
     basis_dict : dict
-        This is a dictionary of the terms on the diagonal of the reduced TVB matrix to the
-        terms in the Vector Basis.
-    vector_basis : numpy array
+        A dictionary of terms not in the vector basis a matrixes of things in the vector basis that the term
+        can be reduced to.
+    VB : numpy array
         The terms in the vector basis, each row being a term.
     degree : int
         The degree of the Macaualy matrix that was constructed.
@@ -49,12 +52,12 @@ def telen_van_barel(initial_poly_list, accuracy = 1.e-10):
     matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
     matrix[:,:height] = np.eye(height)
 
-    vector_basis = matrix_terms[height:]
+    VB = matrix_terms[height:]
 
     basis_dict = make_basis_dict(matrix, matrix_terms, VB, [degree]*dim)
     return basis_dict, VB, degree
 
-def make_basis_dict(matrix, matrix_terms, vector_basis, remainder_shape):
+def make_basis_dict(matrix, matrix_terms, VB, remainder_shape):
     '''Calculates and returns the basis_dict.
 
     This is a dictionary of the terms on the diagonal of the reduced TVB matrix to the terms in the Vector Basis.
@@ -66,8 +69,10 @@ def make_basis_dict(matrix, matrix_terms, vector_basis, remainder_shape):
         The reduced TVB matrix.
     matrix_terms : numpy array
         The terms in the matrix. The i'th row is the term represented by the i'th column of the matrix.
-    vector_basis : numpy array
+    VB : numpy array
         Each row is a term in the vector basis.
+    power : bool
+        If True, the initial polynomials were MultiPower. If False, they were MultiCheb.
     remainder_shape: list
         The shape of the numpy arrays that will be mapped to in the basis_dict.
 
@@ -80,12 +85,12 @@ def make_basis_dict(matrix, matrix_terms, vector_basis, remainder_shape):
     basis_dict = {}
 
     VBSet = set()
-    for i in vector_basis:
-        vector_basisSet.add(tuple(i))
+    for i in VB:
+        VBSet.add(tuple(i))
 
     spots = list()
-    for dim in range(vector_basis.shape[1]):
-        spots.append(vector_basis.T[dim])
+    for dim in range(VB.shape[1]):
+        spots.append(VB.T[dim])
 
     for i in range(matrix.shape[0]):
         term = tuple(matrix_terms[i])
@@ -150,9 +155,9 @@ def sorted_matrix_terms(degree, dim):
     Parameters
     ----------
     degree : int
-        The degree of the TVB Matrix (degree of matrix is highest degreefound in find_degree)
+        The degree of the TVB Matrix
     dim : int
-        The dimension of the polynomials going into the matrix. (dimension = how many variables a polynomial has)
+        The dimension of the polynomials going into the matrix.
     Returns
     -------
     matrix_terms : numpy array

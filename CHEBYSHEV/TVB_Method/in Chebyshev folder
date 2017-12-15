@@ -1,0 +1,48 @@
+in Chebyshev folder
+
+DEMO.ipynb - 
+cell 1 (#Local imports) has ModuleNotFound errors
+
+cell 2 (# Use this cell to test the root finder.) spits out 
+"842 ZEROS ARE CORRECT OUT OF 900
+26 of them were about of range"
+Should this be 'out of range'?
+
+in TVB_Method folder
+
+__init__.py appears to be empty (0 bytes, 0 lines)
+***camelCase for classes, undesrcores for everything else***
+TVB.py:
+
+TelenVanBarel:
+    initial_poly_list - how are the polynomials passed in? As coefficients in ascending order, right? State that.
+    run_checks - I don't understand what happens if this isn't true
+    
+    basisDict - first, you just switched naming conventions. second, is this a dict or a 'matrixes'? and which term can be reduced to what? this is also unclear
+    VB - just a comment, shouldn't the terms be monomials anyway? Then why don't we return it as a row vector,s ince that's numpys default?
+ also, giving an example of stuff being passed in and what you get out would be great
+ 
+makeBasisDict:
+    power - make this clear that you're talking about power vs chebyshev basis
+    remainder_shape - why is a shape a list instead of a tuple (convention uses tuples for shape) also, how do we know what this shape is?
+    
+    basisDict - I'm confused as to what this is
+    
+find_degree:
+    I like this one, it seems clear what it does and /i like the example, but why the constants in the formula? Is that a thm that we've proved?
+    Also, naming conventions...
+
+add_polys:
+    to clarify, say that this adds all moniomial multiples up to specfied degree of hte TVB matrix
+    
+sorted_matrix_terms:
+    degree/dimension - clarify which one means what
+    
+
+
+
+cheb_utils:
+    match_size - i don't understand the assignment syntax
+
+    get_var_list - missing parameters, etc
+
