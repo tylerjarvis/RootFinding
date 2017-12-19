@@ -19,7 +19,7 @@ class Term(object):
 
     def __lt__(self, other, order = 'grevlex'):
         '''
-        Redfine less-than according to grevlex
+        Redefine less-than according to grevlex, or chosen ordering
         '''
         if order == 'grevlex': #Graded Reverse Lexographical Order
             if sum(self.val) < sum(other.val):
@@ -45,12 +45,14 @@ def row_swap_matrix(matrix):
     Returns
     -------
     2D numpy array
-        The same matrix but with the rows changed so it is close to upper
+        The same matrix but with the row orer changed so it is close to upper
         triangular
 
     Examples
     --------
-    >>> utils.row_swap_matrix(np.array([[0,2,0,2],[0,1,3,0],[1,2,3,4]]))
+    >>> utils.row_swap_matrix(np.array([[0,2,0,2],
+                                        [0,1,3,0],
+                                        [1,2,3,4]]))
     array([[1, 2, 3, 4],
            [0, 2, 0, 2],
            [0, 1, 3, 0]])
@@ -88,7 +90,8 @@ def slice_top(matrix):
     Returns
     -------
     slices : list
-        Each value of the list is a slice of the matrix in some dimension. It is exactly the size of the matrix.
+        Each value of the list is a slice of the matrix in some dimension.
+        It is exactly the size of the matrix.
     '''
     slices = list()
     for i in matrix.shape:
@@ -105,7 +108,8 @@ def slice_bottom(matrix):
     Returns
     -------
     slices : list
-        Each value of the list is a slice of the matrix in some dimension. It is exactly the size of the matrix.
+        Each value of the list is a slice of the matrix in some dimension.
+        It is exactly the size of the matrix.
     '''
     slices = list()
     for i in matrix.shape:
@@ -123,7 +127,7 @@ def match_poly_dimensions(polys):
     Returns
     -------
     new_polys : list
-        The same polynomials but of the same dimensions.
+        The same polynomials but of homogenized dimensions.
     '''
     dim = max(poly.dim for poly in polys)
     new_polys = list()
@@ -138,17 +142,17 @@ def match_poly_dimensions(polys):
 
 def match_size(a,b):
     '''
-    Matches the shape of two matrixes.
+    Matches the shape of two matrices.
 
     Parameters
     ----------
     a, b : ndarray
-        Matrixes whose size is to be matched.
+        Matrices whose size is to be matched.
 
     Returns
     -------
     a, b : ndarray
-        Matrixes of equal size.
+        Matrices of equal size.
     '''
     new_shape = np.maximum(a.shape, b.shape)
 
@@ -168,42 +172,7 @@ def get_var_list(dim):
         var[i] = 0
     return _vars
 
-def mon_combosHighest(mon, numLeft, spot = 0):
-    '''Finds all the monomials of a given degree and returns them. Works recursively.
-
-    Very similar to mon_combos, but only returns the monomials of the desired degree.
-
-    Parameters
-    --------
-    mon: list
-        A list of zeros, the length of which is the dimension of the desired monomials. Will change
-        as the function searches recursively.
-    numLeft : int
-        The degree of the monomials desired. Will decrease as the function searches recursively.
-    spot : int
-        The current position in the list the function is iterating through. Defaults to 0, but increases
-        in each step of the recursion.
-
-    Returns
-    -----------
-    answers : list
-        A list of all the monomials.
-    '''
-    answers = list()
-    if len(mon) == spot+1: #We are at the end of mon, no more recursion.
-        mon[spot] = numLeft
-        answers.append(mon.copy())
-        return answers
-    if numLeft == 0: #Nothing else can be added.
-        answers.append(mon.copy())
-        return answers
-    temp = mon.copy() #Quicker than copying every time inside the loop.
-    for i in range(numLeft+1): #Recursively add to mon further down.
-        temp[spot] = i
-        answers += mon_combosHighest(temp, numLeft-i, spot+1)
-    return answers
-
-def mon_combos(mon, numLeft, spot = 0):
+def mon_combos(mon, num_left, spot = 0):
     '''Finds all the monomials up to a given degree and returns them. Works recursively.
 
     Parameters
@@ -211,11 +180,11 @@ def mon_combos(mon, numLeft, spot = 0):
     mon: list
         A list of zeros, the length of which is the dimension of the desired monomials. Will change
         as the function searches recursively.
-    numLeft : int
+    num_left : int
         The degree of the monomials desired. Will decrease as the function searches recursively.
     spot : int
-        The current position in the list the function is iterating through. Defaults to 0, but increases
-        in each step of the recursion.
+        The current position in the list the function is iterating through. Defaults to 0,
+        but increases in each step of the recursion.
 
     Returns
     -----------
@@ -224,17 +193,52 @@ def mon_combos(mon, numLeft, spot = 0):
     '''
     answers = list()
     if len(mon) == spot+1: #We are at the end of mon, no more recursion.
-        for i in range(numLeft+1):
+        for i in range(num_left+1):
             mon[spot] = i
             answers.append(mon.copy())
         return answers
-    if numLeft == 0: #Nothing else can be added.
+    if num_left == 0: #Nothing else can be added.
         answers.append(mon.copy())
         return answers
     temp = mon.copy() #Quicker than copying every time inside the loop.
-    for i in range(numLeft+1): #Recursively add to mon further down.
+    for i in range(num_left+1): #Recursively add to mon further down.
         temp[spot] = i
-        answers += mon_combos(temp, numLeft-i, spot+1)
+        answers += mon_combos(temp, num_left-i, spot+1)
+    return answers
+
+def mon_combos_highest(mon, num_left, spot = 0):
+    '''Finds all the monomials of a given degree and returns them. Works recursively.
+
+    Very similar to mon_combos, but only returns the monomials of the desired degree.
+
+    Parameters
+    --------
+    mon: list
+        A list of zeros, the length of which is the dimension of the desired monomials.
+        Will change as the function searches recursively.
+    num_left : int
+        The degree of the monomials desired. Will decrease as the function searches recursively.
+    spot : int
+        The current position in the list the function is iterating through. Defaults to 0,
+        but increases in each step of the recursion.
+
+    Returns
+    -----------
+    answers : list
+        A list of all the monomials of highest degree.
+    '''
+    answers = list()
+    if len(mon) == spot+1: #We are at the end of mon, no more recursion.
+        mon[spot] = num_left
+        answers.append(mon.copy())
+        return answers
+    if num_left == 0: #Nothing else can be added.
+        answers.append(mon.copy())
+        return answers
+    temp = mon.copy() #Quicker than copying every time inside the loop.
+    for i in range(num_left+1): #Recursively add to mon further down.
+        temp[spot] = i
+        answers += mon_combos_highest(temp, num_left-i, spot+1)
     return answers
 
 def sort_polys_by_degree(polys, ascending = True):
@@ -245,8 +249,8 @@ def sort_polys_by_degree(polys, ascending = True):
     polys : list.
         A list of polynomials.
     ascending : bool
-        Defaults to True. If True the polynomials are sorted in order of ascending degree. If False they
-        are sorted in order of descending degree.
+        Defaults to True. If True the polynomials are sorted in order of ascending degree.
+        If False they are sorted in order of descending degree.
     Returns
     -------
     sorted_polys : list
@@ -280,7 +284,7 @@ def check_zeros(zeros, polys):
 
     """
     correct = 0
-    outOfRange = 0
+    out_of_range = 0
     if zeros != -1:
         for zero in zeros:
             good = True
@@ -288,9 +292,9 @@ def check_zeros(zeros, polys):
                 if not np.isclose(0, poly.evaluate_at(zero), atol = 1.e-3):
                     good = False
                     if (np.abs(zero) > 1).any():
-                        outOfRange += 1
+                        out_of_range += 1
                     break
             if good:
                 correct += 1
     print("{} ZEROS ARE CORRECT OUT OF {}".format(correct, len(zeros)))
-    print("{} of them were out of range".format(outOfRange))
+    print("{} of them were out of range".format(out_of_range))

@@ -28,16 +28,16 @@ def roots(polys, method = 'Groebner'):
     '''
     polys = match_poly_dimensions(polys)
 
-    m_f, var_dict = TVBMultMatrix(polys)
+    m_f, var_dict = TVB_mult_matrix(polys)
 
-    # Get list of indexes of single variables and store vars that were not
+    # Get list of indices of single variables and store vars that were not
     # in the vector space basis.
     dim = max(f.dim for f in polys)
     var_list = get_var_list(dim)
-    var_indexes = [-1]*dim
+    var_indices = [-1]*dim
     for i in range(len(var_list)):
         var = var_list[i] # x_i
-        var_indexes[i] = var_dict[var]
+        var_indices[i] = var_dict[var]
 
     # Get left eigenvectors
 
@@ -51,18 +51,18 @@ def roots(polys, method = 'Groebner'):
         if v[var_dict[tuple(0 for i in range(dim))]] == 0:
             continue
         root = np.zeros(dim, dtype=complex)
-        # This will always work because var_indexes and root have the
-        # same length - dim - and var_indexes has the variables in the
+        # This will always work because var_indices and root have the
+        # same length - dim - and var_indices has the variables in the
         # order they should be in the root
         for i in range(dim):
-            x_i_pos = var_indexes[i]
+            x_i_pos = var_indices[i]
             if x_i_pos != -1:
                 root[i] = v[x_i_pos]/v[var_dict[tuple(0 for i in range(dim))]]
         roots.append(root)
         #roots.append(newton_polish(polys,root,niter=1000,tol=1e-10))
     return roots
 
-def sortVB(VB):
+def sort_VB(VB):
     '''
     Sorts the Vector Basis into degrevlex order so the eigensolve is faster (in theory).
 
@@ -76,13 +76,13 @@ def sortVB(VB):
     VB : numpy array
         The vector basis sorted so the lowest terms are at the top.
     '''
-    VBList = list()
+    VB_list = list()
     for i in VB:
-        VBList.append(Term(i))
+        VB_list.append(Term(i))
 
-    return VB[np.argsort(VBList)]
+    return VB[np.argsort(VB_list)]
 
-def TVBMultMatrix(polys):
+def TVB_mult_matrix(polys):
     '''
     Finds the multiplication matrix using the reduced Macaulay matrix from the
     TVB method.
@@ -94,14 +94,14 @@ def TVBMultMatrix(polys):
 
     Returns
     -------
-    multiplicationMatrix : 2D numpy array
+    multiplication_matrix : 2D numpy array
         The multiplication matrix for a random polynomial f
     var_dict : dictionary
         Maps each variable to its position in the vector space basis
     '''
-    basisDict, VB, degree = TelenVanBarel(polys)
+    basis_dict, VB, degree = TelenVanBarel(polys)
 
-    VB = sortVB(VB)
+    VB = sort_VB(VB)
 
     dim = max(f.dim for f in polys)
 
@@ -112,22 +112,22 @@ def TVBMultMatrix(polys):
     for i in range(len(VB[0])):
         slices.append(VB.T[i])
 
-    VBset = set()
+    VB_set = set()
     for mon in VB:
-        VBset.add(tuple(mon))
+        VB_set.add(tuple(mon))
 
     # Build multiplication matrix m_f
-    mMatrix = np.zeros((len(VB), len(VB)))
+    m_matrix = np.zeros((len(VB), len(VB)))
     remainder = np.zeros([degree]*dim)
 
     for i in range(VB.shape[0]):
         f_coeff = f.mon_mult(VB[i], returnType = 'Matrix')
         for term in zip(*np.where(f_coeff != 0)):
-            if term in VBset:
+            if term in VB_set:
                 remainder[term] += f_coeff[term]
             else:
-                remainder[slices] -= f_coeff[term]*basisDict[term][slices]
-        mMatrix[:,i] = remainder[slices]
+                remainder[slices] -= f_coeff[term]*basis_dict[term][slices]
+        m_matrix[:,i] = remainder[slices]
         remainder[slices] = 0
 
     # Construct var_dict
@@ -137,7 +137,7 @@ def TVBMultMatrix(polys):
         if np.sum(mon) == 1 or np.sum(mon) == 0:
             var_dict[tuple(mon)] = i
 
-    return mMatrix, var_dict
+    return m_matrix, var_dict
 
 def _random_poly(dim):
     '''
