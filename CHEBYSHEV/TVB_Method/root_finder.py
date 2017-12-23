@@ -2,7 +2,7 @@ import numpy as np
 import itertools
 import warnings
 from TVB_Method.cheb_class import MultiCheb
-from TVB_Method.TVB import TelenVanBarel
+from TVB_Method.TVB import telen_van_barel
 from TVB_Method.cheb_utils import get_var_list, TVBError, Term, match_size, match_poly_dimensions
 
 '''
@@ -99,7 +99,7 @@ def TVB_mult_matrix(polys):
     var_dict : dictionary
         Maps each variable to its position in the vector space basis
     '''
-    basis_dict, VB, degree = TelenVanBarel(polys)
+    basis_dict, VB, degree = telen_van_barel(polys)
 
     VB = sort_VB(VB)
 
@@ -121,7 +121,7 @@ def TVB_mult_matrix(polys):
     remainder = np.zeros([degree]*dim)
 
     for i in range(VB.shape[0]):
-        f_coeff = f.mon_mult(VB[i], returnType = 'Matrix')
+        f_coeff = f.mon_mult(VB[i], return_type = 'Matrix')
         for term in zip(*np.where(f_coeff != 0)):
             if term in VB_set:
                 remainder[term] += f_coeff[term]

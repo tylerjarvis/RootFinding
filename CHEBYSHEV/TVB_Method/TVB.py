@@ -3,8 +3,7 @@ import itertools
 from scipy.linalg import qr, solve_triangular, qr_multiply
 from TVB_Method.cheb_class import Polynomial, MultiCheb
 from TVB_Method.cheb_utils import row_swap_matrix, clean_zeros_from_matrix, TVBError, \
-                            slice_top, get_var_list, mon_combos, mon_combosHighest, \
-                            sort_polys_by_degree
+                            slice_top, get_var_list, mon_combos, sort_polys_by_degree, mon_combos_highest
 import time
 import random
 from matplotlib import pyplot as plt
@@ -51,8 +50,8 @@ def telen_van_barel(initial_poly_list, accuracy = 1.e-10):
 
     vector_basis = matrix_terms[height:]
 
-    basis_dict = make_basis_dict(matrix, matrix_terms, VB, [degree]*dim)
-    return basis_dict, VB, degree
+    basis_dict = make_basis_dict(matrix, matrix_terms, vector_basis, [degree]*dim)
+    return basis_dict, vector_basis, degree
 
 def make_basis_dict(matrix, matrix_terms, vector_basis, remainder_shape):
     '''Calculates and returns the basis_dict.
@@ -81,7 +80,7 @@ def make_basis_dict(matrix, matrix_terms, vector_basis, remainder_shape):
 
     VBSet = set()
     for i in vector_basis:
-        vector_basisSet.add(tuple(i))
+        VBSet.add(tuple(i))
 
     spots = list()
     for dim in range(vector_basis.shape[1]):
@@ -141,7 +140,7 @@ def add_polys(degree, poly, poly_coeff_list):
 
     mons = mon_combos([0]*dim,deg)
     for i in mons[1:]: #skips the first all 0 mon
-        poly_coeff_list.append(poly.mon_mult(i, returnType = 'Matrix'))
+        poly_coeff_list.append(poly.mon_mult(i, return_type = 'Matrix'))
     return poly_coeff_list
 
 def sorted_matrix_terms(degree, dim):
@@ -162,12 +161,12 @@ def sorted_matrix_terms(degree, dim):
         those not in the first or third catagory. The third entry is the number of monomials of degree one of a
         single variable, as well as the monomial 1.
     '''
-    highest_mons = mon_combosHighest([0]*dim,degree)[::-1]
+    highest_mons = mon_combos_highest([0]*dim,degree)[::-1]
 
     other_mons = list()
     d = degree - 1
     while d > 1:
-        other_mons += mon_combosHighest([0]*dim,d)[::-1]
+        other_mons += mon_combos_highest([0]*dim,d)[::-1]
         d -= 1
 
     xs_mons = mon_combos([0]*dim,1)[::-1]

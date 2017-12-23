@@ -49,9 +49,9 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
 
     #Creates the matrix for either of the above two methods. Comment out if using the third method.
     matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list, degree, dim)
-    
+
     #print(matrix.shape)
-    
+
     """This is the thrid matrix construction option, it uses the permutation arrays."""
     #if power:
     #    matrix, matrix_terms, matrix_shape_stuff = createMatrixFast(initial_poly_list, degree, dim)
@@ -162,7 +162,7 @@ def add_polys(degree, poly, poly_coeff_list):
 
     mons = mon_combos([0]*dim,deg)
     for i in mons[1:]: #skips the first all 0 mon
-        poly_coeff_list.append(poly.mon_mult(i, returnType = 'Matrix'))
+        poly_coeff_list.append(poly.mon_mult(i, return_type = 'Matrix'))
     return poly_coeff_list
 
 def sorted_matrix_terms(degree, dim):
@@ -243,7 +243,7 @@ def create_matrix(poly_coeffs, degree, dim):
 
 def checkEqual(lst):
     '''Helper function for createMatrixFast. Checks if each element in a list is the same.
-        
+
     Parameters
     ----------
     lst : list
@@ -257,10 +257,10 @@ def checkEqual(lst):
 
 def get_ranges(nums):
     '''Helper function for createMatrixFast. Finds where to slice the different parts of the matrix into.
-    
+
     This is in an effort to avoid row_swap_matrix which can be slow. Instead, as we are buiding the part of the
     matrix corresponding to each polynomial seperately, this tells us where each part should go in the whole matrix.
-    
+
     Parameters
     ----------
     nums : list
@@ -313,7 +313,7 @@ def createMatrixFast(polys, degree, dim):
     ranges = get_ranges(range_split)    #How to slice the poly into the matrix rows.
     matrix = np.zeros((rows,columns))
     curr = 0
-    
+
     #Get the slices needed to pull the matrix_terms from the coeff matrix.
     matrix_term_indexes = list()
     for row in matrix_terms.T:
@@ -333,7 +333,7 @@ def createMatrixFast(polys, degree, dim):
         permutations = memoized_all_permutations(degree - poly.degree, dim, degree, permutations, currentDegree)
         currentDegree = degree - poly.degree
         permList = list(permutations.values())
-        
+
         temp = array[np.reshape(permList, (len(permList), columns))[::-1]]
         matrix[matrix_range] = temp
 
@@ -582,5 +582,5 @@ def rrqr_reduceTelenVanBarelFullRank(matrix, matrix_terms, matrix_shape_stuff, a
     #Shifts the columns of B.
     matrix[:highest_num,highest_num:highest_num+others_num] = matrix[:highest_num,highest_num:highest_num+others_num][:,P]
     matrix_terms[highest_num:highest_num+others_num] = matrix_terms[highest_num:highest_num+others_num][P]
-    P = 0    
+    P = 0
     return matrix, matrix_terms
