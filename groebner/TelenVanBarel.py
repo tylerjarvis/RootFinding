@@ -66,11 +66,11 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
 
     VB = matrix_terms[height:]
 
-    basisDict = makeBasisDict(matrix, matrix_terms, VB, power, [degree]*dim)
+    basisDict = makeBasisDict(matrix, matrix_terms, VB, power)
 
     return basisDict, VB, degree
 
-def makeBasisDict(matrix, matrix_terms, VB, power, remainder_shape):
+def makeBasisDict(matrix, matrix_terms, VB, power):
     '''Calculates and returns the basisDict.
 
     This is a dictionary of the terms on the diagonal of the reduced TVB matrix to the terms in the Vector Basis.
@@ -86,14 +86,12 @@ def makeBasisDict(matrix, matrix_terms, VB, power, remainder_shape):
         Each row is a term in the vector basis.
     power : bool
         If True, the initial polynomials were MultiPower. If False, they were MultiCheb.
-    remainder_shape: list
-        The shape of the numpy arrays that will be mapped to in the basisDict.
 
     Returns
     -----------
     basisDict : dict
-        Maps terms on the diagonal of the reduced TVB matrix (tuples) to numpy arrays of the shape remainder_shape
-        that represent the terms reduction into the Vector Basis.
+        Maps terms on the diagonal of the reduced TVB matrix (tuples) to numpy arrays that represent the
+        terms reduction into the Vector Basis.
     '''
     basisDict = {}
 
@@ -115,10 +113,7 @@ def makeBasisDict(matrix, matrix_terms, VB, power, remainder_shape):
         term = tuple(matrix_terms[i])
         if power and term not in neededSpots:
             continue
-        remainder = np.zeros(remainder_shape)
-        row = matrix[i]
-        remainder[spots] = row[matrix.shape[0]:]
-        basisDict[term] = remainder
+        basisDict[term] = matrix[i][matrix.shape[0]:]
 
     return basisDict
 

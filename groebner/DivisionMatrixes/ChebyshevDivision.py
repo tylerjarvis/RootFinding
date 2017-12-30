@@ -1,26 +1,40 @@
 import numpy as np
 import itertools
-from groebner.utils import clean_zeros_from_matrix, get_var_list
+from groebner.utils import clean_zeros_from_matrix, get_var_list, memoize
 from groebner.TelenVanBarel import create_matrix, add_polys
 from groebner.root_finder import _random_poly
-from scipy.linalg import solve_triangular
+from scipy.linalg import solve_triangular, eig
 from scipy.stats import mode
 from scipy.linalg import qr
 
-def division_cheb(test_polys):
-    dim = test_polys[0].dim
+def division_cheb(polys):
+    '''Calculates the common zeros of polynomials using a division matrix.
     
-    matrix_degree = np.sum(poly.degree for poly in test_polys) - len(test_polys) + 1
+    Parameters
+    --------
+    polys: MultiCheb Polynomials
+        The polynomials for which the common roots are found.
 
+    Returns
+    -----------
+    zeros : list
+        The common zeros of the polynomials. Each list element is a numpy array of complex entries
+        that contains the coordinates in each dimension of the zero.
+    '''
+    dim = polys[0].dim
+    
+    #This first section creates the Macaulay Matrix with the monomials that only have ys first.
+    matrix_degree = np.sum(poly.degree for poly in polys) - len(polys) + 1
     poly_coeff_list = []
-    for i in test_polys:
+    for i in polys:
         poly_coeff_list = add_polys(matrix_degree, i, poly_coeff_list)
     matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list, matrix_degree, dim)
+    #perm is a permutation to reorder the matrix columns to put the ys first.
+    #cut is the spot in the matrix that divides between the y terms and the other terms.
     perm, cut = matrix_term_perm(matrix_terms)
     matrix = matrix[:,perm]
     matrix_terms = matrix_terms[perm]
-
-    #Reduce it.
+    #Reduces the Macaulay matrix like normal.
     A,B = matrix[:,:cut], matrix[:,cut:]
     Q,A,P = qr(A, pivoting=True)
     matrix_terms[:cut] = matrix_terms[:cut][P]
@@ -35,155 +49,227 @@ def division_cheb(test_polys):
     rows,columns = matrix.shape
     
     VB = matrix_terms[matrix.shape[0]:]
-    matrixFinal = np.hstack((np.eye(rows),solve_triangular(matrix[:,:rows],matrix[:,rows:])))
-    basisDict = makeBasisDict(matrixFinal, matrix_terms, VB, True, [matrix_degree+1]*dim)
+    matrix = np.hstack((np.eye(rows),solve_triangular(matrix[:,:rows],matrix[:,rows:])))
 
-    return matrixFinal, matrix_terms
+    #Builds the inverse matrix. The terms are the vector basis as well as y^k/x terms for all k. Reducing
+    #this matrix allows the y^k/x terms to be reduced back into the vector basis.
+    inverses = np.vstack((-np.ones(cut), np.arange(cut))).T
+    inv_matrix_terms = np.vstack((inverses, VB))
+    inv_matrix = np.zeros([len(inverses),len(inv_matrix_terms)])
+
+    #A bunch of different dictionaries are used below for speed purposes and to prevent repeat calculations.
     
-    slices = list()
-    for i in range(len(VB[0])):
-        slices.append(VB.T[i])
+    #A dictionary of term in inv_matrix_terms to their spot in inv_matrix_terms.
+    inv_spot_dict = dict()
+    spot = 0
+    for term in inv_matrix_terms:
+        inv_spot_dict[tuple(term)] = spot
+        spot+=1
 
-    VBset = set()
-    for mon in VB:
-        VBset.add(tuple(mon))
-
-    # Build division matrix
-    dMatrix = np.zeros((len(VB), len(VB)))
-    remainder = np.zeros([matrix_degree+1]*dim)
-
-    for i in range(VB.shape[0]):
-        var = [1,0]
-        term = tuple(VB[i] - var)
-        if term in VBset:
-            remainder[term] += 1
-        else:
-            remainder[slices] -= basisDict[term][slices]
-        dMatrix[:,i] = remainder[slices]
-        remainder[slices] = 0
-    vals, vecs = np.linalg.eig(dMatrix.T)    
+    #A dictionary of terms on the diagonal to their reduction in the vector basis.
+    diag_reduction_dict = dict()
+    for i in range(matrix.shape[0]):
+        term = matrix_terms[i]
+        diag_reduction_dict[tuple(term)] = matrix[i][-len(VB):]
     
-    VBdict = {}
-    num = 0
-    for row in VB:
-        VBdict[tuple(row)] = num
-        num+=1
-
-    xs = list()
-    ys = list()
-    for row in VB:
-        if tuple(row-[1,0]) in VBset:
-            xs.append(VBdict[tuple(row)])
-            xs.append(VBdict[tuple(row-[1,0])])
-            break
-        elif tuple(row+[1,0]) in VBset:
-            xs.append(VBdict[tuple(row+[1,0])])
-            xs.append(VBdict[tuple(row)])
-            break
-    for row in VB:
-        if tuple(row-[0,1]) in VBset:
-            ys.append(VBdict[tuple(row)])
-            ys.append(VBdict[tuple(row-[0,1])])
-            break
-        elif tuple(row+[0,1]) in VBset:
-            ys.append(VBdict[tuple(row+[0,1])])
-            ys.append(VBdict[tuple(row)])
-            break
-
-    newZeros = list()
-    for v in vecs.T:
-        newZeros.append(np.array([v[xs[0]]/v[xs[1]], v[ys[0]]/v[ys[1]]]))
+    #A dictionary of terms to the terms in their quotient when divided by x.
+    divisor_terms_dict = dict()
+    for term in matrix_terms:
+        divisor_terms_dict[tuple(term)] = get_divisor_terms(term)
     
-    return newZeros
+    #A dictionary of terms to their quotient when divided by x.
+    term_divide_dict = dict()
+    for term in matrix_terms[-len(VB):]:
+        term_divide_dict[tuple(term)] = divide_term_x(term, inv_matrix_terms, inv_spot_dict, diag_reduction_dict,
+                                                      len(VB), divisor_terms_dict)
 
-def checkEqual(lst):
-    return lst.count(lst[0]) == len(lst)
+    #Builds the inv_matrix by dividing the rows of matrix by x.
+    for i in range(cut):
+        spot = matrix_terms[i]
+        y = spot[1]
+        inv_matrix[i] = divide_row_x(matrix[i][-len(VB):], matrix_terms[-len(VB):], term_divide_dict, len(inv_matrix_terms))
+        inv_matrix[i][y] += 1
 
-def get_ranges(nums):
-    ranges = []
-    for i in nums:
-        ranges.append(np.array([],dtype=int))
-    start = 0
-    count = 0
-    n = len(nums)
-    for num in nums:
-        spot = count
-        for r in ranges[count:]:
-            r = np.hstack((r,np.arange(start,start+(n-count)*(num-len(r)),n-count)))
-            ranges[spot] = r
-            start+=1
-            spot += 1
-        start = ranges[-1][-1]+1
-        count+=1
-    return ranges
+    #Reduces the inv_matrix to solve for the y^k/x terms in the vector basis.
+    Q,R = qr(inv_matrix)
+    inv_solutions = np.hstack((np.eye(R.shape[0]),solve_triangular(R[:,:R.shape[0]], R[:,R.shape[0]:])))
 
+    #A dictionary of term in the vector basis to their spot in the vector basis.
+    VB_spot_dict = dict()
+    spot = 0
+    for row in VB:
+        VB_spot_dict[tuple(row)] = spot
+        spot+=1
+
+    #A dictionary of terms of type y^k/x to their reduction in the vector basis.
+    inv_reduction_dict = dict()
+    for i in range(len(inv_solutions)):
+        inv_reduction_dict[tuple(inv_matrix_terms[i])] = inv_solutions[i][len(inv_solutions):]
+
+    #Builds the division matrix and finds the eigenvalues and eigenvectors.
+    division_matrix = build_division_matrix(VB, VB_spot_dict, diag_reduction_dict, inv_reduction_dict, divisor_terms_dict)
+    vals, vecs = eig(division_matrix.T)
+
+    #Finds two spots in the vector basis with the same x value and y values of 0 and 1 so we can use
+    #those spots on the eigenvectors to calculate the y values of the zeros.
+    for spot in range(len(VB)):
+        term = VB[spot]
+        if term[1] == 1:
+            if tuple(term - [0,1]) in VB_spot_dict:
+                ys = [spot, VB_spot_dict[tuple(term - [0,1])]]
+                break
+    
+    #Calculates the zeros, the x values from the eigenvalues and the y values from the eigenvectors.
+    zeroY = vecs[ys[0]]/vecs[ys[1]]
+    zeroX = 1/vals
+    zeros = list()
+    for i in range(len(zeroX)):
+        zeros.append(np.array([zeroX[i], zeroY[i]]))
+    
+    return zeros
+    
 def matrix_term_perm(matrix_terms):
+    '''Finds the needed column permutation to have all the y terms first in the Macaulay Matrix.
+    
+    Parameters
+    --------
+    matrix_terms: numpy array
+        The current order of the terms in the matrix.
+
+    Returns
+    -----------
+    perm : numpy array
+        The desired column permutation.
+    cut : The number of y terms in the matrix. This is where the matrix is cut in the matrix reduction,
+          pivoting past this point is not allowed.
+    '''    
     boundary = np.where(matrix_terms[:,0] == 0)[0]
-    #boundary = np.unique(np.where(matrix_terms == 0)[0])
     bSet = set(boundary)
     other = np.arange(len(matrix_terms))
     mask = [num not in bSet for num in other]
     other = other[mask]
     return np.hstack((boundary,other)), len(boundary)
 
-def chebify_polys(polys, scale = 2):
-    for poly in polys:
-        for spot,val in np.ndenumerate(poly.coeff):
-            if np.sum(spot) == 0:
-                continue
-            poly.coeff[spot] = val/(scale**np.sum(spot))
-    return polys
-
-def makeBasisDict(matrix, matrix_terms, VB, power, remainder_shape):
-    '''Calculates and returns the basisDict.
-    
-    This is a dictionary of the terms on the diagonal of the reduced TVB matrix to the terms in the Vector Basis.
-    It is used to create the multiplication matrix in root_finder.
+def divide_row_x(coeffs, terms, term_divide_dict, length):
+    """Divides a row of the matrix by x.
     
     Parameters
-    --------
-    matrix: numpy array
-        The reduced TVB matrix.
-    matrix_terms : numpy array
-        The terms in the matrix. The i'th row is the term represented by the i'th column of the matrix.
-    VB : numpy array
-        Each row is a term in the vector basis.
-    power : bool
-        If True, the initial polynomials were MultiPower. If False, they were MultiCheb.
-    remainder_shape: list
-        The shape of the numpy arrays that will be mapped to in the basisDict.
-
+    ----------
+    coeffs : numpy array.
+        The numerical values of the terms we want to divide by x.
+    terms: numpy array
+        The terms corresponding to the numerical values.
+    term_divide_dict: dictionary
+        Maps each term as a tuple to a numpy array representing that term divided by x.
+    length : int
+        The length of the rows in the inv_matrix.
     Returns
-    -----------
-    basisDict : dict
-        Maps terms on the diagonal of the reduced TVB matrix (tuples) to numpy arrays of the shape remainder_shape
-        that represent the terms reduction into the Vector Basis.
-    '''
-    basisDict = {}
+    -------
+    new_row : numpy array
+        The row we get in the inverse_matrix by dividing the first row by x.
+    """    
+    new_row = np.zeros(length)
+    for i in range(len(coeffs)):
+        new_row+=coeffs[i]*term_divide_dict[tuple(terms[i])]
+    return new_row
+
+def divide_term_x(term, inv_matrix_terms, inv_spot_dict, diag_reduction_dict, VB_size, divisor_terms_dict):
+    """Divides a term of the matrix by x.
     
-    VBSet = set()
-    for i in VB:
-        VBSet.add(tuple(i))
+    Parameters
+    ----------
+    term: numpy array
+        The term to divide.
+    inv_matrix_terms: numpy array
+        The terms in the inverse matrix.
+    inv_spot_dict : dictionary
+        A dictionary of term in inv_matrix_terms to their spot in inv_matrix_terms.
+    diag_reduction_dict : dictionary
+        A dictionary of terms on the diagonal to their reduction in the vector basis.
+    VB_size : int
+        The number of elements in the vector basis.
+    divisor_terms_dict : dictionary
+        A dictionary of terms to the terms in their dividend when divided by x.
     
-    if power: #We don't actually need most of the rows, so we only get the ones we need.
-        neededSpots = set()
-        for term, mon in itertools.product(VB,get_var_list(VB.shape[1])):
-            if tuple(term-mon) not in VBSet:
-                neededSpots.add(tuple(term-mon))
+    Returns
+    -------
+    row : numpy array
+        The row we get in the inverse_matrix by dividing the term by x.
+    """
+    row = np.zeros(len(inv_matrix_terms))
+    divisor_terms = divisor_terms_dict[tuple(term)]
+    parity = 1
+    for spot in divisor_terms[:-1]:
+        if tuple(spot) in inv_spot_dict:
+            row[inv_spot_dict[tuple(spot)]] += parity*2
+        else:
+            row[-VB_size:] -= 2*parity*diag_reduction_dict[tuple(spot)]
+        parity*=-1
+    spot = divisor_terms[-1]
+    if tuple(spot) in inv_spot_dict:
+        row[inv_spot_dict[tuple(spot)]] += parity
+    else:
+        row[-VB_size:] -= parity*diag_reduction_dict[tuple(spot)]
+    return row
 
-    spots = list()
-    for dim in range(VB.shape[1]):
-        spots.append(VB.T[dim])
+def get_divisor_terms(term):
+    """Finds the terms that will be present when dividing a given term by x.
+    
+    Parameters
+    ----------
+    term: numpy array
+        The term to divide.
+    
+    Returns
+    -------
+    terms : numpy array
+        Each row is a term that will be in the quotient.
+    """
+    initial = term - [1,0]
+    height = term[0]//2+1
+    terms = np.vstack([initial.copy() for i in range(height)])
+    dec = 0
+    for i in range(terms.shape[0]):
+        terms[i][0]-=2*dec
+        dec+=1
+    return terms
 
-    for i in range(matrix.shape[0]):
-        term = tuple(matrix_terms[i])
-        
-        if power and term not in neededSpots:
-            continue
-        #print('USED')
-        remainder = np.zeros(remainder_shape)
-        row = matrix[i]
-        remainder[spots] = row[matrix.shape[0]:]
-        basisDict[term] = remainder
+def build_division_matrix(VB, VB_spot_dict, diag_reduction_dict, inv_reduction_dict, divisor_terms_dict):
+    """Builds the division matrix.
+    
+    Parameters
+    ----------
+    VB: numpy array
+        The vector basis.
+    VB_spot_dict : dictionary
+        A dictionary of term in the vector basis to their spot in the vector basis.
+    diag_reduction_dict : dictionary
+        A dictionary of terms on the diagonal to their reduction in the vector basis.
+    inv_reduction_dict : dictionary
+        A dictionary of terms of type y^k/x to their reduction in the vector basis.
+    divisor_terms_dict : dictionary
+        A dictionary of terms to the terms in their dividend when divided by x.
+    
+    Returns
+    -------
+    row : numpy array
+        The row we get in the inverse_matrix by dividing the term by x.
+    """
 
-    return basisDict
+    div_matrix = np.zeros((len(VB), len(VB)))
+    for i in range(len(VB)):
+        term = VB[i]
+        terms = divisor_terms_dict[tuple(term)]
+        parity = 1
+        for spot in terms[:-1]:
+            if tuple(spot) in VB_spot_dict:
+                div_matrix[VB_spot_dict[tuple(spot)]][i]+=2*parity
+            else:
+                div_matrix[:,i] -= 2*parity*diag_reduction_dict[tuple(spot)][-len(VB):]
+            parity *= -1
+        spot = terms[-1]
+        if tuple(spot) in diag_reduction_dict:
+            div_matrix[:,i] -= parity*diag_reduction_dict[tuple(spot)][-len(VB):]
+        else:
+            div_matrix[:,i] -= parity*inv_reduction_dict[tuple(spot)]
+    return div_matrix
