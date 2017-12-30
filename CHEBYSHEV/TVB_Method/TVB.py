@@ -3,33 +3,29 @@ import itertools
 from scipy.linalg import qr, solve_triangular, qr_multiply
 from TVB_Method.cheb_class import Polynomial, MultiCheb
 from TVB_Method.cheb_utils import row_swap_matrix, clean_zeros_from_matrix, TVBError, \
-                            slice_top, get_var_list, mon_combos, mon_combosHighest, \
-                            sort_polys_by_degree
+                            slice_top, get_var_list, mon_combos, sort_polys_by_degree, mon_combos_highest
 import time
 import random
 from matplotlib import pyplot as plt
 from scipy.misc import comb
 from math import factorial
 
-def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
+def telen_van_barel(initial_poly_list, accuracy = 1.e-10):
     """Uses Telen and VanBarels matrix reduction method to find a vector basis for the system of polynomials.
 
     Parameters
     --------
-    initial_poly_list: list
+    initial_poly_list: list (polynomial objects)
         The polynomials in the system we are solving.
-    run_checks : bool
-        If True, checks will be run to make sure TVB works and if it doesn't an S-polynomial will be searched
-        for to fix it.
     accuracy: float
         How small we want a number to be before assuming it is zero.
 
     Returns
     -----------
-    basisDict : dict
-        A dictionary of terms not in the vector basis a matrixes of things in the vector basis that the term
-        can be reduced to.
-    VB : numpy array
+    basis_dict : dict
+        This is a dictionary of the terms on the diagonal of the reduced TVB matrix to the
+        terms in the Vector Basis.
+    vector_basis : numpy array
         The terms in the vector basis, each row being a term.
     degree : int
         The degree of the Macaualy matrix that was constructed.
@@ -46,19 +42,19 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
     matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list, degree, dim)
 
-    matrix, matrix_terms = rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, accuracy = accuracy)
+    matrix, matrix_terms = rrqr_reduce_telen_van_barel(matrix, matrix_terms, matrix_shape_stuff, accuracy = accuracy)
 
     height = matrix.shape[0]
     matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
     matrix[:,:height] = np.eye(height)
 
-    VB = matrix_terms[height:]
+    vector_basis = matrix_terms[height:]
 
-    basisDict = makeBasisDict(matrix, matrix_terms, VB, [degree]*dim)
-    return basisDict, VB, degree
+    basis_dict = make_basis_dict(matrix, matrix_terms, vector_basis, [degree]*dim)
+    return basis_dict, vector_basis, degree
 
-def makeBasisDict(matrix, matrix_terms, VB, remainder_shape):
-    '''Calculates and returns the basisDict.
+def make_basis_dict(matrix, matrix_terms, vector_basis, remainder_shape):
+    '''Calculates and returns the basis_dict.
 
     This is a dictionary of the terms on the diagonal of the reduced TVB matrix to the terms in the Vector Basis.
     It is used to create the multiplication matrix in root_finder.
@@ -69,37 +65,35 @@ def makeBasisDict(matrix, matrix_terms, VB, remainder_shape):
         The reduced TVB matrix.
     matrix_terms : numpy array
         The terms in the matrix. The i'th row is the term represented by the i'th column of the matrix.
-    VB : numpy array
+    vector_basis : numpy array
         Each row is a term in the vector basis.
-    power : bool
-        If True, the initial polynomials were MultiPower. If False, they were MultiCheb.
     remainder_shape: list
-        The shape of the numpy arrays that will be mapped to in the basisDict.
+        The shape of the numpy arrays that will be mapped to in the basis_dict.
 
     Returns
     -----------
-    basisDict : dict
+    basis_dict : dict
         Maps terms on the diagonal of the reduced TVB matrix (tuples) to numpy arrays of the shape remainder_shape
         that represent the terms reduction into the Vector Basis.
     '''
-    basisDict = {}
+    basis_dict = {}
 
     VBSet = set()
-    for i in VB:
+    for i in vector_basis:
         VBSet.add(tuple(i))
 
     spots = list()
-    for dim in range(VB.shape[1]):
-        spots.append(VB.T[dim])
+    for dim in range(vector_basis.shape[1]):
+        spots.append(vector_basis.T[dim])
 
     for i in range(matrix.shape[0]):
         term = tuple(matrix_terms[i])
         remainder = np.zeros(remainder_shape)
         row = matrix[i]
         remainder[spots] = row[matrix.shape[0]:]
-        basisDict[term] = remainder
+        basis_dict[term] = remainder
 
-    return basisDict
+    return basis_dict
 
 def find_degree(poly_list):
     '''Finds the degree of a Macaulay Matrix.
@@ -115,7 +109,7 @@ def find_degree(poly_list):
         The degree of the Macaulay Matrix.
 
     Example:
-        For polynomials [P1,P2,P3] with degree [d1,d2,d3] the function returns d1+d2+d3-3+1
+        For polynomials [P1,P2,P3] with degree [d1,d2,d3] the function returns d1+d2+d3-(number of Polynomaials)+1
     '''
     degree_needed = 0
     for poly in poly_list:
@@ -146,18 +140,18 @@ def add_polys(degree, poly, poly_coeff_list):
 
     mons = mon_combos([0]*dim,deg)
     for i in mons[1:]: #skips the first all 0 mon
-        poly_coeff_list.append(poly.mon_mult(i, returnType = 'Matrix'))
+        poly_coeff_list.append(poly.mon_mult(i, return_type = 'Matrix'))
     return poly_coeff_list
 
 def sorted_matrix_terms(degree, dim):
-    '''Finds the matrix_terms sorted in the term order needed for TelenVanBarel reduction.
+    '''Finds the matrix_terms sorted in the term order needed for telen_van_barel reduction.
     So the highest terms come first,the x,y,z etc monomials last.
     Parameters
     ----------
     degree : int
-        The degree of the TVB Matrix
+        The degree of the TVB Matrix (degree of matrix is highest degreefound in find_degree)
     dim : int
-        The dimension of the polynomials going into the matrix.
+        The dimension of the polynomials going into the matrix. (dimension = how many variables a polynomial has)
     Returns
     -------
     matrix_terms : numpy array
@@ -167,12 +161,12 @@ def sorted_matrix_terms(degree, dim):
         those not in the first or third catagory. The third entry is the number of monomials of degree one of a
         single variable, as well as the monomial 1.
     '''
-    highest_mons = mon_combosHighest([0]*dim,degree)[::-1]
+    highest_mons = mon_combos_highest([0]*dim,degree)[::-1]
 
     other_mons = list()
     d = degree - 1
     while d > 1:
-        other_mons += mon_combosHighest([0]*dim,d)[::-1]
+        other_mons += mon_combos_highest([0]*dim,d)[::-1]
         d -= 1
 
     xs_mons = mon_combos([0]*dim,1)[::-1]
@@ -227,10 +221,10 @@ def create_matrix(poly_coeffs, degree, dim):
     matrix = row_swap_matrix(matrix)
     return matrix, matrix_terms, matrix_shape_stuff
 
-def rrqr_reduceTelenVanBarel(matrix, matrix_terms, matrix_shape_stuff, accuracy = 1.e-10):
+def rrqr_reduce_telen_van_barel(matrix, matrix_terms, matrix_shape_stuff, accuracy = 1.e-10):
     ''' Reduces a Telen Van Barel Macaulay matrix.
 
-    This function does the same thing as rrqr_reduceTelenVanBarel but uses qr_multiply instead of qr and a multiplication
+    This function does the same thing as rrqr_reduce_telen_van_barel but uses qr_multiply instead of qr and a multiplication
     to make the function faster and more memory efficient.
 
     Parameters
