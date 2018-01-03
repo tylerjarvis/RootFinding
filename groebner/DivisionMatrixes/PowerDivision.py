@@ -1,19 +1,18 @@
 import numpy as np
 import itertools
-from groebner.utils import clean_zeros_from_matrix, get_var_list
-from groebner.TelenVanBarel import create_matrix, add_polys
-from groebner.root_finder import _random_poly
+from groebner.utils import get_var_list, slice_top, row_swap_matrix
+from groebner.TelenVanBarel import add_polys, rrqr_reduceTelenVanBarel2
 from scipy.linalg import solve_triangular
-from scipy.stats import mode
-from scipy.linalg import qr
 
-def division_power(polys):
+def division_power(polys, divisor_var = 0):
     '''Calculates the common zeros of polynomials using a division matrix.
     
     Parameters
     --------
     polys: MultiPower Polynomials
         The polynomials for which the common roots are found.
+    divisor_var : int
+        What variable is being divided by. 0 is x, 1 is y, etc. Defaults to x.
 
     Returns
     -----------
@@ -21,36 +20,23 @@ def division_power(polys):
         The common zeros of the polynomials. Each list element is a numpy array of complex entries
         that contains the coordinates in each dimension of the zero.
     '''
-    #This first section creates the Macaulay Matrix with the monomials that only have ys first.
+    #This first section creates the Macaulay Matrix with the monomials that don't have
+    #the divisor variable in the first columns.
     dim = polys[0].dim
     matrix_degree = np.sum(poly.degree for poly in polys) - len(polys) + 1
     poly_coeff_list = []
     for i in polys:
         poly_coeff_list = add_polys(matrix_degree, i, poly_coeff_list)
-    matrix, matrix_terms, matrix_shape_stuff = create_matrix(poly_coeff_list, matrix_degree, dim)
-    #perm is a permutation to reorder the matrix columns to put the ys first.
-    perm, cut = matrix_term_perm(matrix_terms)
-    matrix = matrix[:,perm]
-    matrix_terms = matrix_terms[perm]
-
+        
+    matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, matrix_degree, dim, divisor_var)
+        
     #Reduces the Macaulay matrix like normal.
-    A,B = matrix[:,:cut], matrix[:,cut:]
-    Q,A,P = qr(A, pivoting=True)
-    matrix_terms[:cut] = matrix_terms[:cut][P]
-    B = Q.T@B
-    C,D = B[:cut], B[cut:]
-    Q0,D,P0 = qr(D, pivoting=True)
-    C = C[:,P0]
-    matrix_terms[cut:] = matrix_terms[cut:][P0]
-    matrix[:,:cut] = A
-    matrix[:cut,cut:] = C
-    matrix[cut:,cut:] = D
+    matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts)
     rows,columns = matrix.shape
-
     VB = matrix_terms[matrix.shape[0]:]
     matrixFinal = np.hstack((np.eye(rows),solve_triangular(matrix[:,:rows],matrix[:,rows:])))
     basisDict = makeBasisDict(matrixFinal, matrix_terms, VB)
-
+    
     #Dictionary of terms in the vector basis their spots in the matrix.
     VBdict = {}
     spot = 0
@@ -58,11 +44,11 @@ def division_power(polys):
         VBdict[tuple(row)] = spot
         spot+=1
 
-    
     # Build division matrix
     dMatrix = np.zeros((len(VB), len(VB)))
     for i in range(VB.shape[0]):
-        var = [1,0]
+        var = np.zeros(dim)
+        var[divisor_var] = 1
         term = tuple(VB[i] - var)
         if term in VBdict:
             dMatrix[VBdict[term]][i] += 1
@@ -71,43 +57,116 @@ def division_power(polys):
     
     #Calculate the eigenvalues and eigenvectors.
     vals, vecs = np.linalg.eig(dMatrix.T)
-    
-    #Finds two spots in the vector basis that differ by y so we can use the eigenvalues to calculate the y values.
-    ys = list()
-    for row in VB:
-        if tuple(row-[0,1]) in VBdict:
-            ys.append(VBdict[tuple(row)])
-            ys.append(VBdict[tuple(row-[0,1])])
-            break
-    
-    #Finds the zeros, the x values from the eigenvalues and the y values from the eigenvectors.
+                
+    #Finds the zeros, the divisor variable values from the eigenvalues and the other variable values from the eigenvectors.
     zeros = list()
     for i in range(len(vals)):
-        zeros.append(np.array([1/vals[i], vecs[ys[0]][i]/vecs[ys[1]][i]]))
+        root = np.zeros(dim, dtype=complex)
+        root[divisor_var] = 1/vals[i]
+        for spot in range(0,divisor_var):
+            root[spot] = vecs[-(2+spot)][i]/vecs[-1][i]
+        for spot in range(divisor_var+1,dim):
+            root[spot] = vecs[-(1+spot)][i]/vecs[-1][i]
+        zeros.append(root)
     
     return zeros
 
-def matrix_term_perm(matrix_terms):
-    '''Finds the needed column permutation to have all the y terms first in the Macaulay Matrix.
+def get_matrix_terms(poly_coeffs, dim, divisor_var):
+    '''Finds the terms in the Macaulay matrix.
     
     Parameters
     --------
-    matrix_terms: numpy array
-        The current order of the terms in the matrix.
+    poly_coeffs: list
+        A list of numpy arrays that contain the coefficients of the polynomials to go into the Macaualy Matrix.
+    dim : int
+        The dimension of the polynomials in the matrix.
+    divisor_var : int
+        What variable is being divided by. 0 is x, 1 is y, etc. Defaults to x.
 
     Returns
     -----------
-    perm : numpy array
-        The desired column permutation.
-    cut : The number of y terms in the matrix. This is where the matrix is cut in the matrix reduction,
-          pivoting past this point is not allowed.
+    matrix_terms : numpy array
+        The matrix_terms. The ith row is the term represented by the ith column of the matrix.
+    cuts : tuple
+        When the matrix is reduced it is split into 3 parts with restricted pivoting. These numbers indicate
+        where those cuts happen.    
     '''
-    boundary = np.where(matrix_terms[:,0] == 0)[0]
-    bSet = set(boundary)
-    other = np.arange(len(matrix_terms))
-    mask = [num not in bSet for num in other]
-    other = other[mask]
-    return np.hstack((boundary,other)), len(boundary)
+    matrix_term_set_y= set()
+    matrix_term_set_other= set()
+    for coeffs in poly_coeffs:
+        for term in zip(*np.where(coeffs != 0)):
+            if term[divisor_var] == 0:
+                matrix_term_set_y.add(term)
+            else:
+                matrix_term_set_other.add(term)
+    
+    needed_terms = list()
+    base = np.zeros(dim, dtype = 'int')
+    base[divisor_var] = 1
+    matrix_term_set_other.remove(tuple(base))
+    matrix_term_end = base.copy()
+    for i in range(dim):
+        if i != divisor_var:
+            base[i] = 1
+            term = tuple(base)
+            matrix_term_set_other.remove(term)
+            matrix_term_end = np.vstack((term,matrix_term_end))
+            base[i] = 0
+    for term in needed_terms:
+        matrix_term_set_other.remove(term)
+    matrix_terms = np.vstack((np.vstack(matrix_term_set_y),np.vstack(matrix_term_set_other),matrix_term_end))
+        
+    return matrix_terms, tuple([len(matrix_term_set_y), len(matrix_term_set_y)+len(matrix_term_set_other)])
+
+def create_matrix(poly_coeffs, degree, dim, divisor_var):
+    ''' Builds a Macaulay matrix for reduction.
+
+    Parameters
+    ----------
+    poly_coeffs : list.
+        Contains numpy arrays that hold the coefficients of the polynomials to be put in the matrix.
+    degree : int
+        The degree of the TVB Matrix
+    dim : int
+        The dimension of the polynomials going into the matrix.
+    divisor_var : int
+        What variable is being divided by. 0 is x, 1 is y, etc.
+    
+    Returns
+    -------
+    matrix : 2D numpy array
+        The Telen Van Barel matrix.
+    matrix_terms : numpy array
+        The ith row is the term represented by the ith column of the matrix.
+    cuts : tuple
+        When the matrix is reduced it is split into 3 parts with restricted pivoting. These numbers indicate
+        where those cuts happen.
+    '''
+    bigShape = [degree+1]*dim
+    matrix_terms, cuts = get_matrix_terms(poly_coeffs, dim, divisor_var)
+
+    #Get the slices needed to pull the matrix_terms from the coeff matrix.
+    matrix_term_indexes = list()
+    for row in matrix_terms.T:
+        matrix_term_indexes.append(row)
+    
+    #Adds the poly_coeffs to flat_polys, using added_zeros to make sure every term is in there.
+    added_zeros = np.zeros(bigShape)
+    flat_polys = list()
+    for coeff in poly_coeffs:
+        slices = slice_top(coeff)
+        added_zeros[slices] = coeff
+        flat_polys.append(added_zeros[matrix_term_indexes])
+        added_zeros[slices] = np.zeros_like(coeff)
+        coeff = 0
+    poly_coeffs = 0
+
+    #Make the matrix. Reshape is faster than stacking.
+    matrix = np.reshape(flat_polys, (len(flat_polys),len(matrix_terms)))
+
+    #Sorts the rows of the matrix so it is close to upper triangular.
+    matrix = row_swap_matrix(matrix)
+    return matrix, matrix_terms, cuts
 
 def makeBasisDict(matrix, matrix_terms, VB):
     '''Calculates and returns the basisDict.

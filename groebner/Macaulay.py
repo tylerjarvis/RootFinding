@@ -138,6 +138,7 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
 
     matrix, matrix_terms = create_matrix(poly_coeff_list)
 
+    print(matrix.shape)
 
     #rrqr_reduce2 and rrqr_reduce same pretty matched on stability, though I feel like 2 should be better.
     matrix = utils.rrqr_reduce2(matrix, global_accuracy = global_accuracy)

@@ -2,7 +2,7 @@ import numpy as np
 from groebner.polynomial import Polynomial, MultiCheb, MultiPower
 from groebner.DivisionMatrixes.PowerDivision import division_power
 
-def getPoly(deg,dim,power):
+def getPoly(deg,dim):
     '''
     A helper function for testing. Returns a random upper triangular polynomial of the given dimension and degree.
     power is a boolean indicating whether or not the polynomial should be MultiPower.
@@ -12,19 +12,16 @@ def getPoly(deg,dim,power):
     for i,j in np.ndenumerate(ACoeff):
         if np.sum(i) >= deg:
             ACoeff[i] = 0
-    if power:
-        return MultiPower(ACoeff)
-    else:
-        return MultiCheb(ACoeff)
+    return MultiPower(ACoeff)
 
-def correctZeros(polys, checkNumber = True):
+def correctZeros(polys, divisor_var, checkNumber = True):
     '''
     A helper function. Takes in polynomials, find their common zeros, and calculates how many of the zeros are correct.
     In this function it asserts that the number of zeros is equal to the product of the degrees, which is only valid if
     the polynomials are random and upper triangular, and that at least 95% of the zeros are correct (so it will pass even
     on bad random runs)
     '''
-    zeros = division_power(polys)
+    zeros = division_power(polys, divisor_var = divisor_var)
     assert(zeros != -1)
     if checkNumber:
         expectedNum = np.product([poly.degree for poly in polys])
@@ -48,12 +45,40 @@ def test_Division_Power():
     The following tests will run division_power on relatively small random upper trianguler MultiPower polynomials.
     The assert statements will be inside of the correctZeros helper function.
     '''
-    #Case 1 - Two MultiPower 2D degree 10 polynomials.
-    A = getPoly(10,2,True)
-    B = getPoly(10,2,True)
-    correctZeros([A,B])
+    #Case 1 - Two 2D degree 10 polynomials.
+    A = getPoly(10,2)
+    B = getPoly(10,2)
+    correctZeros([A,B], 0)
+    correctZeros([A,B], 1)
 
-    #Case 2 - Two MultiPower, one degree 5, one degree 7.
-    A = getPoly(5,2,True)
-    B = getPoly(7,2,True)
-    correctZeros([A,B])
+    #Case 2 - Two 2D, one degree 5, one degree 7.
+    A = getPoly(5,2)
+    B = getPoly(7,2)
+    correctZeros([A,B], 0)
+    correctZeros([A,B], 1)
+    
+    #Case 3 - Three 3D degree 4 polynomials.
+    A = getPoly(4,3)
+    B = getPoly(4,3)
+    C = getPoly(4,3)
+    correctZeros([A,B,C], 0)
+    correctZeros([A,B,C], 1)
+    correctZeros([A,B,C], 2)
+    
+    #Case 4 - Three 3D of degrees 3,4 and 5
+    A = getPoly(3,3)
+    B = getPoly(4,3)
+    C = getPoly(5,3)
+    correctZeros([A,B,C], 0)
+    correctZeros([A,B,C], 1)
+    correctZeros([A,B,C], 2)
+
+    #Case 5 - Four 4D degree 2 polynomials.
+    A = getPoly(2,4)
+    B = getPoly(2,4)
+    C = getPoly(2,4)
+    D = getPoly(2,4)
+    correctZeros([A,B,C,D], 0)
+    correctZeros([A,B,C,D], 1)
+    correctZeros([A,B,C,D], 2)
+    correctZeros([A,B,C,D], 3)
