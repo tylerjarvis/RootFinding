@@ -49,7 +49,7 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
 
     #Creates the matrix for either of the above two methods. Comment out if using the third method.
     matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, degree, dim)
-        
+
     """This is the thrid matrix construction option, it uses the permutation arrays."""
     #if power:
     #    matrix, matrix_terms, cuts = createMatrixFast(initial_poly_list, degree, dim)
@@ -240,7 +240,7 @@ def create_matrix(poly_coeffs, degree, dim):
 
 def checkEqual(lst):
     '''Helper function for createMatrixFast. Checks if each element in a list is the same.
-        
+
     Parameters
     ----------
     lst : list
@@ -254,10 +254,10 @@ def checkEqual(lst):
 
 def get_ranges(nums):
     '''Helper function for createMatrixFast. Finds where to slice the different parts of the matrix into.
-    
+
     This is in an effort to avoid row_swap_matrix which can be slow. Instead, as we are buiding the part of the
     matrix corresponding to each polynomial seperately, this tells us where each part should go in the whole matrix.
-    
+
     Parameters
     ----------
     nums : list
@@ -315,7 +315,7 @@ def createMatrixFast(polys, degree, dim):
     ranges = get_ranges(range_split)    #How to slice the poly into the matrix rows.
     matrix = np.zeros((rows,columns))
     curr = 0
-    
+
     #Get the slices needed to pull the matrix_terms from the coeff matrix.
     matrix_term_indexes = list()
     for row in matrix_terms.T:
@@ -335,7 +335,7 @@ def createMatrixFast(polys, degree, dim):
         permutations = memoized_all_permutations(degree - poly.degree, dim, degree, permutations, currentDegree)
         currentDegree = degree - poly.degree
         permList = list(permutations.values())
-        
+
         temp = array[np.reshape(permList, (len(permList), columns))[::-1]]
         matrix[matrix_range] = temp
 

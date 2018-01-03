@@ -3,7 +3,7 @@ import itertools
 from numpy.polynomial import chebyshev as cheb
 from numpy.polynomial import polynomial as poly
 from scipy.signal import fftconvolve, convolve
-from TVB_Method.cheb_utils import Term, makePolyCoeffMatrix, match_size, slice_top, slice_bottom
+from CHEBYSHEV.TVB_Method.cheb_utils import Term, match_size, slice_top, slice_bottom
 
 class Polynomial(object):
     '''
@@ -44,9 +44,9 @@ class Polynomial(object):
         Removes extra rows, columns, etc of zeroes from end of matrix of coefficients
     match_size
         Matches the shape of two matrices.
-    monomialList
+    monomial_list
         Creates a list of monomials that make up the polynomial in degrevlex order.
-    monSort
+    mon_sort
         Calls monomial list.
     update_lead_term
         Finds the lead_term of a polynomial
@@ -66,8 +66,6 @@ class Polynomial(object):
         '''
         if isinstance(coeff,np.ndarray):
             self.coeff = coeff
-        elif isinstance(coeff,str):
-            self.coeff = makePolyCoeffMatrix(coeff)
         else:
             raise ValueError('coeff must be an np.array or a string!')
         if clean_zeros:
@@ -93,15 +91,15 @@ class Polynomial(object):
                 change = False
                 if self.coeff.shape[axis] == 1:
                     continue
-                axisCount = 0
+                axis_count = 0
                 slices = list()
                 for i in self.coeff.shape:
-                    if axisCount == axis:
+                    if axis_count == axis:
                         s = slice(i-1,i)
                     else:
                         s = slice(0,i)
                     slices.append(s)
-                    axisCount += 1
+                    axis_count += 1
                 if np.sum(abs(self.coeff[slices])) == 0:
                     self.coeff = np.delete(self.coeff,-1,axis=axis)
                     change = True
@@ -228,6 +226,20 @@ class MultiCheb(Polynomial):
 
     """
     def __init__(self, coeff, order='degrevlex', lead_term=None, clean_zeros = True):
+        """
+        Initialize a chebyshev polynomial object.
+
+        Parameters
+        ----------
+        coeff : list(terms**dim) or np.array ([terms,] * dim)
+            coefficents in given ordering.
+        order : string
+            monomial ordering desired for Grobner calculations.
+        lead_term : list
+            the index of the current leading coefficent.
+        clean_zeros : bool
+            If true, remove extra zeros from the matrix.
+        """
         super(MultiCheb, self).__init__(coeff, order, lead_term, clean_zeros)
 
     def __add__(self,other):
@@ -386,7 +398,7 @@ class MultiCheb(Polynomial):
         Pf = p1 + initial_matrix
         return .5*Pf
 
-    def mon_mult(self, idx, returnType = 'Poly'):
+    def mon_mult(self, idx, return_type = 'Poly'):
         """
         Multiplies a Chebyshev polynomial by a monomial
 
@@ -394,13 +406,13 @@ class MultiCheb(Polynomial):
         ----------
         idx : tuple of ints
             The index of the monomial to multiply self by.
-        returnType : str
+        return_type : str
             If 'Poly' then returns a polynomial object.
 
         Returns
         -------
-        MultiCheb object if returnType is 'Poly'.
-        ndarray if returnType is "Matrix".
+        MultiCheb object if return_type is 'Poly'.
+        ndarray if return_type is "Matrix".
 
         """
         initial_matrix = self.coeff
@@ -409,9 +421,9 @@ class MultiCheb(Polynomial):
             idx_zeros[i] = idx[i]
             initial_matrix = MultiCheb._mon_mult1(initial_matrix, idx_zeros, i)
             idx_zeros[i] = 0
-        if returnType == 'Poly':
+        if return_type == 'Poly':
             return MultiCheb(initial_matrix, lead_term = self.lead_term + np.array(idx), clean_zeros = False)
-        elif returnType == 'Matrix':
+        elif return_type == 'Matrix':
             return initial_matrix
 
     def evaluate_at(self, point):
