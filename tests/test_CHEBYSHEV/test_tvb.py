@@ -1,7 +1,7 @@
 import numpy as np
-from TVB_Method.cheb_class import Polynomial, MultiCheb
-from TVB_Method.TVB import find_degree, mon_combos, sorted_matrix_terms
-from TVB_Method.root_finder import roots
+from CHEBYSHEV.TVB_Method.cheb_class import Polynomial, MultiCheb
+from CHEBYSHEV.TVB_Method.TVB import find_degree, mon_combos, sorted_matrix_terms
+from CHEBYSHEV.TVB_Method.root_finder import roots
 
 from itertools import product
 import warnings

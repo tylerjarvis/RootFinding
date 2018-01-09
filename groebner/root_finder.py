@@ -157,24 +157,6 @@ def groebnerMultMatrix(polys, poly_type, method):
 
     return GB, m_f, var_dict
 
-def sortVB(VB):
-    '''Sorts the Vector Basis into degrevlex order so the eigensolve is faster (in theory).
-    Parameters
-    ----------
-    VB : numpy array
-        Each row in VB is a term in the vector basis.
-
-    Returns
-    -------
-    VB : numpy array
-        The vector basis sorted so the lowest terms are at the top.
-    '''
-    VBList = list()
-    for i in VB:
-        VBList.append(Term(i))
-
-    return VB[np.argsort(VBList)]
-
 def TVBMultMatrix(polys, poly_type, method):
     '''
     Finds the multiplication matrix using the reduced Macaulay matrix from the
@@ -196,33 +178,27 @@ def TVBMultMatrix(polys, poly_type, method):
     '''
     basisDict, VB, degree = TelenVanBarel(polys)
         
-    VB = sortVB(VB)
     dim = max(f.dim for f in polys)
 
     # Get random polynomial f
     f = _random_poly(poly_type, dim)[0]
-
-    slices = list()
-    for i in range(len(VB[0])):
-        slices.append(VB.T[i])
-
-    VBset = set()
-    for mon in VB:
-        VBset.add(tuple(mon))
+    
+    #Dictionary of terms in the vector basis their spots in the matrix.
+    VBdict = {}
+    spot = 0
+    for row in VB:
+        VBdict[tuple(row)] = spot
+        spot+=1
 
     # Build multiplication matrix m_f
     mMatrix = np.zeros((len(VB), len(VB)))
-    remainder = np.zeros([degree]*dim)
-
     for i in range(VB.shape[0]):
         f_coeff = f.mon_mult(VB[i], returnType = 'Matrix')
         for term in zip(*np.where(f_coeff != 0)):
-            if term in VBset:
-                remainder[term] += f_coeff[term]
+            if term in VBdict:
+                mMatrix[VBdict[term]][i] += f_coeff[term]
             else:
-                remainder[slices] -= f_coeff[term]*basisDict[term][slices]
-        mMatrix[:,i] = remainder[slices]
-        remainder[slices] = 0
+                mMatrix[:,i] -= f_coeff[term]*basisDict[term]
 
     # Construct var_dict
     var_dict = {}

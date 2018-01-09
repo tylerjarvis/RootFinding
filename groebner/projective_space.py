@@ -286,7 +286,7 @@ def getZeroSet(zeros, polys):
             continue
         rounded = list([0]*dim)
         for i in range(dim):
-            rounded[i] = complex(round(polished[i].real,5),round(polished[i].imag,5))
+            rounded[i] = complex(round(polished[i].real,8),round(polished[i].imag,8))
         rounded = tuple(rounded)
         zeroSet.add(rounded)
     return zeroSet

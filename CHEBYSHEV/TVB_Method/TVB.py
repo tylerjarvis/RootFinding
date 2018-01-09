@@ -1,8 +1,8 @@
 import numpy as np
 import itertools
 from scipy.linalg import qr, solve_triangular, qr_multiply
-from TVB_Method.cheb_class import Polynomial, MultiCheb
-from TVB_Method.cheb_utils import row_swap_matrix, clean_zeros_from_matrix, TVBError, \
+from CHEBYSHEV.TVB_Method.cheb_class import Polynomial, MultiCheb
+from CHEBYSHEV.TVB_Method.cheb_utils import row_swap_matrix, clean_zeros_from_matrix, TVBError, \
                             slice_top, get_var_list, mon_combos, sort_polys_by_degree, mon_combos_highest
 import time
 import random

@@ -3,7 +3,7 @@ import itertools
 from numpy.polynomial import chebyshev as cheb
 from numpy.polynomial import polynomial as poly
 from scipy.signal import fftconvolve, convolve
-from TVB_Method.cheb_utils import Term, match_size, slice_top, slice_bottom
+from CHEBYSHEV.TVB_Method.cheb_utils import Term, match_size, slice_top, slice_bottom
 
 class Polynomial(object):
     '''

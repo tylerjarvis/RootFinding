@@ -1,9 +1,9 @@
 import numpy as np
 import itertools
 import warnings
-from TVB_Method.cheb_class import MultiCheb
-from TVB_Method.TVB import telen_van_barel
-from TVB_Method.cheb_utils import get_var_list, TVBError, Term, match_size, match_poly_dimensions
+from CHEBYSHEV.TVB_Method.cheb_class import MultiCheb
+from CHEBYSHEV.TVB_Method.TVB import telen_van_barel
+from CHEBYSHEV.TVB_Method.cheb_utils import get_var_list, TVBError, Term, match_size, match_poly_dimensions
 
 '''
 This module contains the tools necessary to find the points of the variety of the
