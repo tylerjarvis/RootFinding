@@ -1,7 +1,7 @@
 # RootFinding
 
 Root finding methods for multivariate polynomial equations.
-Developed at Brigham Young University 2016-2017.
+Developed at Brigham Young University 2016-2018.
 
 ## Getting Started
 
@@ -106,4 +106,3 @@ As soon as your pull request has been successfully merged into develop, you shou
 `$ git branch -D test/convert_poly`
 
 The person who completed the pull request should also delete the branch located on GitHub.
-
