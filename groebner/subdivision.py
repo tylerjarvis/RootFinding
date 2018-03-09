@@ -217,7 +217,7 @@ def full_cheb_approximate(f,a,b,deg,tol=1.e-8):
     else:
         return None
 
-def good_zeros_nd(zeros, imag_tol = 1000):#.e-10):
+def good_zeros_nd(zeros, imag_tol = 1.e-10):
     """Get the real zeros in the -1 to 1 interval in each dimension.
     
     Parameters
