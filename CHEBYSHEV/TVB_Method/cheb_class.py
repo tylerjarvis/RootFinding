@@ -50,7 +50,7 @@ class Polynomial(object):
         Calls monomial list.
     update_lead_term
         Finds the lead_term of a polynomial
-    evaluate_at
+    __call__
         Evaluates a polynomial at a certain point.
     __eq__
         Checks if two polynomials are equal.
@@ -120,7 +120,7 @@ class Polynomial(object):
             self.lead_coeff = 0
             self.degree = -1
 
-    def evaluate_at(self, point):
+    def __call__(self, point):
         '''
         Evaluates the polynomial at the given point. This method is overridden
         by the MultiPower and MultiCheb classes, so this definition only
@@ -133,7 +133,7 @@ class Polynomial(object):
 
         Returns
         -------
-        evaluate_at : complex
+        __call__ : complex
             value of the polynomial at the given point
         '''
         if len(point) != len(self.coeff.shape):
@@ -221,7 +221,7 @@ class MultiCheb(Polynomial):
         Subtract two MultiCheb polynomials.
     mon_mult
         Multiply a MultiCheb monomial by a MultiCheb polynomial.
-    evaluate_at
+    __call__
         Evaluate a MultiCheb polynomial at a point.
 
     """
@@ -426,7 +426,7 @@ class MultiCheb(Polynomial):
         elif return_type == 'Matrix':
             return initial_matrix
 
-    def evaluate_at(self, point):
+    def __call__(self, point):
         '''
         Evaluates the polynomial at the given point.
 
@@ -440,7 +440,7 @@ class MultiCheb(Polynomial):
         c : complex
             value of the polynomial at the given point
         '''
-        super(MultiCheb, self).evaluate_at(point)
+        super(MultiCheb, self).__call__(point)
 
         c = self.coeff
         n = len(c.shape)
@@ -463,7 +463,7 @@ class MultiCheb(Polynomial):
         out : ndarray
             Gradient of the polynomial at the given point.
         '''
-        super(MultiCheb, self).evaluate_at(point)
+        super(MultiCheb, self).__call__(point)
 
         out = np.empty(self.dim,dtype="complex_")
         if self.jac is None:

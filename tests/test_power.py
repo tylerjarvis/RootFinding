@@ -76,7 +76,7 @@ def test_mon_mult_random():
 
     assert np.allclose(new_M3_coeff, new_M4_coeff)
 
-def test_evaluate_at():
+def test_evaluate():
     # Evaluate .5xyz + 2x + y + z at (4,2,1)
     poly = MultiPower(np.array([[[0,1,0],
                                 [1,0,0],
@@ -85,9 +85,9 @@ def test_evaluate_at():
                                 [0,.5,0],
                                 [0,0,0]]]))
 
-    assert(poly.evaluate_at((4,2,1)) == 15)
+    assert(poly((4,2,1)) == 15)
 
-def test_evaluate_at2():
+def test_evaluate2():
     # Evaluate -.5x^2y + 2xy^2 - 3z^2 + yz at (7.4,2.33,.25)
     poly = MultiPower(np.array([[[0,0,-3],
                                 [0,1,0],
@@ -99,4 +99,4 @@ def test_evaluate_at2():
                                 [-.5,0,0],
                                 [0,0,0]]]))
 
-    assert(np.isclose(poly.evaluate_at((7.4, 2.33, .25)), 16.94732))
+    assert(np.isclose(poly((7.4, 2.33, .25)), 16.94732))

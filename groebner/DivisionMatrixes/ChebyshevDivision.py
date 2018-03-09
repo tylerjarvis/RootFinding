@@ -1,9 +1,11 @@
 import numpy as np
-from groebner.utils import get_var_list, slice_top, row_swap_matrix
-from groebner.TelenVanBarel import add_polys, rrqr_reduceTelenVanBarel2
+from groebner.utils import get_var_list, slice_top, row_swap_matrix, mon_combos
+from groebner.TelenVanBarel import add_polys, rrqr_reduceTelenVanBarel, rrqr_reduceTelenVanBarel2
+from groebner.root_finder import newton_polish
 from scipy.linalg import solve_triangular, eig, qr
+from matplotlib import pyplot as plt
 
-def division_cheb(polys, divisor_var = 0):
+def division_cheb(polys, divisor_var = 0, tol = 1.e-12):
     '''Calculates the common zeros of polynomials using a division matrix.
     
     Parameters
@@ -23,7 +25,6 @@ def division_cheb(polys, divisor_var = 0):
     #the divisor variable in the first columns.
     dim = polys[0].dim
     matrix_degree = np.sum(poly.degree for poly in polys) - len(polys) + 1
-    matrix_degree -= 0
     
     poly_coeff_list = []
     for i in polys:
@@ -32,13 +33,14 @@ def division_cheb(polys, divisor_var = 0):
     matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, matrix_degree, dim, divisor_var)
         
     #Reduces the Macaulay matrix like normal.
-    matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts)
+    matrix, matrix_terms = rrqr_reduceTelenVanBarel(matrix, matrix_terms, cuts, tol)
+    
     rows,columns = matrix.shape
     VB = matrix_terms[matrix.shape[0]:]
     matrix = np.hstack((np.eye(rows),solve_triangular(matrix[:,:rows],matrix[:,rows:])))
 
     #Builds the inverse matrix. The terms are the vector basis as well as y^k/x terms for all k. Reducing
-    #this matrix allows the y^k/x terms to be reduced back into the vector basis.    
+    #this matrix allows the y^k/x terms to be reduced back into the vector basis.
     inverses = matrix_terms[np.where(matrix_terms[:,divisor_var] == 0)[0]]
     inverses[:,divisor_var] = -np.ones(inverses.shape[0], dtype = 'int')    
     inv_matrix_terms = np.vstack((inverses, VB))
@@ -63,7 +65,7 @@ def division_cheb(polys, divisor_var = 0):
     divisor_terms_dict = dict()
     for term in matrix_terms:
         divisor_terms_dict[tuple(term)] = get_divisor_terms(term, divisor_var)
-    
+        
     #A dictionary of terms to their quotient when divided by x.
     term_divide_dict = dict()
     for term in matrix_terms[-len(VB):]:
@@ -79,6 +81,7 @@ def division_cheb(polys, divisor_var = 0):
 
     #Reduces the inv_matrix to solve for the y^k/x terms in the vector basis.
     Q,R = qr(inv_matrix)
+        
     inv_solutions = np.hstack((np.eye(R.shape[0]),solve_triangular(R[:,:R.shape[0]], R[:,R.shape[0]:])))
 
     #A dictionary of term in the vector basis to their spot in the vector basis.
@@ -106,11 +109,12 @@ def division_cheb(polys, divisor_var = 0):
             root[spot] = vecs[-(2+spot)][i]/vecs[-1][i]
         for spot in range(divisor_var+1,dim):
             root[spot] = vecs[-(1+spot)][i]/vecs[-1][i]
+        #root = newton_polish(polys,root,tol = tol)
         zeros.append(root)
 
     return zeros
 
-def get_matrix_terms(poly_coeffs, dim, divisor_var):
+def get_matrix_terms(poly_coeffs, dim, divisor_var, deg):
     '''Finds the terms in the Macaulay matrix.
     
     Parameters
@@ -130,6 +134,16 @@ def get_matrix_terms(poly_coeffs, dim, divisor_var):
         When the matrix is reduced it is split into 3 parts with restricted pivoting. These numbers indicate
         where those cuts happen.    
     '''
+    """
+    #The following code is just for testing, just two dimensional divide by x.
+    mDeg = deg
+    array = np.array(mon_combos([0]*dim,mDeg))
+    perm = np.arange(mDeg+1)
+    perm = np.hstack((perm, np.arange(len(perm)+2,len(array)), np.arange(len(perm),len(perm)+2)[::-1]))
+    mons = array[perm]
+    cuts = tuple([mDeg+1, len(perm) - 2])
+    return mons, cuts
+    """
     matrix_term_set_y= set()
     matrix_term_set_other= set()
     for coeffs in poly_coeffs:
@@ -157,6 +171,7 @@ def get_matrix_terms(poly_coeffs, dim, divisor_var):
     matrix_terms = np.vstack((np.vstack(matrix_term_set_y),np.vstack(matrix_term_set_other),matrix_term_end))
         
     return matrix_terms, tuple([len(matrix_term_set_y), len(matrix_term_set_y)+len(matrix_term_set_other)])
+    
 
 def create_matrix(poly_coeffs, degree, dim, divisor_var):
     ''' Builds a Macaulay matrix for reduction.
@@ -183,7 +198,7 @@ def create_matrix(poly_coeffs, degree, dim, divisor_var):
         where those cuts happen.
     '''
     bigShape = [degree+1]*dim
-    matrix_terms, cuts = get_matrix_terms(poly_coeffs, dim, divisor_var)
+    matrix_terms, cuts = get_matrix_terms(poly_coeffs, dim, divisor_var, degree)
 
     #Get the slices needed to pull the matrix_terms from the coeff matrix.
     matrix_term_indexes = list()

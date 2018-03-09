@@ -27,7 +27,7 @@ def correctZeros(poly, method, checkNumber = True):
     outOfRange = 0
     for zero in zeros:
         good = True
-        if not np.isclose(0, poly.evaluate_at([zero]), atol = 1.e-3):
+        if not np.isclose(0, poly([zero]), atol = 1.e-3):
             good = False
         if good:
             correct += 1

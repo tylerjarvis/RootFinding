@@ -4,6 +4,7 @@ from math import isnan
 from numpy.fft import fftn
 from numpy.linalg import LinAlgError
 
+from groebner.DivisionMatrixes.ChebyshevDivision import division_cheb
 from groebner.polynomial import MultiCheb, MultiPower
 from groebner.root_finder import roots, newton_polish
 from groebner.utils import clean_zeros_from_matrix
@@ -36,7 +37,9 @@ def projective_solve(poly_list, rmSize = 1.e-2):
         for poly in proejctive_poly_list:
             cheb = triangular_cheb_approx(poly, hyperplane, inv_rotation, dim, poly.degree)
             cheb_poly_list.append(cheb)
+        #zeros = division_cheb(cheb_poly_list, divisor_var = 0)
         zeros = roots(cheb_poly_list, method='TVB')
+        #print(zeros)
         for zero in zeros:
             pZero = np.insert(zero, hyperplane, 1)
             rZero = inv_rotation@pZero
@@ -45,21 +48,20 @@ def projective_solve(poly_list, rmSize = 1.e-2):
     return getZeroSet(all_zeros, poly_list)
 
 def get_rotation_matrix(dim, size = 1.e-5):
-    '''Finds the roots of given polynomials using projective space.
+    '''Gets the matrix the projective space will be rotated by to ensure the solver works.
     
     Parameters
     ----------
     dim : int
-        .
-    rmSize : float
+        The dimension of the space, so the size the matrixneeds to be.
+    size : float
         The size of the pertubations in the rotation matrix. The rotation matrix is the identity matrix
         with pertubations of about this size in each spot to make it random.
 
     Returns
     -------
-    zero_set : set
-        A set of the distinct zeros of the system. In order to be able to put them in a set and not
-        double count equivalent zeros found in sperate hyperplanes, the zeros are rounded to 5 decimal spots.
+    A : numpy array
+        The rotation matrix.
     '''
     A = np.eye(dim)
     A += np.random.rand(dim,dim)*size

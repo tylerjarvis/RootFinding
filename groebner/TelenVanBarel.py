@@ -41,15 +41,15 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
     initial_poly_list = sort_polys_by_degree(initial_poly_list, ascending = False)
 
     """This is the first construction option, simple monomial multiplication."""
-    for i in initial_poly_list:
-        poly_coeff_list = add_polys(degree, i, poly_coeff_list)
+    for poly in initial_poly_list:
+        poly_coeff_list = add_polys(degree, poly, poly_coeff_list)
     """This is the second construction option, it uses the fancy triangle method that is faster but less stable."""
     #for deg in reversed(range(min([poly.degree for poly in initial_poly_list]), degree+1)):
     #    poly_coeff_list += deg_d_polys(initial_poly_list, deg, dim)
 
     #Creates the matrix for either of the above two methods. Comment out if using the third method.
     matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, degree, dim)
-
+            
     """This is the thrid matrix construction option, it uses the permutation arrays."""
     #if power:
     #    matrix, matrix_terms, cuts = createMatrixFast(initial_poly_list, degree, dim)
@@ -57,6 +57,7 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
     #    matrix, matrix_terms, cuts = construction(initial_poly_list, degree, dim)
 
     matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts, accuracy = accuracy)
+    #matrix, matrix_terms = rrqr_reduceTelenVanBarelFullRank(matrix, matrix_terms, cuts, accuracy = accuracy)
 
     height = matrix.shape[0]
     matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
@@ -149,13 +150,15 @@ def add_polys(degree, poly, poly_coeff_list):
     poly_coeff_list : list
         The original list of polynomials in the matrix with the new monomial multiplications of poly added.
     """
+    
     poly_coeff_list.append(poly.coeff)
     deg = degree - poly.degree
     dim = poly.dim
 
     mons = mon_combos([0]*dim,deg)
-    for i in mons[1:]: #skips the first all 0 mon
-        poly_coeff_list.append(poly.mon_mult(i, returnType = 'Matrix'))
+
+    for mon in mons[1:]: #skips the first all 0 mon
+        poly_coeff_list.append(poly.mon_mult(mon, returnType = 'Matrix'))
     return poly_coeff_list
 
 def sorted_matrix_terms(degree, dim):
@@ -231,8 +234,8 @@ def create_matrix(poly_coeffs, degree, dim):
     #Make the matrix. Reshape is faster than stacking.
     matrix = np.reshape(flat_polys, (len(flat_polys),len(matrix_terms)))
 
-    if cuts[0] > matrix.shape[0]: #The matrix isn't tall enough, these can't all be pivot columns.
-        raise TVBError("HIGHEST NOT FULL RANK. TRY HIGHER DEGREE")
+    #if cuts[0] > matrix.shape[0]: #The matrix isn't tall enough, these can't all be pivot columns.
+    #    raise TVBError("HIGHEST NOT FULL RANK. TRY HIGHER DEGREE")
 
     #Sorts the rows of the matrix so it is close to upper triangular.
     matrix = row_swap_matrix(matrix)
@@ -440,8 +443,11 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     #RRQR reduces A and D sticking the result in it's place.
     Q1,matrix[:,:cuts[0]],P1 = qr(matrix[:,:cuts[0]], pivoting = True)
 
-    if abs(matrix[:,:cuts[0]].diagonal()[-1]) < accuracy:
-        raise TVBError("HIGHEST NOT FULL RANK")
+    #Looks like 0 but not, add to the rank.
+    still_good = np.sum(np.abs(matrix[:,:cuts[0]].diagonal()) < accuracy)
+    #if abs(matrix[:,:cuts[0]].diagonal()[-1]) < accuracy:
+    #    print(matrix[:,:cuts[0]].diagonal())
+    #    raise TVBError("HIGHEST NOT FULL RANK")
 
     #Multiplying the rest of the matrix by Q.T
     matrix[:,cuts[0]:] = Q1.T@matrix[:,cuts[0]:]
@@ -458,7 +464,7 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     matrix[:cuts[0],cuts[0]:cuts[1]] = matrix[:cuts[0],cuts[0]:cuts[1]][:,P]
 
     #Checks for 0 rows and gets rid of them.
-    rank = np.sum(np.abs(matrix.diagonal())>accuracy)
+    rank = np.sum(np.abs(matrix.diagonal())>accuracy) + still_good
     matrix = matrix[:rank]
 
     #Resorts the matrix_terms.
@@ -498,7 +504,7 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
 
     if abs(matrix[:,:cuts[0]].diagonal()[-1]) < accuracy:
         raise TVBError("HIGHEST NOT FULL RANK")
-
+    
     matrix[:cuts[0],cuts[0]:] = solve_triangular(matrix[:cuts[0],:cuts[0]],matrix[:cuts[0],cuts[0]:])
     matrix[:cuts[0],:cuts[0]] = np.eye(cuts[0])
     matrix[cuts[0]:,cuts[0]:] -= (matrix[cuts[0]:,:cuts[0]][:,P1])@matrix[:cuts[0],cuts[0]:]
@@ -559,8 +565,8 @@ def rrqr_reduceTelenVanBarelFullRank(matrix, matrix_terms, cuts, accuracy = 1.e-
     matrix[:cuts[0],cuts[0]:] = C1.T
     C1 = 0
 
-    if abs(matrix[:,:cuts[0]].diagonal()[-1]) < accuracy:
-        raise TVBError("HIGHEST NOT FULL RANK")
+    #if abs(matrix[:,:cuts[0]].diagonal()[-1]) < accuracy:
+    #    raise TVBError("HIGHEST NOT FULL RANK")
 
     matrix_terms[:cuts[0]] = matrix_terms[:cuts[0]][P1]
     P1 = 0
