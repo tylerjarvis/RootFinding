@@ -234,7 +234,7 @@ def good_zeros_nd(zeros, imag_tol = 1.e-10):
     """
     dim = zeros.shape[1]
     good_zeros = zeros[np.where(np.sum(np.abs(zeros.imag) < imag_tol,axis = 1) == dim)[0]]
-    good_zeros = good_zeros[np.where(np.sum(np.abs(good_zeros) <= np.sqrt(2),axis = 1) == dim)[0]]
+    good_zeros = good_zeros[np.where(np.sum(np.abs(good_zeros) <= 1,axis = 1) == dim)[0]]
     return good_zeros
 
 def subdivision_solve_nd(funcs,a,b,deg):

@@ -5,7 +5,7 @@ from groebner.root_finder import newton_polish
 from scipy.linalg import solve_triangular, eig, qr
 from matplotlib import pyplot as plt
 
-def division_cheb(polys, divisor_var = 0, tol = 1.e-12):
+def division_cheb(polys, divisor_var = 0, tol = 1.e-10):
     '''Calculates the common zeros of polynomials using a division matrix.
     
     Parameters
