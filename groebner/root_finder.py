@@ -104,7 +104,7 @@ def roots(polys, method = 'Groebner'):
             # indexes depend on the ones with higher indexes
             for pos in list(vars_not_in_basis.keys())[::-1]:
                 GB_poly = _get_poly_with_LT(vars_not_in_basis[pos], GB)
-                var_value = GB_poly.evaluate_at(root) * -1
+                var_value = GB_poly(root) * -1
                 root[pos] = var_value
         roots.append(root)
         #roots.append(newton_polish(polys,root))
@@ -471,7 +471,6 @@ def _test_zero_dimensional(_vars, GB):
 
     return True
 
-
 def newton_polish(polys,root,niter=100,tol=1e-5):
     """
     Perform Newton's method on a system of N polynomials in M variables.
@@ -502,7 +501,7 @@ def newton_polish(polys,root,niter=100,tol=1e-5):
     def f(x):
         #f_x = np.empty(m,dtype="complex_")
         for i, poly in enumerate(polys):
-            f_x[i] = poly.evaluate_at(x)
+            f_x[i] = poly(x)
         return f_x
 
     def Df(x):

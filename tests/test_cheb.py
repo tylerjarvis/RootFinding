@@ -69,15 +69,15 @@ def test_mon_mult():
     q4 = cheb2poly(a3)
     assert np.allclose(q3.coeff, q4.coeff)
 
-def test_evaluate_at():
+def test_evaluate():
     cheb = MultiCheb(np.array([[0,0,0,1],[0,0,0,0],[0,0,1,0]]))
-    value = cheb.evaluate_at((2,5))
+    value = cheb((2,5))
     assert(value == 828)
 
-    value = cheb.evaluate_at((.25,.5))
+    value = cheb((.25,.5))
     assert(np.isclose(value, -.5625))
 
-def test_evaluate_at2():
+def test_evaluate2():
     cheb = MultiCheb(np.array([[0,0,0,1],[0,0,0,0],[0,0,.5,0]]))
-    value = cheb.evaluate_at((2,5))
+    value = cheb((2,5))
     assert(np.isclose(value, 656.5))

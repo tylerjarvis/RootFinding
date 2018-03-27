@@ -26,7 +26,7 @@ def correctZeros(polys, checkNumber = True):
     the polynomials are random and upper triangular, and that at least 95% of the zeros are correct (so it will pass even
     on bad random runs)
     '''
-    zeros = roots(polys, method = 'TVB')
+    zeros = roots(polys)
     assert(zeros != -1)
     if checkNumber:
         expectedNum = np.product([poly.degree for poly in polys])
@@ -36,7 +36,7 @@ def correctZeros(polys, checkNumber = True):
     for zero in zeros:
         good = True
         for poly in polys:
-            if not np.isclose(0, poly.evaluate_at(zero), atol = 1.e-3):
+            if not np.isclose(0, poly(zero), atol = 1.e-3):
                 good = False
                 if (np.abs(zero) > 1).any():
                     outOfRange += 1

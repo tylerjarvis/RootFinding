@@ -1,8 +1,8 @@
 import numpy as np
 import itertools
 import warnings
-from TVB_Method.cheb_class import MultiCheb, Term, TVBError, match_size, match_poly_dimensions, get_var_list
-from TVB_Method.TVB import telen_van_barel
+from CHEBYSHEV.TVB_Method.cheb_class import MultiCheb, Term, TVBError, match_size, match_poly_dimensions, get_var_list
+from CHEBYSHEV.TVB_Method.TVB import telen_van_barel
 
 '''This module contains methods for finding the zero locus of a
    0-dimensional ideal defined by a list of Chebyshev polynomials.

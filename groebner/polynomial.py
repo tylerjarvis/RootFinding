@@ -50,7 +50,7 @@ class Polynomial(object):
         Calls monomial list.
     update_lead_term
         Finds the lead_term of a polynomial
-    evaluate_at
+    __call__
         Evaluates a polynomial at a certain point.
     __eq__
         Checks if two polynomials are equal.
@@ -124,7 +124,7 @@ class Polynomial(object):
             self.lead_coeff = 0
             self.degree = -1
 
-    def evaluate_at(self, point):
+    def __call__(self, points):
         '''
         Evaluates the polynomial at the given point. This method is overridden
         by the MultiPower and MultiCheb classes, so this definition only
@@ -132,17 +132,22 @@ class Polynomial(object):
 
         Parameters
         ----------
-        point : array-like
-            the point at which to evaluate the polynomial
+        points : array-like
+            the points at which to evaluate the polynomial
 
         Returns
         -------
-        evaluate_at : complex
-            value of the polynomial at the given point
+         : numpy array
+            valued of the polynomial at the given points
         '''
-        if len(point) != len(self.coeff.shape):
-            raise ValueError('Cannot evaluate polynomial in {} variables at point {}'\
-            .format(self.dim, point))
+        points = np.array(points)
+        if len(points.shape) == 1:
+            points = points.reshape(1,points.shape[0])
+
+        if points.shape[1] != len(self.coeff.shape):
+            raise ValueError('Dimension of points does not match dimension of polynomial!')
+        
+        return points
 
     def grad(self, point):
         '''
@@ -225,7 +230,7 @@ class MultiCheb(Polynomial):
         Subtract two MultiCheb polynomials.
     mon_mult
         Multiply a MultiCheb monomial by a MultiCheb polynomial.
-    evaluate_at
+    __call__
         Evaluate a MultiCheb polynomial at a point.
 
     """
@@ -416,28 +421,31 @@ class MultiCheb(Polynomial):
         elif returnType == 'Matrix':
             return initial_matrix
 
-    def evaluate_at(self, point):
+    def __call__(self, points):
         '''
         Evaluates the polynomial at the given point.
 
         Parameters
         ----------
-        point : array-like
-            the point at which to evaluate the polynomial
+        points : array-like
+            the points at which to evaluate the polynomial
 
         Returns
         -------
-        c : complex
-            value of the polynomial at the given point
+        c : numpy array
+            values of the polynomial at the given points
         '''
-        super(MultiCheb, self).evaluate_at(point)
+        points = super(MultiCheb, self).__call__(points)
 
         c = self.coeff
         n = len(c.shape)
-        c = cheb.chebval(point[0],c)
+        c = cheb.chebval(points[:,0],c)
         for i in range(1,n):
-            c = cheb.chebval(point[i],c,tensor=False)
-        return c
+            c = cheb.chebval(points[:,i],c,tensor=False)
+        if len(c) == 1:
+            return c[0]
+        else:
+            return c
 
     def grad(self, point):
         '''
@@ -453,7 +461,7 @@ class MultiCheb(Polynomial):
         out : ndarray
             Gradient of the polynomial at the given point.
         '''
-        super(MultiCheb, self).evaluate_at(point)
+        super(MultiCheb, self).__call__(point)
         
         out = np.empty(self.dim,dtype="complex_")
         if self.jac is None:
@@ -520,7 +528,7 @@ class MultiPower(Polynomial):
         Check if two power polynomials are not equal.
     mon_mult
         Multiplies a power monomial by a power polynomial.
-    evaluate_at
+    __call__
         Evaluate a power polynomial at a point.
 
     """
@@ -647,28 +655,32 @@ class MultiPower(Polynomial):
         elif returnType == 'Matrix':
             return result
 
-    def evaluate_at(self, point):
+    def __call__(self, points):
         '''
         Evaluates the polynomial at the given point.
 
         Parameters
         ----------
-        point : array-like
-            the point at which to evaluate the polynomial
+        points : array-like
+            the points at which to evaluate the polynomial
 
         Returns
         -------
-        evaluate_at : complex
+        __call__: complex
             value of the polynomial at the given point
         '''
-        super(MultiPower, self).evaluate_at(point)
+        points = super(MultiPower, self).__call__(points)
 
         c = self.coeff
         n = len(c.shape)
-        c = poly.polyval(point[0],c)
+        c = poly.polyval(points[:,0],c)
         for i in range(1,n):
-            c = poly.polyval(point[i],c,tensor=False)
-        return c
+            c = poly.polyval(points[:,i],c,tensor=False)
+        if len(c) == 1:
+            return c[0]
+        else:
+            return c
+
 
     def grad(self, point):
         '''
@@ -684,7 +696,7 @@ class MultiPower(Polynomial):
         out : ndarray
             Gradient of the polynomial at the given point.
         '''
-        super(MultiPower, self).evaluate_at(point)
+        super(MultiPower, self).__call__(point)
 
         out = np.empty(self.dim,dtype="complex_")
         if self.jac is None:

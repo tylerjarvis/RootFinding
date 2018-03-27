@@ -1,7 +1,8 @@
 import numpy as np
 import itertools
-from groebner.utils import get_var_list, slice_top, row_swap_matrix
+from groebner.utils import get_var_list, slice_top, row_swap_matrix, mon_combos
 from groebner.TelenVanBarel import add_polys, rrqr_reduceTelenVanBarel2
+from groebner.root_finder import newton_polish
 from scipy.linalg import solve_triangular
 
 def division_power(polys, divisor_var = 0):
@@ -24,6 +25,7 @@ def division_power(polys, divisor_var = 0):
     #the divisor variable in the first columns.
     dim = polys[0].dim
     matrix_degree = np.sum(poly.degree for poly in polys) - len(polys) + 1
+        
     poly_coeff_list = []
     for i in polys:
         poly_coeff_list = add_polys(matrix_degree, i, poly_coeff_list)
@@ -67,11 +69,12 @@ def division_power(polys, divisor_var = 0):
             root[spot] = vecs[-(2+spot)][i]/vecs[-1][i]
         for spot in range(divisor_var+1,dim):
             root[spot] = vecs[-(1+spot)][i]/vecs[-1][i]
+        #root = newton_polish(polys,root, tol = 1.e-8)
         zeros.append(root)
     
     return zeros
 
-def get_matrix_terms(poly_coeffs, dim, divisor_var):
+def get_matrix_terms(poly_coeffs, dim, divisor_var, deg):
     '''Finds the terms in the Macaulay matrix.
     
     Parameters
@@ -115,9 +118,9 @@ def get_matrix_terms(poly_coeffs, dim, divisor_var):
     for term in needed_terms:
         matrix_term_set_other.remove(term)
     matrix_terms = np.vstack((np.vstack(matrix_term_set_y),np.vstack(matrix_term_set_other),matrix_term_end))
-        
+    
     return matrix_terms, tuple([len(matrix_term_set_y), len(matrix_term_set_y)+len(matrix_term_set_other)])
-
+    
 def create_matrix(poly_coeffs, degree, dim, divisor_var):
     ''' Builds a Macaulay matrix for reduction.
 
@@ -143,8 +146,8 @@ def create_matrix(poly_coeffs, degree, dim, divisor_var):
         where those cuts happen.
     '''
     bigShape = [degree+1]*dim
-    matrix_terms, cuts = get_matrix_terms(poly_coeffs, dim, divisor_var)
-
+    matrix_terms, cuts = get_matrix_terms(poly_coeffs, dim, divisor_var, degree)
+    
     #Get the slices needed to pull the matrix_terms from the coeff matrix.
     matrix_term_indexes = list()
     for row in matrix_terms.T:
