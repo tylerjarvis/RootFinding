@@ -26,14 +26,19 @@ def division_cheb(polys, divisor_var = 0, tol = 1.e-10):
     dim = polys[0].dim
     matrix_degree = np.sum(poly.degree for poly in polys) - len(polys) + 1
     
+    h1,w1 = polys[0].shape
+    h2,w2 = polys[1].shape
+    missing = int(np.floor(2*h1*h2+w1*w2-1.5*(h1*w2+h2*w1)))
+    print(missing)
+    
     poly_coeff_list = []
-    for i in polys:
-        poly_coeff_list = add_polys(matrix_degree, i, poly_coeff_list)
-        
+    for poly in polys:
+        poly_coeff_list = add_polys(matrix_degree, poly, poly_coeff_list)
+    
     matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, matrix_degree, dim, divisor_var)
         
     #Reduces the Macaulay matrix like normal.
-    matrix, matrix_terms = rrqr_reduceTelenVanBarel(matrix, matrix_terms, cuts, tol)
+    matrix, matrix_terms = rrqr_reduceTelenVanBarel(matrix, matrix_terms, cuts, tol, missing)
     
     rows,columns = matrix.shape
     VB = matrix_terms[matrix.shape[0]:]

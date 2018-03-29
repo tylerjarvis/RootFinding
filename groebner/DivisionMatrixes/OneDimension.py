@@ -54,7 +54,7 @@ def multPower(coeffs):
     bot[...] = 1
     matrix[:, -1] -= coeffs[:-1]/coeffs[-1]
     zeros = la.eigvals(matrix)
-    return zeros
+    return zeros, matrix
 
 def divPower(coeffs):
     """Finds the zeros of a 1-D power polynomial using a division matrix.

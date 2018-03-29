@@ -412,7 +412,7 @@ def construction(polys, degree, dim):
     #print(matrix)
     return matrix, matrix_terms, cuts
 
-def rrqr_reduceTelenVanBarel(matrix, matrix_terms, cuts, accuracy = 1.e-10):
+def rrqr_reduceTelenVanBarel(matrix, matrix_terms, cuts, accuracy = 1.e-10, missing = 0):
     ''' Reduces a Telen Van Barel Macaulay matrix.
 
     The matrix is split into the shape
@@ -464,8 +464,8 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     matrix[:cuts[0],cuts[0]:cuts[1]] = matrix[:cuts[0],cuts[0]:cuts[1]][:,P]
 
     #Checks for 0 rows and gets rid of them.
-    rank = np.sum(np.abs(matrix.diagonal())>accuracy) + still_good
-    matrix = matrix[:rank]
+    #rank = np.sum(np.abs(matrix.diagonal())>accuracy) + still_good
+    #matrix = matrix[:rank]
 
     #Resorts the matrix_terms.
     matrix_terms[:cuts[0]] = matrix_terms[:cuts[0]][P1]
