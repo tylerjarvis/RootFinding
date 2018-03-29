@@ -2,12 +2,12 @@ import numpy as np
 import math
 from scipy.linalg import lu, qr, solve_triangular, inv, solve, svd
 from numpy.linalg import cond
-from groebner.polynomial import Polynomial, MultiCheb, MultiPower, is_power
+from numalgsolve.polynomial import Polynomial, MultiCheb, MultiPower, is_power
 from scipy.sparse import csc_matrix, vstack
-from groebner.utils import Term, row_swap_matrix, clean_zeros_from_matrix, inverse_P, triangular_solve, divides, slice_top, mon_combos
+from numalgsolve.utils import Term, row_swap_matrix, clean_zeros_from_matrix, inverse_P, triangular_solve, divides, slice_top, mon_combos
 import matplotlib.pyplot as plt
 from collections import defaultdict
-import groebner.utils as utils
+import numalgsolve.utils as utils
 import matplotlib.pyplot as plt
 import sympy
 

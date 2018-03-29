@@ -1,9 +1,9 @@
 import numpy as np
 from numpy.fft.fftpack import fftn
-from groebner.DivisionMatrixes.OneDimension import divCheb,divPower,multCheb,multPower,one_dimensional_solve
-from groebner.DivisionMatrixes.ChebyshevDivision import division_cheb
-from groebner.utils import clean_zeros_from_matrix
-from groebner.polynomial import MultiCheb
+from numalgsolve.DivisionMatrixes.OneDimension import divCheb,divPower,multCheb,multPower,one_dimensional_solve
+from numalgsolve.DivisionMatrixes.ChebyshevDivision import division_cheb
+from numalgsolve.utils import clean_zeros_from_matrix
+from numalgsolve.polynomial import MultiCheb
 
 def transform(x,a,b):
     """Transforms points from the interval [-1,1] to the interval [a,b].

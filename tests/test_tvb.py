@@ -1,8 +1,8 @@
 import numpy as np
-from groebner.polynomial import Polynomial, MultiCheb, MultiPower
-from groebner.TelenVanBarel import find_degree, mon_combos, sorted_matrix_terms
-from groebner.root_finder import roots
-from groebner.utils import InstabilityWarning, arrays
+from numalgsolve.polynomial import Polynomial, MultiCheb, MultiPower
+from numalgsolve.TelenVanBarel import find_degree, mon_combos, sorted_matrix_terms
+from numalgsolve.root_finder import roots
+from numalgsolve.utils import InstabilityWarning, arrays
 from itertools import product
 import warnings
 

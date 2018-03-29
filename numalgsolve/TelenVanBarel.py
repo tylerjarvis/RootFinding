@@ -1,8 +1,8 @@
 import numpy as np
 import itertools
 from scipy.linalg import qr, solve_triangular, qr_multiply
-from groebner.polynomial import Polynomial, MultiCheb, MultiPower, is_power
-from groebner.utils import row_swap_matrix, clean_zeros_from_matrix, TVBError, slice_top, get_var_list, mon_combos, mon_combosHighest, inverse_P, sort_polys_by_degree, deg_d_polys, all_permutations, num_mons_full, memoized_all_permutations, mons_ordered, all_permutations_cheb, num_mons
+from numalgsolve.polynomial import Polynomial, MultiCheb, MultiPower, is_power
+from numalgsolve.utils import row_swap_matrix, clean_zeros_from_matrix, TVBError, slice_top, get_var_list, mon_combos, mon_combosHighest, inverse_P, sort_polys_by_degree, deg_d_polys, all_permutations, num_mons_full, memoized_all_permutations, mons_ordered, all_permutations_cheb, num_mons
 import time
 import random
 from matplotlib import pyplot as plt

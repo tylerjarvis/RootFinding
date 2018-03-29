@@ -1,11 +1,11 @@
 import numpy as np
 import itertools
 import warnings
-from groebner.polynomial import MultiCheb, MultiPower, is_power
-from groebner.Macaulay import Macaulay, new_macaulay
-from groebner.TelenVanBarel import TelenVanBarel
-from groebner.gsolve import F4
-from groebner.utils import Term, get_var_list, divides, TVBError, InstabilityWarning, match_size, match_poly_dimensions
+from numalgsolve.polynomial import MultiCheb, MultiPower, is_power
+from numalgsolve.Macaulay import Macaulay, new_macaulay
+from numalgsolve.TelenVanBarel import TelenVanBarel
+from numalgsolve.gsolve import F4
+from numalgsolve.utils import Term, get_var_list, divides, TVBError, InstabilityWarning, match_size, match_poly_dimensions
 
 '''
 This module contains the tools necessary to find the points of the variety of the

@@ -1,9 +1,9 @@
 import pytest
 import numpy as np
 import sympy as sy
-from groebner import utils as ut
-from groebner.utils import *
-from groebner.polynomial import MultiCheb, MultiPower
+from numalgsolve import utils as ut
+from numalgsolve.utils import *
+from numalgsolve.polynomial import MultiCheb, MultiPower
 from scipy.linalg import qr, solve_triangular
 
 def test_inverse_P():

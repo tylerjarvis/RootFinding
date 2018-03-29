@@ -1,8 +1,8 @@
 import numpy as np
-from groebner.utils import mon_combos
-from groebner.Macaulay import Macaulay, find_degree, add_polys, create_matrix
-from groebner.polynomial import MultiCheb, MultiPower
-from groebner.root_finder import roots
+from numalgsolve.utils import mon_combos
+from numalgsolve.Macaulay import Macaulay, find_degree, add_polys, create_matrix
+from numalgsolve.polynomial import MultiCheb, MultiPower
+from numalgsolve.root_finder import roots
 import pytest
 import random
 from itertools import product

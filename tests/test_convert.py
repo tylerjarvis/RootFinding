@@ -1,6 +1,6 @@
 import numpy as np
 import os, sys
-from groebner.polynomial import MultiCheb, MultiPower, cheb2poly, poly2cheb
+from numalgsolve.polynomial import MultiCheb, MultiPower, cheb2poly, poly2cheb
 import pytest
 import pdb
 import random
