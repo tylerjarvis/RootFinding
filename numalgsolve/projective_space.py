@@ -4,10 +4,10 @@ from math import isnan
 from numpy.fft import fftn
 from numpy.linalg import LinAlgError
 
-from groebner.DivisionMatrixes.ChebyshevDivision import division_cheb
-from groebner.polynomial import MultiCheb, MultiPower
-from groebner.root_finder import roots, newton_polish
-from groebner.utils import clean_zeros_from_matrix
+from numalgsolve.DivisionMatrixes.ChebyshevDivision import division_cheb
+from numalgsolve.polynomial import MultiCheb, MultiPower
+from numalgsolve.root_finder import roots, newton_polish
+from numalgsolve.utils import clean_zeros_from_matrix
 import time
 
 def projective_solve(poly_list, rmSize = 1.e-2):

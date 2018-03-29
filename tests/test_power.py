@@ -1,9 +1,9 @@
 import numpy as np
 import os,sys
-from groebner.polynomial import MultiPower
+from numalgsolve.polynomial import MultiPower
 import pytest
 import random
-from groebner import utils
+from numalgsolve import utils
 
 
 def test_add():

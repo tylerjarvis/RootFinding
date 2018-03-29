@@ -1,7 +1,7 @@
 # imports from groebner
-from groebner.polynomial import Polynomial, MultiCheb, MultiPower, is_power
-from groebner.utils import Term
-import groebner.utils as utils
+from numalgsolve.polynomial import Polynomial, MultiCheb, MultiPower, is_power
+from numalgsolve.utils import Term
+import numalgsolve.utils as utils
 
 # other imports
 from operator import itemgetter
@@ -13,7 +13,7 @@ from scipy.sparse import csc_matrix, vstack
 import matplotlib.pyplot as plt
 from collections import defaultdict
 import warnings
-from groebner.utils import InstabilityWarning, slice_top
+from numalgsolve.utils import InstabilityWarning, slice_top
 
 def F4(polys, reducedGroebner = True, accuracy = 1.e-10, phi = True):
     '''Uses the F4 algorithm to find a Groebner Basis.
