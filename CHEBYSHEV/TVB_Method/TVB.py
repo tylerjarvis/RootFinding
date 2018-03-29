@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.linalg import qr, solve_triangular, qr_multiply
-from CHEBYSHEV.TVB_Method.cheb_class import Polynomial, MultiCheb, TVBError, slice_top, get_var_list, mon_combos, mon_combos_highest, sort_polys_by_degree
+from TVB_Method.cheb_class import Polynomial, MultiCheb, TVBError, slice_top, get_var_list, mon_combos, mon_combos_highest, sort_polys_by_degree
 
 
 """
