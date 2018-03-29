@@ -1,8 +1,8 @@
 import numpy as np
 import itertools
-from groebner.utils import get_var_list, slice_top, row_swap_matrix, mon_combos
-from groebner.TelenVanBarel import add_polys, rrqr_reduceTelenVanBarel2
-from groebner.root_finder import newton_polish
+from numalgsolve.utils import get_var_list, slice_top, row_swap_matrix, mon_combos
+from numalgsolve.TelenVanBarel import add_polys, rrqr_reduceTelenVanBarel2
+from numalgsolve.root_finder import newton_polish
 from scipy.linalg import solve_triangular
 
 def division_power(polys, divisor_var = 0):

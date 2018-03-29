@@ -1,5 +1,5 @@
 import numpy as np
-from groebner.polynomial import MultiCheb, MultiPower, poly2cheb, cheb2poly
+from numalgsolve.polynomial import MultiCheb, MultiPower, poly2cheb, cheb2poly
 import pytest
 import pdb
 import random

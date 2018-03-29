@@ -1,6 +1,6 @@
 import numpy as np
-from groebner.polynomial import Polynomial, MultiCheb, MultiPower
-from groebner.DivisionMatrixes.ChebyshevDivision import division_cheb
+from numalgsolve.polynomial import Polynomial, MultiCheb, MultiPower
+from numalgsolve.DivisionMatrixes.ChebyshevDivision import division_cheb
 
 def getPoly(deg,dim):
     '''
