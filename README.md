@@ -1,7 +1,5 @@
 # NumAlgSolve ![CI status](https://img.shields.io/badge/build-passing-brightgreen.svg)
 
----
-
 NumAlgSolve is a Python module for numerical and algebraic rootfinding. For our mathematical methods and their comparisons with other rootfinders, refer to [this paper](paper).
 
 ### Requirements
