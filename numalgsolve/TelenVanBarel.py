@@ -470,7 +470,7 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     #Resorts the matrix_terms.
     matrix_terms[:cuts[0]] = matrix_terms[:cuts[0]][P1]
     matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
-
+    
     return matrix, matrix_terms
 
 def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
@@ -526,6 +526,7 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
 
     # Check if there are no solutions
     rank = np.sum(np.abs(matrix.diagonal())>accuracy)
+    
     # extra_block = matrix[rank:, -matrix_shape_stuff[2]:]
     # Q,R = qr(extra_block)
     # if np.sum(np.abs(R.diagonal())>accuracy) == matrix_shape_stuff[2]:

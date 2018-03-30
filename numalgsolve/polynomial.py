@@ -4,6 +4,24 @@ from numpy.polynomial import chebyshev as cheb
 from numpy.polynomial import polynomial as poly
 from scipy.signal import fftconvolve, convolve
 from numalgsolve.utils import Term, makePolyCoeffMatrix, match_size, slice_top, slice_bottom
+import time
+
+from numba import jit
+
+@jit
+def polyval(x,cc):
+    c0 = cc[-1] + x*0
+    for i in range(2, len(cc) + 1):
+        c0 = cc[-i] + c0*x
+    return c0
+
+@jit
+def polyval2(x,cc):
+    cc = cc.reshape(cc.shape + (1,)*x.ndim)
+    c0 = cc[-1] + x*0
+    for i in range(2, len(cc) + 1):
+        c0 = cc[-i] + c0*x
+    return c0
 
 class Polynomial(object):
     '''
@@ -187,7 +205,6 @@ class Polynomial(object):
 ###############################################################################
 
 #### MULTI_CHEB ###############################################################
-
 class MultiCheb(Polynomial):
     """
     Used to represent a Chebyshev polynomial.
@@ -479,7 +496,6 @@ class MultiCheb(Polynomial):
 ###############################################################################
 
 #### MULTI_POWER ##############################################################
-
 class MultiPower(Polynomial):
     """
     Used to represent a power basis polynomial.
@@ -654,7 +670,7 @@ class MultiPower(Polynomial):
             return MultiPower(result, clean_zeros = False, lead_term = self.lead_term + mon)
         elif returnType == 'Matrix':
             return result
-
+    @jit
     def __call__(self, points):
         '''
         Evaluates the polynomial at the given point.
@@ -669,18 +685,19 @@ class MultiPower(Polynomial):
         __call__: complex
             value of the polynomial at the given point
         '''
-        points = super(MultiPower, self).__call__(points)
-
+        points = super(MultiPower, self).__call__(points)            
+        
         c = self.coeff
         n = len(c.shape)
-        c = poly.polyval(points[:,0],c)
+        #c = poly.polyval(points[:,0],c)
+        c = polyval2(points[:,0],c)
         for i in range(1,n):
-            c = poly.polyval(points[:,i],c,tensor=False)
+            #c = poly.polyval(points[:,i],c,tensor=False)
+            c = polyval(points[:,i],c)
         if len(c) == 1:
             return c[0]
         else:
             return c
-
 
     def grad(self, point):
         '''

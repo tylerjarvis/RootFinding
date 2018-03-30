@@ -5,7 +5,7 @@ from numalgsolve.root_finder import newton_polish
 from scipy.linalg import solve_triangular, eig, qr
 from matplotlib import pyplot as plt
 
-def division_cheb(polys, divisor_var = 0, tol = 1.e-10):
+def division_cheb(polys, divisor_var = 0, tol = 1.e-14):
     '''Calculates the common zeros of polynomials using a division matrix.
     
     Parameters
@@ -25,11 +25,16 @@ def division_cheb(polys, divisor_var = 0, tol = 1.e-10):
     #the divisor variable in the first columns.
     dim = polys[0].dim
     matrix_degree = np.sum(poly.degree for poly in polys) - len(polys) + 1
-    
+    '''
+    h1,w1 = polys[0].shape
+    h2,w2 = polys[1].shape
+    missing = int(np.floor(2*h1*h2+w1*w2-1.5*(h1*w2+h2*w1)))
+    #print(missing)
+    '''
     poly_coeff_list = []
-    for i in polys:
-        poly_coeff_list = add_polys(matrix_degree, i, poly_coeff_list)
-        
+    for poly in polys:
+        poly_coeff_list = add_polys(matrix_degree, poly, poly_coeff_list)
+    
     matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, matrix_degree, dim, divisor_var)
         
     #Reduces the Macaulay matrix like normal.
@@ -103,13 +108,15 @@ def division_cheb(polys, divisor_var = 0, tol = 1.e-10):
     #Calculates the zeros, the x values from the eigenvalues and the y values from the eigenvectors.
     zeros = list()
     for i in range(len(vals)):
+        if abs(vecs[-1][i]) < 1.e-12: #This should be a root at infinity
+            continue
         root = np.zeros(dim, dtype=complex)
         root[divisor_var] = 1/vals[i]
         for spot in range(0,divisor_var):
             root[spot] = vecs[-(2+spot)][i]/vecs[-1][i]
         for spot in range(divisor_var+1,dim):
             root[spot] = vecs[-(1+spot)][i]/vecs[-1][i]
-        #root = newton_polish(polys,root,tol = tol)
+        root = newton_polish(polys,root,tol = tol)
         zeros.append(root)
 
     return zeros
