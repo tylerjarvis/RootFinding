@@ -239,7 +239,7 @@ def newton_polish(polys,root,niter=100,tol=1e-8):
     def f(x):
         #f_x = np.empty(m,dtype="complex_")
         for i, poly in enumerate(polys):
-            f_x[i] = poly.evaluate_at(x)
+            f_x[i] = poly(x)
         return f_x
 
     def Df(x):
@@ -300,7 +300,7 @@ def check_zeros(zeros, polys, real=True, tol=1e-5):
         for zero in zeros:
             good = True
             for poly in polys:
-                v = poly.evaluate_at(zero)
+                v = poly(zero)
                 if np.abs(v) > tol:
                     good = False
                     bad.add(tuple(zero))
@@ -331,7 +331,7 @@ def check_zeros(zeros, polys, real=True, tol=1e-5):
         better.append(newt_zero)
         diff.append(zero - newt_zero)
         for poly in polys:
-            v = poly.evaluate_at(newt_zero)
+            v = poly(newt_zero)
             if np.abs(v) > tol:
                 newt_bad.add(tuple(newt_zero))
         

@@ -2,7 +2,7 @@
 
 import numpy as np
 from scipy.sparse import diags, kron, eye
-import groebner.utils as utils
+import numalgsolve.utils as utils
 import scipy.linalg as sLA
 import time
 

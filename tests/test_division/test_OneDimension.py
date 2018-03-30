@@ -1,6 +1,6 @@
 import numpy as np
-from groebner.polynomial import Polynomial, MultiCheb, MultiPower
-from groebner.DivisionMatrixes.OneDimension import one_dimensional_solve
+from numalgsolve.polynomial import Polynomial, MultiCheb, MultiPower
+from numalgsolve.DivisionMatrixes.OneDimension import one_dimensional_solve
 
 def getPoly(deg, power):
     '''

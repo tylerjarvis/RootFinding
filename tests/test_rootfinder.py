@@ -1,7 +1,7 @@
 import numpy as np
-from groebner import root_finder as rf
-from groebner.polynomial import MultiPower, MultiCheb
-from groebner.gsolve import F4
+from numalgsolve import root_finder as rf
+from numalgsolve.polynomial import MultiPower, MultiCheb
+from numalgsolve.gsolve import F4
 import pytest
 import pdb
 

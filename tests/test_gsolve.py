@@ -1,12 +1,12 @@
 import pytest
 import numpy as np
 from itertools import permutations
-from groebner.root_finder import roots
+from numalgsolve.root_finder import roots
 
 
 # groebner module imports
-from groebner.gsolve import F4
-from groebner.polynomial import MultiPower, MultiCheb
+from numalgsolve.gsolve import F4
+from numalgsolve.polynomial import MultiPower, MultiCheb
 
 def test_sorted_polys_monomial():
     #raise NotImplementedError
