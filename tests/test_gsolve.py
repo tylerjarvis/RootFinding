@@ -1,12 +1,12 @@
 import pytest
 import numpy as np
 from itertools import permutations
-from groebner.root_finder import roots
+from numalgsolve.root_finder import roots
 
 
 # groebner module imports
-from groebner.gsolve import F4
-from groebner.polynomial import MultiPower, MultiCheb
+from numalgsolve.gsolve import F4
+from numalgsolve.polynomial import MultiPower, MultiCheb
 
 def test_sorted_polys_monomial():
     #raise NotImplementedError
@@ -186,7 +186,7 @@ def correctZeros(polys, checkNumber = True):
     for zero in zeros:
         good = True
         for poly in polys:
-            if not np.isclose(0, poly.evaluate_at(zero), atol = 1.e-3):
+            if not np.isclose(0, poly(zero), atol = 1.e-3):
                 good = False
                 if (np.abs(zero) > 1).any():
                     outOfRange += 1

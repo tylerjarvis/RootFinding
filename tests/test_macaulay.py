@@ -1,7 +1,8 @@
 import numpy as np
-from groebner.Macaulay import Macaulay, find_degree, add_polys, create_matrix, mon_combos
-from groebner.polynomial import MultiCheb, MultiPower
-from groebner.root_finder import roots
+from numalgsolve.utils import mon_combos
+from numalgsolve.Macaulay import Macaulay, find_degree, add_polys, create_matrix
+from numalgsolve.polynomial import MultiCheb, MultiPower
+from numalgsolve.root_finder import roots
 import pytest
 import random
 from itertools import product
@@ -38,7 +39,7 @@ def correctZeros(polys):
     for zero in zeros:
         good = True
         for poly in polys:
-            if not np.isclose(0, poly.evaluate_at(zero), atol = 1.e-3):
+            if not np.isclose(0, poly(zero), atol = 1.e-3):
                 good = False
                 if (np.abs(zero) > 1).any():
                     outOfRange += 1

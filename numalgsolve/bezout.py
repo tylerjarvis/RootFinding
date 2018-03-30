@@ -2,8 +2,9 @@
 
 import numpy as np
 from scipy.sparse import diags, kron, eye
-import groebner.utils as utils
+import numalgsolve.utils as utils
 import scipy.linalg as sLA
+import time
 
 def bivariate_roots(f, g):
     """Calculates the common roots of f and g using the bezout resultant method.
@@ -17,11 +18,11 @@ def bivariate_roots(f, g):
     roots
 
     """
-    f_coeffs, g_coeffs = utils.match_size(f.coeff, g.coeff)
-    n = max(f_coeffs.shape)
-    F, G = np.zeros((n,n)), np.zeros((n,n))
-    F = F + utils.match_size(F, f_coeffs)[1] # Square matrix for f
-    G = G + utils.match_size(G, g_coeffs)[1] # Square matrix for g
+    F, G = utils.match_size(f.coeff, g.coeff)
+    n = max(F.shape)
+    # F, G = np.zeros((n,n)), np.zeros((n,n))
+    # F = F + utils.match_size(F, f_coeffs)[1] # Square matrix for f
+    # G = G + utils.match_size(G, g_coeffs)[1] # Square matrix for g
 
     A = np.zeros((n-1, n-1, 2*n-1))
     a, b, c = (np.vstack([np.ones((n-1,1)), 2])/2).T, np.zeros(n), np.ones(n)/2
@@ -80,8 +81,7 @@ def DLP(AA, v, a, b, c):
     k = m // n - 1
     s = n * k
     M = diags(np.vstack([a,b,c]),[0,1,2],(k,k+1))
-    M = kron(M, np.eye(n))
-    M = M.tocsr()
+    M = kron(M, np.eye(n)).tocsr()
 
     S = np.kron(v, AA)
     for j in range(k):
@@ -89,14 +89,11 @@ def DLP(AA, v, a, b, c):
         AA[:,jj] = AA[:,jj].conj().T
     T = np.kron(v.conj().T, AA.conj().T)
     R = (M.conj().T @ S) - (T @ M)
-    R = np.array(R)
 
-    X = np.zeros((s,s))
-    Y = np.copy(X)
+    X, Y = np.zeros((s,s)), np.zeros((s,s))
     ii = np.array([num for num in range(n, n+s)])
     nn = np.array([num for num in range(n)])
-    Y[nn,:] = R[nn][:,ii]/M[0,0]
-    X[nn,:] = T[nn,:]/M[0,0]
+    Y[nn,:], X[nn,:] = R[nn][:,ii]/M[0,0], T[nn,:]/M[0,0]
     index = np.array([num for num in range(n,s+n)])
     Y[nn+n,:] = (R[nn+n][:,ii] - (M[0,n] * Y[nn,:]) + (Y[nn,:] @ M[:,index])) / M[n,n]
     X[nn+n,:] = (T[nn+n,:] - Y[nn,:] - (M[0,n] * X[nn,:])) / M[n,n]

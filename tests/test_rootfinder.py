@@ -1,7 +1,7 @@
 import numpy as np
-from groebner import root_finder as rf
-from groebner.polynomial import MultiPower, MultiCheb
-from groebner.gsolve import F4
+from numalgsolve import root_finder as rf
+from numalgsolve.polynomial import MultiPower, MultiCheb
+from numalgsolve.gsolve import F4
 import pytest
 import pdb
 
@@ -188,9 +188,9 @@ def testRoots():
     f3 = MultiPower(np.array([[0,-1,0,1],[0,0,0,0],[0,0,0,0],[0,0,0,0]]), clean_zeros=False)
 
     roots = rf.roots([f1, f2, f3], method='Groebner')
-    values_at_roots = np.array([[f1.evaluate_at(root) for root in roots],
-                   [f2.evaluate_at(root) for root in roots],
-                   [f3.evaluate_at(root) for root in roots]])
+    values_at_roots = np.array([[f1(root) for root in roots],
+                   [f2(root) for root in roots],
+                   [f3(root) for root in roots]])
 
     assert(np.all(np.isclose(values_at_roots,0)))
 
@@ -209,9 +209,9 @@ def testRoots_2():
 
     roots = rf.roots([f1, f2, f3], method='Groebner')
 
-    values_at_roots = np.array([[f1.evaluate_at(root) for root in roots],
-                    [f2.evaluate_at(root) for root in roots],
-                    [f3.evaluate_at(root) for root in roots]])
+    values_at_roots = np.array([[f1(root) for root in roots],
+                    [f2(root) for root in roots],
+                    [f3(root) for root in roots]])
 
     assert(np.all(np.isclose(values_at_roots,0)))
 
@@ -222,8 +222,8 @@ def testRoots_3():
 
     roots = rf.roots([f1, f2], method='Groebner')
 
-    values_at_roots = np.array([[f1.evaluate_at(root) for root in roots],
-                                [f2.evaluate_at(root) for root in roots]])
+    values_at_roots = np.array([[f1(root) for root in roots],
+                                [f2(root) for root in roots]])
 
     assert(np.all(np.isclose(values_at_roots,0)))
 

@@ -1,9 +1,9 @@
 import pytest
 import numpy as np
 import sympy as sy
-from groebner import utils as ut
-from groebner.utils import *
-from groebner.polynomial import MultiCheb, MultiPower
+from numalgsolve import utils as ut
+from numalgsolve.utils import *
+from numalgsolve.polynomial import MultiCheb, MultiPower
 from scipy.linalg import qr, solve_triangular
 
 def test_inverse_P():
@@ -160,7 +160,7 @@ def test_makePolyCoeffMatrix():
     A = MultiPower('1')
     B = MultiPower(np.array([1]))
     assert (A.coeff==B.coeff).all()
-    
+
     A = MultiPower('2x0+x1+x0*x1')
     B = MultiPower(np.array([[0,2],[1,1]]))
     assert (A.coeff==B.coeff).all()
@@ -180,10 +180,10 @@ def test_makePolyCoeffMatrix():
          [[[4,0],[0,0]],
           [[0,0],[0,0]]]]))
     assert (A.coeff==B.coeff).all()
-    
+
     A = MultiPower('1+x0')
     B = MultiPower('1+x1')
     A1 = MultiPower(np.array([1,1]))
     B1 = MultiPower(np.array([[1],[1]]))
-    
+
     assert (A.coeff==A1.coeff).all() and (B.coeff==B1.coeff).all()

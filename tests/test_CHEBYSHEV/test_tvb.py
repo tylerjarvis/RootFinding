@@ -1,25 +1,22 @@
 import numpy as np
-from numalgsolve.polynomial import Polynomial, MultiCheb, MultiPower
-from numalgsolve.TelenVanBarel import find_degree, mon_combos, sorted_matrix_terms
-from numalgsolve.root_finder import roots
-from numalgsolve.utils import InstabilityWarning, arrays
+from CHEBYSHEV.TVB_Method.cheb_class import Polynomial, MultiCheb
+from CHEBYSHEV.TVB_Method.TVB import find_degree, mon_combos, sorted_matrix_terms
+from CHEBYSHEV.TVB_Method.root_finder import roots
+
 from itertools import product
 import warnings
 
 def getPoly(deg,dim,power):
     '''
     A helper function for testing. Returns a random upper triangular polynomial of the given dimension and degree.
-    power is a boolean indicating whether or not the polynomial should be MultiPower.
+    power is a boolean indicating whether or not the polynomial should be MultiCheb.
     '''
     deg += 1
     ACoeff = np.random.random_sample(deg*np.ones(dim, dtype = int))
     for i,j in np.ndenumerate(ACoeff):
         if np.sum(i) >= deg:
             ACoeff[i] = 0
-    if power:
-        return MultiPower(ACoeff)
-    else:
-        return MultiCheb(ACoeff)
+    return MultiCheb(ACoeff)
 
 def correctZeros(polys, checkNumber = True):
     '''
@@ -29,7 +26,7 @@ def correctZeros(polys, checkNumber = True):
     the polynomials are random and upper triangular, and that at least 95% of the zeros are correct (so it will pass even
     on bad random runs)
     '''
-    zeros = roots(polys, method = 'TVB')
+    zeros = roots(polys)
     assert(zeros != -1)
     if checkNumber:
         expectedNum = np.product([poly.degree for poly in polys])
@@ -50,73 +47,38 @@ def correctZeros(polys, checkNumber = True):
 
 def test_TVB_roots():
     '''
-    The following tests will run TVB on relatively small random upper trianguler MultiPower and MultiCheb polynomials.
+    The following tests will run TVB on relatively small random upper trianguler MultiCheb and MultiCheb polynomials.
     The assert statements will be inside of the correctZeros helper function.
     '''
-    #Case 1 - Two MultiPower 2D degree 10 polynomials.
-    A = getPoly(10,2,True)
-    B = getPoly(10,2,True)
-    correctZeros([A,B])
 
-    #Case 2 - Two MultiCheb 2D degree 10 polynomials.
+    #Case 1 - Two MultiCheb 2D degree 10 polynomials.
     A = getPoly(10,2,False)
     B = getPoly(10,2,False)
     correctZeros([A,B])
 
-    #Case 3 - Three MultiPower 3D degree 4 polynomials.
-    A = getPoly(4,3,True)
-    B = getPoly(4,3,True)
-    C = getPoly(4,3,True)
-    correctZeros([A,B,C])
-
-    #Case 4 - Three MultiCheb 3D degree 4 polynomials.
+    #Case 2 - Three MultiCheb 3D degree 4 polynomials.
     A = getPoly(4,3,False)
     B = getPoly(4,3,False)
     C = getPoly(4,3,False)
     correctZeros([A,B,C])
 
-    #Case 5 - Four MultiPower 4D degree 2 polynomials.
-    A = getPoly(2,4,True)
-    B = getPoly(2,4,True)
-    C = getPoly(2,4,True)
-    D = getPoly(2,4,True)
-    correctZeros([A,B,C,D])
-
-    #Case 6 - Four MultiCheb 4D degree 2 polynomials.
+    #Case 3 - Four MultiCheb 4D degree 2 polynomials.
     A = getPoly(2,4,False)
     B = getPoly(2,4,False)
     C = getPoly(2,4,False)
     D = getPoly(2,4,False)
     correctZeros([A,B,C,D])
 
-    #Case 7 - Two MultiPower 2D, one degree 5 and one degree 7
-    A = getPoly(5,2,True)
-    B = getPoly(7,2,True)
-    correctZeros([A,B])
-
-    #Case 8 - Two MultiCheb 2D, one degree 5 and one degree 7
+    #Case 4 - Two MultiCheb 2D, one degree 5 and one degree 7
     A = getPoly(5,2,False)
     B = getPoly(7,2,False)
     correctZeros([A,B])
 
-    #Case 9 - Three MultiPower 3D of degrees 3,4 and 5
-    A = getPoly(3,3,True)
-    B = getPoly(4,3,True)
-    C = getPoly(5,3,True)
-    correctZeros([A,B,C])
-
-    #Case 10 - Three MultiCheb 3D of degrees 3,4 and 5
+    #Case 5 - Three MultiCheb 3D of degrees 3,4 and 5
     A = getPoly(3,3,False)
     B = getPoly(4,3,False)
     C = getPoly(5,3,False)
     correctZeros([A,B,C])
-
-def test_makeBasisDict():
-
-
-
-
-    pass
 
 def test_find_degree():
     #Test Case #1 - 2,3,4, and 5 2D Polynomials of degree 3
@@ -127,11 +89,11 @@ def test_find_degree():
                     [1,1,0,0],
                     [1,0,0,0]])
 
-    A = MultiPower(degree3Coeff)
-    B = MultiPower(degree3Coeff)
-    C = MultiPower(degree3Coeff)
-    D = MultiPower(degree3Coeff)
-    E = MultiPower(degree3Coeff)
+    A = MultiCheb(degree3Coeff)
+    B = MultiCheb(degree3Coeff)
+    C = MultiCheb(degree3Coeff)
+    D = MultiCheb(degree3Coeff)
+    E = MultiCheb(degree3Coeff)
     assert(find_degree([A,B]) == 5)
     assert(find_degree([A,B,C]) == 7)
     assert(find_degree([A,B,C,D]) == 9)
@@ -145,12 +107,12 @@ def test_find_degree():
                     [1,1,1,0,0,0],
                     [1,1,0,0,0,0],
                     [1,0,0,0,0,0]])
-    F = MultiPower(degree5Coeff)
+    F = MultiCheb(degree5Coeff)
     assert(find_degree([A,F]) == 7)
 
     #Test Case #3 - Two 3D polynomials of degree 15
-    G = MultiPower(np.random.rand(6,6,6))
-    H = MultiPower(np.random.rand(6,6,6))
+    G = MultiCheb(np.random.rand(6,6,6))
+    H = MultiCheb(np.random.rand(6,6,6))
     assert(find_degree([G,H]) == 29)
 
 def test_mon_combos():
@@ -200,45 +162,3 @@ def test_mon_combos():
             mons2.append(i)
     for i in range(len(mons)):
         assert((mons[i] == mons2[i]).all())
-
-def test_arrays():
-    deg = 3
-    dim = 4
-    k = 0
-    a = arrays(deg,dim,k)
-    assert (a == [False,False, False, True, False, False, True, False, True, True,\
-                 False, False, True, False, True, True, False, True, True, True])
-    
-    deg = 3
-    dim = 4
-    k = 1
-    a = arrays(deg,dim,k)
-    assert(a == [False,False, True, False, False, True, False, True, True, False, False,\
-             True, False, True, True, False, True, True, True, False])
-
-    deg = 3
-    dim = 4
-    k = 2
-    a = arrays(deg,dim,k)
-    assert(a == [False,True,False, False, True, True, True, False, False, False,\
-                True, True, True, True, True, True, False, False, False, False])
-    
-    deg = 3
-    dim = 4
-    k = 3
-    a = arrays(deg,dim,k)
-    assert(a == [True]*10+[False]*10)
-
-def test_add_polys():
-
-    pass
-
-def test_sort_matrix():
-
-
-    pass
-
-def test_rrqr_reduceTelenVanBarel():
-
-
-    pass

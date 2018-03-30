@@ -1,9 +1,116 @@
 import numpy as np
-from scipy.linalg import qr, solve_triangular
-from groebner.polynomial import MultiCheb, MultiPower
-from groebner.utils import Term, clean_zeros_from_matrix, triangular_solve, divides, slice_top, mon_combos, mon_combosHighest
-import groebner.utils as utils
+import math
+from scipy.linalg import lu, qr, solve_triangular, inv, solve, svd
+from numpy.linalg import cond
+from numalgsolve.polynomial import Polynomial, MultiCheb, MultiPower, is_power
+from scipy.sparse import csc_matrix, vstack
+from numalgsolve.utils import Term, row_swap_matrix, clean_zeros_from_matrix, inverse_P, triangular_solve, divides, slice_top, mon_combos
 import matplotlib.pyplot as plt
+from collections import defaultdict
+import numalgsolve.utils as utils
+import matplotlib.pyplot as plt
+import sympy
+
+def new_macaulay(initial_poly_list, global_accuracy = 1.e-10):
+    """
+    Accepts a list of polynomials and use them to construct a Macaulay matrix.
+    The matrix is constucted one degree at a time.
+
+    parameters
+    --------
+    initial_poly_list: list
+        Polynomials for Macaulay construction.
+    global_accuracy : float
+        Round-off parameter: values within global_accuracy of zero are rounded to zero. Defaults to 1e-10.
+
+    Returns
+    -------
+    final_polys : list
+        Reduced Macaulay matrix that can be passed into the root finder.
+    """
+    Power = is_power(initial_poly_list)
+
+    poly_coeff_list = list()
+    dim = initial_poly_list[0].dim
+    degree = max([i.degree for i in initial_poly_list])
+    total_degree = find_degree(initial_poly_list)
+
+    for i in initial_poly_list:
+        poly_coeff_list = add_polys(degree, i, poly_coeff_list)
+    initial_poly_list = list()
+    polys_old = create_reduce(poly_coeff_list, Power, False, 'matrix')
+    poly_coeff_list = list()
+    for i in polys_old:
+        poly_coeff_list.append(i)
+    polys_new = list()
+    mons = mon_combos(np.zeros(dim, dtype = int),1)
+    mons = mons[1:]
+
+    while degree < total_degree:
+        poly_coeff_list, polys_old = add_polys_to_deg_x(degree, poly_coeff_list, polys_old, mons, Power)
+        print("Reducing large matrix")
+        poly_coeff_list = create_reduce(poly_coeff_list, Power, False, "matrix")
+        degree += 1
+    print("Final reduction")
+    final_polys = create_reduce(poly_coeff_list, Power, True)
+
+    return final_polys
+
+def add_polys_to_deg_x(degree, poly_coeff_list, polys_old, mons, Power):
+    """
+    Adds polynomials to a given degree.
+
+    Parameters
+    ----------
+    degree : int
+        which degree to go to
+    poly_coeff_list : list of matrices
+
+    polys_old : list of polynomials
+    polys_new : list of polynomials
+    mons : list of monomials
+    Power : bool
+    """
+    polys_new = list()
+    for i in polys_old:
+        for j in mons:
+            polys_new.append(utils.mon_mult2(i,j, Power))
+    print("Reducing new polys")
+    polys_old = create_reduce(polys_new, Power, False, "matrix")
+    for i in polys_old:
+        poly_coeff_list.append(i)
+    return poly_coeff_list, polys_old
+
+def create_reduce(poly_list, Power, last_iteration = False, r_type = 'poly'):
+    if last_iteration == False:
+        """
+        matrix, matrix_terms = create_matrix(poly_list)
+        rows_good, rows_trash, Q = utils.row_linear_dependencies(matrix)
+        poly_list = get_polys_from_matrix(matrix, matrix_terms, rows_good, Power, r_type)
+        """
+        matrix, matrix_terms = create_matrix(poly_list)
+        print("Before: ", matrix.shape)
+        matrix = utils.rrqr_reduce2(matrix)
+        print("After: ", matrix.shape)
+        matrix = clean_zeros_from_matrix(matrix)
+        non_zero_rows = np.sum(np.abs(matrix),axis=1) != 0
+        matrix = matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
+        #rows = get_good_rows(matrix, matrix_terms)
+        poly_list = get_polys_from_matrix(matrix, matrix_terms, np.arange(matrix.shape[0]), Power, r_type)
+        return poly_list
+
+    else:
+        matrix, matrix_terms = create_matrix(poly_list)
+        print(matrix.shape)
+        matrix = utils.rrqr_reduce2(matrix)
+        matrix = clean_zeros_from_matrix(matrix)
+        non_zero_rows = np.sum(np.abs(matrix),axis=1) != 0
+        matrix = matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
+        matrix = triangular_solve(matrix)
+        matrix = clean_zeros_from_matrix(matrix)
+        rows = get_good_rows(matrix, matrix_terms)
+        poly_list = get_polys_from_matrix(matrix, matrix_terms, rows, Power, r_type)
+        return poly_list
 
 def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     """
@@ -21,14 +128,7 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
     final_polys : list
         Reduced Macaulay matrix that can be passed into the root finder.
     """
-    Power = bool
-    if all([type(p) == MultiPower for p in initial_poly_list]):
-        Power = True
-    elif all([type(p) == MultiCheb for p in initial_poly_list]):
-        Power = False
-    else:
-        print([type(p) == MultiPower for p in initial_poly_list])
-        raise ValueError('Bad polynomials in list')
+    Power = is_power(initial_poly_list)
 
     poly_coeff_list = []
     degree = find_degree(initial_poly_list)
@@ -37,16 +137,18 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
         poly_coeff_list = add_polys(degree, i, poly_coeff_list)
 
     matrix, matrix_terms = create_matrix(poly_coeff_list)
-    
+
+    print(matrix.shape)
+
     #rrqr_reduce2 and rrqr_reduce same pretty matched on stability, though I feel like 2 should be better.
     matrix = utils.rrqr_reduce2(matrix, global_accuracy = global_accuracy)
     matrix = clean_zeros_from_matrix(matrix)
     non_zero_rows = np.sum(np.abs(matrix),axis=1) != 0
     matrix = matrix[non_zero_rows,:] #Only keeps the non_zero_polymonials
-    
+
     matrix = triangular_solve(matrix)
     matrix = clean_zeros_from_matrix(matrix)
-    
+
     #The other reduction option. I thought it would be really stable but seems to be the worst of the three.
     #matrix = matrixReduce(matrix, triangular_solve = True, global_accuracy = global_accuracy)
 
@@ -55,7 +157,7 @@ def Macaulay(initial_poly_list, global_accuracy = 1.e-10):
 
     return final_polys
 
-def get_polys_from_matrix(matrix, matrix_terms ,rows, power):
+def get_polys_from_matrix(matrix, matrix_terms ,rows, power, r_type = "poly"):
     '''Creates polynomial objects from the specified rows of the given matrix.
 
     Parameters
@@ -70,7 +172,7 @@ def get_polys_from_matrix(matrix, matrix_terms ,rows, power):
     power : bool
         If true, the polynomials returned will be MultiPower objects.
         Otherwise, they will be MultiCheb.
-        
+
     Returns
     -------
     poly_list : list
@@ -90,31 +192,33 @@ def get_polys_from_matrix(matrix, matrix_terms ,rows, power):
         p = matrix[i]
         coeff = np.zeros(shape)
         coeff[spots] = p
-        if power:
-            poly = MultiPower(coeff)
+        if r_type == "poly":
+            if power:
+                poly = MultiPower(coeff)
+            else:
+                poly = MultiCheb(coeff)
+            if poly.lead_term != None:
+                p_list.append(poly)
         else:
-            poly = MultiCheb(coeff)
-
-        if poly.lead_term != None:
-            p_list.append(poly)
+            p_list.append(coeff)
     return p_list
 
 def get_good_rows(matrix, matrix_terms):
     '''
     Gets the rows in a matrix whose leading monomial is not divisible by the leading monomial of any other row.
-    
+
     Parameters
     ----------
     matrix : (M,N) ndarray
         Input matrix.
     matrix_terms : array-like
         The column labels for matrix in order. Contains Term objects.
-        
+
     Returns
     -------
     keys : list
         Rows indicies satisfying the divisibility condition.
-        
+
     Notes
     -----
     This function could probably be improved, but for now it is good enough.
@@ -152,12 +256,12 @@ def find_degree(poly_list):
     ----------
     poly_list : list
         Polynomials that will be used to construct the matrix.
-    
+
     Returns
     -------
     int
         Needed degree for Macaulay matrix.
-    
+
     Notes
     -------
         For polynomials [P1,P2,P3] with degree [d1,d2,d3] the function returns d1+d2+d3-3+1
@@ -169,15 +273,15 @@ def find_degree(poly_list):
 
 def add_polys(degree, poly, poly_coeff_list):
     """Adds polynomials to a Macaulay Matrix.
-    
+
     This function is called on one polynomial and adds all monomial multiples of it to the matrix.
-    
+
     Parameters
     ----------
     degree : int
         The degree of the TVB Matrix
     poly : Polynomial
-        One of the polynomials used to make the matrix. 
+        One of the polynomials used to make the matrix.
     poly_coeff_list : list
         A list of all the current polynomials in the matrix.
     Returns
@@ -198,12 +302,12 @@ def add_polys(degree, poly, poly_coeff_list):
 def sort_matrix_terms(matrix_terms):
     '''Sorts the matrix_terms by term order.
     So the highest terms come first, the lowest ones last.
-    
+
     Parameters
     ----------
     matrix_terms : ndarray
         Each row is one of the terms in the matrix.
-    
+
     Returns
     -------
     matrix_terms : ndarray
@@ -253,10 +357,11 @@ def create_matrix(poly_coeffs):
         added_zeros[slices] = coeff
         flat_polys.append(added_zeros[matrix_term_indexes])
         added_zeros[slices] = np.zeros_like(coeff)
-
+        coeff = 0
+    poly_coeffs = 0
     #Make the matrix
     matrix = np.vstack(flat_polys[::-1])
-
+    flat_polys = 0
     #Sorts the rows of the matrix so it is close to upper triangular.
     matrix = utils.row_swap_matrix(matrix)
     return matrix, matrix_terms
@@ -304,15 +409,16 @@ def matrixReduce(matrix, triangular_solve = False, global_accuracy = 1.e-10):
             otherColumns.append(i)
 
     matrix = matrix[:,pivotColumns + otherColumns]
-        
+
     Q,R = qr(matrix)
+
     if triangular_solve:
         R = clean_zeros_from_matrix(R)
         X = solve_triangular(R[:,:R.shape[0]],R[:,R.shape[0]:])
         reduced = np.hstack((np.eye(X.shape[0]),X))
     else:
         reduced = R
-    matrix = np.empty_like(reduced)
+
     matrix = reduced[:,utils.inverse_P(pivotColumns + otherColumns)]
 
     matrix = clean_zeros_from_matrix(matrix)
