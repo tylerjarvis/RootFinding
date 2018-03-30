@@ -2,7 +2,7 @@ import numpy as np
 from numpy.fft.fftpack import fftn
 from groebner.DivisionMatrixes.OneDimension import divCheb,divPower,multCheb,multPower,one_dimensional_solve
 from groebner.DivisionMatrixes.ChebyshevDivision import division_cheb
-from groebner.utils import clean_zeros_from_matrix
+from groebner.utils import clean_zeros_from_matrix, slice_top
 from groebner.polynomial import MultiCheb
 from matplotlib import pyplot as plt
 
@@ -220,6 +220,16 @@ def full_cheb_approximate(f,a,b,deg,tol=1.e-8):
     
     degs = np.array([deg]*dim)+1
     coeff = interval_approximate_nd(f,a,b,degs)
+    coeff2 = interval_approximate_nd(f,a,b,degs*2)
+    coeff2[slice_top(coeff)] -= coeff
+    #print(np.sum(np.abs(coeff2)))
+    clean_zeros_from_matrix(coeff2,1.e-16)
+    #print(np.sum(np.abs(coeff2)))
+    if np.sum(np.abs(coeff2)) > tol:
+        return None
+    else:
+        return coeff
+    '''
     mons = mon_combos_limited([0]*dim,deg+1,np.array(coeff.shape))
     slices = list()
     mons = np.array(mons).T
@@ -229,6 +239,7 @@ def full_cheb_approximate(f,a,b,deg,tol=1.e-8):
         return coeff
     else:
         return None
+    '''
 
 def good_zeros_nd(zeros, imag_tol = 1.e-10):
     """Get the real zeros in the -1 to 1 interval in each dimension.
@@ -250,7 +261,7 @@ def good_zeros_nd(zeros, imag_tol = 1.e-10):
     good_zeros = good_zeros[np.where(np.sum(np.abs(good_zeros) <= 1,axis = 1) == dim)[0]]
     return good_zeros
 
-def subdivision_solve_nd(funcs,a,b,deg,tol=1.e-8):
+def subdivision_solve_nd(funcs,a,b,deg,tol=1.e-8,tol2=1.e-8):
     """Finds the common zeros of the given functions.
     
     Parameters
@@ -269,7 +280,7 @@ def subdivision_solve_nd(funcs,a,b,deg,tol=1.e-8):
     good_zeros : numpy array
         The real zero in [-1,1] of the input zeros.
     """
-    print("Interval - ",a,b)
+    #print("Interval - ",a,b)
     dim = len(a)
     chebs = list()
     for func in funcs:
@@ -277,15 +288,17 @@ def subdivision_solve_nd(funcs,a,b,deg,tol=1.e-8):
         #Subdivides if needed.
         if coeff is None:
             intervals = get_subintervals(a,b,np.arange(dim))
-            return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg) for interval in intervals])
-        
-        coeff = trim_coeff(coeff,tol=tol)
+            return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,tol=tol,tol2=tol2) \
+                              for interval in intervals])
+        coeff = trim_coeff(coeff,tol=tol, tol2=tol2)
         chebs.append(MultiCheb(coeff))
     zeros = np.array(division_cheb(chebs))
+    if len(zeros) == 0:
+        return np.zeros([0,dim])
     zeros = transform(good_zeros_nd(zeros),a,b)
     return zeros
 
-def trim_coeff(coeff, tol = 1.e-8):
+def trim_coeff(coeff, tol=1.e-8, tol2=1.e-8):
     """Finds the common zeros of the given functions.
     
     Parameters
@@ -305,8 +318,7 @@ def trim_coeff(coeff, tol = 1.e-8):
         The real zero in [-1,1] of the input zeros.
     """
     #Cuts down in the degree we are dividing by so the division matrix is stable.
-    
-    for spot in zip(*np.where(np.abs(coeff[0]) < tol)):
+    for spot in zip(*np.where(np.abs(coeff[0]) < tol2)):
         slices = list()
         slices.append(slice(0,None))
         for s in spot:
@@ -418,13 +430,11 @@ def subdivide_solve_1d(f,a,b,cheb_approx_tol=1.e-10,max_degree=128):
         coeffs2N = interval_approximate_1d(f,a,b,deg = 2*n)
         #Check if the approximation is good enough
         if np.sum(np.abs(coeffs2N - coeffsN)) < cheb_approx_tol:
-            print(coeffs2N,coeffsN)
             coeffs = coeffsN[:n+1]
             #Division is faster after degree 75
             if n > 75:
                 return transform(good_zeros(divCheb(coeffs)),a,b)
             else:
-                print(coeffs)
                 return transform(good_zeros(multCheb(np.trim_zeros(coeffs.copy(),trim='b'))),a,b)
         intitial_approx = coeffs2N
         n*=2

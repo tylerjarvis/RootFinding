@@ -14,7 +14,7 @@ def getPoly(deg,dim):
             ACoeff[i] = 0
     return MultiPower(ACoeff)
 
-def correctZeros(polys, divisor_var, checkNumber = True):
+def correctZeros(polys, divisor_var, checkNumber = False):
     '''
     A helper function. Takes in polynomials, find their common zeros, and calculates how many of the zeros are correct.
     In this function it asserts that the number of zeros is equal to the product of the degrees, which is only valid if
