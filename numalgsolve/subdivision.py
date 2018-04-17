@@ -1,9 +1,55 @@
 import numpy as np
 from numpy.fft.fftpack import fftn
-from numalgsolve.DivisionMatrixes.OneDimension import divCheb,divPower,multCheb,multPower,one_dimensional_solve
-from numalgsolve.DivisionMatrixes.ChebyshevDivision import division_cheb
+from numalgsolve.OneDimension import divCheb,divPower,multCheb,multPower,solve
+from numalgsolve.ChebyshevDivision import division_cheb
 from numalgsolve.utils import clean_zeros_from_matrix, slice_top
 from numalgsolve.polynomial import MultiCheb
+
+def solve(funcs, a, b):
+    '''
+    Finds the real roots of the given list of functions on a given interval.
+
+    Parameters
+    ----------
+    funcs : list of callable functions
+        Functions to find the common roots of.
+    a : numpy array
+        The lower bound on the interval.
+    b : numpy array
+        The upper bound on the interval.
+    returns
+    -------
+    roots : numpy array
+        The common roots of the polynomials. Each row is a root.
+    '''
+    dim = len(a)
+    if dim == 1:
+        zeros = np.unique(subdivide_solve_1d(funcs[0],a,b))
+        #Finds the roots of each succesive function and checks which roots are common.
+        for func in funcs[1:]:
+            if len(zeros) == 0:
+                break
+            zeros2 = np.unique(subdivide_solve_1d(func,a,b))
+            common = list()
+            tol = 1.e-10
+            for zero in zeros2:
+                spot = np.where(np.abs(zeros-zero)<tol)
+                if len(spot[0]) > 0:
+                    common.append(zero)
+            zeros = common
+        return zeros
+    else:
+        if dim == 2:
+            deg = 10
+        elif dim == 3:
+            deg = 7
+        elif dim == 4:
+            deg = 4
+        elif dim == 5:
+            deg = 2
+        else:
+            deg = 2
+        return subdivision_solve_nd(funcs,a,b,deg)
 
 def transform(x,a,b):
     """Transforms points from the interval [-1,1] to the interval [a,b].
@@ -151,14 +197,16 @@ def get_subintervals(a,b,dimensions):
     subintervals : list
         Each element of the list is a tuple containing an a and b, the lower and upper bounds of the interval.
     """
+    RAND = 0.5139303900908738
     subintervals = list()
     perms = interval_perms(list(), np.zeros(len(dimensions)), 0)
-    diffs = ((b-a)/2)[dimensions]
+    diffs1 = ((b-a)*RAND)[dimensions]
+    diffs2 = ((b-a)-(b-a)*RAND)[dimensions]
     for perm in perms:
         aTemp = a.copy()
         bTemp = b.copy()
-        aTemp[dimensions] += (1-perm)*diffs
-        bTemp[dimensions] -= perm*diffs
+        aTemp[dimensions] += (1-perm)*diffs1
+        bTemp[dimensions] -= perm*diffs2
         subintervals.append(tuple([aTemp,bTemp]))
     return subintervals
 
@@ -228,17 +276,6 @@ def full_cheb_approximate(f,a,b,deg,tol=1.e-8):
         return None
     else:
         return coeff
-    '''
-    mons = mon_combos_limited([0]*dim,deg+1,np.array(coeff.shape))
-    slices = list()
-    mons = np.array(mons).T
-    for i in range(dim):
-        slices.append(mons[i])
-    if np.all(np.abs(coeff[slices]) < tol):
-        return coeff
-    else:
-        return None
-    '''
 
 def good_zeros_nd(zeros, imag_tol = 1.e-10):
     """Get the real zeros in the -1 to 1 interval in each dimension.
@@ -279,7 +316,7 @@ def subdivision_solve_nd(funcs,a,b,deg,tol=1.e-8,tol2=1.e-8):
     good_zeros : numpy array
         The real zero in [-1,1] of the input zeros.
     """
-    #print("Interval - ",a,b)
+    print("Interval - ",a,b)
     dim = len(a)
     chebs = list()
     for func in funcs:
@@ -420,7 +457,6 @@ def subdivide_solve_1d(f,a,b,cheb_approx_tol=1.e-10,max_degree=128):
     coeffs : numpy array
         The coefficient of the chebyshev interpolating polynomial.
     """
-    print(a,b)
     n = 2
     intitial_approx = interval_approximate_1d(f,a,b,deg = n)
     while n<=max_degree:

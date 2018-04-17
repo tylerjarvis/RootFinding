@@ -10,7 +10,7 @@ from numba import jit
 
 @jit
 def polyval(x,cc):
-    c0 = cc[-1] + x*0
+    c0 = cc[-1]
     for i in range(2, len(cc) + 1):
         c0 = cc[-i] + c0*x
     return c0
@@ -18,7 +18,7 @@ def polyval(x,cc):
 @jit
 def polyval2(x,cc):
     cc = cc.reshape(cc.shape + (1,)*x.ndim)
-    c0 = cc[-1] + x*0
+    c0 = cc[-1]
     for i in range(2, len(cc) + 1):
         c0 = cc[-i] + c0*x
     return c0

@@ -1,12 +1,11 @@
 import numpy as np
 import itertools
-from numalgsolve.utils import get_var_list, slice_top, row_swap_matrix, mon_combos
-from numalgsolve.TelenVanBarel import add_polys, rrqr_reduceTelenVanBarel2
-from numalgsolve.root_finder import newton_polish
+from numalgsolve.utils import get_var_list, slice_top, row_swap_matrix, mon_combos, newton_polish
+from numalgsolve.TelenVanBarel import add_polys, rrqr_reduceTelenVanBarel
 from scipy.linalg import solve_triangular
 from matplotlib import pyplot as plt
 
-def division_power(polys, divisor_var = 0):
+def division_power(polys, divisor_var = 0, tol = 1.e-10):
     '''Calculates the common zeros of polynomials using a division matrix.
     
     Parameters
@@ -34,7 +33,7 @@ def division_power(polys, divisor_var = 0):
     matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, matrix_degree, dim, divisor_var)
         
     #Reduces the Macaulay matrix like normal.
-    matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts)
+    matrix, matrix_terms = rrqr_reduceTelenVanBarel(matrix, matrix_terms, cuts, tol)
     rows,columns = matrix.shape
     matrixFinal = np.hstack((np.eye(rows),solve_triangular(matrix[:,:rows],matrix[:,rows:])))
         
@@ -66,7 +65,7 @@ def division_power(polys, divisor_var = 0):
     #Finds the zeros, the divisor variable values from the eigenvalues and the other variable values from the eigenvectors.
     zeros = list()
     for i in range(len(vals)):
-        if abs(vecs[-1][i]) < 1.e-12: #This should be a root at infinity
+        if abs(vecs[-1][i]) < 1.e-6: #This is a root outside the unit disk.
             continue
         root = np.zeros(dim, dtype=complex)
         root[divisor_var] = 1/vals[i]

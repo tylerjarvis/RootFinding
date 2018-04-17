@@ -1,3 +1,6 @@
+"""TESTS REMOVED FOR NOW BECAUSE WE DON'T USE THIS CODE"""
+
+"""
 import numpy as np
 from numalgsolve.utils import mon_combos
 from numalgsolve.Macaulay import Macaulay, find_degree, add_polys, create_matrix
@@ -168,54 +171,6 @@ def test_find_degree():
     correct_degree1 = 24
     assert found_degree1 == correct_degree1
 
-def test_mon_combos():
-    '''
-    Tests the mon_combos function against the simpler itertools product.
-    '''
-    #Test Case #1 - degree 5, dimension 2
-    deg = 5
-    dim = 2
-    mons = mon_combos(np.zeros(dim, dtype = int),deg)
-    mons2 = list()
-    for i in product(np.arange(deg+1), repeat=dim):
-        if np.sum(i) <= deg:
-            mons2.append(i)
-    for i in range(len(mons)):
-        assert((mons[i] == mons2[i]).all())
-
-    #Test Case #2 - degree 25, dimension 2
-    deg = 25
-    dim = 2
-    mons = mon_combos(np.zeros(dim, dtype = int),deg)
-    mons2 = list()
-    for i in product(np.arange(deg+1), repeat=dim):
-        if np.sum(i) <= deg:
-            mons2.append(i)
-    for i in range(len(mons)):
-        assert((mons[i] == mons2[i]).all())
-
-    #Test Case #3 - degree 5, dimension 3
-    deg = 5
-    dim = 3
-    mons = mon_combos(np.zeros(dim, dtype = int),deg)
-    mons2 = list()
-    for i in product(np.arange(deg+1), repeat=dim):
-        if np.sum(i) <= deg:
-            mons2.append(i)
-    for i in range(len(mons)):
-        assert((mons[i] == mons2[i]).all())
-
-    #Test Case #4 - degree 5, dimension 5
-    deg = 5
-    dim = 5
-    mons = mon_combos(np.zeros(dim, dtype = int),deg)
-    mons2 = list()
-    for i in product(np.arange(deg+1), repeat=dim):
-        if np.sum(i) <= deg:
-            mons2.append(i)
-    for i in range(len(mons)):
-        assert((mons[i] == mons2[i]).all())
-
 def test_add_polys():
     #raise NotImplementedError
     pass
@@ -243,3 +198,5 @@ def test_rrqr_reduce():
 def test_rrqr_reduce2():
     #raise NotImplementedError
     pass
+     
+"""

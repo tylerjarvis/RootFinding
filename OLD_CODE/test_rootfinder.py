@@ -1,3 +1,6 @@
+"""TESTS REMOVED FOR NOW BECAUSE WE DON'T USE THIS CODE"""
+
+"""
 import numpy as np
 from numalgsolve import root_finder as rf
 from numalgsolve.polynomial import MultiPower, MultiCheb
@@ -250,3 +253,4 @@ def testRoots_6(): # test when ideal is not zero-dimensional
 
     roots = rf.roots([f1, f2], method='Macaulay')
     assert(roots == -1)
+"""
