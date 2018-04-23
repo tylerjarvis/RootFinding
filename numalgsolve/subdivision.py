@@ -1,3 +1,11 @@
+"""
+Subdivision provides a solve function that finds roots of a set of functions
+by approximating the functions with Chebyshev polynomials.
+When the approximation is performed on a sufficiently small interval,
+the approximation degree is small enough to be solved efficiently.
+
+"""
+
 import numpy as np
 from numpy.fft.fftpack import fftn
 from numalgsolve.OneDimension import divCheb,divPower,multCheb,multPower,solve
@@ -141,28 +149,38 @@ def interval_approximate_nd(f,a,b,degs):
         return np.cos(np.pi*k/n)
 
     n = degs[0]
-    if dim == 2:
+
+    if hasattr(f,"evaluate_grid"):
+        #for polynomials, we can quickly evaluate all points in a grid
+        #xyz does not contain points, but the nth column of xyz has the values needed
+        #along the nth axis. The direct product of these values procuces the grid
         X = np.cos(np.arange(2*n)*np.pi/n)
-        y,x = np.meshgrid(X,X)
-        cheb_spots = transform(np.vstack([x.flatten(),y.flatten()]).T,a,b)
-        values = f(cheb_spots).reshape(2*n,2*n)
-        #print(jit)
-        #values = polyvalnd(cheb_spots,f.coeff).reshape(2*n,2*n)
-    elif dim == 3:
-        X = np.cos(np.arange(2*n)*np.pi/n)
-        y,x,z = np.meshgrid(X,X,X)
-        cheb_spots = transform(np.vstack([x.flatten(),y.flatten(),z.flatten()]).T,a,b)
-        values = f(cheb_spots).reshape(2*n,2*n,2*n)
+        xyz = transform(np.column_stack([X]*dim), a, b)
+        values = f.evaluate_grid(xyz)
     else:
-        values = np.zeros(2*degs)
-        cheb_spots = list()
-        for spot,val in np.ndenumerate(values):
-            cheb_spots.append(transform([get_cheb_spot(spot[i],degs[i]) for i in range(dim)],a,b))
-        vals = f(cheb_spots)
-        i=0
-        for spot,val in np.ndenumerate(values):
-            values[spot] = vals[i]
-            i+=1
+        if dim == 2:
+            X = np.cos(np.arange(2*n)*np.pi/n)
+            y,x = np.meshgrid(X,X)
+            cheb_spots = transform(np.vstack([x.flatten(),y.flatten()]).T,a,b)
+            values = f(cheb_spots).reshape(2*n,2*n)
+            #print(jit)
+            #values = polyvalnd(cheb_spots,f.coeff).reshape(2*n,2*n)
+        elif dim == 3:
+            X = np.cos(np.arange(2*n)*np.pi/n)
+            y,x,z = np.meshgrid(X,X,X)
+            cheb_spots = transform(np.vstack([x.flatten(),y.flatten(),z.flatten()]).T,a,b)
+            values = f(cheb_spots).reshape(2*n,2*n,2*n)
+
+        else:
+            values = np.zeros(2*degs)
+            cheb_spots = list()
+            for spot,val in np.ndenumerate(values):
+                cheb_spots.append(transform([get_cheb_spot(spot[i],degs[i]) for i in range(dim)],a,b))
+            vals = f(cheb_spots)
+            i=0
+            for spot,val in np.ndenumerate(values):
+                values[spot] = vals[i]
+                i+=1
     
     coeffs = np.real(fftn(values/np.product(degs)))
 
