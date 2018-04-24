@@ -5,6 +5,7 @@ from numalgsolve import utils as ut
 from numalgsolve.utils import *
 from numalgsolve.polynomial import MultiCheb, MultiPower
 from scipy.linalg import qr, solve_triangular
+from itertools import product
 
 def test_inverse_P():
     # Test Case 1:
@@ -187,3 +188,51 @@ def test_makePolyCoeffMatrix():
     B1 = MultiPower(np.array([[1],[1]]))
 
     assert (A.coeff==A1.coeff).all() and (B.coeff==B1.coeff).all()
+
+def test_mon_combos():
+    '''
+    Tests the mon_combos function against the simpler itertools product.
+    '''
+    #Test Case #1 - degree 5, dimension 2
+    deg = 5
+    dim = 2
+    mons = mon_combos(np.zeros(dim, dtype = int),deg)
+    mons2 = list()
+    for i in product(np.arange(deg+1), repeat=dim):
+        if np.sum(i) <= deg:
+            mons2.append(i)
+    for i in range(len(mons)):
+        assert((mons[i] == mons2[i]).all())
+
+    #Test Case #2 - degree 25, dimension 2
+    deg = 25
+    dim = 2
+    mons = mon_combos(np.zeros(dim, dtype = int),deg)
+    mons2 = list()
+    for i in product(np.arange(deg+1), repeat=dim):
+        if np.sum(i) <= deg:
+            mons2.append(i)
+    for i in range(len(mons)):
+        assert((mons[i] == mons2[i]).all())
+
+    #Test Case #3 - degree 5, dimension 3
+    deg = 5
+    dim = 3
+    mons = mon_combos(np.zeros(dim, dtype = int),deg)
+    mons2 = list()
+    for i in product(np.arange(deg+1), repeat=dim):
+        if np.sum(i) <= deg:
+            mons2.append(i)
+    for i in range(len(mons)):
+        assert((mons[i] == mons2[i]).all())
+
+    #Test Case #4 - degree 5, dimension 5
+    deg = 5
+    dim = 5
+    mons = mon_combos(np.zeros(dim, dtype = int),deg)
+    mons2 = list()
+    for i in product(np.arange(deg+1), repeat=dim):
+        if np.sum(i) <= deg:
+            mons2.append(i)
+    for i in range(len(mons)):
+        assert((mons[i] == mons2[i]).all())

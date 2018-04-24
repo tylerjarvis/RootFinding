@@ -1,6 +1,10 @@
+"""TESTS REMOVED FOR NOW BECAUSE WE DON'T USE THIS CODE"""
+
+"""
+
 import numpy as np
 from numalgsolve.polynomial import Polynomial, MultiCheb, MultiPower
-from numalgsolve.DivisionMatrixes.PowerDivision import division_power
+from numalgsolve.PowerDivision import division_power
 
 def getPoly(deg,dim):
     '''
@@ -82,3 +86,5 @@ def test_Division_Power():
     correctZeros([A,B,C,D], 1)
     correctZeros([A,B,C,D], 2)
     correctZeros([A,B,C,D], 3)
+    
+"""

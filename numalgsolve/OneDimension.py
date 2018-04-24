@@ -3,7 +3,7 @@ from scipy.linalg import eig, norm, eigvals
 from numpy import linalg as la
 from numalgsolve.polynomial import MultiCheb, MultiPower
 
-def one_dimensional_solve(poly, method = 'M'):
+def solve(poly, method = 'mult'):
     """Finds the zeros of a 1-D polynomial.
     
     Parameters
@@ -12,25 +12,28 @@ def one_dimensional_solve(poly, method = 'M'):
         The polynomial to find the roots of.
     
     method : str
-        'M' will use the multiplicaiton matrix technique.
-        'D' will use the division matrix technique.
-        Defaults to 'M'
+        'mult' will use the multiplicaiton matrix technique.
+        'div' will use the division matrix technique.
+        Defaults to 'mult'
 
     Returns
     -------
     one_dimensional_solve : numpy array
         An array of the zeros.
     """
+    if method != 'mult' and method != 'div':
+        raise ValueError('method must be mult or div!')
+    
     if type(poly) == MultiPower:
         size = len(poly.coeff)
         coeff = np.trim_zeros(poly.coeff)
         zeros = np.zeros(size - len(coeff), dtype = 'complex')
-        if method == 'M':
+        if method == 'mult':
             return np.hstack((zeros,multPower(coeff)))
         else:
             return np.hstack((zeros,divPower(coeff)))
     else:
-        if method == 'M':
+        if method == 'mult':
             return multCheb(poly.coeff)
         else:
             return divCheb(poly.coeff)

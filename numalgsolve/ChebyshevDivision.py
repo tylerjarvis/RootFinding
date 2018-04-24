@@ -1,11 +1,10 @@
 import numpy as np
-from numalgsolve.utils import get_var_list, slice_top, row_swap_matrix, mon_combos
+from numalgsolve.utils import get_var_list, slice_top, row_swap_matrix, mon_combos, newton_polish
 from numalgsolve.TelenVanBarel import add_polys, rrqr_reduceTelenVanBarel, rrqr_reduceTelenVanBarel2
-from numalgsolve.root_finder import newton_polish
 from scipy.linalg import solve_triangular, eig, qr
 from matplotlib import pyplot as plt
 
-def division_cheb(polys, divisor_var = 0, tol = 1.e-14):
+def division_cheb(polys, divisor_var = 0, tol = 1.e-12):
     '''Calculates the common zeros of polynomials using a division matrix.
     
     Parameters
@@ -25,12 +24,7 @@ def division_cheb(polys, divisor_var = 0, tol = 1.e-14):
     #the divisor variable in the first columns.
     dim = polys[0].dim
     matrix_degree = np.sum(poly.degree for poly in polys) - len(polys) + 1
-    '''
-    h1,w1 = polys[0].shape
-    h2,w2 = polys[1].shape
-    missing = int(np.floor(2*h1*h2+w1*w2-1.5*(h1*w2+h2*w1)))
-    #print(missing)
-    '''
+
     poly_coeff_list = []
     for poly in polys:
         poly_coeff_list = add_polys(matrix_degree, poly, poly_coeff_list)
@@ -108,7 +102,7 @@ def division_cheb(polys, divisor_var = 0, tol = 1.e-14):
     #Calculates the zeros, the x values from the eigenvalues and the y values from the eigenvectors.
     zeros = list()
     for i in range(len(vals)):
-        if abs(vecs[-1][i]) < 1.e-12: #This should be a root at infinity
+        if abs(vecs[-1][i]) < 1.e-10: #This should be a root at infinity
             continue
         root = np.zeros(dim, dtype=complex)
         root[divisor_var] = 1/vals[i]
@@ -116,7 +110,7 @@ def division_cheb(polys, divisor_var = 0, tol = 1.e-14):
             root[spot] = vecs[-(2+spot)][i]/vecs[-1][i]
         for spot in range(divisor_var+1,dim):
             root[spot] = vecs[-(1+spot)][i]/vecs[-1][i]
-        root = newton_polish(polys,root,tol = tol)
+        #root = newton_polish(polys,root,tol = tol)
         zeros.append(root)
 
     return zeros

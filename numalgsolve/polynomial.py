@@ -10,7 +10,7 @@ from numba import jit
 
 @jit
 def polyval(x,cc):
-    c0 = cc[-1] + x*0
+    c0 = cc[-1]
     for i in range(2, len(cc) + 1):
         c0 = cc[-i] + c0*x
     return c0
@@ -18,10 +18,16 @@ def polyval(x,cc):
 @jit
 def polyval2(x,cc):
     cc = cc.reshape(cc.shape + (1,)*x.ndim)
-    c0 = cc[-1] + x*0
+    c0 = cc[-1]
     for i in range(2, len(cc) + 1):
         c0 = cc[-i] + c0*x
     return c0
+
+@jit
+def polyval2_grid(xyz, cc):
+    for i in range(xyz.shape[1]):
+        cc = polyval2(xyz[:,i], cc)
+    return cc
 
 class Polynomial(object):
     '''
@@ -698,6 +704,35 @@ class MultiPower(Polynomial):
             return c[0]
         else:
             return c
+
+    def evaluate_grid(self, xyz):
+        '''
+        Evaluates the polynomial on a grid of points, very efficiently.
+
+        Parameters
+        ----------
+        xyz : array-like
+            Each column contains the values for an axis. The direct product of these columns
+            produces the points of the desired grid.
+
+        Returns
+        -------
+        values: complex
+            The polynomial evaluated at all of the points in the grid determined by
+            the axis values
+        '''
+
+        xyz = super(MultiPower, self).__call__(xyz)
+
+        c = self.coeff
+        n = len(c.shape)
+        c = polyval2_grid(xyz ,c)
+
+        if np.product(c.shape)==1:
+            return c[0]
+        else:
+            return c
+
 
     def grad(self, point):
         '''

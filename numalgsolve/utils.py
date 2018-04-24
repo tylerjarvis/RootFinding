@@ -1273,3 +1273,54 @@ def mons_1D(dim, deg, var):
         mon[var] = i
         mons.append(mon)
     return np.array(mons)
+
+def newton_polish(polys,root,niter=100,tol=1e-5):
+    """
+    Perform Newton's method on a system of N polynomials in M variables.
+
+    Parameters
+    ----------
+    polys : list
+        A list of polynomial objects of the same type (MultiPower or MultiCheb).
+    root : ndarray
+        An initial guess for Newton's method, intended to be a candidate root from root_finder.
+    niter : int
+        A maximum number of iterations of Newton's method.
+    tol : float
+        Tolerance for convergence of Newton's method.
+
+    Returns
+    -------
+    x1 : ndarray
+        The terminal point of Newton's method, an estimation for a root of the system
+    """    
+    m = len(polys)
+    dim = max(poly.dim for poly in polys)
+    f_x = np.empty(m,dtype="complex_")
+    jac = np.empty((m,dim),dtype="complex_")
+    
+    def f(x):
+        #f_x = np.empty(m,dtype="complex_")
+        for i, poly in enumerate(polys):
+            f_x[i] = poly(x)
+        return f_x
+
+    def Df(x):
+        #jac = np.empty((m,dim),dtype="complex_")
+        for i, poly in enumerate(polys):
+            jac[i] = poly.grad(x)
+        return jac
+
+    i = 0
+    x0, x1 = root, root
+    while True:
+        if i == niter:
+            break
+        delta = np.linalg.solve(Df(x0),-f(x0))
+        norm = np.linalg.norm(delta)
+        x1 = delta + x0
+        if norm < tol or norm > .1:
+            break
+        x0 = x1
+        i+=1
+    return x1
