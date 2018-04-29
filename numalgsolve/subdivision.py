@@ -12,6 +12,7 @@ from numalgsolve.OneDimension import divCheb,divPower,multCheb,multPower,solve
 from numalgsolve.Division import division
 from numalgsolve.utils import clean_zeros_from_matrix, slice_top
 from numalgsolve.polynomial import MultiCheb
+from itertools import product
 
 def solve(funcs, a, b):
     '''
@@ -32,12 +33,12 @@ def solve(funcs, a, b):
     '''
     dim = len(a)
     if dim == 1:
-        zeros = np.unique(subdivide_solve_1d(funcs[0],a,b))
+        zeros = np.unique(subdivision_solve_1d(funcs[0],a,b))
         #Finds the roots of each succesive function and checks which roots are common.
         for func in funcs[1:]:
             if len(zeros) == 0:
                 break
-            zeros2 = np.unique(subdivide_solve_1d(func,a,b))
+            zeros2 = np.unique(subdivision_solve_1d(func,a,b))
             common = list()
             tol = 1.e-10
             for zero in zeros2:
@@ -144,33 +145,28 @@ def interval_approximate_nd(f,a,b,degs):
     """
     if len(a)!=len(b):
         raise ValueError("Interval dimensions must be the same!")
-    dim = len(a)
-    def get_cheb_spot(k,n):
-        return np.cos(np.pi*k/n)
 
+    dim = len(a)
     n = degs[0]
 
     if hasattr(f,"evaluate_grid"):
         #for polynomials, we can quickly evaluate all points in a grid
         #xyz does not contain points, but the nth column of xyz has the values needed
         #along the nth axis. The direct product of these values procuces the grid
-        X = np.cos(np.arange(2*n)*np.pi/n)
-        xyz = transform(np.column_stack([X]*dim), a, b)
+        cheb_values = np.cos(np.arange(2*n)*np.pi/n)
+        xyz = transform(np.column_stack([cheb_values]*dim), a, b)
         values = f.evaluate_grid(xyz)
     else:
-        if dim == 2:
-            X = np.cos(np.arange(2*n)*np.pi/n)
-            y,x = np.meshgrid(X,X)
-            cheb_spots = transform(np.vstack([x.flatten(),y.flatten()]).T,a,b)
-            values = f(cheb_spots).reshape(2*n,2*n)
-            #print(jit)
-            #values = polyvalnd(cheb_spots,f.coeff).reshape(2*n,2*n)
-        elif dim == 3:
-            X = np.cos(np.arange(2*n)*np.pi/n)
-            y,x,z = np.meshgrid(X,X,X)
-            cheb_spots = transform(np.vstack([x.flatten(),y.flatten(),z.flatten()]).T,a,b)
-            values = f(cheb_spots).reshape(2*n,2*n,2*n)
+        #if function f has no "evaluate_grid" method,
+        #we evaluate each point individually
+        cheb_values = np.cos(np.arange(2*n)*np.pi/n)
+        cheb_grids = np.meshgrid([cheb_values]*dim)
 
+        flatten = lambda x: x.flatten()
+        cheb_points = transform(np.column_stack(map(flatten, cheb_grids)), a, b)
+        values = f(cheb_points).reshape(2*n,2*n)
+
+<<<<<<< HEAD
         else:
             values = np.zeros(2*degs)
             cheb_spots = list()
@@ -182,15 +178,21 @@ def interval_approximate_nd(f,a,b,degs):
                 values[spot] = vals[i]
                 i+=1
 
+=======
+>>>>>>> change subdivide_solve_1d to subdivison_solve_1d; added comments and reduced casework in interval_approximate_nd
     coeffs = np.real(fftn(values/np.product(degs)))
 
     for i in range(dim):
-        idx0 = [slice(None)] * (dim)
+        #construct slices for the first and degs[i] entry in each dimension
+        idx0 = [slice(None)] * dim
         idx0[i] = 0
-        idx00 = [slice(None)] * (dim)
-        idx00[i] = degs[i]
-        coeffs[idx0] = coeffs[idx0]/2
-        coeffs[idx00] = coeffs[idx00]/2
+
+        idx_deg = [slice(None)] * dim
+        idx_deg[i] = degs[i]
+
+        #halve the coefficients in each slice
+        coeffs[idx0] /= 2
+        coeffs[idx_deg] /= 2
 
     slices = list()
     for i in range(dim):
@@ -456,7 +458,7 @@ def good_zeros(zeros, imag_tol = 1.e-10):
     zeros = zeros[np.where(np.abs(zeros.imag) < imag_tol)]
     return zeros
 
-def subdivide_solve_1d(f,a,b,cheb_approx_tol=1.e-10,max_degree=128):
+def subdivision_solve_1d(f,a,b,cheb_approx_tol=1.e-10,max_degree=128):
     """Finds the roots of a one-dimensional function using subdivision and chebyshev approximation.
 
     Parameters
@@ -493,5 +495,10 @@ def subdivide_solve_1d(f,a,b,cheb_approx_tol=1.e-10,max_degree=128):
         n*=2
     #Subdivide the interval and recursively call the function.
     div_length = (b-a)/2
+<<<<<<< HEAD
     return np.hstack([subdivide_solve_1d(f,a,b-div_length,max_degree=max_degree),\
                       subdivide_solve_1d(f,a+div_length,b,max_degree=max_degree)])
+=======
+    return np.hstack([subdivision_solve_1d(f,a,b-div_length,max_degree=max_degree),\
+                      subdivision_solve_1d(f,a+div_length,b,max_degree=max_degree)])
+>>>>>>> change subdivide_solve_1d to subdivison_solve_1d; added comments and reduced casework in interval_approximate_nd
