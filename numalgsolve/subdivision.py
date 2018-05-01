@@ -33,31 +33,30 @@ def solve(funcs, a, b):
     '''
     dim = len(a)
     if dim == 1:
+        #one dimensional case
         zeros = np.unique(subdivision_solve_1d(funcs[0],a,b))
         #Finds the roots of each succesive function and checks which roots are common.
         for func in funcs[1:]:
             if len(zeros) == 0:
                 break
             zeros2 = np.unique(subdivision_solve_1d(func,a,b))
-            common = list()
+            common_zeros = []
             tol = 1.e-10
             for zero in zeros2:
                 spot = np.where(np.abs(zeros-zero)<tol)
                 if len(spot[0]) > 0:
-                    common.append(zero)
-            zeros = common
+                    common_zeros.append(zero)
+            zeros = common_zeros
         return zeros
     else:
-        if dim == 2:
-            deg = 10
-        elif dim == 3:
-            deg = 7
-        elif dim == 4:
-            deg = 4
-        elif dim == 5:
+        #multi-dimensional case
+        #choose an appropriate max degree for the given dimension
+        deg_dim = {2:10, 3:7, 4:4}
+        if dim > 4:
             deg = 2
         else:
-            deg = 2
+            deg = deg_dim[dim]
+
         return subdivision_solve_nd(funcs,a,b,deg)
 
 def transform(x,a,b):
@@ -166,20 +165,6 @@ def interval_approximate_nd(f,a,b,degs):
         cheb_points = transform(np.column_stack(map(flatten, cheb_grids)), a, b)
         values = f(cheb_points).reshape(2*n,2*n)
 
-<<<<<<< HEAD
-        else:
-            values = np.zeros(2*degs)
-            cheb_spots = list()
-            for spot,val in np.ndenumerate(values):
-                cheb_spots.append(transform([get_cheb_spot(spot[i],degs[i]) for i in range(dim)],a,b))
-            vals = f(cheb_spots)
-            i=0
-            for spot,val in np.ndenumerate(values):
-                values[spot] = vals[i]
-                i+=1
-
-=======
->>>>>>> change subdivide_solve_1d to subdivison_solve_1d; added comments and reduced casework in interval_approximate_nd
     coeffs = np.real(fftn(values/np.product(degs)))
 
     for i in range(dim):
@@ -194,7 +179,7 @@ def interval_approximate_nd(f,a,b,degs):
         coeffs[idx0] /= 2
         coeffs[idx_deg] /= 2
 
-    slices = list()
+    slices = []
     for i in range(dim):
         slices.append(slice(0,degs[i]+1))
 
@@ -309,7 +294,7 @@ def subdivision_solve_nd(funcs,a,b,deg,tol=1.e-8,tol2=1.e-8):
     """
     print("Interval - ",a,b)
     dim = len(a)
-    chebs = list()
+    cheb_approx_list = []
     for func in funcs:
         coeff = full_cheb_approximate(func,a,b,deg,tol=tol)
         #Subdivides if needed.
@@ -318,8 +303,8 @@ def subdivision_solve_nd(funcs,a,b,deg,tol=1.e-8,tol2=1.e-8):
             return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,tol=tol,tol2=tol2) \
                               for interval in intervals])
         coeff = trim_coeff(coeff,tol=tol, tol2=tol2)
-        chebs.append(MultiCheb(coeff))
-    zeros = np.array(division(chebs))
+        cheb_approx_list.append(MultiCheb(coeff))
+    zeros = np.array(division(cheb_approx_list))
     if len(zeros) == 0:
         return np.zeros([0,dim])
     zeros = transform(good_zeros_nd(zeros),a,b)
@@ -330,29 +315,27 @@ def trim_coeff(coeff, tol=1.e-8, tol2=1.e-8):
 
     Parameters
     ----------
-    funcs : list
-        Each element of the list is a callable function.
-    a : numpy array
+    coeff : numpy array
+        The Chebyshev coefficients for approximating a function.
+    tol : float
         The lower bound on the interval.
-    b : numpy array
+    tol2 : float
         The upper bound on the interval.
-    deg : int
-        The degree to approximate with in the chebyshev approximation.
 
     Returns
     -------
-    good_zeros : numpy array
-        The real zero in [-1,1] of the input zeros.
+    coeff : numpy array
+        The reduced degree Chebyshev coefficients for approximating a function.
     """
     #Cuts down in the degree we are dividing by so the division matrix is stable.
     for spot in zip(*np.where(np.abs(coeff[0]) < tol2)):
-        slices = list()
+        slices = []
         slices.append(slice(0,None))
         for s in spot:
             slices.append(s)
         coeff[slices] = 0
 
-    dim = len(coeff.shape)
+    dim = coeff.ndim
 
     #Cuts out the high diagonals as much as possible to minimize polynomial degree.
     if abs(coeff[tuple([-1]*dim)]) < tol:
@@ -360,7 +343,7 @@ def trim_coeff(coeff, tol=1.e-8, tol2=1.e-8):
         deg = np.sum(coeff.shape)-dim-1
         while True:
             mons = mon_combos_limited([0]*dim,deg,coeff.shape)
-            slices = list()
+            slices = []
             mons = np.array(mons).T
             for i in range(dim):
                 slices.append(mons[i])
@@ -372,7 +355,7 @@ def trim_coeff(coeff, tol=1.e-8, tol2=1.e-8):
 
     return coeff
 
-def mon_combos_limited(mon, numLeft, shape, spot = 0):
+def mon_combos_limited(mon, remaining_degrees, shape, cur_dim = 0):
     '''Finds all the monomials of a given degree that fits in a given shape and returns them. Works recursively.
 
     Very similar to mon_combos, but only returns the monomials of the desired degree.
@@ -382,11 +365,11 @@ def mon_combos_limited(mon, numLeft, shape, spot = 0):
     mon: list
         A list of zeros, the length of which is the dimension of the desired monomials. Will change
         as the function searches recursively.
-    numLeft : int
-        The degree of the monomials desired. Will decrease as the function searches recursively.
+    remaining_degrees : int
+        Initially the degree of the monomials desired. Will decrease as the function searches recursively.
     shape : tuple
-        The limiting shape. The i'th spot of the mon can't be bigger than the i'th spot of the shape.
-    spot : int
+        The limiting shape. The i'th index of the mon can't be bigger than the i'th index of the shape.
+    cur_dim : int
         The current position in the list the function is iterating through. Defaults to 0, but increases
         in each step of the recursion.
 
@@ -395,19 +378,19 @@ def mon_combos_limited(mon, numLeft, shape, spot = 0):
     answers : list
         A list of all the monomials.
     '''
-    answers = list()
-    if len(mon) == spot+1: #We are at the end of mon, no more recursion.
-        if numLeft < shape[spot]:
-            mon[spot] = numLeft
+    answers = []
+    if len(mon) == cur_dim+1: #We are at the end of mon, no more recursion.
+        if remaining_degrees < shape[cur_dim]:
+            mon[cur_dim] = remaining_degrees
             answers.append(mon.copy())
         return answers
-    if numLeft == 0: #Nothing else can be added.
+    if remaining_degrees == 0: #Nothing else can be added.
         answers.append(mon.copy())
         return answers
     temp = mon.copy() #Quicker than copying every time inside the loop.
-    for i in range(min(shape[spot],numLeft+1)): #Recursively add to mon further down.
-        temp[spot] = i
-        answers += mon_combos_limited(temp, numLeft-i, shape, spot+1)
+    for i in range(min(shape[cur_dim],remaining_degrees+1)): #Recursively add to mon further down.
+        temp[cur_dim] = i
+        answers.append(mon_combos_limited(temp, remaining_degrees-i, shape, cur_dim+1))
     return answers
 
 def good_zeros(zeros, imag_tol = 1.e-10):
@@ -466,10 +449,5 @@ def subdivision_solve_1d(f,a,b,cheb_approx_tol=1.e-10,max_degree=128):
         n*=2
     #Subdivide the interval and recursively call the function.
     div_length = (b-a)/2
-<<<<<<< HEAD
-    return np.hstack([subdivide_solve_1d(f,a,b-div_length,max_degree=max_degree),\
-                      subdivide_solve_1d(f,a+div_length,b,max_degree=max_degree)])
-=======
     return np.hstack([subdivision_solve_1d(f,a,b-div_length,max_degree=max_degree),\
                       subdivision_solve_1d(f,a+div_length,b,max_degree=max_degree)])
->>>>>>> change subdivide_solve_1d to subdivison_solve_1d; added comments and reduced casework in interval_approximate_nd
