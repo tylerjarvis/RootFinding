@@ -218,47 +218,18 @@ def get_subintervals(a,b,dimensions):
         Each element of the list is a tuple containing an a and b, the lower and upper bounds of the interval.
     """
     RAND = 0.5139303900908738
-    subintervals = list()
-    perms = interval_perms(list(), np.zeros(len(dimensions)), 0)
+    subintervals = []
     diffs1 = ((b-a)*RAND)[dimensions]
     diffs2 = ((b-a)-(b-a)*RAND)[dimensions]
-    for perm in perms:
+
+    for subset in product([False,True], repeat=len(dimensions)):
+        subset = np.array(subset)
         aTemp = a.copy()
         bTemp = b.copy()
-        aTemp[dimensions] += (1-perm)*diffs1
-        bTemp[dimensions] -= perm*diffs2
-        subintervals.append(tuple([aTemp,bTemp]))
+        aTemp[dimensions] += (~subset)*diffs1
+        bTemp[dimensions] -= subset*diffs2
+        subintervals.append((aTemp,bTemp))
     return subintervals
-
-def interval_perms(perms,perm,spot):
-    """A helper function for get_subintervals. Finds the different ways we can split the dimensions.
-
-    Called recursively.
-
-    Parameters
-    ----------
-    perms : list
-        The ways we have found so far.
-    perm : numpy array
-        The way we are currently dynamically computing.
-    spot : int
-        Where in perm we are changing.
-
-    Returns
-    -------
-    subintervals : list
-        Each element of the list is a tuple containing an a and b, the lower and upper bounds of the interval.
-    """
-    if spot == len(perm)-1:
-        perms.append(perm.copy())
-        perm[spot] = 1
-        perms.append(perm.copy())
-        return perms
-    else:
-        perms = interval_perms(perms,perm.copy(),spot+1)
-        perm[spot] = 1
-        perms = interval_perms(perms,perm.copy(),spot+1)
-        return perms
 
 def full_cheb_approximate(f,a,b,deg,tol=1.e-8):
     """Gives the full chebyshev approximation and checks if it's good enough.
