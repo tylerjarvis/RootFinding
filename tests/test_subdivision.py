@@ -1,9 +1,7 @@
 import unittest
 import numpy as np
 from numalgsolve.polynomial import Polynomial, MultiCheb, MultiPower
-from numalgsolve.TelenVanBarel import find_degree, mon_combos, sorted_matrix_terms
 from numalgsolve import subdivision as subdiv
-from numalgsolve.utils import InstabilityWarning, arrays
 
 def getPoly(deg,dim,power):
     '''
@@ -50,7 +48,7 @@ def test_subdivision_solve_no_transform():
     '''
     The following tests will run subdivision.solve on relatively small random upper trianguler MultiPower.
     The assert statements will be inside of the correctZeros helper function.
-    The fit occurs on [-1,-1,...]X[1,1,...], so no transform is needed.
+    The fit occurs on [-1,1]X[-1,1]X..., so no transform is needed.
     '''
     #Case 1 - Two MultiPower 2D degree 10 polynomials.
     #choose a seed that has a zero like 1,3,7,8,12,20,21,22,22,27,38,41,42,43,46,51,54,55,57,60,65,67,68,69,73,74,78,80,81,84,86,90,95
@@ -114,7 +112,7 @@ def test_subdivision_solve_with_transform():
     '''
     The following tests will run subdivision.solve on relatively small random upper trianguler MultiPower.
     The assert statements will be inside of the correctZeros helper function.
-    The fit occurs on [-2,-2,...]X[2,2,...], so a transform is needed.
+    The fit occurs on [-2,2]X[-2,2]X..., so a transform is needed.
     '''
     #Case 1 - Two MultiPower 2D degree 10 polynomials.
     #choose a seed that has a zero like 1,3,7,8,12,20,21,22,22,27,38,41,42,43,46,51,54,55,57,60,65,67,68,69,73,74,78,80,81,84,86,90,95
