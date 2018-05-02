@@ -9,14 +9,14 @@ import time
 from numba import jit
 
 @jit
-def polyval(x,cc):
+def polyval(x, cc):
     c0 = cc[-1]
     for i in range(2, len(cc) + 1):
         c0 = cc[-i] + c0*x
     return c0
 
 @jit
-def polyval2(x,cc):
+def polyval2(x, cc):
     cc = cc.reshape(cc.shape + (1,)*x.ndim)
     c0 = cc[-1]
     for i in range(2, len(cc) + 1):
@@ -24,10 +24,13 @@ def polyval2(x,cc):
     return c0
 
 @jit
-def polyval2_grid(xyz, cc):
-    for i in range(xyz.shape[1]):
-        cc = polyval2(xyz[:,i], cc)
-    return cc
+def chebval(x, cc):
+    return cheb.chebval(x, cc, tensor=False)
+
+@jit
+def chebval2(x, cc):
+    return cheb.chebval(x, cc)
+
 
 class Polynomial(object):
     '''
@@ -170,7 +173,7 @@ class Polynomial(object):
 
         if points.shape[1] != len(self.coeff.shape):
             raise ValueError('Dimension of points does not match dimension of polynomial!')
-        
+
         return points
 
     def grad(self, point):
@@ -462,10 +465,39 @@ class MultiCheb(Polynomial):
 
         c = self.coeff
         n = len(c.shape)
-        c = cheb.chebval(points[:,0],c)
+        c = chebval(points[:,0],c)
         for i in range(1,n):
-            c = cheb.chebval(points[:,i],c,tensor=False)
+            c = chebval2(points[:,i],c)
         if len(c) == 1:
+            return c[0]
+        else:
+            return c
+
+    def evaluate_grid(self, xyz):
+        '''
+        Evaluates the Chebyshev polynomial on a grid of points, very efficiently.
+
+        Parameters
+        ----------
+        xyz : array-like
+            Each column contains the values for an axis. The direct product of these columns
+            produces the points of the desired grid.
+
+        Returns
+        -------
+        values: complex
+            The polynomial evaluated at all of the points in the grid determined by
+            the axis values
+        '''
+
+        xyz = super(MultiCheb, self).__call__(xyz)
+
+        c = self.coeff
+        n = len(c.shape)
+        for i in range(xyz.shape[1]):
+            c = chebval2(xyz[:,i] ,c)
+
+        if np.product(c.shape)==1:
             return c[0]
         else:
             return c
@@ -485,7 +517,7 @@ class MultiCheb(Polynomial):
             Gradient of the polynomial at the given point.
         '''
         super(MultiCheb, self).__call__(point)
-        
+
         out = np.empty(self.dim,dtype="complex_")
         if self.jac is None:
             jac = list()
@@ -676,7 +708,7 @@ class MultiPower(Polynomial):
             return MultiPower(result, clean_zeros = False, lead_term = self.lead_term + mon)
         elif returnType == 'Matrix':
             return result
-    @jit
+
     def __call__(self, points):
         '''
         Evaluates the polynomial at the given point.
@@ -691,14 +723,12 @@ class MultiPower(Polynomial):
         __call__: complex
             value of the polynomial at the given point
         '''
-        points = super(MultiPower, self).__call__(points)            
-        
+        points = super(MultiPower, self).__call__(points)
+
         c = self.coeff
         n = len(c.shape)
-        #c = poly.polyval(points[:,0],c)
         c = polyval2(points[:,0],c)
         for i in range(1,n):
-            #c = poly.polyval(points[:,i],c,tensor=False)
             c = polyval(points[:,i],c)
         if len(c) == 1:
             return c[0]
@@ -707,7 +737,7 @@ class MultiPower(Polynomial):
 
     def evaluate_grid(self, xyz):
         '''
-        Evaluates the polynomial on a grid of points, very efficiently.
+        Evaluates the Power polynomial on a grid of points, very efficiently.
 
         Parameters
         ----------
@@ -726,7 +756,8 @@ class MultiPower(Polynomial):
 
         c = self.coeff
         n = len(c.shape)
-        c = polyval2_grid(xyz ,c)
+        for i in range(xyz.shape[1]):
+            c = polyval2(xyz[:,i] ,c)
 
         if np.product(c.shape)==1:
             return c[0]

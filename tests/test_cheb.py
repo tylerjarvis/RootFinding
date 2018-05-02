@@ -81,3 +81,31 @@ def test_evaluate2():
     cheb = MultiCheb(np.array([[0,0,0,1],[0,0,0,0],[0,0,.5,0]]))
     value = cheb((2,5))
     assert(np.isclose(value, 656.5))
+
+def test_evaluate_grid1():
+    poly = MultiCheb(np.array([[2,0,3],
+                                [0,-1,0],
+                                [0,1,0]]))
+    x = np.arange(3)
+    xy = np.column_stack([x,x])
+
+    sol = np.polynomial.chebyshev.chebgrid2d(x, x, poly.coeff)
+
+    assert(np.all(poly.evaluate_grid(xy) == sol))
+
+
+def test_evaluate_grid2():
+    poly = MultiCheb(np.array([[[0,0,3],
+                                [0,0,0],
+                                [0,1,0]],
+                                [[3,0,0],
+                                [0,0,0],
+                                [0,0,0]],
+                                [[0,0,0],
+                                [0,0,0],
+                                [0,1,0]]]))
+    x = np.arange(3)
+    xyz = np.column_stack([x,x,x])
+
+    sol = np.polynomial.chebyshev.chebgrid3d(x, x, x, poly.coeff)
+    assert(np.all(poly.evaluate_grid(xyz) == sol))
