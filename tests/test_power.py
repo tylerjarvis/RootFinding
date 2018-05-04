@@ -87,6 +87,8 @@ def test_evaluate():
 
     assert(poly((4,2,1)) == 15)
 
+    assert(np.allclose(poly([[4,2,1],[1,1,2]]), [15,6]))
+
 def test_evaluate2():
     # Evaluate -.5x^2y + 2xy^2 - 3z^2 + yz at (7.4,2.33,.25)
     poly = MultiPower(np.array([[[0,0,-3],

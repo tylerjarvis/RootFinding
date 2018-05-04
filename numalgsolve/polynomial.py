@@ -492,9 +492,9 @@ class MultiCheb(Polynomial):
 
         c = self.coeff
         n = c.ndim
-        c = chebval(points[:,0],c)
+        c = chebval2(points[:,0],c)
         for i in range(1,n):
-            c = chebval2(points[:,i],c)
+            c = chebval(points[:,i],c)
         if len(c) == 1:
             return c[0]
         else:

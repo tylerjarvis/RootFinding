@@ -77,6 +77,10 @@ def test_evaluate():
     value = cheb((.25,.5))
     assert(np.isclose(value, -.5625))
 
+    values = cheb([[.25,.5],[1.2,2.2]])
+    print(values)
+    assert(np.allclose(values, [-0.5625,52.3104]))
+
 def test_evaluate2():
     cheb = MultiCheb(np.array([[0,0,0,1],[0,0,0,0],[0,0,.5,0]]))
     value = cheb((2,5))
