@@ -21,7 +21,7 @@ def polyval2(x, cc): #pragma: no cover
     c0 = cc[-1]
     for i in range(2, len(cc) + 1):
         c0 = cc[-i] + c0*x
-    return polyval(x, cc)
+    return c0
 
 @jit(cache=True)
 def chebval(x, cc): #pragma: no cover
