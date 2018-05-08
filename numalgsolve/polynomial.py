@@ -194,9 +194,15 @@ class Polynomial(object):
          : numpy array
             valued of the polynomial at the given points
         '''
-        points = np.array(points)
+        if isinstance(points, (int, float, np.float, np.int, np.complex)):
+            points = np.array([points])
+        else:
+            points = np.array(points)
         if points.ndim == 1:
-            points = points.reshape(1,points.shape[0])
+            if self.dim > 1:
+                points = points.reshape(1,points.shape[0])
+            else:
+                points = points.reshape(points.shape[0],1)
 
         if points.shape[1] != self.dim:
             raise ValueError('Dimension of points does not match dimension of polynomial!')

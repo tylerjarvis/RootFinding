@@ -159,7 +159,7 @@ def interval_approximate_nd(f,a,b,degs):
         #if function f has no "evaluate_grid" method,
         #we evaluate each point individually
         cheb_values = np.cos(np.arange(2*n)*np.pi/n)
-        cheb_grids = np.meshgrid([cheb_values]*dim)
+        cheb_grids = np.meshgrid(*([cheb_values]*dim), indexing='ij')
 
         flatten = lambda x: x.flatten()
         cheb_points = transform(np.column_stack(map(flatten, cheb_grids)), a, b)
@@ -268,9 +268,8 @@ def good_zeros_nd(zeros, imag_tol = 1.e-10):
     good_zeros : numpy array
         The real zero in [-1,1] of the input zeros.
     """
-    dim = zeros.shape[1]
-    good_zeros = zeros[np.where(np.sum(np.abs(zeros.imag) < imag_tol,axis = 1) == dim)[0]]
-    good_zeros = good_zeros[np.where(np.sum(np.abs(good_zeros) <= 1,axis = 1) == dim)[0]]
+    good_zeros = zeros[np.all(np.abs(zeros.imag) < imag_tol,axis = 1)]
+    good_zeros = good_zeros[np.all(np.abs(good_zeros) <= 1,axis = 1)]
     return good_zeros
 
 def subdivision_solve_nd(funcs,a,b,deg,tol=1.e-8,tol2=1.e-8):
@@ -311,16 +310,12 @@ def subdivision_solve_nd(funcs,a,b,deg,tol=1.e-8,tol2=1.e-8):
     return zeros
 
 def trim_coeff(coeff, tol=1.e-8, tol2=1.e-8):
-    """Finds the common zeros of the given functions.
+    """Reduce the number of coefficients and the degree.
 
     Parameters
     ----------
     coeff : numpy array
         The Chebyshev coefficients for approximating a function.
-    tol : float
-        The lower bound on the interval.
-    tol2 : float
-        The upper bound on the interval.
 
     Returns
     -------
@@ -390,7 +385,7 @@ def mon_combos_limited(mon, remaining_degrees, shape, cur_dim = 0):
     temp = mon.copy() #Quicker than copying every time inside the loop.
     for i in range(min(shape[cur_dim],remaining_degrees+1)): #Recursively add to mon further down.
         temp[cur_dim] = i
-        answers.append(mon_combos_limited(temp, remaining_degrees-i, shape, cur_dim+1))
+        answers += mon_combos_limited(temp, remaining_degrees-i, shape, cur_dim+1)
     return answers
 
 def good_zeros(zeros, imag_tol = 1.e-10):
