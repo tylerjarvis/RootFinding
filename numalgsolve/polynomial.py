@@ -194,10 +194,10 @@ class Polynomial(object):
          : numpy array
             valued of the polynomial at the given points
         '''
-        if isinstance(points, (int, float, np.float, np.int, np.complex)):
+        points = np.array(points)
+        if points.ndim == 0:
             points = np.array([points])
-        else:
-            points = np.array(points)
+
         if points.ndim == 1:
             if self.dim > 1:
                 points = points.reshape(1,points.shape[0])
