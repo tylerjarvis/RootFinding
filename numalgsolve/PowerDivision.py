@@ -1,13 +1,13 @@
 import numpy as np
 import itertools
 from numalgsolve.utils import get_var_list, slice_top, row_swap_matrix, mon_combos, newton_polish
-from numalgsolve.TelenVanBarel import add_polys, rrqr_reduceTelenVanBarel
+from numalgsolve.TVBCore import add_polys, rrqr_reduceTelenVanBarel
 from scipy.linalg import solve_triangular
 from matplotlib import pyplot as plt
 
 def division_power(polys, divisor_var = 0, tol = 1.e-10):
     '''Calculates the common zeros of polynomials using a division matrix.
-    
+
     Parameters
     --------
     polys: MultiPower Polynomials
@@ -25,22 +25,22 @@ def division_power(polys, divisor_var = 0, tol = 1.e-10):
     #the divisor variable in the first columns.
     dim = polys[0].dim
     matrix_degree = np.sum(poly.degree for poly in polys) - len(polys) + 1
-        
+
     poly_coeff_list = []
     for i in polys:
         poly_coeff_list = add_polys(matrix_degree, i, poly_coeff_list)
-        
+
     matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, matrix_degree, dim, divisor_var)
-        
+
     #Reduces the Macaulay matrix like normal.
     matrix, matrix_terms = rrqr_reduceTelenVanBarel(matrix, matrix_terms, cuts, tol)
     rows,columns = matrix.shape
     matrixFinal = np.hstack((np.eye(rows),solve_triangular(matrix[:,:rows],matrix[:,rows:])))
-        
+
     VB = matrix_terms[matrix.shape[0]:]
-        
+
     basisDict = makeBasisDict(matrixFinal, matrix_terms, VB)
-    
+
     #Dictionary of terms in the vector basis their spots in the matrix.
     VBdict = {}
     spot = 0
@@ -58,10 +58,10 @@ def division_power(polys, divisor_var = 0, tol = 1.e-10):
             dMatrix[VBdict[term]][i] += 1
         else:
             dMatrix[:,i] -= basisDict[term]
-    
+
     #Calculate the eigenvalues and eigenvectors.
     vals, vecs = np.linalg.eig(dMatrix.T)
-                
+
     #Finds the zeros, the divisor variable values from the eigenvalues and the other variable values from the eigenvectors.
     zeros = list()
     for i in range(len(vals)):
@@ -75,12 +75,12 @@ def division_power(polys, divisor_var = 0, tol = 1.e-10):
             root[spot] = vecs[-(1+spot)][i]/vecs[-1][i]
         #root = newton_polish(polys,root, tol = 1.e-8)
         zeros.append(root)
-    
+
     return zeros
 
 def get_matrix_terms(poly_coeffs, dim, divisor_var, deg):
     '''Finds the terms in the Macaulay matrix.
-    
+
     Parameters
     --------
     poly_coeffs: list
@@ -96,7 +96,7 @@ def get_matrix_terms(poly_coeffs, dim, divisor_var, deg):
         The matrix_terms. The ith row is the term represented by the ith column of the matrix.
     cuts : tuple
         When the matrix is reduced it is split into 3 parts with restricted pivoting. These numbers indicate
-        where those cuts happen.    
+        where those cuts happen.
     '''
     matrix_term_set_y= set()
     matrix_term_set_other= set()
@@ -106,7 +106,7 @@ def get_matrix_terms(poly_coeffs, dim, divisor_var, deg):
                 matrix_term_set_y.add(term)
             else:
                 matrix_term_set_other.add(term)
-    
+
     needed_terms = list()
     base = np.zeros(dim, dtype = 'int')
     base[divisor_var] = 1
@@ -122,9 +122,9 @@ def get_matrix_terms(poly_coeffs, dim, divisor_var, deg):
     for term in needed_terms:
         matrix_term_set_other.remove(term)
     matrix_terms = np.vstack((np.vstack(matrix_term_set_y),np.vstack(matrix_term_set_other),matrix_term_end))
-    
+
     return matrix_terms, tuple([len(matrix_term_set_y), len(matrix_term_set_y)+len(matrix_term_set_other)])
-    
+
 def create_matrix(poly_coeffs, degree, dim, divisor_var):
     ''' Builds a Macaulay matrix for reduction.
 
@@ -138,7 +138,7 @@ def create_matrix(poly_coeffs, degree, dim, divisor_var):
         The dimension of the polynomials going into the matrix.
     divisor_var : int
         What variable is being divided by. 0 is x, 1 is y, etc.
-    
+
     Returns
     -------
     matrix : 2D numpy array
@@ -151,12 +151,12 @@ def create_matrix(poly_coeffs, degree, dim, divisor_var):
     '''
     bigShape = [degree+1]*dim
     matrix_terms, cuts = get_matrix_terms(poly_coeffs, dim, divisor_var, degree)
-    
+
     #Get the slices needed to pull the matrix_terms from the coeff matrix.
     matrix_term_indexes = list()
     for row in matrix_terms.T:
         matrix_term_indexes.append(row)
-    
+
     #Adds the poly_coeffs to flat_polys, using added_zeros to make sure every term is in there.
     added_zeros = np.zeros(bigShape)
     flat_polys = list()
@@ -177,10 +177,10 @@ def create_matrix(poly_coeffs, degree, dim, divisor_var):
 
 def makeBasisDict(matrix, matrix_terms, VB):
     '''Calculates and returns the basisDict.
-    
+
     This is a dictionary of the terms on the diagonal of the reduced TVB matrix to the terms in the Vector Basis.
     It is used to create the multiplication matrix in root_finder.
-    
+
     Parameters
     --------
     matrix: numpy array
@@ -197,11 +197,11 @@ def makeBasisDict(matrix, matrix_terms, VB):
         that represent the terms reduction into the Vector Basis.
     '''
     basisDict = {}
-    
+
     VBSet = set()
     for i in VB:
         VBSet.add(tuple(i))
-    
+
     #We don't actually need most of the rows, so we only get the ones we need.
     neededSpots = set()
     for term, mon in itertools.product(VB,get_var_list(VB.shape[1])):

@@ -2,12 +2,9 @@ import numpy as np
 import itertools
 from scipy.linalg import qr, solve_triangular, qr_multiply
 from numalgsolve.polynomial import Polynomial, MultiCheb, MultiPower, is_power
-from numalgsolve.utils import row_swap_matrix, clean_zeros_from_matrix, TVBError, slice_top, get_var_list, mon_combos, mon_combosHighest, inverse_P, sort_polys_by_degree, deg_d_polys, all_permutations, num_mons_full, memoized_all_permutations, mons_ordered, all_permutations_cheb, num_mons
+from numalgsolve.utils import row_swap_matrix, TVBError, slice_top, get_var_list, mon_combos, mon_combosHighest, sort_polys_by_degree, deg_d_polys, all_permutations, num_mons_full, memoized_all_permutations, mons_ordered, all_permutations_cheb, num_mons
 import time
-import random
 from matplotlib import pyplot as plt
-from scipy.misc import comb
-from math import factorial
 
 def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
     """Uses Telen and VanBarels matrix reduction method to find a vector basis for the system of polynomials.
@@ -36,7 +33,7 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
     dim = initial_poly_list[0].dim
     poly_coeff_list = []
     degree = find_degree(initial_poly_list)
-    
+
     #This sorting is required for fast matrix construction. Ascending should be False.
     initial_poly_list = sort_polys_by_degree(initial_poly_list, ascending = False)
 
@@ -49,31 +46,31 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
 
     #Creates the matrix for either of the above two methods. Comment out if using the third method.
     matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, degree, dim)
-    
+
     #print(matrix.shape)
-                
+
     """This is the thrid matrix construction option, it uses the permutation arrays."""
     #if power:
     #    matrix, matrix_terms, cuts = createMatrixFast(initial_poly_list, degree, dim)
     #else:
     #    matrix, matrix_terms, cuts = construction(initial_poly_list, degree, dim)
-    
+
     matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts, accuracy = accuracy)
     #matrix, matrix_terms = rrqr_reduceTelenVanBarelFullRank(matrix, matrix_terms, cuts, accuracy = accuracy)
 
     height = matrix.shape[0]
     matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
     matrix[:,:height] = np.eye(height)
-    
+
     #return np.vstack((matrix[:,height:].T,np.eye(height))), matrix_terms
 
     VB = matrix_terms[height:]
-        
+
     #plt.plot(matrix_terms[:,0],matrix_terms[:,1],'kx')
     #plt.plot(VB[:,0],VB[:,1],'r.')
-    
+
     basisDict = makeBasisDict(matrix, matrix_terms, VB, power)
-    
+
     return basisDict, VB, degree
 
 def makeBasisDict(matrix, matrix_terms, VB, power):
@@ -111,9 +108,9 @@ def makeBasisDict(matrix, matrix_terms, VB, power):
             if tuple(term+mon) not in VBSet:
                 neededSpots.add(tuple(term+mon))
 
-    spots = list()
-    for dim in range(VB.shape[1]):
-        spots.append(VB.T[dim])
+    #spots = list()
+    #for dim in range(VB.shape[1]):
+    #    spots.append(VB.T[dim])
 
     for i in range(matrix.shape[0]):
         term = tuple(matrix_terms[i])
@@ -157,11 +154,11 @@ def add_polys(degree, poly, poly_coeff_list):
     poly_coeff_list : list
         The original list of polynomials in the matrix with the new monomial multiplications of poly added.
     """
-    
+
     poly_coeff_list.append(poly.coeff)
     deg = degree - poly.degree
     dim = poly.dim
-    
+
     mons = mon_combos([0]*dim,deg)
 
     for mon in mons[1:]: #skips the first all 0 mon
@@ -477,7 +474,7 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     #Resorts the matrix_terms.
     matrix_terms[:cuts[0]] = matrix_terms[:cuts[0]][P1]
     matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
-    
+
     return matrix, matrix_terms
 
 def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
@@ -508,10 +505,10 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     C1,matrix[:cuts[0],:cuts[0]],P1 = qr_multiply(matrix[:,:cuts[0]], matrix[:,cuts[0]:].T, mode = 'right', pivoting = True)
     matrix[:cuts[0],cuts[0]:] = C1.T
     C1 = 0
-    
+
     #if abs(matrix[:,:cuts[0]].diagonal()[-1]) < accuracy:
     #    raise TVBError("HIGHEST NOT FULL RANK")
-    
+
     matrix[:cuts[0],cuts[0]:] = solve_triangular(matrix[:cuts[0],:cuts[0]],matrix[:cuts[0],cuts[0]:])
     matrix[:cuts[0],:cuts[0]] = np.eye(cuts[0])
     matrix[cuts[0]:,cuts[0]:] -= (matrix[cuts[0]:,:cuts[0]][:,P1])@matrix[:cuts[0],cuts[0]:]
@@ -530,10 +527,10 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     matrix[:cuts[0],cuts[0]:cuts[1]] = matrix[:cuts[0],cuts[0]:cuts[1]][:,P]
     matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
     P = 0
-    
+
     # Check if there are no solutions
     rank = np.sum(np.abs(matrix.diagonal())>accuracy)
-    
+
     # extra_block = matrix[rank:, -matrix_shape_stuff[2]:]
     # Q,R = qr(extra_block)
     # if np.sum(np.abs(R.diagonal())>accuracy) == matrix_shape_stuff[2]:

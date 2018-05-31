@@ -1,6 +1,6 @@
 import numpy as np
 from numalgsolve.polynomial import Polynomial, MultiCheb, MultiPower
-from numalgsolve.TelenVanBarel import find_degree, mon_combos, sorted_matrix_terms
+from numalgsolve.TVBCore import find_degree, mon_combos, sorted_matrix_terms
 from numalgsolve import polyroots as pr
 from numalgsolve.utils import InstabilityWarning, arrays
 from itertools import product
