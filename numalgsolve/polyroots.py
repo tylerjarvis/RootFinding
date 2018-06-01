@@ -2,9 +2,7 @@ import numpy as np
 import itertools
 from numalgsolve import OneDimension as oneD
 from numalgsolve.polynomial import MultiCheb, MultiPower, is_power
-from numalgsolve.TVBCore import TelenVanBarel
-from numalgsolve.PowerDivision import division_power
-from numalgsolve.Division import division_cheb
+from numalgsolve.Division import division
 from numalgsolve.Multiplication import multiplication
 from numalgsolve.utils import Term, get_var_list, divides, TVBError, InstabilityWarning, match_size, match_poly_dimensions
 
@@ -50,7 +48,4 @@ def solve(polys, method = 'mult'):
         if method == 'mult':
             return multiplication(polys)
         else:
-            if poly_type == 'MultiPower':
-                return division_power(polys)
-            else:
-                return division_cheb(polys)
+            return division(polys)

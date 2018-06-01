@@ -1,11 +1,11 @@
 import numpy as np
 import itertools
+from numalgsolve.polynomial import MultiCheb, MultiPower, is_power
 from numalgsolve.utils import get_var_list, slice_top, row_swap_matrix, mon_combos, newton_polish
-from numalgsolve.TVBCore import add_polys, rrqr_reduceTelenVanBarel, makeBasisDict
+from numalgsolve.TVBCore import add_polys, rrqr_reduceTelenVanBarel
 from scipy.linalg import solve_triangular, eig, qr
-from matplotlib import pyplot as plt
 
-def division_cheb(polys, divisor_var = 0, tol = 1.e-12):
+def division(polys, divisor_var = 0, tol = 1.e-12):
     '''Calculates the common zeros of polynomials using a division matrix.
 
     Parameters
@@ -23,6 +23,7 @@ def division_cheb(polys, divisor_var = 0, tol = 1.e-12):
     '''
     #This first section creates the Macaulay Matrix with the monomials that don't have
     #the divisor variable in the first columns.
+    power = is_power(polys)
     dim = polys[0].dim
     matrix_degree = np.sum(poly.degree for poly in polys) - len(polys) + 1
 
@@ -40,88 +41,91 @@ def division_cheb(polys, divisor_var = 0, tol = 1.e-12):
     matrix = np.hstack((np.eye(rows),solve_triangular(matrix[:,:rows],matrix[:,rows:])))
 
 
-#------------> chebyshev
-    #Builds the inverse matrix. The terms are the vector basis as well as y^k/x terms for all k. Reducing
-    #this matrix allows the y^k/x terms to be reduced back into the vector basis.
-    inverses = matrix_terms[np.where(matrix_terms[:,divisor_var] == 0)[0]]
-    inverses[:,divisor_var] = -np.ones(inverses.shape[0], dtype = 'int')
-    inv_matrix_terms = np.vstack((inverses, VB))
-    inv_matrix = np.zeros([len(inverses),len(inv_matrix_terms)])
+    #------------> chebyshev
+    if not power:
+        #Builds the inverse matrix. The terms are the vector basis as well as y^k/x terms for all k. Reducing
+        #this matrix allows the y^k/x terms to be reduced back into the vector basis.
+        inverses = matrix_terms[np.where(matrix_terms[:,divisor_var] == 0)[0]]
+        inverses[:,divisor_var] = -np.ones(inverses.shape[0], dtype = 'int')
+        inv_matrix_terms = np.vstack((inverses, VB))
+        inv_matrix = np.zeros([len(inverses),len(inv_matrix_terms)])
 
-    #A bunch of different dictionaries are used below for speed purposes and to prevent repeat calculations.
+        #A bunch of different dictionaries are used below for speed purposes and to prevent repeat calculations.
 
-    #A dictionary of term in inv_matrix_terms to their spot in inv_matrix_terms.
-    inv_spot_dict = dict()
-    spot = 0
-    for term in inv_matrix_terms:
-        inv_spot_dict[tuple(term)] = spot
-        spot+=1
+        #A dictionary of term in inv_matrix_terms to their spot in inv_matrix_terms.
+        inv_spot_dict = dict()
+        spot = 0
+        for term in inv_matrix_terms:
+            inv_spot_dict[tuple(term)] = spot
+            spot+=1
 
-    #A dictionary of terms on the diagonal to their reduction in the vector basis.
-    diag_reduction_dict = dict()
-    for i in range(matrix.shape[0]):
-        term = matrix_terms[i]
-        diag_reduction_dict[tuple(term)] = matrix[i][-len(VB):]
+        #A dictionary of terms on the diagonal to their reduction in the vector basis.
+        diag_reduction_dict = dict()
+        for i in range(matrix.shape[0]):
+            term = matrix_terms[i]
+            diag_reduction_dict[tuple(term)] = matrix[i][-len(VB):]
 
-    #A dictionary of terms to the terms in their quotient when divided by x.
-    divisor_terms_dict = dict()
-    for term in matrix_terms:
-        divisor_terms_dict[tuple(term)] = get_divisor_terms(term, divisor_var)
+        #A dictionary of terms to the terms in their quotient when divided by x.
+        divisor_terms_dict = dict()
+        for term in matrix_terms:
+            divisor_terms_dict[tuple(term)] = get_divisor_terms(term, divisor_var)
 
-    #A dictionary of terms to their quotient when divided by x.
-    term_divide_dict = dict()
-    for term in matrix_terms[-len(VB):]:
-        term_divide_dict[tuple(term)] = divide_term(term, inv_matrix_terms, inv_spot_dict, diag_reduction_dict,
-                                                      len(VB), divisor_terms_dict)
+        #A dictionary of terms to their quotient when divided by x.
+        term_divide_dict = dict()
+        for term in matrix_terms[-len(VB):]:
+            term_divide_dict[tuple(term)] = divide_term(term, inv_matrix_terms, inv_spot_dict, diag_reduction_dict,
+                                                          len(VB), divisor_terms_dict)
 
-    #Builds the inv_matrix by dividing the rows of matrix by x.
-    for i in range(cuts[0]):
-        inv_matrix[i] = divide_row(matrix[i][-len(VB):], matrix_terms[-len(VB):], term_divide_dict, len(inv_matrix_terms))
-        spot = matrix_terms[i]
-        spot[divisor_var] -= 1
-        inv_matrix[i][inv_spot_dict[tuple(spot)]] += 1
+        #Builds the inv_matrix by dividing the rows of matrix by x.
+        for i in range(cuts[0]):
+            inv_matrix[i] = divide_row(matrix[i][-len(VB):], matrix_terms[-len(VB):], term_divide_dict, len(inv_matrix_terms))
+            spot = matrix_terms[i]
+            spot[divisor_var] -= 1
+            inv_matrix[i][inv_spot_dict[tuple(spot)]] += 1
 
-    #Reduces the inv_matrix to solve for the y^k/x terms in the vector basis.
-    Q,R = qr(inv_matrix)
+        #Reduces the inv_matrix to solve for the y^k/x terms in the vector basis.
+        Q,R = qr(inv_matrix)
 
-    inv_solutions = np.hstack((np.eye(R.shape[0]),solve_triangular(R[:,:R.shape[0]], R[:,R.shape[0]:])))
+        inv_solutions = np.hstack((np.eye(R.shape[0]),solve_triangular(R[:,:R.shape[0]], R[:,R.shape[0]:])))
 
-    #A dictionary of term in the vector basis to their spot in the vector basis.
-    VB_spot_dict = dict()
-    spot = 0
-    for row in VB:
-        VB_spot_dict[tuple(row)] = spot
-        spot+=1
+        #A dictionary of term in the vector basis to their spot in the vector basis.
+        VB_spot_dict = dict()
+        spot = 0
+        for row in VB:
+            VB_spot_dict[tuple(row)] = spot
+            spot+=1
 
-    #A dictionary of terms of type y^k/x to their reduction in the vector basis.
-    inv_reduction_dict = dict()
-    for i in range(len(inv_solutions)):
-        inv_reduction_dict[tuple(inv_matrix_terms[i])] = inv_solutions[i][len(inv_solutions):]
+        #A dictionary of terms of type y^k/x to their reduction in the vector basis.
+        inv_reduction_dict = dict()
+        for i in range(len(inv_solutions)):
+            inv_reduction_dict[tuple(inv_matrix_terms[i])] = inv_solutions[i][len(inv_solutions):]
 
-    #Builds the division matrix and finds the eigenvalues and eigenvectors.
-    division_matrix = build_division_matrix(VB, VB_spot_dict, diag_reduction_dict, inv_reduction_dict, divisor_terms_dict)
-#<---------end Chebyshev
-#--------->Power
-    """basisDict = makeBasisDict(matrix, matrix_terms, VB)
+        #Builds the division matrix and finds the eigenvalues and eigenvectors.
+        division_matrix = build_division_matrix(VB, VB_spot_dict, diag_reduction_dict, inv_reduction_dict, divisor_terms_dict)
+        #<---------end Chebyshev
+    else:
+        #--------->Power
+        basisDict = makeBasisDict(matrix, matrix_terms, VB)
 
-    #Dictionary of terms in the vector basis their spots in the matrix.
-    VBdict = {}
-    spot = 0
-    for row in VB:
-        VBdict[tuple(row)] = spot
-        spot+=1
+        #Dictionary of terms in the vector basis their spots in the matrix.
+        VBdict = {}
+        spot = 0
+        for row in VB:
+            VBdict[tuple(row)] = spot
+            spot+=1
 
-    # Build division matrix
-    division_matrix = np.zeros((len(VB), len(VB)))
-    for i in range(VB.shape[0]):
-        var = np.zeros(dim)
-        var[divisor_var] = 1
-        term = tuple(VB[i] - var)
-        if term in VBdict:
-            division_matrix[VBdict[term]][i] += 1
-        else:
-            division_matrix[:,i] -= basisDict[term]"""
-#<----------end Power
+        # Build division matrix
+        division_matrix = np.zeros((len(VB), len(VB)))
+        for i in range(VB.shape[0]):
+            var = np.zeros(dim)
+            var[divisor_var] = 1
+            term = tuple(VB[i] - var)
+            if term in VBdict:
+                division_matrix[VBdict[term]][i] += 1
+            else:
+                division_matrix[:,i] -= basisDict[term]
+        #<----------end Power
+
     vals, vecs = eig(division_matrix.T)
 
     #Calculates the zeros, the x values from the eigenvalues and the y values from the eigenvectors.

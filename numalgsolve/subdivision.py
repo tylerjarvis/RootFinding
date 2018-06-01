@@ -9,7 +9,7 @@ the approximation degree is small enough to be solved efficiently.
 import numpy as np
 from numpy.fft.fftpack import fftn
 from numalgsolve.OneDimension import divCheb,divPower,multCheb,multPower,solve
-from numalgsolve.Division import division_cheb
+from numalgsolve.Division import division
 from numalgsolve.utils import clean_zeros_from_matrix, slice_top
 from numalgsolve.polynomial import MultiCheb
 
@@ -346,7 +346,7 @@ def subdivision_solve_nd(funcs,a,b,deg,tol=1.e-8,tol2=1.e-8):
                               for interval in intervals])
         coeff = trim_coeff(coeff,tol=tol, tol2=tol2)
         chebs.append(MultiCheb(coeff))
-    zeros = np.array(division_cheb(chebs))
+    zeros = np.array(division(chebs))
     if len(zeros) == 0:
         return np.zeros([0,dim])
     zeros = transform(good_zeros_nd(zeros),a,b)
