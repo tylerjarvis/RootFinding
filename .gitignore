@@ -4,7 +4,12 @@
 *.ipynb
 pytest/htmlcov
 pytest/.cache
+.pytest_cache/
+.coverage
 .cache/
-groebner/.DS_Store
 __pycache__/
 .ipynb_checkpoints/
+.eggs/
+*.egg-info/
+.DS_Store
+

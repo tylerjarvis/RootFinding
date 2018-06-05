@@ -1,6 +1,6 @@
 import numpy as np
 from numalgsolve.polynomial import Polynomial, MultiCheb, MultiPower
-from numalgsolve.DivisionMatrixes.OneDimension import one_dimensional_solve
+from numalgsolve.OneDimension import solve
 
 def getPoly(deg, power):
     '''
@@ -20,7 +20,7 @@ def correctZeros(poly, method, checkNumber = True):
     the polynomial is random, and that at least 95% of the zeros are correct (so it will pass even
     on bad random runs)
     '''
-    zeros = one_dimensional_solve(poly, method = method)
+    zeros = solve(poly, method = method)
     if checkNumber:
         assert(len(zeros) == poly.degree)
     correct = 0
@@ -40,33 +40,30 @@ def test_Division_Cheb():
     '''
     #Case 1 - MultiPower degree 10. Multiplication and Division Matrixes.
     poly = getPoly(10,True)
-    correctZeros(poly, 'M')
-    correctZeros(poly, 'D')
+    correctZeros(poly, 'mult')
+    correctZeros(poly, 'div')
 
     #Case 2 - MultiCheb degree 10. Multiplication and Division Matrixes.
     poly = getPoly(10,False)
-    correctZeros(poly, 'M')
-    correctZeros(poly, 'D')
+    correctZeros(poly, 'mult')
+    correctZeros(poly, 'div')
 
     #Case 3 - MultiPower degree 50. Multiplication and Division Matrixes.
     poly = getPoly(50,True)
-    correctZeros(poly, 'M')
-    correctZeros(poly, 'D')
+    correctZeros(poly, 'mult')
+    correctZeros(poly, 'div')
 
     #Case 4 - MultiCheb degree 50. Multiplication and Division Matrixes.
     poly = getPoly(50,False)
-    correctZeros(poly, 'M')
-    correctZeros(poly, 'D')
+    correctZeros(poly, 'mult')
+    correctZeros(poly, 'div')
 
     #Case 5 - MultiPower degree 100. Multiplication and Division Matrixes.
     poly = getPoly(100,True)
-    correctZeros(poly, 'M')
-    correctZeros(poly, 'D')
+    correctZeros(poly, 'mult')
+    correctZeros(poly, 'div')
 
     #Case 6 - MultiCheb degree 100. Multiplication and Division Matrixes.
     poly = getPoly(100,False)
-    correctZeros(poly, 'M')
-    correctZeros(poly, 'D')
-
-    
-    
+    correctZeros(poly, 'mult')
+    correctZeros(poly, 'div')

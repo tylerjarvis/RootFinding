@@ -1,8 +1,10 @@
+"""TESTS REMOVED FOR NOW BECAUSE WE DON'T USE THIS CODE"""
+
+"""
 import pytest
 import numpy as np
 from itertools import permutations
 from numalgsolve.root_finder import roots
-
 
 # groebner module imports
 from numalgsolve.gsolve import F4
@@ -195,7 +197,7 @@ def correctZeros(polys, checkNumber = True):
             correct += 1
     assert(100*correct/(len(zeros)-outOfRange) > 80)
 
-def test_TVB_roots():
+def test_Groebner_roots():
     '''
     The following tests will run TVB on relatively small random upper trianguler MultiPower and MultiCheb polynomials.
     The assert statements will be inside of the correctZeros helper function.
@@ -257,3 +259,4 @@ def test_TVB_roots():
     B = getPoly(3,3,False)
     C = getPoly(4,3,False)
     correctZeros([A,B,C])
+"""

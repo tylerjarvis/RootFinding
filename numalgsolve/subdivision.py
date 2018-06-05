@@ -1,13 +1,67 @@
+"""
+Subdivision provides a solve function that finds roots of a set of functions
+by approximating the functions with Chebyshev polynomials.
+When the approximation is performed on a sufficiently small interval,
+the approximation degree is small enough to be solved efficiently.
+
+"""
+
 import numpy as np
 from numpy.fft.fftpack import fftn
-from numalgsolve.DivisionMatrixes.OneDimension import divCheb,divPower,multCheb,multPower,one_dimensional_solve
-from numalgsolve.DivisionMatrixes.ChebyshevDivision import division_cheb
+from numalgsolve.OneDimension import divCheb,divPower,multCheb,multPower,solve
+from numalgsolve.Division import division
 from numalgsolve.utils import clean_zeros_from_matrix, slice_top
 from numalgsolve.polynomial import MultiCheb
 
+def solve(funcs, a, b):
+    '''
+    Finds the real roots of the given list of functions on a given interval.
+
+    Parameters
+    ----------
+    funcs : list of callable functions
+        Functions to find the common roots of.
+    a : numpy array
+        The lower bound on the interval.
+    b : numpy array
+        The upper bound on the interval.
+    returns
+    -------
+    roots : numpy array
+        The common roots of the polynomials. Each row is a root.
+    '''
+    dim = len(a)
+    if dim == 1:
+        zeros = np.unique(subdivide_solve_1d(funcs[0],a,b))
+        #Finds the roots of each succesive function and checks which roots are common.
+        for func in funcs[1:]:
+            if len(zeros) == 0:
+                break
+            zeros2 = np.unique(subdivide_solve_1d(func,a,b))
+            common = list()
+            tol = 1.e-10
+            for zero in zeros2:
+                spot = np.where(np.abs(zeros-zero)<tol)
+                if len(spot[0]) > 0:
+                    common.append(zero)
+            zeros = common
+        return zeros
+    else:
+        if dim == 2:
+            deg = 10
+        elif dim == 3:
+            deg = 7
+        elif dim == 4:
+            deg = 4
+        elif dim == 5:
+            deg = 2
+        else:
+            deg = 2
+        return subdivision_solve_nd(funcs,a,b,deg)
+
 def transform(x,a,b):
     """Transforms points from the interval [-1,1] to the interval [a,b].
-    
+
     Parameters
     ----------
     x : numpy array
@@ -16,7 +70,7 @@ def transform(x,a,b):
         The lower bound on the interval. Float if one-dimensional, numpy array if multi-dimensional
     b : float or numpy array
         The upper bound on the interval. Float if one-dimensional, numpy array if multi-dimensional
-    
+
     Returns
     -------
     transform : numpy array
@@ -26,7 +80,7 @@ def transform(x,a,b):
 
 def inv_transform(x,a,b):
     """Transforms points from the interval [a,b] to the interval [-1,1].
-    
+
     Parameters
     ----------
     x : numpy array
@@ -35,7 +89,7 @@ def inv_transform(x,a,b):
         The lower bound on the interval. Float if one-dimensional, numpy array if multi-dimensional
     b : float or numpy array
         The upper bound on the interval. Float if one-dimensional, numpy array if multi-dimensional
-    
+
     Returns
     -------
     transform : numpy array
@@ -45,7 +99,7 @@ def inv_transform(x,a,b):
 
 def interval_approximate_1d(f,a,b,deg):
     """Finds the chebyshev approximation of a one-dimensional function on an interval.
-    
+
     Parameters
     ----------
     f : function from R -> R
@@ -56,7 +110,7 @@ def interval_approximate_1d(f,a,b,deg):
         The upper bound on the interval.
     deg : int
         The degree of the interpolation.
-    
+
     Returns
     -------
     coeffs : numpy array
@@ -71,7 +125,7 @@ def interval_approximate_1d(f,a,b,deg):
 
 def interval_approximate_nd(f,a,b,degs):
     """Finds the chebyshev approximation of an n-dimensional function on an interval.
-    
+
     Parameters
     ----------
     f : function from R^n -> R
@@ -82,7 +136,7 @@ def interval_approximate_nd(f,a,b,degs):
         The upper bound on the interval.
     deg : numpy array
         The degree of the interpolation in each dimension.
-    
+
     Returns
     -------
     coeffs : numpy array
@@ -95,29 +149,39 @@ def interval_approximate_nd(f,a,b,degs):
         return np.cos(np.pi*k/n)
 
     n = degs[0]
-    if dim == 2:
+
+    if hasattr(f,"evaluate_grid"):
+        #for polynomials, we can quickly evaluate all points in a grid
+        #xyz does not contain points, but the nth column of xyz has the values needed
+        #along the nth axis. The direct product of these values procuces the grid
         X = np.cos(np.arange(2*n)*np.pi/n)
-        y,x = np.meshgrid(X,X)
-        cheb_spots = transform(np.vstack([x.flatten(),y.flatten()]).T,a,b)
-        values = f(cheb_spots).reshape(2*n,2*n)
-        #print(jit)
-        #values = polyvalnd(cheb_spots,f.coeff).reshape(2*n,2*n)
-    elif dim == 3:
-        X = np.cos(np.arange(2*n)*np.pi/n)
-        y,x,z = np.meshgrid(X,X,X)
-        cheb_spots = transform(np.vstack([x.flatten(),y.flatten(),z.flatten()]).T,a,b)
-        values = f(cheb_spots).reshape(2*n,2*n,2*n)
+        xyz = transform(np.column_stack([X]*dim), a, b)
+        values = f.evaluate_grid(xyz)
     else:
-        values = np.zeros(2*degs)
-        cheb_spots = list()
-        for spot,val in np.ndenumerate(values):
-            cheb_spots.append(transform([get_cheb_spot(spot[i],degs[i]) for i in range(dim)],a,b))
-        vals = f(cheb_spots)
-        i=0
-        for spot,val in np.ndenumerate(values):
-            values[spot] = vals[i]
-            i+=1
-    
+        if dim == 2:
+            X = np.cos(np.arange(2*n)*np.pi/n)
+            y,x = np.meshgrid(X,X)
+            cheb_spots = transform(np.vstack([x.flatten(),y.flatten()]).T,a,b)
+            values = f(cheb_spots).reshape(2*n,2*n)
+            #print(jit)
+            #values = polyvalnd(cheb_spots,f.coeff).reshape(2*n,2*n)
+        elif dim == 3:
+            X = np.cos(np.arange(2*n)*np.pi/n)
+            y,x,z = np.meshgrid(X,X,X)
+            cheb_spots = transform(np.vstack([x.flatten(),y.flatten(),z.flatten()]).T,a,b)
+            values = f(cheb_spots).reshape(2*n,2*n,2*n)
+
+        else:
+            values = np.zeros(2*degs)
+            cheb_spots = list()
+            for spot,val in np.ndenumerate(values):
+                cheb_spots.append(transform([get_cheb_spot(spot[i],degs[i]) for i in range(dim)],a,b))
+            vals = f(cheb_spots)
+            i=0
+            for spot,val in np.ndenumerate(values):
+                values[spot] = vals[i]
+                i+=1
+
     coeffs = np.real(fftn(values/np.product(degs)))
 
     for i in range(dim):
@@ -136,7 +200,7 @@ def interval_approximate_nd(f,a,b,degs):
 
 def get_subintervals(a,b,dimensions):
     """Gets the subintervals to divide a matrix into.
-    
+
     Parameters
     ----------
     a : numpy array
@@ -145,28 +209,30 @@ def get_subintervals(a,b,dimensions):
         The upper bound on the interval.
     dimensions : numpy array
         The dimensions we want to cut in half.
-    
+
     Returns
     -------
     subintervals : list
         Each element of the list is a tuple containing an a and b, the lower and upper bounds of the interval.
     """
+    RAND = 0.5139303900908738
     subintervals = list()
     perms = interval_perms(list(), np.zeros(len(dimensions)), 0)
-    diffs = ((b-a)/2)[dimensions]
+    diffs1 = ((b-a)*RAND)[dimensions]
+    diffs2 = ((b-a)-(b-a)*RAND)[dimensions]
     for perm in perms:
         aTemp = a.copy()
         bTemp = b.copy()
-        aTemp[dimensions] += (1-perm)*diffs
-        bTemp[dimensions] -= perm*diffs
+        aTemp[dimensions] += (1-perm)*diffs1
+        bTemp[dimensions] -= perm*diffs2
         subintervals.append(tuple([aTemp,bTemp]))
     return subintervals
 
 def interval_perms(perms,perm,spot):
     """A helper function for get_subintervals. Finds the different ways we can split the dimensions.
-    
+
     Called recursively.
-    
+
     Parameters
     ----------
     perms : list
@@ -175,7 +241,7 @@ def interval_perms(perms,perm,spot):
         The way we are currently dynamically computing.
     spot : int
         Where in perm we are changing.
-    
+
     Returns
     -------
     subintervals : list
@@ -194,9 +260,9 @@ def interval_perms(perms,perm,spot):
 
 def full_cheb_approximate(f,a,b,deg,tol=1.e-8):
     """Gives the full chebyshev approximation and checks if it's good enough.
-    
+
     Called recursively.
-    
+
     Parameters
     ----------
     f : function
@@ -209,14 +275,14 @@ def full_cheb_approximate(f,a,b,deg,tol=1.e-8):
         The degree to approximate with.
     tol : float
         How small the high degree terms must be to consider the approximation accurate.
-    
+
     Returns
     -------
     coeff : numpy array
         The coefficient array of the interpolation. If it can't get a good approximation and needs to subdivide, returns None.
     """
     dim = len(a)
-    
+
     degs = np.array([deg]*dim)+1
     coeff = interval_approximate_nd(f,a,b,degs)
     coeff2 = interval_approximate_nd(f,a,b,degs*2)
@@ -228,28 +294,17 @@ def full_cheb_approximate(f,a,b,deg,tol=1.e-8):
         return None
     else:
         return coeff
-    '''
-    mons = mon_combos_limited([0]*dim,deg+1,np.array(coeff.shape))
-    slices = list()
-    mons = np.array(mons).T
-    for i in range(dim):
-        slices.append(mons[i])
-    if np.all(np.abs(coeff[slices]) < tol):
-        return coeff
-    else:
-        return None
-    '''
 
 def good_zeros_nd(zeros, imag_tol = 1.e-10):
     """Get the real zeros in the -1 to 1 interval in each dimension.
-    
+
     Parameters
     ----------
     zeros : numpy array
         The zeros to be checked.
     imag_tol : float
         How large the imaginary part can be to still have it be considered real.
-    
+
     Returns
     -------
     good_zeros : numpy array
@@ -262,7 +317,7 @@ def good_zeros_nd(zeros, imag_tol = 1.e-10):
 
 def subdivision_solve_nd(funcs,a,b,deg,tol=1.e-8,tol2=1.e-8):
     """Finds the common zeros of the given functions.
-    
+
     Parameters
     ----------
     funcs : list
@@ -273,13 +328,13 @@ def subdivision_solve_nd(funcs,a,b,deg,tol=1.e-8,tol2=1.e-8):
         The upper bound on the interval.
     deg : int
         The degree to approximate with in the chebyshev approximation.
-    
+
     Returns
     -------
     good_zeros : numpy array
         The real zero in [-1,1] of the input zeros.
     """
-    #print("Interval - ",a,b)
+    print("Interval - ",a,b)
     dim = len(a)
     chebs = list()
     for func in funcs:
@@ -291,7 +346,7 @@ def subdivision_solve_nd(funcs,a,b,deg,tol=1.e-8,tol2=1.e-8):
                               for interval in intervals])
         coeff = trim_coeff(coeff,tol=tol, tol2=tol2)
         chebs.append(MultiCheb(coeff))
-    zeros = np.array(division_cheb(chebs))
+    zeros = np.array(division(chebs))
     if len(zeros) == 0:
         return np.zeros([0,dim])
     zeros = transform(good_zeros_nd(zeros),a,b)
@@ -299,7 +354,7 @@ def subdivision_solve_nd(funcs,a,b,deg,tol=1.e-8,tol2=1.e-8):
 
 def trim_coeff(coeff, tol=1.e-8, tol2=1.e-8):
     """Finds the common zeros of the given functions.
-    
+
     Parameters
     ----------
     funcs : list
@@ -310,7 +365,7 @@ def trim_coeff(coeff, tol=1.e-8, tol2=1.e-8):
         The upper bound on the interval.
     deg : int
         The degree to approximate with in the chebyshev approximation.
-    
+
     Returns
     -------
     good_zeros : numpy array
@@ -323,9 +378,9 @@ def trim_coeff(coeff, tol=1.e-8, tol2=1.e-8):
         for s in spot:
             slices.append(s)
         coeff[slices] = 0
-    
+
     dim = len(coeff.shape)
-    
+
     #Cuts out the high diagonals as much as possible to minimize polynomial degree.
     if abs(coeff[tuple([-1]*dim)]) < tol:
         coeff[tuple([-1]*dim)] = 0
@@ -335,13 +390,13 @@ def trim_coeff(coeff, tol=1.e-8, tol2=1.e-8):
             slices = list()
             mons = np.array(mons).T
             for i in range(dim):
-                slices.append(mons[i])        
+                slices.append(mons[i])
             if np.sum(np.abs(coeff[slices])) < tol:
                 coeff[slices] = 0
             else:
                 break
             deg -= 1
-    
+
     return coeff
 
 def mon_combos_limited(mon, numLeft, shape, spot = 0):
@@ -384,14 +439,14 @@ def mon_combos_limited(mon, numLeft, shape, spot = 0):
 
 def good_zeros(zeros, imag_tol = 1.e-10):
     """Get the real zeros in the -1 to 1 interval
-    
+
     Parameters
     ----------
     zeros : numpy array
         The zeros to be checked.
     imag_tol : float
         How large the imaginary part can be to still have it be considered real.
-    
+
     Returns
     -------
     good_zeros : numpy array
@@ -403,7 +458,7 @@ def good_zeros(zeros, imag_tol = 1.e-10):
 
 def subdivide_solve_1d(f,a,b,cheb_approx_tol=1.e-10,max_degree=128):
     """Finds the roots of a one-dimensional function using subdivision and chebyshev approximation.
-    
+
     Parameters
     ----------
     f : function from R^n -> R
@@ -414,13 +469,12 @@ def subdivide_solve_1d(f,a,b,cheb_approx_tol=1.e-10,max_degree=128):
         The upper bound on the interval.
     deg : int
         The degree of the interpolation.
-    
+
     Returns
     -------
     coeffs : numpy array
         The coefficient of the chebyshev interpolating polynomial.
     """
-    print(a,b)
     n = 2
     intitial_approx = interval_approximate_1d(f,a,b,deg = n)
     while n<=max_degree:

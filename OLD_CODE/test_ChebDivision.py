@@ -1,6 +1,10 @@
+"""TESTS REMOVED FOR NOW BECAUSE WE DON'T USE THIS CODE"""
+
+"""
+
 import numpy as np
 from numalgsolve.polynomial import Polynomial, MultiCheb, MultiPower
-from numalgsolve.DivisionMatrixes.ChebyshevDivision import division_cheb
+from numalgsolve.ChebyshevDivision import division_cheb
 
 def getPoly(deg,dim):
     '''
@@ -82,3 +86,5 @@ def test_Division_Cheb():
     correctZeros([A,B,C,D], 1)
     correctZeros([A,B,C,D], 2)
     correctZeros([A,B,C,D], 3)
+    
+"""
