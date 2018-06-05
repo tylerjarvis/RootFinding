@@ -1,9 +1,11 @@
 import numpy as np
 import itertools
+from scipy.linalg import solve_triangular, eig
 from numalgsolve.polynomial import MultiCheb, MultiPower, is_power
 from numalgsolve.TVBCore import rrqr_reduceTelenVanBarel2, find_degree, add_polys
-from numalgsolve.utils import row_swap_matrix, TVBError, slice_top, get_var_list, mon_combos, mon_combosHighest, sort_polys_by_degree, deg_d_polys, all_permutations, num_mons_full, memoized_all_permutations, mons_ordered, all_permutations_cheb, num_mons
-from scipy.linalg import solve_triangular, eig
+from numalgsolve.utils import row_swap_matrix, TVBError, slice_top, get_var_list, \
+                              mon_combos, mon_combosHighest, sort_polys_by_degree, \
+                              deg_d_polys, all_permutations_cheb
 
 def multiplication(polys):
     '''

@@ -2,7 +2,9 @@ import numpy as np
 import itertools
 from scipy.linalg import qr, solve_triangular, qr_multiply
 from numalgsolve.polynomial import Polynomial, MultiCheb, MultiPower
-from numalgsolve.utils import row_swap_matrix, TVBError, slice_top, get_var_list, mon_combos, mon_combosHighest, sort_polys_by_degree, deg_d_polys, all_permutations, num_mons_full, memoized_all_permutations, mons_ordered, all_permutations_cheb, num_mons
+from numalgsolve.utils import row_swap_matrix, TVBError, slice_top, mon_combos, \
+                              num_mons_full, memoized_all_permutations, mons_ordered, \
+                              all_permutations_cheb
 
 def add_polys(degree, poly, poly_coeff_list):
     """Adds polynomials to a Macaulay Matrix.

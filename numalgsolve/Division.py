@@ -1,9 +1,10 @@
 import numpy as np
 import itertools
-from numalgsolve.polynomial import MultiCheb, MultiPower, is_power
-from numalgsolve.utils import get_var_list, slice_top, row_swap_matrix, mon_combos, newton_polish
-from numalgsolve.TVBCore import add_polys, rrqr_reduceTelenVanBarel
 from scipy.linalg import solve_triangular, eig, qr
+from numalgsolve.polynomial import MultiCheb, MultiPower, is_power
+from numalgsolve.TVBCore import add_polys, rrqr_reduceTelenVanBarel
+from numalgsolve.utils import get_var_list, slice_top, row_swap_matrix, \
+                              mon_combos, newton_polish
 
 def division(polys, divisor_var = 0, tol = 1.e-12):
     '''Calculates the common zeros of polynomials using a division matrix.
