@@ -80,7 +80,7 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, cuts, accuracy = 1.e-10):
         The resorted matrix_terms.
     '''
     #RRQR reduces A and D sticking the result in it's place.
-    Q1,matrix[:,:cuts[0]],P1 = qr(matrix[:,:cuts[0]], pivoting = True)
+    Q1,matrix[:,:cuts[0]] = qr(matrix[:,:cuts[0]])
 
     #Looks like 0 but not, add to the rank.
     still_good = np.sum(np.abs(matrix[:,:cuts[0]].diagonal()) < accuracy)
@@ -107,7 +107,7 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     matrix = matrix[:rank]
 
     #Resorts the matrix_terms.
-    matrix_terms[:cuts[0]] = matrix_terms[:cuts[0]][P1]
+    matrix_terms[:cuts[0]] = matrix_terms[:cuts[0]]
     matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
 
     return matrix, matrix_terms
@@ -137,7 +137,7 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     matrix_terms: numpy array
         The resorted matrix_terms.
     '''
-    C1,matrix[:cuts[0],:cuts[0]],P1 = qr_multiply(matrix[:,:cuts[0]], matrix[:,cuts[0]:].T, mode = 'right', pivoting = True)
+    C1,matrix[:cuts[0],:cuts[0]] = qr_multiply(matrix[:,:cuts[0]], matrix[:,cuts[0]:].T, mode = 'right')
     matrix[:cuts[0],cuts[0]:] = C1.T
     C1 = 0
 
@@ -146,9 +146,8 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
 
     matrix[:cuts[0],cuts[0]:] = solve_triangular(matrix[:cuts[0],:cuts[0]],matrix[:cuts[0],cuts[0]:])
     matrix[:cuts[0],:cuts[0]] = np.eye(cuts[0])
-    matrix[cuts[0]:,cuts[0]:] -= (matrix[cuts[0]:,:cuts[0]][:,P1])@matrix[:cuts[0],cuts[0]:]
-    matrix_terms[:cuts[0]] = matrix_terms[:cuts[0]][P1]
-    P1 = 0
+    matrix[cuts[0]:,cuts[0]:] -= (matrix[cuts[0]:,:cuts[0]])@matrix[:cuts[0],cuts[0]:]
+    matrix_terms[:cuts[0]] = matrix_terms[:cuts[0]]
 
     C,R,P = qr_multiply(matrix[cuts[0]:,cuts[0]:cuts[1]], matrix[cuts[0]:,cuts[1]:].T, mode = 'right', pivoting = True)
 
@@ -201,17 +200,16 @@ def rrqr_reduceTelenVanBarelFullRank(matrix, matrix_terms, cuts, accuracy = 1.e-
     matrix_terms: numpy array
         The resorted matrix_terms.
     '''
-    C1,matrix[:cuts[0],:cuts[0]],P1 = qr_multiply(matrix[:cuts[0],:cuts[0]],\
-                                                  matrix[:cuts[0],cuts[0]:].T, mode = 'right', pivoting = True)
+    C1,matrix[:cuts[0],:cuts[0]] = qr_multiply(matrix[:cuts[0],:cuts[0]],\
+                                                  matrix[:cuts[0],cuts[0]:].T, mode = 'right')
     matrix[:cuts[0],cuts[0]:] = C1.T
     C1 = 0
 
     #if abs(matrix[:,:cuts[0]].diagonal()[-1]) < accuracy:
     #    raise TVBError("HIGHEST NOT FULL RANK")
 
-    matrix[cuts[0]:,:cuts[0]] = matrix[cuts[0]:,:cuts[0]][:,P1]
-    matrix_terms[:cuts[0]] = matrix_terms[:cuts[0]][P1]
-    P1 = 0
+    matrix[cuts[0]:,:cuts[0]] = matrix[cuts[0]:,:cuts[0]]
+    matrix_terms[:cuts[0]] = matrix_terms[:cuts[0]]
 
     C,matrix[cuts[0]:,cuts[0]:cuts[1]],P = qr_multiply(matrix[cuts[0]:,cuts[0]:cuts[1]],\
                                                        matrix[cuts[0]:,cuts[1]:].T, mode = 'right', pivoting = True)
