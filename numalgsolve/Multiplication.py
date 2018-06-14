@@ -2,10 +2,11 @@ import numpy as np
 import itertools
 from scipy.linalg import solve_triangular, eig
 from numalgsolve.polynomial import MultiCheb, MultiPower, is_power
-from numalgsolve.TVBCore import rrqr_reduceTelenVanBarel2, find_degree, add_polys
+from numalgsolve.TVBCore import rrqr_reduceTelenVanBarel2, rrqr_reduceTelenVanBarel, find_degree, add_polys
 from numalgsolve.utils import row_swap_matrix, TVBError, slice_top, get_var_list, \
                               mon_combos, mon_combosHighest, sort_polys_by_degree, \
                               deg_d_polys, all_permutations_cheb
+import warnings
 
 def multiplication(polys):
     '''
@@ -23,7 +24,11 @@ def multiplication(polys):
     poly_type = is_power(polys, return_string = True)
     dim = polys[0].dim
 
-    m_f, var_dict = TVBMultMatrix(polys, poly_type)
+    #By Bezout's Theorem. Useful for making sure that the reduced Macaulay Matrix is as we expect
+    degrees = [poly.degree for poly in polys]
+    max_number_of_roots = np.prod(degrees)
+
+    m_f, var_dict = TVBMultMatrix(polys, poly_type, max_number_of_roots)
 
     # both TVBMultMatrix and groebnerMultMatrix will return m_f as
     # -1 if the ideal is not zero dimensional or if there are no roots
@@ -48,9 +53,16 @@ def multiplication(polys):
     vecs = vecs[:,np.abs(vecs[zeros_spot]) > 1.e-10]
 
     roots = vecs[var_spots]/vecs[zeros_spot]
+
+    #Checks that the algorithm finds the correct number of roots with Bezout's Theorem
+    assert roots.shape[1] <= max_number_of_roots #Check if too many roots
+    if roots.shape[1] < max_number_of_roots:
+        warnings.warn('Expected ' + str(max_number_of_roots)
+        + " roots, Found " + str(roots.shape[1]) , Warning)
+        print("Number of Roots Lost:", max_number_of_roots - roots.shape[1])
     return roots.T
 
-def TVBMultMatrix(polys, poly_type):
+def TVBMultMatrix(polys, poly_type, number_of_roots):
     '''
     Finds the multiplication matrix using the reduced Macaulay matrix from the
     TVB method.
@@ -69,7 +81,7 @@ def TVBMultMatrix(polys, poly_type):
     var_dict : dictionary
         Maps each variable to its position in the vector space basis
     '''
-    basisDict, VB, degree = TelenVanBarel(polys)
+    basisDict, VB, degree = TelenVanBarel(polys, number_of_roots)
 
     dim = max(f.dim for f in polys)
 
@@ -102,7 +114,7 @@ def TVBMultMatrix(polys, poly_type):
 
     return mMatrix, var_dict
 
-def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
+def TelenVanBarel(initial_poly_list, max_number_of_roots, accuracy = 1.e-10):
     """Uses Telen and VanBarels matrix reduction method to find a vector basis for the system of polynomials.
 
     Parameters
@@ -143,21 +155,25 @@ def TelenVanBarel(initial_poly_list, accuracy = 1.e-10):
     #Creates the matrix for either of the above two methods. Comment out if using the third method.
     matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, degree, dim)
 
-    #print(matrix.shape)
-
     """This is the thrid matrix construction option, it uses the permutation arrays."""
     #if power:
     #    matrix, matrix_terms, cuts = createMatrixFast(initial_poly_list, degree, dim)
     #else:
     #    matrix, matrix_terms, cuts = construction(initial_poly_list, degree, dim)
 
-    matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts, accuracy = accuracy)
-    #matrix, matrix_terms = rrqr_reduceTelenVanBarelFullRank(matrix, matrix_terms, cuts, accuracy = accuracy)
+    #If bottom left is zero only does step 1 of TVB-style QR reduction on top part of matrix (for speed). Otherwise does it on the whole thing
+    if np.allclose(matrix[cuts[0]:,:cuts[0]], 0):
+        matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts, max_number_of_roots, accuracy = accuracy)
+    else:
+        matrix, matrix_terms = rrqr_reduceTelenVanBarel(matrix, matrix_terms, cuts, max_number_of_roots, accuracy = accuracy)
 
+    #Make there are enough rows in the reduced TVB matrix, i.e. didn't loose a row
+    assert matrix.shape[0] >= matrix.shape[1] - max_number_of_roots
+
+    #matrix, matrix_terms = rrqr_reduceTelenVanBarelFullRank(matrix, matrix_terms, cuts, number_of_roots, accuracy = accuracy)
     height = matrix.shape[0]
     matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
     matrix[:,:height] = np.eye(height)
-
     #return np.vstack((matrix[:,height:].T,np.eye(height))), matrix_terms
 
     VB = matrix_terms[height:]
