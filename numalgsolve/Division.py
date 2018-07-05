@@ -170,6 +170,7 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
     if zeros.shape[0] < max_number_of_roots:
         warnings.warn('Expected ' + str(max_number_of_roots)
         + " roots, Found " + str(zeros.shape[0]) , Warning)
+        print("Number of Roots Lost:", max_number_of_roots - zeros.shape[0])
     return zeros
 
 def get_matrix_terms(poly_coeffs, dim, divisor_var, deg, include_divvar_squared=True):
