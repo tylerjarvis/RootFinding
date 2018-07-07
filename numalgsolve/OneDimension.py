@@ -21,8 +21,8 @@ def solve(poly, method = 'mult', eigvals=True):
     one_dimensional_solve : numpy array
         An array of the zeros.
     """
-    if method != 'mult' and method != 'div':
-        raise ValueError('method must be mult or div!')
+    if method not in ['mult','multR','div']:
+        raise ValueError('method must be mult, multR or div!')
 
     if type(poly) == MultiPower:
         size = len(poly.coeff)
@@ -30,11 +30,15 @@ def solve(poly, method = 'mult', eigvals=True):
         zeros = np.zeros(size - len(coeff), dtype = 'complex')
         if method == 'mult':
             return np.hstack((zeros,multPower(coeff, eigvals)))
+        elif method == 'multR':
+            return np.hstack((zeros,multPowerR(coeff, eigvals)))
         else:
             return np.hstack((zeros,divPower(coeff, eigvals)))
     else:
         if method == 'mult':
             return multCheb(poly.coeff, eigvals)
+        elif method == 'multR':
+            return multChebR(poly.coeff, eigvals)
         else:
             return divCheb(poly.coeff, eigvals)
 
