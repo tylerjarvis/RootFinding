@@ -38,6 +38,8 @@ def test_Division_Cheb():
     The following tests will run division_cheb on relatively small random upper trianguler MultiCheb polynomials.
     The assert statements will be inside of the correctZeros helper function.
     '''
+    np.random.seed(3902)
+
     #Case 1 - MultiPower degree 10. Multiplication and Division Matrixes.
     poly = getPoly(10,True)
     correctZeros(poly, 'mult')

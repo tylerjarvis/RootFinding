@@ -2,7 +2,6 @@ import numpy as np
 from numalgsolve.polynomial import MultiCheb, MultiPower, poly2cheb, cheb2poly
 import pytest
 import pdb
-import random
 
 
 def test_add():
@@ -18,6 +17,8 @@ def test_mon_mult():
     """
     Tests monomial multiplication using normal polynomial multiplication.
     """
+
+    np.random.seed(4)
 
     #Simple 2D test cases
     cheb1 = MultiCheb(np.array([[0,0,0],[0,0,0],[0,0,1]]))

@@ -93,6 +93,9 @@ def test_TVB_power_roots():
     The following tests will run TVB on relatively small random upper trianguler MultiPower.
     The assert statements will be inside of the correctZeros helper function.
     '''
+
+    np.random.seed(423)
+
     #Case 1 - Two MultiPower 2D degree 10 polynomials.
     A = getPoly(10,2,True)
     B = getPoly(10,2,True)
@@ -127,6 +130,9 @@ def test_TVB_cheb_roots():
     The following tests will run TVB on relatively small random upper trianguler MultiCheb.
     The assert statements will be inside of the correctZeros helper function.
     '''
+
+    np.random.seed(59)
+
     #Case 1 - Two MultiCheb 2D degree 10 polynomials.
     A = getPoly(10,2,False)
     B = getPoly(10,2,False)
