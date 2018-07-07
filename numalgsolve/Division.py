@@ -147,19 +147,33 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
         if abs(vecs[-1][i]) < 1.e-10: #This should be a root at infinity
             continue
         root = np.zeros(dim, dtype=complex)
-        for spot in range(0,divisor_var):
-            root[spot] = vecs[-(3+spot)][i]/vecs[-1][i]
-        for spot in range(divisor_var+1,dim):
-            root[spot] = vecs[-(2+spot)][i]/vecs[-1][i]
+        if get_divvar_coord_from_eigval:
+            for spot in range(0,divisor_var):
+                root[spot] = vecs[-(2+spot)][i]/vecs[-1][i]
+            for spot in range(divisor_var+1,dim):
+                root[spot] = vecs[-(1+spot)][i]/vecs[-1][i]
+        else:
+            for spot in range(0,divisor_var):
+                root[spot] = vecs[-(3+spot)][i]/vecs[-1][i]
+            for spot in range(divisor_var+1,dim):
+                root[spot] = vecs[-(2+spot)][i]/vecs[-1][i]
+
         if get_divvar_coord_from_eigval: #If get_divvar_coord_from_eigval, use the eigenval to calulate that coordinate
             root[divisor_var] = 1/vals[i]
         elif power: #If using the eigenvector and it's in power form, normal calculation of coordinate
             root[divisor_var] = vecs[-(2)][i]/vecs[-1][i]
         else: #If using the eigenvector and it's in cheb form, have to use quadratic formula to calculate coordinate.
             vecval = vecs[-(2)][i]/vecs[-1][i] #vecval = cT2(x)/cT1(x) = c(2x^2-1)/cx = (2x^2-1)/x
-            root[divisor_var] = (vecval + np.sqrt(vecval**2 + 8))/4
-            if not np.allclose([polys[i](root) for i in range(dim)], 0):
-                root[divisor_var] = (vecval - np.sqrt(vecval**2 + 8))/4
+            root1 = root.copy()
+            root1[divisor_var] = (vecval + np.sqrt(vecval**2 + 8))/4
+            root2 = root.copy()
+            root2[divisor_var] = (vecval - np.sqrt(vecval**2 + 8))/4
+
+            if sum(np.abs(poly(root1)) for poly in polys) < sum(np.abs(poly(root2)) for poly in polys):
+                root = root1
+            else:
+                root = root2
+
         #root = newton_polish(polys,root,tol = tol)
         zeros.append(root)
 
