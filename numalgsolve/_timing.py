@@ -27,6 +27,48 @@ def _nproots(poly):
 def _npcheb(poly):
     np.polynomial.chebyshev.chebroots(poly[0].coeff)
 
+def bertini(polys):
+    def mononmial_from_exp(exponents, var_chars):
+        s = ''
+        for i,exp in enumerate(exponents):
+            if exp > 0:
+                s += f'{var_chars[i]}^{exp}*'
+        return s.rstrip('*')
+
+    def coeff_to_str(coeff, var_chars):
+        s = ''
+        for pos, val in np.ndenumerate(coeff):
+            s += f'{val}*{mononmial_from_exp(pos,var_chars)}'.rstrip('*') + '+'
+        return s.rstrip('+')
+
+    if len(polys) > 3:
+        import string
+        var_chars = string.ascii_lowercase[:len(polys)]
+    else:
+        var_chars = 'xyz'[:len(polys)]
+
+    header = ("CONFIG\n"
+              "TRACKTYPE: 1;\n"
+              "END;\n"
+              "INPUT\n"
+              "variable_group {};\n".format(', '.join(var_chars))+
+              "function {};\n".format(', '.join(f'f{i}' for i in range(len(polys))))
+              )
+    body = ''
+    for i,poly in enumerate(polys):
+        body += f"f{i} = {coeff_to_str(poly.coeff, var_chars)};\n"
+
+    footer = "END;"
+
+    # print(header+body+footer)
+    with open('input', 'w') as f:
+        f.write(header+body+footer)
+
+    from subprocess import call
+    call(['./bertini/bertini.exe'])
+
+    # print(coeff_to_str(poly.coeff))
+
 # One Dimension
 def timer(solver, dim, power):
     """Timing a specific root solving method for different polynomial sizes.
@@ -46,10 +88,13 @@ def timer(solver, dim, power):
         list of average times for the solver based on degree
     """
     times = []
-    max_degree = {1:250, 2:20, 3:7, 4:4, 5:3} #keys by dimensions
-    interval = {1:30, 2:3, 3:1, 4:1, 5:1}
-    min_degree = {1:10, 2:2, 3:2, 4:2, 5:2}
-    degrees = list(range(min_degree[dim],max_degree[dim]+1,interval[dim]))
+    max_degree = {1:250, 2:20, 3:7, 4:4, 5:3}[dim] #keys by dimensions
+    interval = {1:30, 2:3, 3:1, 4:1, 5:1}[dim]
+    min_degree = {1:10, 2:2, 3:2, 4:2, 5:2}[dim]
+    if solver.__name__ == 'bertini':
+        max_degree = {1:60,2:6,3:5,4:4,5:4}[dim]
+        interval = {1:10,2:1,3:1,4:1,5:1}[dim]
+    degrees = list(range(min_degree,max_degree+1,interval))
     for deg in degrees:
         np.random.seed(121*deg)
         tot_time = 0
@@ -81,12 +126,18 @@ def run_timer(args):
 
     degrees, times = timer(_div, args.dim, power=True)
     results['degrees'] = degrees
-    results['div power'] = times
+    results['Division power'] = times
     print('Finished trials for division power')
 
     degrees, times = timer(_mult, args.dim, power=True)
-    results['mult power'] = times
+    results['Multiplication power'] = times
     print('Finished trials for multiplication power')
+
+    if args.bertini:
+        degrees, times = timer(bertini, args.dim, power=True)
+        results['bert_degrees'] = degrees
+        results['bertini'] = times
+        print('Finished trials for multiplication power')
 
     degrees, times = timer(_div, args.dim, power=False)
     results['div cheb'] = times
@@ -98,7 +149,7 @@ def run_timer(args):
 
     if args.dim == 1:
         degrees, times = timer(_multPowerR, args.dim, power=True)
-        results['multR power'] = times
+        results['MultiplicationRotate power'] = times
         print('Finished trials for rotated multiplication power')
 
         degrees, times = timer(_multChebR, args.dim, power=True)
@@ -119,14 +170,17 @@ def create_graph(results, args):
     degrees = results['degrees']
     xmax = int(1.05*max(degrees))
 
-    ymax = 1.05*max([max(v) for k,v in results.items() if k != 'degrees'])
+    ymax = 1.05*max([max(v) for k,v in results.items() if ('degrees' not in k)])
     ymax = max(ymax, 0.1)
     plt.figure(figsize=(11,5))
     plt.subplot(121)
+    plot = plt.semilogy if args.bertini else plt.plot
     for key,times in results.items():
         if 'power' not in key: continue
-        plt.plot(degrees,  times, label=key.split()[0])
+        plot(degrees,  times, label=key.split()[0])
 
+    if args.bertini:
+        plot(results['bert_degrees'], results['bertini'], label='Bertini')
     plt.xlim(0,xmax)
     plt.xticks(fontsize=12)
     plt.yticks(fontsize=12)
@@ -134,7 +188,7 @@ def create_graph(results, args):
     plt.ylabel(f"Average Time over {args.trials} Trials (seconds)", fontsize=14)
     plt.ylim(0,ymax)
     plt.yticks(fontsize=12)
-    plt.legend(loc='upper left')
+    plt.legend(loc='best')
     plt.title("Power Basis Solve Times", fontsize=16)
 
     ax = plt.subplot(122)
@@ -200,6 +254,7 @@ if __name__ == '__main__':
     # graph options
     parser.add_argument('-t', '--trials', type=int, default=10, help='Numbers of trials for graph results')
     parser.add_argument('-d', '--display', action='store_true', help='Display timing graphs')
+    parser.add_argument('-b', '--bertini', action='store_true', help='Include bertini')
     parser.add_argument('-s', '--save', type=str, default='', help='Save timing graphs to file')
 
     # single timing options
