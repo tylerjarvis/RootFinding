@@ -1,7 +1,11 @@
+"""TESTS REMOVED FOR NOW BECAUSE WE DON'T USE THIS CODE"""
+
+"""
+
 import numpy as np
 from numalgsolve.polynomial import Polynomial, MultiCheb, MultiPower
 from numalgsolve.TelenVanBarel import find_degree, mon_combos, sorted_matrix_terms
-from numalgsolve.root_finder import roots
+from numalgsolve import polyroots as pr
 from numalgsolve.utils import InstabilityWarning, arrays
 from itertools import product
 import warnings
@@ -21,7 +25,7 @@ def getPoly(deg,dim,power):
     else:
         return MultiCheb(ACoeff)
 
-def correctZeros(polys, checkNumber = True):
+def correctZeros(polys):
     '''
     A helper function for test_TVB. Takes in polynomials, find their common zeros using TVB, and calculates
     how many of the zeros are correct.
@@ -29,11 +33,7 @@ def correctZeros(polys, checkNumber = True):
     the polynomials are random and upper triangular, and that at least 95% of the zeros are correct (so it will pass even
     on bad random runs)
     '''
-    zeros = roots(polys, method = 'TVB')
-    assert(zeros != -1)
-    if checkNumber:
-        expectedNum = np.product([poly.degree for poly in polys])
-        assert(len(zeros) == expectedNum)
+    zeros = pr.solve(polys, method = 'mult')
     correct = 0
     outOfRange = 0
     for zero in zeros:
@@ -242,3 +242,5 @@ def test_rrqr_reduceTelenVanBarel():
 
 
     pass
+
+"""

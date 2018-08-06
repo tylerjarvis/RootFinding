@@ -8,20 +8,72 @@ import time
 
 from numba import jit
 
-@jit
-def polyval(x,cc):
-    c0 = cc[-1] + x*0
+@jit(cache=True)
+def polyval(x, cc): #pragma: no cover
+    c0 = cc[-1]
     for i in range(2, len(cc) + 1):
         c0 = cc[-i] + c0*x
     return c0
 
-@jit
-def polyval2(x,cc):
+@jit(cache=True)
+def polyval2(x, cc): #pragma: no cover
     cc = cc.reshape(cc.shape + (1,)*x.ndim)
-    c0 = cc[-1] + x*0
+    c0 = cc[-1]
     for i in range(2, len(cc) + 1):
         c0 = cc[-i] + c0*x
     return c0
+
+@jit(cache=True)
+def chebval(x, cc): #pragma: no cover
+    if len(cc) == 1:
+        c0 = cc[0]
+        c1 = 0
+    elif len(cc) == 2:
+        c0 = cc[0]
+        c1 = cc[1]
+    else:
+        x2 = 2*x
+        c0 = cc[-2]
+        c1 = cc[-1]
+        for i in range(3, len(cc) + 1):
+            tmp = c0
+            c0 = cc[-i] - c1
+            c1 = tmp + c1*x2
+    return c0 + c1*x
+
+@jit(cache=True)
+def chebval2(x, cc): #pragma: no cover
+    cc = cc.reshape(cc.shape + (1,)*x.ndim)
+    if len(cc) == 1:
+        c0 = cc[0]
+        c1 = 0
+    elif len(cc) == 2:
+        c0 = cc[0]
+        c1 = cc[1]
+    else:
+        x2 = 2*x
+        c0 = cc[-2]
+        c1 = cc[-1]
+        for i in range(3, len(cc) + 1):
+            tmp = c0
+            c0 = cc[-i] - c1
+            c1 = tmp + c1*x2
+    return c0 + c1*x
+
+def getPoly(deg,dim,power):
+    '''
+    A helper function for testing. Returns a random upper triangular polynomial of the given dimension and degree.
+    power is a boolean indicating whether or not the polynomial should be MultiPower.
+    '''
+    deg += 1
+    ACoeff = np.random.random_sample(deg*np.ones(dim, dtype = int))
+    for i,j in np.ndenumerate(ACoeff):
+        if np.sum(i) >= deg:
+            ACoeff[i] = 0
+    if power:
+        return MultiPower(ACoeff)
+    else:
+        return MultiCheb(ACoeff)
 
 class Polynomial(object):
     '''
@@ -110,23 +162,21 @@ class Polynomial(object):
         """
         Gets rid of any 0's on the outside of the coeff matrix, not giving any info.
         """
-        for axis in range(self.coeff.ndim):
+        for cur_axis in range(self.coeff.ndim):
             change = True
             while change:
                 change = False
-                if self.coeff.shape[axis] == 1:
+                if self.coeff.shape[cur_axis] == 1:
                     continue
-                axisCount = 0
                 slices = list()
-                for i in self.coeff.shape:
-                    if axisCount == axis:
-                        s = slice(i-1,i)
+                for i,degree in enumerate(self.coeff.shape):
+                    if cur_axis == i:
+                        s = slice(degree-1,degree)
                     else:
-                        s = slice(0,i)
+                        s = slice(0,degree)
                     slices.append(s)
-                    axisCount += 1
                 if np.sum(abs(self.coeff[slices])) == 0:
-                    self.coeff = np.delete(self.coeff,-1,axis=axis)
+                    self.coeff = np.delete(self.coeff,-1,axis=cur_axis)
                     change = True
 
     def update_lead_term(self):
@@ -159,12 +209,18 @@ class Polynomial(object):
             valued of the polynomial at the given points
         '''
         points = np.array(points)
-        if len(points.shape) == 1:
-            points = points.reshape(1,points.shape[0])
+        if points.ndim == 0:
+            points = np.array([points])
 
-        if points.shape[1] != len(self.coeff.shape):
+        if points.ndim == 1:
+            if self.dim > 1:
+                points = points.reshape(1,points.shape[0])
+            else:
+                points = points.reshape(points.shape[0],1)
+
+        if points.shape[1] != self.dim:
             raise ValueError('Dimension of points does not match dimension of polynomial!')
-        
+
         return points
 
     def grad(self, point):
@@ -183,7 +239,7 @@ class Polynomial(object):
         grad : ndarray
             Gradient of the polynomial at the given point.
         '''
-        if len(point) != len(self.coeff.shape):
+        if len(point) != self.dim:
             raise ValueError('Cannot evaluate polynomial in {} variables at point {}'\
             .format(self.dim, point))
 
@@ -455,11 +511,40 @@ class MultiCheb(Polynomial):
         points = super(MultiCheb, self).__call__(points)
 
         c = self.coeff
-        n = len(c.shape)
-        c = cheb.chebval(points[:,0],c)
+        n = c.ndim
+        c = chebval2(points[:,0],c)
         for i in range(1,n):
-            c = cheb.chebval(points[:,i],c,tensor=False)
+            c = chebval(points[:,i],c)
         if len(c) == 1:
+            return c[0]
+        else:
+            return c
+
+    def evaluate_grid(self, xyz):
+        '''
+        Evaluates the Chebyshev polynomial on a grid of points, very efficiently.
+
+        Parameters
+        ----------
+        xyz : array-like
+            Each column contains the values for an axis. The direct product of these columns
+            produces the points of the desired grid.
+
+        Returns
+        -------
+        values: complex
+            The polynomial evaluated at all of the points in the grid determined by
+            the axis values
+        '''
+
+        xyz = super(MultiCheb, self).__call__(xyz)
+
+        c = self.coeff
+        n = c.ndim
+        for i in range(xyz.shape[1]):
+            c = chebval2(xyz[:,i] ,c)
+
+        if np.product(c.shape)==1:
             return c[0]
         else:
             return c
@@ -479,7 +564,7 @@ class MultiCheb(Polynomial):
             Gradient of the polynomial at the given point.
         '''
         super(MultiCheb, self).__call__(point)
-        
+
         out = np.empty(self.dim,dtype="complex_")
         if self.jac is None:
             jac = list()
@@ -670,7 +755,7 @@ class MultiPower(Polynomial):
             return MultiPower(result, clean_zeros = False, lead_term = self.lead_term + mon)
         elif returnType == 'Matrix':
             return result
-    @jit
+
     def __call__(self, points):
         '''
         Evaluates the polynomial at the given point.
@@ -685,19 +770,47 @@ class MultiPower(Polynomial):
         __call__: complex
             value of the polynomial at the given point
         '''
-        points = super(MultiPower, self).__call__(points)            
-        
+        points = super(MultiPower, self).__call__(points)
+
         c = self.coeff
-        n = len(c.shape)
-        #c = poly.polyval(points[:,0],c)
+        n = c.ndim
         c = polyval2(points[:,0],c)
         for i in range(1,n):
-            #c = poly.polyval(points[:,i],c,tensor=False)
             c = polyval(points[:,i],c)
         if len(c) == 1:
             return c[0]
         else:
             return c
+
+    def evaluate_grid(self, xyz):
+        '''
+        Evaluates the Power polynomial on a grid of points, very efficiently.
+
+        Parameters
+        ----------
+        xyz : array-like
+            Each column contains the values for an axis. The direct product of these columns
+            produces the points of the desired grid.
+
+        Returns
+        -------
+        values: complex
+            The polynomial evaluated at all of the points in the grid determined by
+            the axis values
+        '''
+
+        xyz = super(MultiPower, self).__call__(xyz)
+
+        c = self.coeff
+        n = c.ndim
+        for i in range(xyz.shape[1]):
+            c = polyval2(xyz[:,i] ,c)
+
+        if np.product(c.shape)==1:
+            return c[0]
+        else:
+            return c
+
 
     def grad(self, point):
         '''
@@ -794,7 +907,7 @@ def cheb2poly(T):
     -------
     MultiPower
     """
-    dim = len(T.shape)
+    dim = T.dim
     A = T.coeff
     for i in range(dim):
         A = np.apply_along_axis(conv_cheb, i, A)
@@ -814,7 +927,7 @@ def poly2cheb(P):
         The multi-dimensional Chebyshev polynomial.
 
     """
-    dim = len(P.shape)
+    dim = P.dim
     A = P.coeff
     for i in range(dim):
         A = np.apply_along_axis(conv_poly, i, A)
@@ -875,7 +988,7 @@ def chebvalnd(x,c):
         Value of the MultiCheb polynomial at x
     """
     x = np.array(x)
-    n = len(c.shape)
+    n = c.ndim
     c = cheb.chebval(x[0],c)
     for i in range(1,n):
         c = cheb.chebval(x[i],c,tensor=False)
@@ -898,7 +1011,7 @@ def polyvalnd(x,c):
         Value of the MultiPower polynomial at x
     """
     x = np.array(x)
-    n = len(c.shape)
+    n = c.ndim
     c = poly.polyval(x[0],c)
     for i in range(1,n):
         c = poly.polyval(x[i],c,tensor=False)

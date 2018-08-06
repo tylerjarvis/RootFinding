@@ -3,10 +3,12 @@ import os, sys
 from numalgsolve.polynomial import MultiCheb, MultiPower, cheb2poly, poly2cheb
 import pytest
 import pdb
-import random
 import time
 
 def test_cheb2poly():
+
+    np.random.seed(23)
+
     c1 = MultiCheb(np.array([[0,0,0],[0,0,0],[0,1,1]]))
     c2 = cheb2poly(c1)
     truth = np.array([[1,-1,-2],[0,0,0],[-2,2,4]])
@@ -28,7 +30,7 @@ def test_cheb2poly():
     assert np.allclose(truth3, c6.coeff)
 
     #test4 - Random 1D
-    matrix2 = np.random.randint(1,100, random.randint(1,10))
+    matrix2 = np.random.randint(1,100, np.random.randint(1,10))
     c7 = MultiCheb(matrix2)
     c8 = cheb2poly(c7)
     c9 = poly2cheb(c8)
@@ -37,7 +39,7 @@ def test_cheb2poly():
     #Test5 - Random 2D
     shape = list()
     for i in range(2):
-        shape.append(random.randint(2,10))
+        shape.append(np.random.randint(2,10))
     matrix1 = np.random.randint(1,50,(shape))
     c10 = MultiCheb(matrix1)
     c11 = cheb2poly(c10)
@@ -47,7 +49,7 @@ def test_cheb2poly():
     #Test6 - Random 4D
     shape = list()
     for i in range(4):
-        shape.append(random.randint(2,10))
+        shape.append(np.random.randint(2,10))
     matrix1 = np.random.randint(1,50,(shape))
     c13 = MultiCheb(matrix1)
     c14 = cheb2poly(c13)
@@ -55,6 +57,8 @@ def test_cheb2poly():
     assert np.allclose(c13.coeff, c15.coeff)
 
 def test_poly2cheb():
+    np.random.seed(32)
+
     P = MultiPower(np.array([[1,-1,-2],[0,0,0],[-2,2,4]]))
     c_new = poly2cheb(P)
     truth = np.array(np.array([[0,0,0],[0,0,0],[0,1,1]]))
@@ -73,7 +77,7 @@ def test_poly2cheb():
     assert np.allclose(truth3, p6.coeff)
 
     #test4 Random 1-D
-    matrix2 = np.random.randint(1,100, random.randint(1,10))
+    matrix2 = np.random.randint(1,100, np.random.randint(1,10))
     p7 = MultiPower(matrix2)
     p8 = poly2cheb(p7)
     p9 = cheb2poly(p8)
@@ -82,7 +86,7 @@ def test_poly2cheb():
     #test5 Random 2D
     shape = list()
     for i in range(2):
-        shape.append(random.randint(2,10))
+        shape.append(np.random.randint(2,10))
     matrix1 = np.random.randint(1,50,(shape))
     p10 = MultiPower(matrix1)
     p11 = poly2cheb(p10)
@@ -92,7 +96,7 @@ def test_poly2cheb():
     #test6 Random 4D
     shape = list()
     for i in range(4):
-        shape.append(random.randint(2,10))
+        shape.append(np.random.randint(2,10))
     matrix1 = np.random.randint(1,50,(shape))
     p13 = MultiPower(matrix1)
     p14 = poly2cheb(p13)
