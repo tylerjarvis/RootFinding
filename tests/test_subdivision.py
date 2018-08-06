@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 from numalgsolve.polynomial import Polynomial, MultiCheb, MultiPower
 from numalgsolve import subdivision as subdiv
+from itertools import product
 
 def getPoly(deg,dim,power):
     '''
@@ -41,10 +42,9 @@ def correctZeros(polys, a, b):
     if len(zeros) == outOfRange:
         raise Exception("No zeros found")
     else:
-        #print("Number correct: {}\t Total: {}".format(correct, len(zeros)))
         assert(100*correct/(len(zeros)-outOfRange) > 95)
 
-def test_subdivision_solve_no_transform():
+def test_subdivision_solve_polys():
     '''
     The following tests will run subdivision.solve on relatively small random upper trianguler MultiPower.
     The assert statements will be inside of the correctZeros helper function.
@@ -94,20 +94,40 @@ def test_subdivision_solve_no_transform():
     C = getPoly(5,3,True)
     correctZeros([A,B,C], a, b)
 
-@unittest.skip("1d subdivision is having issues")
-def test_subdivision_solve_no_transform_1d():
-    '''
-    The following tests will run TVB on relatively small random upper trianguler MultiPower.
-    The assert statements will be inside of the correctZeros helper function.
-    '''
+def test_subdivision_solve_1d():
     #Case 6 - One MultiPower 1D of degrees 10
     #choose a seed that has a zero like ?
-    #np.random.seed(1)
+    np.random.seed(1)
     a = -np.ones(1);b = np.ones(1)
-    A = getPoly(10,1,True)
+    A = getPoly(20,1,False)
     correctZeros([A], a, b)
 
-@unittest.skip("subdivision on transformed region is having issues")
+def test_subdivision_sine():
+    '''
+    Test case using basic sine function to put zeros on the coordinates.
+    The expected zeros are
+    (0,0), (0,1), (0,2), (0,3),
+    (1,0), (1,1), (1,2), (1,3),
+    (2,0), (2,1), (2,2), (2,3),
+    (3,0), (3,1), (3,2), (3,3),
+
+    '''
+    f = lambda x: np.sin(np.pi*x[:,1])
+    g = lambda x: np.sin(np.pi*(x[:,0]+x[:,1]))
+    a = -0.511*np.ones(2)
+    b = 3.511*np.ones(2)
+
+    zeros = subdiv.solve([f, g], a, b)
+    zeros = np.array(sorted(list(zeros), key=lambda x: 10*x[0] + x[1]))
+
+    assert len(zeros) == 16
+
+    X,Y = np.meshgrid(range(4),range(4),indexing='ij')
+    expected_zeros = np.column_stack([X.flatten(), Y.flatten()])
+    assert np.allclose(expected_zeros, zeros, atol=1e-4)
+
+
+@unittest.skip("high degree polynomial explodes outside of the unit region")
 def test_subdivision_solve_with_transform():
     '''
     The following tests will run subdivision.solve on relatively small random upper trianguler MultiPower.
@@ -158,15 +178,35 @@ def test_subdivision_solve_with_transform():
     C = getPoly(5,3,True)
     correctZeros([A,B,C], a, b)
 
-@unittest.skip("1d subdivision is having issues")
+@unittest.skip("high degree polynomial explodes outside of the unit region")
 def test_subdivision_solve_with_transform_1d():
-    '''
-    The following tests will run TVB on relatively small random upper trianguler MultiPower.
-    The assert statements will be inside of the correctZeros helper function.
-    '''
     #Case 6 - One MultiPower 1D of degrees 10
     #choose a seed that has a zero like ?
-    #np.random.seed(1)
+    np.random.seed(0)
     a = -2*np.ones(1);b = 2*np.ones(1)
-    A = getPoly(10,1,True)
+    A = getPoly(10,1,False)
     correctZeros([A], a, b)
+
+def test_good_zeros_nd():
+    '''
+    The good zeros function should remove zeros with imaginary part or outside
+    the range [-1,1]X[-1,1]X...
+    '''
+
+    zeros = np.array([
+    [0.9+0j, 0.9+0j],   #good
+    [0+0j, 0.1+0j],     #good
+    [-1.1+0j, 0.1+0j],  #out of range
+    [0.1+0.1j, 0.1+0j], #imaginary
+    ])
+
+    assert np.all(subdiv.good_zeros_nd(zeros) == zeros[:2])
+
+    zeros = np.array([
+    [0.9+0j, 0.9+0j, -0.1+0j],    #good
+    [0+0j, 0.1+0j, 0.2+1e-14j],   #good
+    [-1.1+0j, 0.1+0j, 0+0j],      #out of range
+    [0.1+0.1j, 0.1+0j, 0.8-0.1j], #imaginary
+    ])
+
+    assert np.all(subdiv.good_zeros_nd(zeros) == zeros[:2])

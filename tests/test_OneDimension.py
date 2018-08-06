@@ -13,14 +13,14 @@ def getPoly(deg, power):
     else:
         return MultiCheb(coeff)
 
-def correctZeros(poly, method, checkNumber = True):
+def correctZeros(poly, method, eigvals = True, checkNumber = True):
     '''
     A helper function. Takes in a polynomial, find the zeros, and calculates how many of the zeros are correct.
     In this function it asserts that the number of zeros is equal to the product of the degrees, which is only valid if
     the polynomial is random, and that at least 95% of the zeros are correct (so it will pass even
     on bad random runs)
     '''
-    zeros = solve(poly, method = method)
+    zeros = solve(poly, method = method, eigvals=eigvals)
     if checkNumber:
         assert(len(zeros) == poly.degree)
     correct = 0
@@ -33,37 +33,106 @@ def correctZeros(poly, method, checkNumber = True):
             correct += 1
     assert(100*correct/(len(zeros)) > 95)
 
-def test_Division_Cheb():
+def test_OneD_power_eigenvalues():
     '''
-    The following tests will run division_cheb on relatively small random upper trianguler MultiCheb polynomials.
+    The following tests will solve 1D polynomials using eigenvalues of
+    multiplication, multiplication rotated, and division matrices.
     The assert statements will be inside of the correctZeros helper function.
     '''
-    #Case 1 - MultiPower degree 10. Multiplication and Division Matrixes.
+    np.random.seed(3902)
+
+    #Case 1 - MultiPower degree 10
     poly = getPoly(10,True)
     correctZeros(poly, 'mult')
+    correctZeros(poly, 'multR')
     correctZeros(poly, 'div')
 
-    #Case 2 - MultiCheb degree 10. Multiplication and Division Matrixes.
-    poly = getPoly(10,False)
-    correctZeros(poly, 'mult')
-    correctZeros(poly, 'div')
-
-    #Case 3 - MultiPower degree 50. Multiplication and Division Matrixes.
+    #Case 2 - MultiPower degree 50
     poly = getPoly(50,True)
     correctZeros(poly, 'mult')
+    correctZeros(poly, 'multR')
     correctZeros(poly, 'div')
 
-    #Case 4 - MultiCheb degree 50. Multiplication and Division Matrixes.
-    poly = getPoly(50,False)
-    correctZeros(poly, 'mult')
-    correctZeros(poly, 'div')
-
-    #Case 5 - MultiPower degree 100. Multiplication and Division Matrixes.
+    #Case 3 - MultiPower degree 100
     poly = getPoly(100,True)
     correctZeros(poly, 'mult')
+    correctZeros(poly, 'multR')
     correctZeros(poly, 'div')
 
-    #Case 6 - MultiCheb degree 100. Multiplication and Division Matrixes.
+def test_OneD_power_eigenvectors():
+    '''
+    The following tests will solve 1D polynomials using eigenvectors of
+    multiplication, multiplication rotated, and division matrices.
+    The assert statements will be inside of the correctZeros helper function.
+    '''
+    np.random.seed(3902)
+
+    #Case 1 - MultiPower degree 10
+    poly = getPoly(10,True)
+    correctZeros(poly, 'mult', eigvals=False)
+    correctZeros(poly, 'multR', eigvals=False)
+    correctZeros(poly, 'div', eigvals=False)
+
+    #Case 2 - MultiPower degree 50
+    poly = getPoly(50,True)
+    correctZeros(poly, 'mult', eigvals=False)
+    correctZeros(poly, 'multR', eigvals=False)
+    correctZeros(poly, 'div', eigvals=False)
+
+    #Case 3 - MultiPower degree 100
+    poly = getPoly(100,True)
+    correctZeros(poly, 'mult', eigvals=False)
+    correctZeros(poly, 'multR', eigvals=False)
+    correctZeros(poly, 'div', eigvals=False)
+
+def test_OneD_cheb_eigenvalues():
+    '''
+    The following tests will solve 1D cheb polynomials using eigenvalues of
+    multiplication, multiplication rotated, and division matrices.
+    The assert statements will be inside of the correctZeros helper function.
+    '''
+    np.random.seed(45)
+
+    #Case 1 - MultiCheb degree 10
+    poly = getPoly(10,False)
+    correctZeros(poly, 'mult')
+    correctZeros(poly, 'multR')
+    correctZeros(poly, 'div')
+
+    #Case 2 - MultiCheb degree 50
+    poly = getPoly(50,False)
+    correctZeros(poly, 'mult')
+    correctZeros(poly, 'multR')
+    correctZeros(poly, 'div')
+
+    #Case 3 - MultiCheb degree 100
     poly = getPoly(100,False)
     correctZeros(poly, 'mult')
+    correctZeros(poly, 'multR')
     correctZeros(poly, 'div')
+
+def test_OneD_cheb_eigenvectors():
+    '''
+    The following tests will solve 1D cheb polynomials using eigenvectors of
+    multiplication, multiplication rotated, and division matrices.
+    The assert statements will be inside of the correctZeros helper function.
+    '''
+    np.random.seed(45)
+
+    #Case 1 - MultiCheb degree 10
+    poly = getPoly(10,False)
+    correctZeros(poly, 'mult', eigvals=False)
+    correctZeros(poly, 'multR', eigvals=False)
+    correctZeros(poly, 'div', eigvals=False)
+
+    #Case 2 - MultiCheb degree 50
+    poly = getPoly(50,False)
+    correctZeros(poly, 'mult', eigvals=False)
+    correctZeros(poly, 'multR', eigvals=False)
+    correctZeros(poly, 'div', eigvals=False)
+
+    #Case 3 - MultiCheb degree 100
+    poly = getPoly(100,False)
+    correctZeros(poly, 'mult', eigvals=False)
+    correctZeros(poly, 'multR', eigvals=False)
+    correctZeros(poly, 'div', eigvals=False)

@@ -2,7 +2,6 @@ import numpy as np
 import os,sys
 from numalgsolve.polynomial import MultiPower
 import pytest
-import random
 from numalgsolve import utils
 
 
@@ -45,19 +44,22 @@ def test_mon_mult():
     assert np.allclose(T1.coeff, T2.coeff, atol = 1.0e-10)
 
 def test_mon_mult_random():
+
+    np.random.seed(988)
+
     #test with random matrices
     possible_dim = np.random.randint(1,5, (1,10))
-    dim = possible_dim[0, random.randint(1,9)]
+    dim = possible_dim[0, np.random.randint(1,9)]
 
     shape = list()
     for i in range(dim):
-        shape.append(random.randint(2,4))
+        shape.append(np.random.randint(2,4))
     matrix1 = np.random.randint(1,11,(shape))
     M1 = MultiPower(matrix1)
 
     shape2 = list()
     for i in range(dim):
-        shape2.append(random.randint(2,4))
+        shape2.append(np.random.randint(2,4))
     matrix2 = np.ones(shape2)
     M2 = MultiPower(matrix2)
 
