@@ -8,7 +8,7 @@ from numalgsolve.utils import row_swap_matrix, TVBError, slice_top, get_var_list
                               deg_d_polys, all_permutations_cheb
 import warnings
 
-def multiplication(polys):
+def multiplication(polys, verbose=False):
     '''
     Finds the roots of the given list of multidimensional polynomials using a multiplication matrix.
 
@@ -28,7 +28,7 @@ def multiplication(polys):
     degrees = [poly.degree for poly in polys]
     max_number_of_roots = np.prod(degrees)
 
-    m_f, var_dict = TVBMultMatrix(polys, poly_type, max_number_of_roots)
+    m_f, var_dict = TVBMultMatrix(polys, poly_type, max_number_of_roots, verbose=verbose)
 
     # both TVBMultMatrix and groebnerMultMatrix will return m_f as
     # -1 if the ideal is not zero dimensional or if there are no roots
@@ -47,10 +47,18 @@ def multiplication(polys):
     # Get left eigenvectors
 
     vals,vecs = np.linalg.eig(m_f.T)
+    if verbose:
+        print('\nLeft Eigenvectors (as rows)\n',vecs.T)
+        print('\nEigenvals\n', vals)
 
     zeros_spot = var_dict[tuple(0 for i in range(dim))]
 
     vecs = vecs[:,np.abs(vecs[zeros_spot]) > 1.e-10]
+    if verbose:
+        print('\nVariable Spots in the Vector\n',var_spots)
+        print('\nEigeinvecs at the Variable Spots:\n',vecs[var_spots])
+        print('\nConstant Term Spot in the Vector\n',zeros_spot)
+        print('\nEigeinvecs at the Constant Term\n',vecs[zeros_spot])
 
     roots = vecs[var_spots]/vecs[zeros_spot]
 
@@ -62,7 +70,7 @@ def multiplication(polys):
         print("Number of Roots Lost:", max_number_of_roots - roots.shape[1])
     return roots.T
 
-def TVBMultMatrix(polys, poly_type, number_of_roots):
+def TVBMultMatrix(polys, poly_type, number_of_roots, verbose=False):
     '''
     Finds the multiplication matrix using the reduced Macaulay matrix from the
     TVB method.
@@ -81,12 +89,14 @@ def TVBMultMatrix(polys, poly_type, number_of_roots):
     var_dict : dictionary
         Maps each variable to its position in the vector space basis
     '''
-    basisDict, VB, degree = TelenVanBarel(polys, number_of_roots)
+    basisDict, VB, degree = TelenVanBarel(polys, number_of_roots, verbose=verbose)
 
     dim = max(f.dim for f in polys)
 
     # Get random polynomial f
     f = _random_poly(poly_type, dim)[0]
+    if verbose:
+        print("\nCoefficients of Random Polynomial whose M_f matrix we construt\n", f.coeff)
 
     #Dictionary of terms in the vector basis their spots in the matrix.
     VBdict = {}
@@ -112,9 +122,12 @@ def TVBMultMatrix(polys, poly_type, number_of_roots):
         if np.sum(mon) == 1 or np.sum(mon) == 0:
             var_dict[tuple(mon)] = i
 
+    if verbose:
+        print("\nM_f:\n", mMatrix[::-1,::-1])
+
     return mMatrix, var_dict
 
-def TelenVanBarel(initial_poly_list, max_number_of_roots, accuracy = 1.e-10):
+def TelenVanBarel(initial_poly_list, max_number_of_roots, accuracy = 1.e-10, verbose=False):
     """Uses Telen and VanBarels matrix reduction method to find a vector basis for the system of polynomials.
 
     Parameters
@@ -154,6 +167,11 @@ def TelenVanBarel(initial_poly_list, max_number_of_roots, accuracy = 1.e-10):
 
     #Creates the matrix for either of the above two methods. Comment out if using the third method.
     matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, degree, dim)
+    if verbose:
+        np.set_printoptions(suppress=False, linewidth=200)
+        print('\nStarting Macaulay Matrix\n', matrix)
+        print('\nColumns in Macaulay Matrix\nFirst element in tuple is degree of x monomial, Second element is degree of y monomial\n', matrix_terms)
+        print('\nLocation of Cuts in the Macaulay Matrix into [ Mb | M1* | M2* ]\n', cuts)
 
     """This is the thrid matrix construction option, it uses the permutation arrays."""
     #if power:
@@ -176,6 +194,10 @@ def TelenVanBarel(initial_poly_list, max_number_of_roots, accuracy = 1.e-10):
     matrix[:,:height] = np.eye(height)
     #return np.vstack((matrix[:,height:].T,np.eye(height))), matrix_terms
 
+    if verbose:
+        np.set_printoptions(suppress=True, linewidth=200)
+        print("\nFinal Macaulay Matrix\n", matrix)
+        print("\nColumns in Macaulay Matrix\n", matrix_terms)
     VB = matrix_terms[height:]
 
     #plt.plot(matrix_terms[:,0],matrix_terms[:,1],'kx')

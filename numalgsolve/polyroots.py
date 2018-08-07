@@ -6,7 +6,7 @@ from numalgsolve.Division import division
 from numalgsolve.Multiplication import multiplication
 from numalgsolve.utils import Term, get_var_list, divides, TVBError, InstabilityWarning, match_size, match_poly_dimensions
 
-def solve(polys, method = 'mult'):
+def solve(polys, method = 'mult', verbose=False):
     '''
     Finds the roots of the given list of polynomials.
 
@@ -28,7 +28,7 @@ def solve(polys, method = 'mult'):
 
     if dim == 1:
         if len(polys) == 1:
-            return oneD.solve(polys[0], method)
+            return oneD.solve(polys[0], method, verbose=verbose)
         else:
             zeros = np.unique(oneD.solve(polys[0], method))
             #Finds the roots of each succesive polynomial and checks which roots are common.
@@ -46,6 +46,6 @@ def solve(polys, method = 'mult'):
             return zeros
     else:
         if method == 'mult':
-            return multiplication(polys)
+            return multiplication(polys, verbose=verbose)
         else:
-            return division(polys)
+            return division(polys, verbose=verbose)

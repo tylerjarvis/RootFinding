@@ -3,7 +3,7 @@ from scipy.linalg import eig, eigvals
 from numpy import linalg as la
 from numalgsolve.polynomial import MultiCheb, MultiPower
 
-def solve(poly, method = 'mult', eigvals=True):
+def solve(poly, method = 'mult', eigvals=True, verbose=False):
     """Finds the zeros of a 1-D polynomial.
 
     Parameters
@@ -29,20 +29,20 @@ def solve(poly, method = 'mult', eigvals=True):
         coeff = np.trim_zeros(poly.coeff)
         zeros = np.zeros(size - len(coeff), dtype = 'complex')
         if method == 'mult':
-            return np.hstack((zeros,multPower(coeff, eigvals)))
+            return np.hstack((zeros,multPower(coeff, eigvals, verbose=verbose)))
         elif method == 'multR':
-            return np.hstack((zeros,multPowerR(coeff, eigvals)))
+            return np.hstack((zeros,multPowerR(coeff, eigvals, verbose=verbose)))
         else:
-            return np.hstack((zeros,divPower(coeff, eigvals)))
+            return np.hstack((zeros,divPower(coeff, eigvals, verbose=verbose)))
     else:
         if method == 'mult':
-            return multCheb(poly.coeff, eigvals)
+            return multCheb(poly.coeff, eigvals, verbose=verbose)
         elif method == 'multR':
-            return multChebR(poly.coeff, eigvals)
+            return multChebR(poly.coeff, eigvals, verbose=verbose)
         else:
-            return divCheb(poly.coeff, eigvals)
+            return divCheb(poly.coeff, eigvals, verbose=verbose)
 
-def multPower(coeffs, eigvals=True):
+def multPower(coeffs, eigvals=True, verbose=False):
     """Finds the zeros of a 1-D power polynomial using a multiplication matrix.
 
     Parameters
@@ -60,14 +60,21 @@ def multPower(coeffs, eigvals=True):
     bot = matrix.reshape(-1)[n::n+1]
     bot[...] = 1
     matrix[:, -1] -= coeffs[:-1]/coeffs[-1]
+    if verbose:
+        print('Companion Matrix\n', matrix)
     if eigvals:
         zeros = la.eigvals(matrix)
+        if verbose:
+            print('Eigenvalues\n',zeros)
         return zeros
     else:
         vals,vecs = eig(matrix.T)
+        if verbose:
+            print('Eigenvalues\n',vals)
+            print('Left Eigenvectors\n',vecs)
         return vecs[1,:]/vecs[0,:]
 
-def multPowerR(coeffs, eigvals=True):
+def multPowerR(coeffs, eigvals=True, verbose=False):
     """Finds the zeros of a 1-D power polynomial using a rotated multiplication matrix.
 
     Parameters
@@ -86,14 +93,21 @@ def multPowerR(coeffs, eigvals=True):
     bot[...] = 1
     matrix[:, -1] -= coeffs[:-1]/coeffs[-1]
     matrix = np.rot90(matrix,2)
+    if verbose:
+        print('180 Rotated Companion Matrix\n', matrix)
     if eigvals:
+        if verbose:
+            print('Eigenvalues\n',la.eigvals(matrix))
         zeros = la.eigvals(matrix)
         return zeros
     else:
         vals,vecs= eig(matrix, left=True, right=False)
+        if verbose:
+            print('Eigenvalues\n',vals)
+            print('Left Eigenvectors\n',vecs)
         return np.conjugate(vecs[-2,:]/vecs[-1,:])
 
-def divPower(coeffs, eigvals=True):
+def divPower(coeffs, eigvals=True, verbose=False):
     """Finds the zeros of a 1-D power polynomial using a division matrix.
 
     Parameters
@@ -111,14 +125,21 @@ def divPower(coeffs, eigvals=True):
     bot = matrix.reshape(-1)[1::n+1]
     bot[...] = 1
     matrix[:, 0] -= coeffs[1:]/coeffs[0]
+    if verbose:
+        print('Division Matrix\n', matrix)
     if eigvals:
         zeros = 1/la.eigvals(matrix)
+        if verbose:
+            print('Eigenvalues\n',la.eigvals(matrix))
         return zeros
     else:
         vals,vecs = eig(matrix, left=True, right=False)
+        if verbose:
+            print('Eigenvalues\n',vals)
+            print('Left Eigenvectors\n',vecs)
         return np.conjugate(vecs[1,:]/vecs[0,:])
 
-def multCheb(coeffs, eigvals=True):
+def multCheb(coeffs, eigvals=True, verbose=False):
     """Finds the zeros of a 1-D chebyshev polynomial using a multiplication matrix.
 
     Parameters
@@ -139,14 +160,21 @@ def multCheb(coeffs, eigvals=True):
     bot = matrix.reshape(-1)[2*n+1::n+1]
     bot[...] = 1/2
     matrix[:,-1] -= .5*coeffs[:-1]/coeffs[-1]
+    if verbose:
+        print('Colleaugue Matrix\n', matrix)
     if eigvals:
         zeros = la.eigvals(matrix)
+        if verbose:
+            print('Eigenvalues\n',zeros)
         return zeros
     else:
         vals,vecs = eig(matrix, left=True, right=False)
+        if verbose:
+            print('Eigenvalues\n',vals)
+            print('Left Eigenvectors\n',vecs)
         return vecs[1,:]/vecs[0,:]
 
-def multChebR(coeffs, eigvals=True):
+def multChebR(coeffs, eigvals=True, verbose=False):
     """Finds the zeros of a 1-D chebyshev polynomial using a multiplication matrix.
 
     Parameters
@@ -168,11 +196,18 @@ def multChebR(coeffs, eigvals=True):
     bot[...] = 1/2
     matrix[:,-1] -= .5*coeffs[:-1]/coeffs[-1]
     matrix = np.rot90(matrix,2)
+    if verbose:
+        print('Rotated Colleague Matrix\n', matrix)
     if eigvals:
         zeros = la.eigvals(matrix)
+        if verbose:
+            print('Eigenvalues\n',zeros)
         return zeros
     else:
         vals,vecs = eig(matrix, left=True, right=False)
+        if verbose:
+            print('Eigenvalues\n',vals)
+            print('Left Eigenvectors\n',vecs)
         return np.conjugate(vecs[-2,:]/vecs[-1,:])
 
 
@@ -189,7 +224,7 @@ def getXinv(coeff):
     return xinv,curr[0]
 
 
-def divCheb(coeffs, eigvals=True):
+def divCheb(coeffs, eigvals=True, verbose=False):
     """Finds the zeros of a 1-D chebyshev polynomial using a division matrix.
 
     Parameters
@@ -224,13 +259,20 @@ def divCheb(coeffs, eigvals=True):
         matrix[:,col]+=xinv*sign
         sign*=-1
 
+    if verbose:
+        print('Division Companion Matrix\n', matrix)
     if eigvals:
         zerosD = 1/la.eigvals(matrix)
+        if verbose:
+            print('Eigenvalues\n',la.eigvals(matrix))
         if abs(divisor) > 1:
             return zerosD
         else:
             return zerosD*divisor
     else:
         vals,vecs = eig(matrix, left=True,right=False)
+        if verbose:
+            print('Eigenvalues\n',vals)
+            print('Left Eigenvectors\n',vecs)
         zerosD = np.conjugate(vecs[1,:]/vecs[0,:])
         return zerosD

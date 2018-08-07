@@ -121,6 +121,9 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, cuts, number_of_roots, accura
     #useful_rows = matrix.shape[1] - number_of_roots
     #matrix = matrix[:useful_rows,:]
 
+    #set very small values in the matrix to zero before backsolving
+    matrix[np.isclose(matrix, 0)] = 0
+
     #Resorts the matrix_terms.
     matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
     #print("TVB1Rank:", np.sum(np.abs(matrix.diagonal())>accuracy))
@@ -162,6 +165,9 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts, number_of_roots, accur
 
     #if abs(matrix[:,:cuts[0]].diagonal()[-1]) < accuracy:
     #    raise TVBError("HIGHEST NOT FULL RANK")
+
+    #set small values to zero before backsolving
+    matrix[np.isclose(matrix, 0)] = 0
 
     matrix[:cuts[0],cuts[0]:] = solve_triangular(matrix[:cuts[0],:cuts[0]],matrix[:cuts[0],cuts[0]:])
     matrix[:cuts[0],:cuts[0]] = np.eye(cuts[0])

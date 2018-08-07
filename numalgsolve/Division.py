@@ -7,7 +7,7 @@ from numalgsolve.utils import get_var_list, slice_top, row_swap_matrix, \
                               mon_combos, newton_polish
 import warnings
 
-def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol = 1.e-12):
+def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol = 1.e-12, verbose=False):
     '''Calculates the common zeros of polynomials using a division matrix.
 
     Parameters
@@ -41,6 +41,12 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
         poly_coeff_list = add_polys(matrix_degree, poly, poly_coeff_list)
 
     matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, matrix_degree, dim, divisor_var, get_divvar_coord_from_eigval)
+    if verbose:
+        np.set_printoptions(suppress=False, linewidth=200)
+        print('\nStarting Macaulay Matrix\n', matrix)
+        print('\nColumns in Macaulay Matrix\nFirst element in tuple is degree of x monomial, Second element is degree of y monomial \n', matrix_terms)
+        print('\nLocation of Cuts in the Macaulay Matrix into [ Mb | M1* | M2* ]\n', cuts)
+
     #If bottom left is zero only does step 1 of TVB-style QR reduction on top part of matrix (for speed). Otherwise does it on the whole thing
     if np.allclose(matrix[cuts[0]:,:cuts[0]], 0):
         matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts, max_number_of_roots, tol)
@@ -54,6 +60,11 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
 
     VB = matrix_terms[matrix.shape[0]:]
     matrix = np.hstack((np.eye(rows),solve_triangular(matrix[:,:rows],matrix[:,rows:])))
+    if verbose:
+        np.set_printoptions(suppress=True, linewidth=200)
+        print("\nFinal Macaulay Matrix\n", matrix)
+        print("\nColumns in Macaulay Matrix\n", matrix_terms)
+
     #------------> chebyshev
     if not power:
         #Builds the inverse matrix. The terms are the vector basis as well as y^k/x terms for all k. Reducing
@@ -140,7 +151,9 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
         #<----------end Power
 
     vals, vecs = eig(division_matrix.T)
-
+    if verbose:
+        print("\nDivision Matrix\n", np.round(division_matrix[::-1,::-1], 2))
+        print("\nLeft Eigenvectors (as rows)\n", vecs.T)
     #Calculates the zeros, the x values from the eigenvalues and the y values from the eigenvectors.
     zeros = list()
     for i in range(len(vals)):
