@@ -51,9 +51,9 @@ def solve(polys, method = 'multR', verbose=False):
     else:
         if method == 'mult':
             return multiplication(polys, verbose=verbose, rand_poly=False, rotate=False)
-        elif method == 'multR'
+        elif method == 'multR':
             return multiplication(polys, verbose=verbose, rand_poly=False, rotate=True)
         elif method == 'multrand':
-            return multiplication(polys, verbose=verbose, , rand_poly=True, rotate=False)
+            return multiplication(polys, verbose=verbose, rand_poly=True, rotate=False)
         else:
             return division(polys, verbose=verbose)
