@@ -32,13 +32,13 @@ def bertini(polys):
         s = ''
         for i,exp in enumerate(exponents):
             if exp > 0:
-                s += f'{var_chars[i]}^{exp}*'
+                s += '{}^{}*'.format(var_chars[i], exp)
         return s.rstrip('*')
 
     def coeff_to_str(coeff, var_chars):
         s = ''
         for pos, val in np.ndenumerate(coeff):
-            s += f'{val}*{mononmial_from_exp(pos,var_chars)}'.rstrip('*') + '+'
+            s += '{}*{}'.format(val, mononmial_from_exp(pos,var_chars)).rstrip('*') + '+'
         return s.rstrip('+')
 
     if len(polys) > 3:
@@ -52,11 +52,11 @@ def bertini(polys):
               "END;\n"
               "INPUT\n"
               "variable_group {};\n".format(', '.join(var_chars))+
-              "function {};\n".format(', '.join(f'f{i}' for i in range(len(polys))))
+              "function {};\n".format(', '.join('f'+str(i) for i in range(len(polys))))
               )
     body = ''
     for i,poly in enumerate(polys):
-        body += f"f{i} = {coeff_to_str(poly.coeff, var_chars)};\n"
+        body += "f{} = {};\n".format(i, coeff_to_str(poly.coeff, var_chars))
 
     footer = "END;"
 
@@ -101,9 +101,9 @@ def timer(solver, dim, power):
         #print(deg)
         for _ in range(args.trials):
             polys = [getPoly(deg, dim=dim, power=power) for _ in range(dim)]
-            start = time.clock()
+            start = time.time()
             solver(polys)
-            tot_time += time.clock()-start
+            tot_time += time.time()-start
         times.append(tot_time/args.trials)
     return degrees, times
 
@@ -138,7 +138,6 @@ def run_timer(args):
         results['bert_degrees'] = degrees
         results['bertini'] = times
         print('Finished trials for multiplication power')
-
     degrees, times = timer(_div, args.dim, power=False)
     results['div cheb'] = times
     print('Finished trials for division chebyshev')
@@ -173,6 +172,7 @@ def create_graph(results, args):
     ymax = 1.05*max([max(v) for k,v in results.items() if ('degrees' not in k)])
     ymax = max(ymax, 0.1)
     plt.figure(figsize=(11,5))
+    # plt.figure(figsize=(11/2,5))
     plt.subplot(121)
     plot = plt.semilogy if args.bertini else plt.plot
     for key,times in results.items():
@@ -185,7 +185,7 @@ def create_graph(results, args):
     plt.xticks(fontsize=12)
     plt.yticks(fontsize=12)
     plt.xlabel("Polynomial Degree", fontsize=14)
-    plt.ylabel(f"Average Time over {args.trials} Trials (seconds)", fontsize=14)
+    plt.ylabel("Average Time over {} Trials (seconds)".format(args.trials), fontsize=14)
     plt.ylim(0,ymax)
     plt.yticks(fontsize=12)
     plt.legend(loc='best')
@@ -231,7 +231,10 @@ def run_single_problem(args):
     prof = cProfile.Profile()
 
     prof.enable()
-    prsolve(polys, args.method)
+    if args.method in ['mult', 'div']:
+        prsolve(polys, args.method)
+    elif args.method == 'bertini':
+        bertini(polys)
     prof.disable()
 
     s = io.StringIO()
@@ -262,7 +265,7 @@ if __name__ == '__main__':
     parser.add_argument('--deg', type=int, default=0, help='Degree of polynomial on single timing')
     parser.add_argument('-p', '--power', action='store_true', help='Use power basis polynomial on single timing')
     parser.add_argument('-c', '--cheb', action='store_true', help='Use chebyshev basis polynomial on single timing')
-    parser.add_argument('-m', '--method', default='mult', choices=['mult','div'], help='Method to use on single timing')
+    parser.add_argument('-m', '--method', default='mult', choices=['mult','div', 'bertini'], help='Method to use on single timing')
     parser.add_argument('--sort', default='tottime', choices=['cumulative','tottime'], help='Method for sorting functions in time results')
 
 
@@ -295,10 +298,11 @@ if __name__ == '__main__':
 
     # run one large computation
     if args.verbosity > 0:
+        name = {'mult':'Multiplication','div':'Division','bertini':'Bertini'}
         print('\n'+"-"*40)
         print("Polynomial Basis : {}".format("Power" if args.power else "Chebyshev"))
         print("Dimension        : {}".format(args.dim))
         print("Degree           : {}".format(args.deg))
-        print("Solver Method    : {}".format("Multiplication" if args.method=='mult' else 'Division'))
+        print("Solver Method    : {}".format(name[args.method]))
         print("-"*40+'\n')
         run_single_problem(args)

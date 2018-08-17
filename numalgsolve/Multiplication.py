@@ -107,10 +107,16 @@ def TVBMultMatrix(polys, poly_type, number_of_roots, verbose=False, rand_poly=Tr
     # Get random polynomial f
     if rand_poly:
         f = _random_poly(poly_type, dim)[0]
-    elif poly_type == "MultiPower":
-        f = MultiPower(np.array([[0,0],[1,0]]))
     else:
-        f = MultiCheb(np.array([[0,0],[1,0]]))
+        coef = np.zeros((2,)*dim)
+        x_ind = (1,) + (0,)*(dim-1)
+        coef[x_ind] = 1
+        if poly_type == "MultiPower":
+            f = MultiPower(np.array(coef))
+        elif poly_type == "MultiCheb":
+            f = MultiCheb(np.array(coef))
+        else:
+            raise ValueError()
     if verbose:
         print("\nCoefficients of polynomial whose M_f matrix we construt\n", f.coeff)
 
