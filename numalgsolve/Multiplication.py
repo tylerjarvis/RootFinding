@@ -33,6 +33,9 @@ def multiplication(polys, verbose=False, rand_poly=True, rotate=True):
     if rotate: #rotate multiplication matrix 180 degrees
         m_f = np.rot90(m_f,2)
 
+    if verbose:
+        print("\nM_f:\n", m_f[::-1,::-1])
+
     # both TVBMultMatrix and groebnerMultMatrix will return m_f as
     # -1 if the ideal is not zero dimensional or if there are no roots
     if type(m_f) == int:
@@ -44,7 +47,10 @@ def multiplication(polys, verbose=False, rand_poly=True, rotate=True):
     spot = np.zeros(dim)
     for i in range(dim):
         spot[i] = 1
-        var_spots.append(var_dict[tuple(spot)])
+        if not rotate:
+            var_spots.append(var_dict[tuple(spot)])
+        else: #if m_f is rotate 180, the eigenvectors are backwards
+            var_spots.append(m_f.shape[0] - 1 - var_dict[tuple(spot)])
         spot[i] = 0
 
     # Get left eigenvectors
@@ -55,6 +61,8 @@ def multiplication(polys, verbose=False, rand_poly=True, rotate=True):
         print('\nEigenvals\n', vals)
 
     zeros_spot = var_dict[tuple(0 for i in range(dim))]
+    if rotate: #if m_f is rotate 180, the eigenvectors are backwards
+        zeros_spot = m_f.shape[0] - 1 - zeros_spot
 
     vecs = vecs[:,np.abs(vecs[zeros_spot]) > 1.e-10]
     if verbose:
@@ -104,7 +112,7 @@ def TVBMultMatrix(polys, poly_type, number_of_roots, verbose=False, rand_poly=Tr
     else:
         f = MultiCheb(np.array([[0,0],[1,0]]))
     if verbose:
-        print("\nCoefficients of Random Polynomial whose M_f matrix we construt\n", f.coeff)
+        print("\nCoefficients of polynomial whose M_f matrix we construt\n", f.coeff)
 
     #Dictionary of terms in the vector basis their spots in the matrix.
     VBdict = {}
@@ -129,9 +137,6 @@ def TVBMultMatrix(polys, poly_type, number_of_roots, verbose=False, rand_poly=Tr
         mon = VB[i]
         if np.sum(mon) == 1 or np.sum(mon) == 0:
             var_dict[tuple(mon)] = i
-
-    if verbose:
-        print("\nM_f:\n", mMatrix[::-1,::-1])
 
     return mMatrix, var_dict
 

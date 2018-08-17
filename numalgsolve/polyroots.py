@@ -6,7 +6,7 @@ from numalgsolve.Division import division
 from numalgsolve.Multiplication import multiplication
 from numalgsolve.utils import Term, get_var_list, divides, TVBError, InstabilityWarning, match_size, match_poly_dimensions
 
-def solve(polys, method = 'multR', verbose=False):
+def solve(polys, method = 'multR', eigvals=True, verbose=False):
     '''
     Finds the roots of the given list of polynomials.
 
@@ -17,9 +17,15 @@ def solve(polys, method = 'multR', verbose=False):
     method : string
         The root finding method to be used. Can be either 'mult', 'div', or 'multR', 'multrand'.
             'mult': makes a M_x matrix
-            'multR': makes a M_x matrix and rotates it 180 degrees (for a univariate polynomial)
+            'multR': makes a M_x matrix and rotates it 180 degrees
             'div': makes a division M_1/x matrix
             'multrand': Makes a M_f matrix of a pseudorandom polynomial f
+    eigvals : bool
+        Whether to compute roots of univariate polynomials from eigenvalues (True) or eigenvectors (False).
+        Roots of multivariate polynomials are always comptued from eigenvectors
+    verbose : bool
+        Prints information about how the roots are computed.
+
     returns
     -------
     roots : numpy array
@@ -32,14 +38,14 @@ def solve(polys, method = 'multR', verbose=False):
 
     if dim == 1:
         if len(polys) == 1:
-            return oneD.solve(polys[0], method, verbose=verbose)
+            return oneD.solve(polys[0], method, eigvals=eigvals, verbose=verbose)
         else:
-            zeros = np.unique(oneD.solve(polys[0], method))
+            zeros = np.unique(oneD.solve(polys[0], method, eigvals=eigvals, verbose=verbose))
             #Finds the roots of each succesive polynomial and checks which roots are common.
             for poly in polys[1:]:
                 if len(zeros) == 0:
                     break
-                zeros2 = np.unique(oneD.solve(poly, method))
+                zeros2 = np.unique(oneD.solve(poly, method, eigvals=eigvals, verbose=verbose))
                 common = list()
                 tol = 1.e-10
                 for zero in zeros2:
