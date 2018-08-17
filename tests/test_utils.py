@@ -8,6 +8,9 @@ from scipy.linalg import qr, solve_triangular
 from itertools import product
 
 def test_inverse_P():
+
+    np.random.seed(229)
+
     # Test Case 1:
     # Create matrix
     M = np.array([[0, 1, 2, 3, 4, 5],
@@ -44,6 +47,9 @@ def test_triangular_solve():
     """This tests the triangular_solve() method.
     A visual graph of zeroes on the diagonal was also used to test this function.
     """
+
+    np.random.seed(91)
+
     # Simple Test Case.
     A = np.array([[1, 2, 3, 4, 5],
                   [0, 1, 2, 3, 4],

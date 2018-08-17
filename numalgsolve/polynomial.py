@@ -60,6 +60,20 @@ def chebval2(x, cc): #pragma: no cover
             c1 = tmp + c1*x2
     return c0 + c1*x
 
+def getPoly(deg,dim,power):
+    '''
+    A helper function for testing. Returns a random upper triangular polynomial of the given dimension and degree.
+    power is a boolean indicating whether or not the polynomial should be MultiPower.
+    '''
+    deg += 1
+    ACoeff = np.random.random_sample(deg*np.ones(dim, dtype = int))
+    for i,j in np.ndenumerate(ACoeff):
+        if np.sum(i) >= deg:
+            ACoeff[i] = 0
+    if power:
+        return MultiPower(ACoeff)
+    else:
+        return MultiCheb(ACoeff)
 
 class Polynomial(object):
     '''
@@ -195,8 +209,14 @@ class Polynomial(object):
             valued of the polynomial at the given points
         '''
         points = np.array(points)
+        if points.ndim == 0:
+            points = np.array([points])
+
         if points.ndim == 1:
-            points = points.reshape(1,points.shape[0])
+            if self.dim > 1:
+                points = points.reshape(1,points.shape[0])
+            else:
+                points = points.reshape(points.shape[0],1)
 
         if points.shape[1] != self.dim:
             raise ValueError('Dimension of points does not match dimension of polynomial!')

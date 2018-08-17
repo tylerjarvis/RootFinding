@@ -9,7 +9,8 @@ from numalgsolve.utils import row_swap_matrix, TVBError, slice_top, mon_combos, 
 def add_polys(degree, poly, poly_coeff_list):
     """Adds polynomials to a Macaulay Matrix.
 
-    This function is called on one polynomial and adds all monomial multiples of it to the matrix.
+    This function is called on one polynomial and adds all monomial multiples of
+     it to the matrix.
 
     Parameters
     ----------
@@ -22,7 +23,8 @@ def add_polys(degree, poly, poly_coeff_list):
     Returns
     -------
     poly_coeff_list : list
-        The original list of polynomials in the matrix with the new monomial multiplications of poly added.
+        The original list of polynomials in the matrix with the new monomial
+        multiplications of poly added.
     """
 
     poly_coeff_list.append(poly.coeff)
@@ -51,15 +53,15 @@ def find_degree(poly_list):
     '''
     return sum(poly.degree for poly in poly_list) - len(poly_list) + 1
 
-def rrqr_reduceTelenVanBarel(matrix, matrix_terms, cuts, accuracy = 1.e-10):
+def rrqr_reduceTelenVanBarel(matrix, matrix_terms, cuts, number_of_roots, accuracy = 1.e-10):
     ''' Reduces a Telen Van Barel Macaulay matrix.
 
     The matrix is split into the shape
     A B C
     D E F
     Where A is square and contains all the highest terms, and C contains all the x,y,z etc. terms. The lengths
-    are determined by the matrix_shape_stuff tuple. First A and D are reduced using rrqr, and then the rest of
-    the matrix is multiplied by Q.T to change it accordingly. Then E is reduced by rrqr, the rows of B are shifted
+    are determined by the matrix_shape_stuff tuple. First A and D are reduced using rrqr without pivoting, and then the rest of
+    the matrix is multiplied by Q.T to change it accordingly. Then E is reduced by rrqr with pivoting, the rows of B are shifted
     accordingly, and F is multipled by Q.T to change it accordingly. This is all done in place to save memory.
 
     Parameters
@@ -79,11 +81,12 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     matrix_terms: numpy array
         The resorted matrix_terms.
     '''
-    #RRQR reduces A and D sticking the result in it's place.
-    Q1,matrix[:,:cuts[0]],P1 = qr(matrix[:,:cuts[0]], pivoting = True)
+    #print("Starting matrix.shape:\n", matrix.shape)
+    #RRQR reduces A and D without pivoting sticking the result in it's place.
+    Q1,matrix[:,:cuts[0]] = qr(matrix[:,:cuts[0]])
 
     #Looks like 0 but not, add to the rank.
-    still_good = np.sum(np.abs(matrix[:,:cuts[0]].diagonal()) < accuracy)
+    #still_good = np.sum(np.abs(matrix[:,:cuts[0]].diagonal()) < accuracy)
     #if abs(matrix[:,:cuts[0]].diagonal()[-1]) < accuracy:
     #    print(matrix[:,:cuts[0]].diagonal())
     #    raise TVBError("HIGHEST NOT FULL RANK")
@@ -103,20 +106,37 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     matrix[:cuts[0],cuts[0]:cuts[1]] = matrix[:cuts[0],cuts[0]:cuts[1]][:,P]
 
     #Checks for 0 rows and gets rid of them.
-    rank = np.sum(np.abs(matrix.diagonal())>accuracy) + still_good
-    matrix = matrix[:rank]
+    #rank = np.sum(np.abs(matrix.diagonal())>accuracy) + still_good
+    #matrix = matrix[:rank]
+
+    #eliminates rows we don't care about-- those at the bottom of the matrix
+    #since the top corner is a square identity matrix, useful_rows + number_of_roots is the width of the Macaulay matrix
+    matrix = row_swap_matrix(matrix)
+    for row in matrix[::-1]:
+        if np.allclose(row, 0):
+            matrix = matrix[:-1]
+        else:
+            break
+    #print("Final matrix.shape:\n", matrix.shape)
+    #useful_rows = matrix.shape[1] - number_of_roots
+    #matrix = matrix[:useful_rows,:]
+
+    #set very small values in the matrix to zero before backsolving
+    matrix[np.isclose(matrix, 0, rtol=accuracy)] = 0
 
     #Resorts the matrix_terms.
-    matrix_terms[:cuts[0]] = matrix_terms[:cuts[0]][P1]
     matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
-
+    #print("TVB1Rank:", np.sum(np.abs(matrix.diagonal())>accuracy))
     return matrix, matrix_terms
 
-def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
+def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts, number_of_roots, accuracy = 1.e-10):
     ''' Reduces a Telen Van Barel Macaulay matrix.
 
-    This function does the same thing as rrqr_reduceTelenVanBarel but uses qr_multiply instead of qr and a multiplication
+    This function does the same thing as rrqr_reduceTelenVanBarel but uses
+    qr_multiply instead of qr and a multiplication
     to make the function faster and more memory efficient.
+
+    This function only works properly if the bottom left (D) part of the matrix is zero
 
     Parameters
     ----------
@@ -137,23 +157,26 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     matrix_terms: numpy array
         The resorted matrix_terms.
     '''
-    C1,matrix[:cuts[0],:cuts[0]],P1 = qr_multiply(matrix[:,:cuts[0]], matrix[:,cuts[0]:].T, mode = 'right', pivoting = True)
+    #print("Starting matrix.shape:\n", matrix.shape)
+    #RRQR reduces A and D without pivoting sticking the result in it's place.
+    C1,matrix[:cuts[0],:cuts[0]] = qr_multiply(matrix[:,:cuts[0]], matrix[:,cuts[0]:].T, mode = 'right')
     matrix[:cuts[0],cuts[0]:] = C1.T
     C1 = 0
 
     #if abs(matrix[:,:cuts[0]].diagonal()[-1]) < accuracy:
     #    raise TVBError("HIGHEST NOT FULL RANK")
 
+    #set small values to zero before backsolving
+    matrix[np.isclose(matrix, 0, rtol=accuracy)] = 0
+
     matrix[:cuts[0],cuts[0]:] = solve_triangular(matrix[:cuts[0],:cuts[0]],matrix[:cuts[0],cuts[0]:])
     matrix[:cuts[0],:cuts[0]] = np.eye(cuts[0])
-    matrix[cuts[0]:,cuts[0]:] -= (matrix[cuts[0]:,:cuts[0]][:,P1])@matrix[:cuts[0],cuts[0]:]
-    matrix_terms[:cuts[0]] = matrix_terms[:cuts[0]][P1]
-    P1 = 0
+    matrix[cuts[0]:,cuts[0]:] -= (matrix[cuts[0]:,:cuts[0]])@matrix[:cuts[0],cuts[0]:] #?
 
     C,R,P = qr_multiply(matrix[cuts[0]:,cuts[0]:cuts[1]], matrix[cuts[0]:,cuts[1]:].T, mode = 'right', pivoting = True)
 
     matrix = matrix[:R.shape[0]+cuts[0]]
-    matrix[cuts[0]:,:cuts[0]] = np.zeros_like(matrix[cuts[0]:,:cuts[0]])
+    #matrix[cuts[0]:,:cuts[0]] = np.zeros_like(matrix[cuts[0]:,:cuts[0]])
     matrix[cuts[0]:,cuts[0]:cuts[0]+R.shape[1]] = R
     matrix[cuts[0]:,cuts[0]+R.shape[1]:] = C.T
     C,R = 0,0
@@ -164,7 +187,7 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     P = 0
 
     # Check if there are no solutions
-    rank = np.sum(np.abs(matrix.diagonal())>accuracy)
+    #rank = np.sum(np.abs(matrix.diagonal())>accuracy)
 
     # extra_block = matrix[rank:, -matrix_shape_stuff[2]:]
     # Q,R = qr(extra_block)
@@ -172,7 +195,23 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     #     raise ValueError("The system given has no roots.")
 
     #Get rid of 0 rows at the bottom.
-    matrix = matrix[:rank]
+    #matrix = matrix[:rank]
+
+    #eliminates rows we don't care about-- those at the bottom of the matrix
+    #since the top corner is a square identity matrix, always_useful_rows + number_of_roots is the width of the Macaulay matrix
+    always_useful_rows = matrix.shape[1] - number_of_roots
+    #matrix = matrix[:useful_rows,:]
+
+    #eliminate zero rows from the bottom of the matrix. Zero rows above
+    #nonzero elements are not eliminated. This saves time since Macaulay matrices
+    #we deal with are only zero at the very bottom
+    matrix = row_swap_matrix(matrix)
+    for row in matrix[::-1]:
+        if np.allclose(row, 0):
+            matrix = matrix[:-1]
+        else:
+            break
+
     return matrix, matrix_terms
 
 def rrqr_reduceTelenVanBarelFullRank(matrix, matrix_terms, cuts, accuracy = 1.e-10):
@@ -201,17 +240,13 @@ def rrqr_reduceTelenVanBarelFullRank(matrix, matrix_terms, cuts, accuracy = 1.e-
     matrix_terms: numpy array
         The resorted matrix_terms.
     '''
-    C1,matrix[:cuts[0],:cuts[0]],P1 = qr_multiply(matrix[:cuts[0],:cuts[0]],\
-                                                  matrix[:cuts[0],cuts[0]:].T, mode = 'right', pivoting = True)
+    C1,matrix[:cuts[0],:cuts[0]] = qr_multiply(matrix[:cuts[0],:cuts[0]],\
+                                                  matrix[:cuts[0],cuts[0]:].T, mode = 'right')
     matrix[:cuts[0],cuts[0]:] = C1.T
     C1 = 0
 
     #if abs(matrix[:,:cuts[0]].diagonal()[-1]) < accuracy:
     #    raise TVBError("HIGHEST NOT FULL RANK")
-
-    matrix[cuts[0]:,:cuts[0]] = matrix[cuts[0]:,:cuts[0]][:,P1]
-    matrix_terms[:cuts[0]] = matrix_terms[:cuts[0]][P1]
-    P1 = 0
 
     C,matrix[cuts[0]:,cuts[0]:cuts[1]],P = qr_multiply(matrix[cuts[0]:,cuts[0]:cuts[1]],\
                                                        matrix[cuts[0]:,cuts[1]:].T, mode = 'right', pivoting = True)
