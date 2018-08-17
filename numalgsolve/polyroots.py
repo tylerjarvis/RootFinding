@@ -6,7 +6,7 @@ from numalgsolve.Division import division
 from numalgsolve.Multiplication import multiplication
 from numalgsolve.utils import Term, get_var_list, divides, TVBError, InstabilityWarning, match_size, match_poly_dimensions
 
-def solve(polys, method = 'multR', verbose=False):
+def solve(polys, method='multR', verbose=False):
     '''
     Finds the roots of the given list of polynomials.
 
