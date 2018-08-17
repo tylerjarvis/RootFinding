@@ -2,34 +2,39 @@ from numalgsolve import polynomial
 from numalgsolve import polyroots
 import numpy as np
 
-print("~ ~ ~ Power Form, Multiplication Matrix ~ ~ ~")
 p1 = polynomial.MultiPower(np.array([[1, -4, 0],[0, 3, 0],[1, 0, 0]]).T) #y^2 + 3xy - 4x +1
 p2 = polynomial.MultiPower(np.array([[3, 0, -2],[6, -6, 0],[0, 0, 0]]).T) #-6xy -2x^2 + 6y +3
-print("Roots\n", polyroots.solve([p1, p2], verbose=True))
-
-print("~ ~ ~ Cheb Form, Multiplication Matrix ~ ~ ~")
 c1 = polynomial.MultiCheb(np.array([[2, 0, -1],[6, -6, 0], [0, 0, 0]]).T) #p2 in Cheb form
 c2 = polynomial.MultiCheb(np.array([[1.5, -4, 0],[0, 3, 0], [.5, 0, 0]]).T) #p2 in Cheb form
-print("Roots\n",polyroots.solve([c1, c2], verbose=True))
+
+print("~ ~ ~ Power Form, Multiplication Matrix ~ ~ ~")
+print("Roots\n", polyroots.solve([p1, p2], method = 'mult', verbose=True))
+
+#print("~ ~ ~ Cheb Form, Multiplication Matrix ~ ~ ~")
+#print("Roots\n",polyroots.solve([c1, c2], method = 'mult', verbose=True))
+
+print("~ ~ ~ Power Form, Rotated Multiplication Matrix ~ ~ ~")
+print("Roots\n", polyroots.solve([p1, p2], method = 'multR', verbose=True))
+
+print("~ ~ ~ Cheb Form, Rotated Multiplication Matrix ~ ~ ~")
+print("Roots\n",polyroots.solve([c1, c2], method = 'multR', verbose=True))
+
+print("~ ~ ~ Power Form, Pseudorandom Multiplication Matrix ~ ~ ~")
+print("Roots\n", polyroots.solve([p1, p2], method = 'multrand', verbose=True))
+
+print("~ ~ ~ Cheb Form, Pseudorandom Multiplication Matrix ~ ~ ~")
+print("Roots\n",polyroots.solve([c1, c2], method = 'multrand', verbose=True))
 
 print("~ ~ ~ Power Form, Division Matrix 1/y ~ ~ ~")
-p1 = polynomial.MultiPower(np.array([[1, -4, 0],[0, 3, 0],[1, 0, 0]])) #y^2 + 3xy - 4x +1
-p2 = polynomial.MultiPower(np.array([[3, 0, -2],[6, -6, 0],[0, 0, 0]])) #-6xy -2x^2 + 6y +3
 print("Roots\n",polyroots.solve([p1, p2], method = "div", verbose=True))
 
 print("~ ~ ~ Cheb Form, Division Matrix 1/y ~ ~ ~")
-c1 = polynomial.MultiCheb(np.array([[2, 0, -1],[6, -6, 0]])) #p2 in Cheb form
-c2 = polynomial.MultiCheb(np.array([[1.5, -4, 0],[0, 3, 0], [.5, 0, 0]])) #p2 in Cheb form
 print("Roots\n",polyroots.solve([c1, c2], method = "div", verbose=True))
 
 print("~ ~ ~ Power Form, Division Matrix 1/x ~ ~ ~")
-p1 = polynomial.MultiPower(np.array([[1, -4, 0],[0, 3, 0],[1, 0, 0]]).T) #y^2 + 3xy - 4x +1
-p2 = polynomial.MultiPower(np.array([[3, 0, -2],[6, -6, 0],[0, 0, 0]]).T) #-6xy -2x^2 + 6y +3
 print("Roots\n",polyroots.solve([p1, p2], method = "div", verbose=True))
 
 print("~ ~ ~ Cheb Form, Division Matrix 1/x ~ ~ ~")
-c1 = polynomial.MultiCheb(np.array([[2, 0, -1],[6, -6, 0]]).T) #p2 in Cheb form
-c2 = polynomial.MultiCheb(np.array([[1.5, -4, 0],[0, 3, 0], [.5, 0, 0]]).T) #p2 in Cheb form
 print("Roots\n",polyroots.solve([c1, c2], method = "div", verbose=True))
 
 print("\n\n\nSimple One Dimensional Example")

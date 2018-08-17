@@ -21,16 +21,44 @@ def test_paper_example():
     right_number_of_roots = 4
 
     #~ ~ ~ Power Form, Multiplication Matrix ~ ~ ~
-    power_mult_roots = pr.solve([p1, p2])
+    power_mult_roots = pr.solve([p1, p2], method = "mult")
     assert len(power_mult_roots) == right_number_of_roots
     for root in power_mult_roots:
         assert np.isclose(0, p1(root), atol = 1.e-8)
         assert np.isclose(0, p2(root), atol = 1.e-8)
 
     #~ ~ ~ Cheb Form, Multiplication Matrix ~ ~ ~
-    cheb_mult_roots = pr.solve([c1, c2])
+    cheb_mult_roots = pr.solve([c1, c2], method = "mult")
     assert len(cheb_mult_roots) == right_number_of_roots
     for root in cheb_mult_roots:
+        assert np.isclose(0, c1(root), atol = 1.e-8)
+        assert np.isclose(0, c1(root), atol = 1.e-8)
+
+    #~ ~ ~ Power Form, Rotated Multiplication Matrix ~ ~ ~
+    power_multR_roots = pr.solve([p1, p2], method = "multR")
+    assert len(power_multR_roots) == right_number_of_roots
+    for root in power_multR_roots:
+        assert np.isclose(0, p1(root), atol = 1.e-8)
+        assert np.isclose(0, p2(root), atol = 1.e-8)
+
+    #~ ~ ~ Cheb Form, Rotated Multiplication Matrix ~ ~ ~
+    cheb_multR_roots = pr.solve([c1, c2], method = "multR")
+    assert len(cheb_multR_roots) == right_number_of_roots
+    for root in cheb_multR_roots:
+        assert np.isclose(0, c1(root), atol = 1.e-8)
+        assert np.isclose(0, c1(root), atol = 1.e-8)
+
+    #~ ~ ~ Power Form, Pseudorandom Multiplication Matrix ~ ~ ~
+    power_multrand_roots = pr.solve([p1, p2], method = "multrand")
+    assert len(power_multrand_roots) == right_number_of_roots
+    for root in power_multrand_roots:
+        assert np.isclose(0, p1(root), atol = 1.e-8)
+        assert np.isclose(0, p2(root), atol = 1.e-8)
+
+    #~ ~ ~ Cheb Form, Pseudorandom Multiplication Matrix ~ ~ ~
+    cheb_multrand_roots = pr.solve([c1, c2], method = "multrand")
+    assert len(cheb_multrand_roots) == right_number_of_roots
+    for root in cheb_multrand_roots:
         assert np.isclose(0, c1(root), atol = 1.e-8)
         assert np.isclose(0, c1(root), atol = 1.e-8)
 
@@ -88,7 +116,7 @@ def correctZeros(polys, method):
             correct += 1
     assert(100*correct/(len(zeros)-outOfRange) > 95)
 
-def test_TVB_power_roots():
+def test_TVB_power_roots_mult():
     '''
     The following tests will run TVB on relatively small random upper trianguler MultiPower.
     The assert statements will be inside of the correctZeros helper function.
@@ -125,7 +153,7 @@ def test_TVB_power_roots():
     C = getPoly(5,3,True)
     correctZeros([A,B,C], 'mult')
 
-def test_TVB_cheb_roots():
+def test_TVB_cheb_roots_mult():
     '''
     The following tests will run TVB on relatively small random upper trianguler MultiCheb.
     The assert statements will be inside of the correctZeros helper function.
@@ -161,6 +189,154 @@ def test_TVB_cheb_roots():
     B = getPoly(4,3,False)
     C = getPoly(5,3,False)
     correctZeros([A,B,C], 'mult')
+
+def test_TVB_power_roots_multR():
+    '''
+    The following tests will run TVB on relatively small random upper trianguler MultiPower.
+    The assert statements will be inside of the correctZeros helper function.
+    '''
+
+    np.random.seed(423)
+
+    #Case 1 - Two MultiPower 2D degree 10 polynomials.
+    A = getPoly(10,2,True)
+    B = getPoly(10,2,True)
+    correctZeros([A,B], 'multR')
+
+    #Case 2 - Three MultiPower 3D degree 4 polynomials.
+    A = getPoly(4,3,True)
+    B = getPoly(4,3,True)
+    C = getPoly(4,3,True)
+    correctZeros([A,B,C], 'multR')
+
+    #Case 3 - Four MultiPower 4D degree 2 polynomials.
+    A = getPoly(2,4,True)
+    B = getPoly(2,4,True)
+    C = getPoly(2,4,True)
+    D = getPoly(2,4,True)
+    correctZeros([A,B,C,D], 'multR')
+
+    #Case 4 - Two MultiPower 2D, one degree 5 and one degree 7
+    A = getPoly(5,2,True)
+    B = getPoly(7,2,True)
+    correctZeros([A,B], 'multR')
+
+    #Case 5 - Three MultiPower 3D of degrees 3,4 and 5
+    A = getPoly(3,3,True)
+    B = getPoly(4,3,True)
+    C = getPoly(5,3,True)
+    correctZeros([A,B,C], 'multR')
+
+def test_TVB_cheb_roots_multR():
+    '''
+    The following tests will run TVB on relatively small random upper trianguler MultiCheb.
+    The assert statements will be inside of the correctZeros helper function.
+    '''
+
+    np.random.seed(59)
+
+    #Case 1 - Two MultiCheb 2D degree 10 polynomials.
+    A = getPoly(10,2,False)
+    B = getPoly(10,2,False)
+    correctZeros([A,B], 'multR')
+
+    #Case 2 - Three MultiCheb 3D degree 4 polynomials.
+    A = getPoly(4,3,False)
+    B = getPoly(4,3,False)
+    C = getPoly(4,3,False)
+    correctZeros([A,B,C], 'multR')
+
+    #Case 3 - Four MultiCheb 4D degree 2 polynomials.
+    A = getPoly(2,4,False)
+    B = getPoly(2,4,False)
+    C = getPoly(2,4,False)
+    D = getPoly(2,4,False)
+    correctZeros([A,B,C,D], 'multR')
+
+    #Case 4 - Two MultiCheb 2D, one degree 5 and one degree 7
+    A = getPoly(5,2,False)
+    B = getPoly(7,2,False)
+    correctZeros([A,B], 'multR')
+
+    #Case 5 - Three MultiCheb 3D of degrees 3,4 and 5
+    A = getPoly(3,3,False)
+    B = getPoly(4,3,False)
+    C = getPoly(5,3,False)
+    correctZeros([A,B,C], 'multR')
+
+def test_TVB_power_roots_multrand():
+    '''
+    The following tests will run TVB on relatively small random upper trianguler MultiPower.
+    The assert statements will be inside of the correctZeros helper function.
+    '''
+
+    np.random.seed(423)
+
+    #Case 1 - Two MultiPower 2D degree 10 polynomials.
+    A = getPoly(10,2,True)
+    B = getPoly(10,2,True)
+    correctZeros([A,B], 'multrand')
+
+    #Case 2 - Three MultiPower 3D degree 4 polynomials.
+    A = getPoly(4,3,True)
+    B = getPoly(4,3,True)
+    C = getPoly(4,3,True)
+    correctZeros([A,B,C], 'multrand')
+
+    #Case 3 - Four MultiPower 4D degree 2 polynomials.
+    A = getPoly(2,4,True)
+    B = getPoly(2,4,True)
+    C = getPoly(2,4,True)
+    D = getPoly(2,4,True)
+    correctZeros([A,B,C,D], 'multrand')
+
+    #Case 4 - Two MultiPower 2D, one degree 5 and one degree 7
+    A = getPoly(5,2,True)
+    B = getPoly(7,2,True)
+    correctZeros([A,B], 'multrand')
+
+    #Case 5 - Three MultiPower 3D of degrees 3,4 and 5
+    A = getPoly(3,3,True)
+    B = getPoly(4,3,True)
+    C = getPoly(5,3,True)
+    correctZeros([A,B,C], 'multrand')
+
+def test_TVB_cheb_roots_multrand():
+    '''
+    The following tests will run TVB on relatively small random upper trianguler MultiCheb.
+    The assert statements will be inside of the correctZeros helper function.
+    '''
+
+    np.random.seed(59)
+
+    #Case 1 - Two MultiCheb 2D degree 10 polynomials.
+    A = getPoly(10,2,False)
+    B = getPoly(10,2,False)
+    correctZeros([A,B], 'multrand')
+
+    #Case 2 - Three MultiCheb 3D degree 4 polynomials.
+    A = getPoly(4,3,False)
+    B = getPoly(4,3,False)
+    C = getPoly(4,3,False)
+    correctZeros([A,B,C], 'multrand')
+
+    #Case 3 - Four MultiCheb 4D degree 2 polynomials.
+    A = getPoly(2,4,False)
+    B = getPoly(2,4,False)
+    C = getPoly(2,4,False)
+    D = getPoly(2,4,False)
+    correctZeros([A,B,C,D], 'multrand')
+
+    #Case 4 - Two MultiCheb 2D, one degree 5 and one degree 7
+    A = getPoly(5,2,False)
+    B = getPoly(7,2,False)
+    correctZeros([A,B], 'multrand')
+
+    #Case 5 - Three MultiCheb 3D of degrees 3,4 and 5
+    A = getPoly(3,3,False)
+    B = getPoly(4,3,False)
+    C = getPoly(5,3,False)
+    correctZeros([A,B,C], 'multrand')
 
 def test_div_power_roots():
     '''
