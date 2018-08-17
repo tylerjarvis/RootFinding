@@ -6,7 +6,7 @@ from numalgsolve.Division import division
 from numalgsolve.Multiplication import multiplication
 from numalgsolve.utils import Term, get_var_list, divides, TVBError, InstabilityWarning, match_size, match_poly_dimensions
 
-def solve(polys, method = 'mult', verbose=False):
+def solve(polys, method = 'multR', verbose=False):
     '''
     Finds the roots of the given list of polynomials.
 
@@ -15,7 +15,11 @@ def solve(polys, method = 'mult', verbose=False):
     polys : list of polynomial objects
         Polynomials to find the common roots of.
     method : string
-        The root finding method to be used. Can be either 'Mult' or 'Div'.
+        The root finding method to be used. Can be either 'mult', 'div', or 'multR', 'multrand'.
+            'mult': makes a M_x matrix
+            'multR': makes a M_x matrix and rotates it 180 degrees (for a univariate polynomial)
+            'div': makes a division M_1/x matrix
+            'multrand': Makes a M_f matrix of a pseudorandom polynomial f
     returns
     -------
     roots : numpy array
@@ -46,6 +50,10 @@ def solve(polys, method = 'mult', verbose=False):
             return zeros
     else:
         if method == 'mult':
-            return multiplication(polys, verbose=verbose)
+            return multiplication(polys, verbose=verbose, rand_poly=False, rotate=False)
+        elif method == 'multR':
+            return multiplication(polys, verbose=verbose, rand_poly=False, rotate=True)
+        elif method == 'multrand':
+            return multiplication(polys, verbose=verbose, rand_poly=True, rotate=False)
         else:
             return division(polys, verbose=verbose)

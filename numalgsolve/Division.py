@@ -193,7 +193,7 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
     zeros = np.array(zeros)
 
     #Checks that the algorithm finds the correct number of roots with Bezout's Theorem
-    assert zeros.shape[0] <= max_number_of_roots #Check if too many roots
+    assert zeros.shape[0] <= max_number_of_roots,"Found too many roots" #Check if too many roots
     if zeros.shape[0] < max_number_of_roots:
         warnings.warn('Expected ' + str(max_number_of_roots)
         + " roots, Found " + str(zeros.shape[0]) , Warning)

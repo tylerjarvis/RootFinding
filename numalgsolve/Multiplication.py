@@ -8,7 +8,7 @@ from numalgsolve.utils import row_swap_matrix, TVBError, slice_top, get_var_list
                               deg_d_polys, all_permutations_cheb
 import warnings
 
-def multiplication(polys, verbose=False):
+def multiplication(polys, verbose=False, rand_poly=True, rotate=True):
     '''
     Finds the roots of the given list of multidimensional polynomials using a multiplication matrix.
 
@@ -28,7 +28,10 @@ def multiplication(polys, verbose=False):
     degrees = [poly.degree for poly in polys]
     max_number_of_roots = np.prod(degrees)
 
-    m_f, var_dict = TVBMultMatrix(polys, poly_type, max_number_of_roots, verbose=verbose)
+    m_f, var_dict = TVBMultMatrix(polys, poly_type, max_number_of_roots, verbose=verbose, rand_poly=rand_poly)
+
+    if rotate: #rotate multiplication matrix 180 degrees
+        m_f = np.rot90(m_f,2)
 
     # both TVBMultMatrix and groebnerMultMatrix will return m_f as
     # -1 if the ideal is not zero dimensional or if there are no roots
@@ -63,14 +66,14 @@ def multiplication(polys, verbose=False):
     roots = vecs[var_spots]/vecs[zeros_spot]
 
     #Checks that the algorithm finds the correct number of roots with Bezout's Theorem
-    assert roots.shape[1] <= max_number_of_roots #Check if too many roots
+    assert roots.shape[1] <= max_number_of_roots,"Found too many roots" #Check if too many roots
     if roots.shape[1] < max_number_of_roots:
         warnings.warn('Expected ' + str(max_number_of_roots)
         + " roots, Found " + str(roots.shape[1]) , Warning)
         print("Number of Roots Lost:", max_number_of_roots - roots.shape[1])
     return roots.T
 
-def TVBMultMatrix(polys, poly_type, number_of_roots, verbose=False):
+def TVBMultMatrix(polys, poly_type, number_of_roots, verbose=False, rand_poly=True):
     '''
     Finds the multiplication matrix using the reduced Macaulay matrix from the
     TVB method.
@@ -94,7 +97,12 @@ def TVBMultMatrix(polys, poly_type, number_of_roots, verbose=False):
     dim = max(f.dim for f in polys)
 
     # Get random polynomial f
-    f = _random_poly(poly_type, dim)[0]
+    if rand_poly:
+        f = _random_poly(poly_type, dim)[0]
+    elif poly_type == "MultiPower":
+        f = MultiPower(np.array([[0,0],[1,0]]))
+    else:
+        f = MultiCheb(np.array([[0,0],[1,0]]))
     if verbose:
         print("\nCoefficients of Random Polynomial whose M_f matrix we construt\n", f.coeff)
 
