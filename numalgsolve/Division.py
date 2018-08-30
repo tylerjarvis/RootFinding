@@ -2,7 +2,7 @@ import numpy as np
 import itertools
 from scipy.linalg import solve_triangular, eig, qr
 from numalgsolve.polynomial import MultiCheb, MultiPower, is_power
-from numalgsolve.TVBCore import add_polys, rrqr_reduceTelenVanBarel, rrqr_reduceTelenVanBarel2
+from numalgsolve.MacaulayReduce import add_polys, rrqr_reduceMacaulay, rrqr_reduceMacaulay2
 from numalgsolve.utils import get_var_list, slice_top, row_swap_matrix, \
                               mon_combos, newton_polish
 import warnings
@@ -47,15 +47,15 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
         print('\nColumns in Macaulay Matrix\nFirst element in tuple is degree of x monomial, Second element is degree of y monomial \n', matrix_terms)
         print('\nLocation of Cuts in the Macaulay Matrix into [ Mb | M1* | M2* ]\n', cuts)
 
-    #If bottom left is zero only does step 1 of TVB-style QR reduction on top part of matrix (for speed). Otherwise does it on the whole thing
+    #If bottom left is zero only does the first QR reduction on top part of matrix (for speed). Otherwise does it on the whole thing
     if np.allclose(matrix[cuts[0]:,:cuts[0]], 0):
-        matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts, max_number_of_roots, tol)
+        matrix, matrix_terms = rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, max_number_of_roots, tol)
     else:
-        matrix, matrix_terms = rrqr_reduceTelenVanBarel(matrix, matrix_terms, cuts, max_number_of_roots, tol)
+        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_number_of_roots, tol)
 
     rows,columns = matrix.shape
 
-    #Make there are enough rows in the reduced TVB matrix, i.e. didn't loose a row
+    #Make there are enough rows in the reduced Macaulay matrix, i.e. didn't loose a row
     assert rows >= columns - max_number_of_roots
 
     VB = matrix_terms[matrix.shape[0]:]
@@ -278,13 +278,13 @@ def get_matrix_terms(poly_coeffs, dim, divisor_var, deg, include_divvar_squared=
 def makeBasisDict(matrix, matrix_terms, VB):
     '''Calculates and returns the basisDict.
 
-    This is a dictionary of the terms on the diagonal of the reduced TVB matrix to the terms in the Vector Basis.
+    This is a dictionary of the terms on the diagonal of the reduced Macaulay matrix to the terms in the Vector Basis.
     It is used to create the multiplication matrix in root_finder.
 
     Parameters
     --------
     matrix: numpy array
-        The reduced TVB matrix.
+        The reduced Macaulay matrix.
     matrix_terms : numpy array
         The terms in the matrix. The i'th row is the term represented by the i'th column of the matrix.
     VB : numpy array
@@ -293,7 +293,7 @@ def makeBasisDict(matrix, matrix_terms, VB):
     Returns
     -----------
     basisDict : dict
-        Maps terms on the diagonal of the reduced TVB matrix (tuples) to numpy arrays of the shape remainder_shape
+        Maps terms on the diagonal of the reduced Macaulay matrix (tuples) to numpy arrays of the shape remainder_shape
         that represent the terms reduction into the Vector Basis.
     '''
     basisDict = {}
@@ -322,7 +322,7 @@ def create_matrix(poly_coeffs, degree, dim, divisor_var, get_divvar_coord_from_e
     poly_coeffs : list.
         Contains numpy arrays that hold the coefficients of the polynomials to be put in the matrix.
     degree : int
-        The degree of the TVB Matrix
+        The degree of the Macaulay Matrix
     dim : int
         The dimension of the polynomials going into the matrix.
     divisor_var : int
@@ -334,7 +334,7 @@ def create_matrix(poly_coeffs, degree, dim, divisor_var, get_divvar_coord_from_e
     Returns
     -------
     matrix : 2D numpy array
-        The Telen Van Barel matrix.
+        The Macaulay matrix.
     matrix_terms : numpy array
         The ith row is the term represented by the ith column of the matrix.
     cuts : tuple

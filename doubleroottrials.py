@@ -9,12 +9,12 @@ from math import sqrt
 #bools for which tests to show
 
 hyperbolas11 = True
-hyperbolas_transformed  = False
-hyperbolas_moved = False
-hyperbolas_transformed_moved = False
-circle_ellipse_origin = False
-circle_ellipse_moved = False
-circle_ellipse_transformed = False
+hyperbolas_transformed  = True
+hyperbolas_moved = True
+hyperbolas_transformed_moved = True
+circle_ellipse_origin = True
+circle_ellipse_moved = True
+circle_ellipse_transformed = True
 circle_ellipse_transformed_moved = True
 
 if hyperbolas11:
@@ -48,36 +48,36 @@ if hyperbolas11:
     #print("Roots:\n",cmf)
 
     #print("~ ~ ~ Power Form, M_x Matrix ~ ~ ~")
-    #pmx = polyroots.solve([p1, p2], rand_poly = False)
+    #pmx = polyroots.solve([p1, p2], MSmatrix = 1)
     #print("Roots:\n",pmx)
 
     #print("~ ~ ~ Cheb Form, M_x Matrix ~ ~ ~")
-    #cmx = polyroots.solve([c1, c2], rand_poly = False)
+    #cmx = polyroots.solve([c1, c2], MSmatrix = 1)
     #print("Roots:\n",cmx)
 
     #flip left/right because x and y are switched. Same for M_y and M_1/y matrices below
     #print("~ ~ ~ Power Form, M_y Matrix ~ ~ ~")
-    #pmy = polyroots.solve([p1_switch_xy, p2_switch_xy], rand_poly = False)[:,::-1]
+    #pmy = polyroots.solve([p1_switch_xy, p2_switch_xy], MSmatrix = 1)[:,::-1]
     #print("Roots:\n",pmy)
 
     #print("~ ~ ~ Cheb Form, M_y Matrix ~ ~ ~")
-    #cmy = polyroots.solve([c1_switch_xy, c2_switch_xy], rand_poly = False)[:,::-1]
+    #cmy = polyroots.solve([c1_switch_xy, c2_switch_xy], MSmatrix = 1)[:,::-1]
     #print("Roots:\n",cmy)
 
     print("~ ~ ~ Power Form, Division Matrix 1/y ~ ~ ~")
-    pdy = polyroots.solve([p1_switch_xy, p2_switch_xy], method = "div")[:,::-1]
+    pdy = polyroots.solve([p1_switch_xy, p2_switch_xy], MSmatrix = -1)[:,::-1]
     print("Roots:\n",pdy)
 
     print("~ ~ ~ Cheb Form, Division Matrix 1/y ~ ~ ~")
-    cdy = polyroots.solve([c1_switch_xy, c2_switch_xy], method = "div")[:,::-1]
+    cdy = polyroots.solve([c1_switch_xy, c2_switch_xy], MSmatrix = -1)[:,::-1]
     print("Roots:\n",cdy)
 
     print("~ ~ ~ Power Form, Division Matrix 1/x ~ ~ ~")
-    pdx = polyroots.solve([p1, p2], method = "div")
+    pdx = polyroots.solve([p1, p2], MSmatrix = -1)
     print("Roots:\n",pdx)
 
     print("~ ~ ~ Cheb Form, Division Matrix 1/x ~ ~ ~")
-    cdx = polyroots.solve([c1, c2], method = "div")
+    cdx = polyroots.solve([c1, c2], MSmatrix = -1)
     print("Roots:\n",cdx)
 
     print("\n\nCompare Roots:\n")
@@ -165,36 +165,36 @@ if hyperbolas_transformed:
     #print("Roots:\n",cmf)
 
     print("~ ~ ~ Power Form, M_x Matrix ~ ~ ~")
-    #pmx = polyroots.solve([p1, p2], rand_poly = False)
+    #pmx = polyroots.solve([p1, p2], MSmatrix = 1)
     #print("Roots:\n",pmx)
 
     print("~ ~ ~ Cheb Form, M_x Matrix ~ ~ ~")
-    #cmx = polyroots.solve([c1, c2], rand_poly = False)
+    #cmx = polyroots.solve([c1, c2], MSmatrix = 1)
     #print("Roots:\n",cmx)
 
     #flip left/right because x and y are switched. Same for M_y and M_1/y matrices below
     print("~ ~ ~ Power Form, M_y Matrix ~ ~ ~")
-    #pmy = polyroots.solve([p1_switch_xy, p2_switch_xy], rand_poly = False)[:,::-1]
+    #pmy = polyroots.solve([p1_switch_xy, p2_switch_xy], MSmatrix = 1)[:,::-1]
     #print("Roots:\n",pmy)
 
     print("~ ~ ~ Cheb Form, M_y Matrix ~ ~ ~")
-    #cmy = polyroots.solve([c1_switch_xy, c2_switch_xy], rand_poly = False)[:,::-1]
+    #cmy = polyroots.solve([c1_switch_xy, c2_switch_xy], MSmatrix = 1)[:,::-1]
     #print("Roots:\n",cmy)
 
     print("~ ~ ~ Power Form, Division Matrix 1/y ~ ~ ~")
-    pdy = polyroots.solve([p1_switch_xy, p2_switch_xy], method = "div")[:,::-1]
+    pdy = polyroots.solve([p1_switch_xy, p2_switch_xy], MSmatrix = -1)[:,::-1]
     print("Roots:\n",pdy)
 
     print("~ ~ ~ Cheb Form, Division Matrix 1/y ~ ~ ~")
-    cdy = polyroots.solve([c1_switch_xy, c2_switch_xy], method = "div")[:,::-1]
+    cdy = polyroots.solve([c1_switch_xy, c2_switch_xy], MSmatrix = -1)[:,::-1]
     print("Roots:\n",cdy)
 
     print("~ ~ ~ Power Form, Division Matrix 1/x ~ ~ ~")
-    pdx = polyroots.solve([p1, p2], method = "div")
+    pdx = polyroots.solve([p1, p2], MSmatrix = -1)
     print("Roots:\n",pdx)
 
     print("~ ~ ~ Cheb Form, Division Matrix 1/x ~ ~ ~")
-    cdx = polyroots.solve([c1, c2], method = "div")
+    cdx = polyroots.solve([c1, c2], MSmatrix = -1)
     print("Roots:\n",cdx)
 
     print("\n\nCompare Roots:\n")
@@ -282,36 +282,36 @@ if hyperbolas_moved:
     #print("Roots:\n",cmf)
 
     #print("~ ~ ~ Power Form, M_x Matrix ~ ~ ~")
-    #pmx = polyroots.solve([p1, p2], rand_poly = False)
+    #pmx = polyroots.solve([p1, p2], MSmatrix = 1)
     #print("Roots:\n",pmx)
 
     #print("~ ~ ~ Cheb Form, M_x Matrix ~ ~ ~")
-    #cmx = polyroots.solve([c1, c2], rand_poly = False)
+    #cmx = polyroots.solve([c1, c2], MSmatrix = 1)
     #print("Roots:\n",cmx)
 
     #flip left/right because x and y are switched. Same for M_y and M_1/y matrices below
     #print("~ ~ ~ Power Form, M_y Matrix ~ ~ ~")
-    #pmy = polyroots.solve([p1_switch_xy, p2_switch_xy], rand_poly = False)[:,::-1]
+    #pmy = polyroots.solve([p1_switch_xy, p2_switch_xy], MSmatrix = 1)[:,::-1]
     #print("Roots:\n",pmy)
 
     #print("~ ~ ~ Cheb Form, M_y Matrix ~ ~ ~")
-    #cmy = polyroots.solve([c1_switch_xy, c2_switch_xy], rand_poly = False)[:,::-1]
+    #cmy = polyroots.solve([c1_switch_xy, c2_switch_xy], MSmatrix = 1)[:,::-1]
     #print("Roots:\n",cmy)
 
     print("~ ~ ~ Power Form, Division Matrix 1/y ~ ~ ~")
-    pdy = polyroots.solve([p1_switch_xy, p2_switch_xy], method = "div")[:,::-1]
+    pdy = polyroots.solve([p1_switch_xy, p2_switch_xy], MSmatrix = -1)[:,::-1]
     print("Roots:\n",pdy)
 
     print("~ ~ ~ Cheb Form, Division Matrix 1/y ~ ~ ~")
-    cdy = polyroots.solve([c1_switch_xy, c2_switch_xy], method = "div")[:,::-1]
+    cdy = polyroots.solve([c1_switch_xy, c2_switch_xy], MSmatrix = -1)[:,::-1]
     print("Roots:\n",cdy)
 
     print("~ ~ ~ Power Form, Division Matrix 1/x ~ ~ ~")
-    pdx = polyroots.solve([p1, p2], method = "div")
+    pdx = polyroots.solve([p1, p2], MSmatrix = -1)
     print("Roots:\n",pdx)
 
     print("~ ~ ~ Cheb Form, Division Matrix 1/x ~ ~ ~")
-    cdx = polyroots.solve([c1, c2], method = "div")
+    cdx = polyroots.solve([c1, c2], MSmatrix = -1)
     print("Roots:\n",cdx)
 
     print("\n\nCompare Roots:\n")
@@ -399,36 +399,36 @@ if hyperbolas_transformed_moved:
     print("Roots:\n",cmf)
 
     print("~ ~ ~ Power Form, M_x Matrix ~ ~ ~")
-    pmx = polyroots.solve([p1, p2], rand_poly = False)
+    pmx = polyroots.solve([p1, p2], MSmatrix = 1)
     print("Roots:\n",pmx)
 
     print("~ ~ ~ Cheb Form, M_x Matrix ~ ~ ~")
-    cmx = polyroots.solve([c1, c2], rand_poly = False)
+    cmx = polyroots.solve([c1, c2], MSmatrix = 1)
     print("Roots:\n",cmx)
 
     #flip left/right because x and y are switched. Same for M_y and M_1/y matrices below
     print("~ ~ ~ Power Form, M_y Matrix ~ ~ ~")
-    pmy = polyroots.solve([p1_switch_xy, p2_switch_xy], rand_poly = False)[:,::-1]
+    pmy = polyroots.solve([p1_switch_xy, p2_switch_xy], MSmatrix = 1)[:,::-1]
     print("Roots:\n",pmy)
 
     print("~ ~ ~ Cheb Form, M_y Matrix ~ ~ ~")
-    cmy = polyroots.solve([c1_switch_xy, c2_switch_xy], rand_poly = False)[:,::-1]
+    cmy = polyroots.solve([c1_switch_xy, c2_switch_xy], MSmatrix = 1)[:,::-1]
     print("Roots:\n",cmy)
 
     print("~ ~ ~ Power Form, Division Matrix 1/y ~ ~ ~")
-    pdy = polyroots.solve([p1_switch_xy, p2_switch_xy], method = "div")[:,::-1]
+    pdy = polyroots.solve([p1_switch_xy, p2_switch_xy], MSmatrix = -1)[:,::-1]
     print("Roots:\n",pdy)
 
     print("~ ~ ~ Cheb Form, Division Matrix 1/y ~ ~ ~")
-    cdy = polyroots.solve([c1_switch_xy, c2_switch_xy], method = "div")[:,::-1]
+    cdy = polyroots.solve([c1_switch_xy, c2_switch_xy], MSmatrix = -1)[:,::-1]
     print("Roots:\n",cdy)
 
     print("~ ~ ~ Power Form, Division Matrix 1/x ~ ~ ~")
-    pdx = polyroots.solve([p1, p2], method = "div")
+    pdx = polyroots.solve([p1, p2], MSmatrix = -1)
     print("Roots:\n",pdx)
 
     print("~ ~ ~ Cheb Form, Division Matrix 1/x ~ ~ ~")
-    cdx = polyroots.solve([c1, c2], method = "div")
+    cdx = polyroots.solve([c1, c2], MSmatrix = -1)
     print("Roots:\n",cdx)
 
     print("\n\nCompare Roots:\n")
@@ -503,36 +503,36 @@ if circle_ellipse_origin:
     print("Roots:\n",cmf)
 
     print("~ ~ ~ Power Form, M_x Matrix ~ ~ ~")
-    pmx = polyroots.solve([p1, p2], rand_poly = False)
+    pmx = polyroots.solve([p1, p2], MSmatrix = 1)
     print("Roots:\n",pmx)
 
     print("~ ~ ~ Cheb Form, M_x Matrix ~ ~ ~")
-    cmx = polyroots.solve([c1, c2], rand_poly = False)
+    cmx = polyroots.solve([c1, c2], MSmatrix = 1)
     print("Roots:\n",cmx)
 
     #flip left/right because x and y are switched. Same for M_y and M_1/y matrices below
     print("~ ~ ~ Power Form, M_y Matrix ~ ~ ~")
-    pmy = polyroots.solve([p1_switch_xy, p2_switch_xy], rand_poly = False)[:,::-1]
+    pmy = polyroots.solve([p1_switch_xy, p2_switch_xy], MSmatrix = 1)[:,::-1]
     print("Roots:\n",pmy)
 
     print("~ ~ ~ Cheb Form, M_y Matrix ~ ~ ~")
-    cmy = polyroots.solve([c1_switch_xy, c2_switch_xy], rand_poly = False)[:,::-1]
+    cmy = polyroots.solve([c1_switch_xy, c2_switch_xy], MSmatrix = 1)[:,::-1]
     print("Roots:\n",cmy)
 
     print("~ ~ ~ Power Form, Division Matrix 1/y ~ ~ ~")
-    #pdy = polyroots.solve([p1_switch_xy, p2_switch_xy], method = "div")[:,::-1]
+    #pdy = polyroots.solve([p1_switch_xy, p2_switch_xy], MSmatrix = -1)[:,::-1]
     #print("Roots:\n",pdy)
 
     print("~ ~ ~ Cheb Form, Division Matrix 1/y ~ ~ ~")
-    #cdy = polyroots.solve([c1_switch_xy, c2_switch_xy], method = "div")[:,::-1]
+    #cdy = polyroots.solve([c1_switch_xy, c2_switch_xy], MSmatrix = -1)[:,::-1]
     #print("Roots:\n",cdy)
 
     print("~ ~ ~ Power Form, Division Matrix 1/x ~ ~ ~")
-    #pdx = polyroots.solve([p1, p2], method = "div")
+    #pdx = polyroots.solve([p1, p2], MSmatrix = -1)
     #print("Roots:\n",pdx)
 
     print("~ ~ ~ Cheb Form, Division Matrix 1/x ~ ~ ~")
-    #cdx = polyroots.solve([c1, c2], method = "div")
+    #cdx = polyroots.solve([c1, c2], MSmatrix = -1)
     #print("Roots:\n",cdx)
 
     print("\n\nCompare Roots:\n")
@@ -608,36 +608,36 @@ if circle_ellipse_moved:
     print("Roots:\n",cmf)
 
     print("~ ~ ~ Power Form, M_x Matrix ~ ~ ~")
-    pmx = polyroots.solve([p1, p2], rand_poly = False)
+    pmx = polyroots.solve([p1, p2], MSmatrix = 1)
     print("Roots:\n",pmx)
 
     print("~ ~ ~ Cheb Form, M_x Matrix ~ ~ ~")
-    cmx = polyroots.solve([c1, c2], rand_poly = False)
+    cmx = polyroots.solve([c1, c2], MSmatrix = 1)
     print("Roots:\n",cmx)
 
     #flip left/right because x and y are switched. Same for M_y and M_1/y matrices below
     print("~ ~ ~ Power Form, M_y Matrix ~ ~ ~")
-    pmy = polyroots.solve([p1_switch_xy, p2_switch_xy], rand_poly = False)[:,::-1]
+    pmy = polyroots.solve([p1_switch_xy, p2_switch_xy], MSmatrix = 1)[:,::-1]
     print("Roots:\n",pmy)
 
     print("~ ~ ~ Cheb Form, M_y Matrix ~ ~ ~")
-    cmy = polyroots.solve([c1_switch_xy, c2_switch_xy], rand_poly = False)[:,::-1]
+    cmy = polyroots.solve([c1_switch_xy, c2_switch_xy], MSmatrix = 1)[:,::-1]
     print("Roots:\n",cmy)
 
     print("~ ~ ~ Power Form, Division Matrix 1/y ~ ~ ~")
-    pdy = polyroots.solve([p1_switch_xy, p2_switch_xy], method = "div")[:,::-1]
+    pdy = polyroots.solve([p1_switch_xy, p2_switch_xy], MSmatrix = -1)[:,::-1]
     print("Roots:\n",pdy)
 
     print("~ ~ ~ Cheb Form, Division Matrix 1/y ~ ~ ~")
-    cdy = polyroots.solve([c1_switch_xy, c2_switch_xy], method = "div")[:,::-1]
+    cdy = polyroots.solve([c1_switch_xy, c2_switch_xy], MSmatrix = -1)[:,::-1]
     print("Roots:\n",cdy)
 
     print("~ ~ ~ Power Form, Division Matrix 1/x ~ ~ ~")
-    pdx = polyroots.solve([p1, p2], method = "div")
+    pdx = polyroots.solve([p1, p2], MSmatrix = -1)
     print("Roots:\n",pdx)
 
     print("~ ~ ~ Cheb Form, Division Matrix 1/x ~ ~ ~")
-    cdx = polyroots.solve([c1, c2], method = "div")
+    cdx = polyroots.solve([c1, c2], MSmatrix = -1)
     print("Roots:\n",cdx)
 
     print("\n\nCompare Roots:\n")
@@ -715,36 +715,36 @@ if circle_ellipse_transformed:
     print("Roots:\n",cmf)
 
     print("~ ~ ~ Power Form, M_x Matrix ~ ~ ~")
-    pmx = polyroots.solve([p1, p2], rand_poly = False)
+    pmx = polyroots.solve([p1, p2], MSmatrix = 1)
     print("Roots:\n",pmx)
 
     print("~ ~ ~ Cheb Form, M_x Matrix ~ ~ ~")
-    cmx = polyroots.solve([c1, c2], rand_poly = False)
+    cmx = polyroots.solve([c1, c2], MSmatrix = 1)
     print("Roots:\n",cmx)
 
     #flip left/right because x and y are switched. Same for M_y and M_1/y matrices below
     print("~ ~ ~ Power Form, M_y Matrix ~ ~ ~")
-    pmy = polyroots.solve([p1_switch_xy, p2_switch_xy], rand_poly = False)[:,::-1]
+    pmy = polyroots.solve([p1_switch_xy, p2_switch_xy], MSmatrix = 1)[:,::-1]
     print("Roots:\n",pmy)
 
     print("~ ~ ~ Cheb Form, M_y Matrix ~ ~ ~")
-    cmy = polyroots.solve([c1_switch_xy, c2_switch_xy], rand_poly = False)[:,::-1]
+    cmy = polyroots.solve([c1_switch_xy, c2_switch_xy], MSmatrix = 1)[:,::-1]
     print("Roots:\n",cmy)
 
     print("~ ~ ~ Power Form, Division Matrix 1/y ~ ~ ~")
-    pdy = polyroots.solve([p1_switch_xy, p2_switch_xy], method = "div")[:,::-1]
+    pdy = polyroots.solve([p1_switch_xy, p2_switch_xy], MSmatrix = -1)[:,::-1]
     print("Roots:\n",pdy)
 
     print("~ ~ ~ Cheb Form, Division Matrix 1/y ~ ~ ~")
-    cdy = polyroots.solve([c1_switch_xy, c2_switch_xy], method = "div")[:,::-1]
+    cdy = polyroots.solve([c1_switch_xy, c2_switch_xy], MSmatrix = -1)[:,::-1]
     print("Roots:\n",cdy)
 
     print("~ ~ ~ Power Form, Division Matrix 1/x ~ ~ ~")
-    pdx = polyroots.solve([p1, p2], method = "div")
+    pdx = polyroots.solve([p1, p2], MSmatrix = -1)
     print("Roots:\n",pdx)
 
     print("~ ~ ~ Cheb Form, Division Matrix 1/x ~ ~ ~")
-    cdx = polyroots.solve([c1, c2], method = "div")
+    cdx = polyroots.solve([c1, c2], MSmatrix = -1)
     print("Roots:\n",cdx)
 
     print("\n\nCompare Roots:\n")
@@ -821,36 +821,36 @@ if circle_ellipse_transformed_moved:
     print("Roots:\n",cmf)
 
     print("~ ~ ~ Power Form, M_x Matrix ~ ~ ~")
-    pmx = polyroots.solve([p1, p2], rand_poly = False)
+    pmx = polyroots.solve([p1, p2], MSmatrix = 1)
     print("Roots:\n",pmx)
 
     print("~ ~ ~ Cheb Form, M_x Matrix ~ ~ ~")
-    cmx = polyroots.solve([c1, c2], rand_poly = False)
+    cmx = polyroots.solve([c1, c2], MSmatrix = 1)
     print("Roots:\n",cmx)
 
     #flip left/right because x and y are switched. Same for M_y and M_1/y matrices below
     print("~ ~ ~ Power Form, M_y Matrix ~ ~ ~")
-    pmy = polyroots.solve([p1_switch_xy, p2_switch_xy], rand_poly = False)[:,::-1]
+    pmy = polyroots.solve([p1_switch_xy, p2_switch_xy], MSmatrix = 1)[:,::-1]
     print("Roots:\n",pmy)
 
     print("~ ~ ~ Cheb Form, M_y Matrix ~ ~ ~")
-    cmy = polyroots.solve([c1_switch_xy, c2_switch_xy], rand_poly = False)[:,::-1]
+    cmy = polyroots.solve([c1_switch_xy, c2_switch_xy], MSmatrix = 1)[:,::-1]
     print("Roots:\n",cmy)
 
     print("~ ~ ~ Power Form, Division Matrix 1/y ~ ~ ~")
-    pdy = polyroots.solve([p1_switch_xy, p2_switch_xy], method = "div")[:,::-1]
+    pdy = polyroots.solve([p1_switch_xy, p2_switch_xy], MSmatrix = -1)[:,::-1]
     print("Roots:\n",pdy)
 
     print("~ ~ ~ Cheb Form, Division Matrix 1/y ~ ~ ~")
-    cdy = polyroots.solve([c1_switch_xy, c2_switch_xy], method = "div")[:,::-1]
+    cdy = polyroots.solve([c1_switch_xy, c2_switch_xy], MSmatrix = -1)[:,::-1]
     print("Roots:\n",cdy)
 
     print("~ ~ ~ Power Form, Division Matrix 1/x ~ ~ ~")
-    pdx = polyroots.solve([p1, p2], method = "div")
+    pdx = polyroots.solve([p1, p2], MSmatrix = -1)
     print("Roots:\n",pdx)
 
     print("~ ~ ~ Cheb Form, Division Matrix 1/x ~ ~ ~")
-    cdx = polyroots.solve([c1, c2], method = "div")
+    cdx = polyroots.solve([c1, c2], MSmatrix = -1)
     print("Roots:\n",cdx)
 
     print("\n\nCompare Roots:\n")
