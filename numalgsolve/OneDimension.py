@@ -3,7 +3,7 @@ from scipy.linalg import eig, eigvals
 from numpy import linalg as la
 from numalgsolve.polynomial import MultiCheb, MultiPower
 
-def solve(poly, method = 'mult', eigvals=True, verbose=False):
+def solve(poly, MSmatrix=0, eigvals=True, verbose=False):
     """Finds the zeros of a 1-D polynomial.
 
     Parameters
@@ -11,33 +11,35 @@ def solve(poly, method = 'mult', eigvals=True, verbose=False):
     poly : Polynomial
         The polynomial to find the roots of.
 
-    method : str
-        'mult' will use the multiplicaiton matrix technique.
-        'div' will use the division matrix technique.
-        Defaults to 'mult'
+    MSmatrix : int
+        Controls which Moller-Stetter matrix is constructed
+        For a univariate polynomial, the options are:
+            0 (default) -- The companion or colleague matrix, rotated 180 degrees
+            1 -- The unrotated companion or colleague matrix
+            -1 -- The inverse of the companion or colleague matrix
 
     Returns
     -------
     one_dimensional_solve : numpy array
         An array of the zeros.
     """
-    if method not in ['mult','multR','div']:
-        raise ValueError('method must be mult, multR or div!')
+    if MSmatrix not in [-1, 0, 1]:
+        raise ValueError('MSmatrix must be -1 (inverse companion), 0 (rotated companion), or 1 (standard companion)')
 
     if type(poly) == MultiPower:
         size = len(poly.coeff)
         coeff = np.trim_zeros(poly.coeff)
         zeros = np.zeros(size - len(coeff), dtype = 'complex')
-        if method == 'mult':
+        if MSmatrix == 1:
             return np.hstack((zeros,multPower(coeff, eigvals, verbose=verbose)))
-        elif method == 'multR':
+        elif MSmatrix == 0:
             return np.hstack((zeros,multPowerR(coeff, eigvals, verbose=verbose)))
         else:
             return np.hstack((zeros,divPower(coeff, eigvals, verbose=verbose)))
     else:
-        if method == 'mult':
+        if MSmatrix == 1:
             return multCheb(poly.coeff, eigvals, verbose=verbose)
-        elif method == 'multR':
+        elif MSmatrix == 0:
             return multChebR(poly.coeff, eigvals, verbose=verbose)
         else:
             return divCheb(poly.coeff, eigvals, verbose=verbose)
