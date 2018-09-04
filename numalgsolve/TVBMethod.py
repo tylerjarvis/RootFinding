@@ -8,7 +8,6 @@ from numalgsolve.polynomial import MultiCheb, MultiPower, is_power
 from numalgsolve.MacaulayReduce import find_degree, add_polys
 from scipy.linalg import qr, solve_triangular, qr_multiply
 from numalgsolve.Multiplication import create_matrix, makeBasisDict
-from tensorly.decomposition.candecomp_parafac import parafac, initialize_factors
 
 def solve(polys, verbose=False):
     '''
