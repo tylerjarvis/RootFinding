@@ -121,7 +121,7 @@ def Mxi_Matrix(i, basisDict, VB, dim, poly_type, verbose=False):
 
     return Mxi
 
-def TVB_MacaulayReduction(polys, accuracy = 1.e-10, verbose=False):
+def TVB_MacaulayReduction(initial_poly_list, accuracy = 1.e-10, verbose=False):
     '''
     Reduces the Macaulay matrix to find a vector basis for the system of polynomials.
 
@@ -143,13 +143,13 @@ def TVB_MacaulayReduction(polys, accuracy = 1.e-10, verbose=False):
     power = is_power(initial_poly_list)
     dim = initial_poly_list[0].dim
     poly_coeff_list = []
-
-    #Construct the Starting Macaulay Matrix
     degree = find_degree(initial_poly_list)
     initial_poly_list = sort_polys_by_degree(initial_poly_list, ascending = False)
+
     for poly in initial_poly_list:
         poly_coeff_list = add_polys(degree, poly, poly_coeff_list)
-    polys = sort_polys_by_degree(polys, ascending = False)
+
+    #Creates the matrix for either of the above two methods. Comment out if using the third method.
     matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, degree, dim)
     if verbose:
         np.set_printoptions(suppress=False, linewidth=200)
@@ -202,7 +202,7 @@ def TVB_MacaulayReduction(polys, accuracy = 1.e-10, verbose=False):
     #eliminate zero rows from the bottom of the matrix. Zero rows above
     #nonzero elements are not eliminated. This saves time since Macaulay matrices
     #we deal with are only zero at the very bottom
-    matrix = row_swap_matrix(matrix)
+    #matrix = row_swap_matrix(matrix) #not for TVB's method needed bc QRP is on the whole matrix
     for row in matrix[::-1]:
         if np.allclose(row, 0):
             matrix = matrix[:-1]
@@ -248,23 +248,25 @@ def sim_diag(Matrices, verbose=False):
         print("The linear combo of multiplication matrices:\n", lin_combo)
         print("The basis which simultanously diagonalizes the matrices:\n", P)
 
-    # for k in range(Matrices.shape[0]):
-    #     A = Matrices[k] @ P
-    #     i = np.argmax(P, axis = 0) #get largest value in each column of P
-    #     for j in range(Matrices.shape[1]):
-    #         sim_diag[k,i] = A[i[j]][j]/P[i[j]][j]
+    for k in range(Matrices.shape[0]):
+        A = Matrices[k] @ P
+        i = np.argmax(P, axis = 0) #get largest value in each column of P
+        for j in range(Matrices.shape[1]):
+            sim_diag[k,j] = A[i[j]][j]/P[i[j]][j]
 
+    #sligihtly less efficient
     # for k in range(Matrices.shape[0]):
     #     A = Matrices[k] @ P
     #     for j in range(Matrices.shape[1]):
     #         i = np.argmax(P[:,j]) #get largest value in each column of P
-    #         sim_diag[k,i] = A[i,j]/P[i,j]
+    #         print(A[i,j]/P[i,j])
+    #         sim_diag[k,j] = A[i,j]/P[i,j]
 
     #brute force method
-    Pinv = np.linalg.inv(P)
-    for k in range(Matrices.shape[0]):
-        if verbose:
-            print("M_{} diagonalized:\n".format(k), Pinv @ Matrices[k] @ P)
-        sim_diag[k] = (Pinv @ Matrices[k] @ P).diagonal()
+    # Pinv = np.linalg.inv(P)
+    # for k in range(Matrices.shape[0]):
+    #     if verbose:
+    #         print("M_{} diagonalized:\n".format(k), Pinv @ Matrices[k] @ P)
+    #     sim_diag[k] = (Pinv @ Matrices[k] @ P).diagonal()
 
     return sim_diag

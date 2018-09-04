@@ -84,7 +84,7 @@ def test_TVB_power_roots():
     A = getPoly(10,2,True)
     B = getPoly(10,2,True)
     correctZeros([A,B])
-
+    print('Case2')
     #Case 2 - Three MultiPower 3D degree 4 polynomials.
     A = getPoly(4,3,True)
     B = getPoly(4,3,True)
