@@ -356,6 +356,7 @@ def row_swap_matrix(matrix):
            [0, 1, 3, 0]])
     '''
     leading_mon_columns = list()
+    print(matrix)
     for row in matrix:
         leading_mon_columns.append(np.where(row!=0)[0][0])
     #print(np.argsort(leading_mon_columns))
