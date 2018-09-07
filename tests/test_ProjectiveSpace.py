@@ -1,6 +1,8 @@
 from numalgsolve.ProjectiveSpace import *
 from numalgsolve.polynomial import MultiCheb, MultiPower
+import unittest
 
+@unittest.skip("Projective Space is still a work in progress")
 def test_common_root_at_inf():
 
     f = MultiPower(np.array([[0,1]])) #f(x,y) = y
@@ -47,6 +49,7 @@ def test_common_root_at_inf():
     g = MultiPower(np.array([[0., 0., 0., 0., 1.25]]))
     assert common_root_at_inf([f,g]) == True
 
+@unittest.skip("Projective Space is still a work in progress")
 def test_roots_at_inf():
     g = MultiPower(np.array([[0,0,1],[-1,0,0]]).T) #f(x,y) = x^2 - y
     assert roots_at_inf(g) == [(0,1)]
