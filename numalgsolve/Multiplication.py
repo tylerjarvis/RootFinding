@@ -199,7 +199,7 @@ def MacaulayReduction(initial_poly_list, max_number_of_roots, accuracy = 1.e-10,
     if verbose:
         np.set_printoptions(suppress=False, linewidth=200)
         print('\nStarting Macaulay Matrix\n', matrix)
-        print('\nColumns in Macaulay Matrix\nFirst element in tuple is degree of x monomial, Second element is degree of y monomial\n', matrix_terms)
+        print('\nColumns in Macaulay Matrix\nFirst element in tuple is degree of x, Second element is degree of y\n', matrix_terms)
         print('\nLocation of Cuts in the Macaulay Matrix into [ Mb | M1* | M2* ]\n', cuts)
 
     """This is the thrid matrix construction option, it uses the permutation arrays."""

@@ -210,6 +210,8 @@ def rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, number_of_roots, accuracy =
     always_useful_rows = matrix.shape[1] - number_of_roots
     #matrix = matrix[:useful_rows,:]
 
+    #set small values in the matrix to zero now, after the QR reduction
+    matrix[np.isclose(matrix, 0, rtol=accuracy)] = 0
     #eliminate zero rows from the bottom of the matrix. Zero rows above
     #nonzero elements are not eliminated. This saves time since Macaulay matrices
     #we deal with are only zero at the very bottom
