@@ -66,7 +66,9 @@ def getPoly(deg,dim,power):
     power is a boolean indicating whether or not the polynomial should be MultiPower.
     '''
     deg += 1
-    ACoeff = np.random.random_sample(deg*np.ones(dim, dtype = int))
+    # ACoeff = np.random.random_sample(deg*np.ones(dim, dtype = int))
+    dimensions = (deg,)*dim
+    ACoeff = np.random.randn(*dimensions)
     for i,j in np.ndenumerate(ACoeff):
         if np.sum(i) >= deg:
             ACoeff[i] = 0
@@ -175,7 +177,7 @@ class Polynomial(object):
                     else:
                         s = slice(0,degree)
                     slices.append(s)
-                if np.sum(abs(self.coeff[slices])) == 0:
+                if np.sum(abs(self.coeff[tuple(slices)])) == 0:
                     self.coeff = np.delete(self.coeff,-1,axis=cur_axis)
                     change = True
 

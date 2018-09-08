@@ -576,7 +576,7 @@ def slice_top(matrix):
     slices = list()
     for i in matrix.shape:
         slices.append(slice(0,i))
-    return slices
+    return tuple(slices)
 
 def slice_bottom(matrix):
     ''' Gets the n-d slices needed to slice a matrix into the bottom corner of another.
@@ -593,7 +593,7 @@ def slice_bottom(matrix):
     slices = list()
     for i in matrix.shape:
         slices.append(slice(-i,None))
-    return slices
+    return tuple(slices)
 
 def match_poly_dimensions(polys):
     '''Matches the dimensions of a list of polynomials.
