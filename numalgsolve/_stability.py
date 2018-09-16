@@ -180,15 +180,13 @@ def run_n_dimension(args, radius, eigvals):
         # powerpolys[1] = MultiPower(powerpolys[1].coeff)
 
     # if power:
-    res['mult power'] = multiplication(powerpolys, rand_poly=False, rotate=False)
-    res['multR power'] = multiplication(powerpolys, rand_poly=False, rotate=True)
-    res['multrand power'] = multiplication(powerpolys, rand_poly=True, rotate=False)
-    res['div power']  = division(powerpolys, get_divvar_coord_from_eigval=eigvals)
+    res['mult power'] = multiplication(powerpolys, MSmatrix=1)
+    res['multrand power'] = multiplication(powerpolys, MSmatrix=0)
+    res['div power']  = division(powerpolys, MSmatrix=-1, get_divvar_coord_from_eigval=eigvals)
     # else:
-    res['mult cheb'] = multiplication(chebpolys, rand_poly=False, rotate=False)
-    res['multR cheb'] = multiplication(chebpolys, rand_poly=False, rotate=True)
-    res['multrand cheb'] = multiplication(chebpolys, rand_poly=True, rotate=False)
-    res['div cheb']   = division(chebpolys, get_divvar_coord_from_eigval=eigvals)
+    res['mult cheb'] = multiplication(chebpolys, MSmatrix=1)
+    res['multrand cheb'] = multiplication(chebpolys, MSmatrix=0)
+    res['div cheb']  = division(chebpolys, MSmatrix=-1, get_divvar_coord_from_eigval=eigvals)
 
     if args.hist:
         evaluations = {}
