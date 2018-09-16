@@ -2,7 +2,7 @@ from numalgsolve.ProjectiveSpace import *
 from numalgsolve.polynomial import MultiCheb, MultiPower
 import unittest
 
-@unittest.skip("Projective Space is still a work in progress")
+#@unittest.skip("Projective Space is still a work in progress")
 def test_common_root_at_inf():
 
     f = MultiPower(np.array([[0,1]])) #f(x,y) = y
@@ -38,18 +38,15 @@ def test_common_root_at_inf():
                              [-0.125 , 0.5 ,   0.   ,  0.   ,  0.   ,  0.   ,  0.   ]]))
     g = MultiPower(np.array([[ 0.,    0.25 , 9.  ],
                              [ 0.,    0.,    0.  ],
-                             [-0.75, -1.,    0.  ]]))
-    #assert common_root_at_inf([f,g]) == ??
+                             [-0.75, -1.,    0.  ],
+                             [0,      0,     0   ]]))
+    assert common_root_at_inf([f,g]) == False
 
     f = MultiPower(np.array([[0., 0., 0., 1.]]))
     g = MultiPower(np.array([[0., 0., 0., 0., 1.25]]))
     assert common_root_at_inf([f,g]) == True
 
-    f = MultiPower(np.array([[0., 0., 0., 1.]]))
-    g = MultiPower(np.array([[0., 0., 0., 0., 1.25]]))
-    assert common_root_at_inf([f,g]) == True
-
-@unittest.skip("Projective Space is still a work in progress")
+#@unittest.skip("Projective Space is still a work in progress")
 def test_roots_at_inf():
     g = MultiPower(np.array([[0,0,1],[-1,0,0]]).T) #f(x,y) = x^2 - y
     assert roots_at_inf(g) == [(0,1)]
@@ -59,6 +56,8 @@ def test_roots_at_inf():
     assert roots_at_inf(f) == [(1,0)]
     assert roots_at_inf(g) == [(1,0)]
 
+    f = MultiPower(np.array([[5,6,2],[9,3,0],[1,0,0]]))
+    assert roots_at_inf(f) == [(-2, 1), (-1, 1)]
 
 def test_pad_with_zeros():
     assert (pad_with_zeros(np.array([[0, 3],

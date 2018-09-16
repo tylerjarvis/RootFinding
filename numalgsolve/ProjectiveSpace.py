@@ -8,7 +8,7 @@ from numalgsolve.OneDimension import solve
 
 def common_root_at_inf(polys):
     '''
-    Tests if a system of bivariate power-basis polynomials has a common root at infinity.
+    Tests if a system of upper-triagular bivariate power-basis polynomials has a common root at infinity.
 
     Parameters
     ----------
@@ -19,23 +19,27 @@ def common_root_at_inf(polys):
     bool : whether or not there is at least one root at infinity
     '''
     f, g = polys
+    f_is_first = True
 
-    #get the roots at infinty of f
-    inf_roots_f_d = roots_at_inf(f)
+    #get the roots at infinty of the first poly
+    try:
+        inf_roots = roots_at_inf(f)
+    except:
+        inf_roots = roots_at_inf(g)
+        f_is_first = False
 
-    #check if these are roots at infinity for g too
-    common_roots = list()
-    g_d = MultiPower(np.diag(np.diag(np.fliplr(pad_with_zeros(g.coeff)))[::-1]))
-    for inf_root in inf_roots_f_d:
-        if np.isclose(g_d(inf_root), 0):
-            common_roots.append(inf_root)
-
-    if len(common_roots) > 0:
-        return True
+    #check if these are roots at infinity for the second poly too
+    if f_is_first:
+        second_poly = MultiPower(np.diag(np.diag(np.fliplr(pad_with_zeros(g.coeff)))[::-1]))
     else:
-        return False
+        second_poly = MultiPower(np.diag(np.diag(np.fliplr(pad_with_zeros(f.coeff)))[::-1]))
+    print(inf_roots)
+    for inf_root in inf_roots:
+        if np.isclose(second_poly(inf_root), 0):
+            return True
+    return False
 
-def roots_at_inf(poly):
+def roots_at_inf(f):
     '''
     Finds the roots at infinity of a homogenous, bivarite power-basis polynomial.
 
@@ -47,15 +51,26 @@ def roots_at_inf(poly):
     -------
     the roots at infinity of the polynomial (list of tuples). In the form (x,y). Since at infinity, z = 0
     '''
-    #get the coefficients of the homogenous part of f: [x^d ... y^d]
-    f_d = np.diag(np.fliplr(pad_with_zeros(poly.coeff)))[::-1]
+    #get the coefficients of the homogenous part of f: [y^d ... x^d]
+    f_d_coefs = np.diag(np.fliplr(pad_with_zeros(f.coeff)))
+    print(f_d_coefs)
+
     #find all x s.t. f_d(x,1) == 0
-    #essentially, solve a 1D polynomial with coefficients from f_d
-    x_coords = solve(MultiPower(f_d[::-1])) #1D solver takes list of coefficients from constant to high degree term
+    #essentially, set y = 1 and solve a 1D polynomial with coefficients from f_d
+    #if there is only 1 nonzero coefficient in this 1D polynomial have to handle separately
+    if sum(f_d_coefs != 0) == 1:
+        if np.where(f_d_coefs != 0) == np.array([0]): #if the nonzero coef in the 1D poly is the constant, only root at inf is (1,0)
+            return [(1,0)]
+        else: #f_d(x,y) = x^a y^b, so 0 = f_d(x,1) == x^a implies x = 0
+            x_coords = np.array([0])
+    else:
+        x_coords = solve(MultiPower(f_d_coefs))
+
     inf_roots_f_d = list(zip(x_coords, np.ones(len(x_coords))))
 
-    #check if f_d(x,1) == 0
-    if np.isclose(f_d[0],0):
+    #check if f_d(1,0) == 0
+    #f_d(1,0) = the coef of x^d
+    if np.isclose(f_d_coefs[-1],0):
         inf_roots_f_d.append((1,0))
 
     return inf_roots_f_d
