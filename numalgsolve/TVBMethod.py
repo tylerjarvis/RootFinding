@@ -3,7 +3,7 @@ Telen and Van Barel's simultaneous diagonalization method"""
 
 import numpy as np
 from scipy.linalg import eig
-from numalgsolve.utils import match_poly_dimensions, sort_polys_by_degree, row_swap_matrix
+from numalgsolve.utils import match_poly_dimensions, sort_polys_by_degree, row_swap_matrix, MacaulayError
 from numalgsolve.polynomial import MultiCheb, MultiPower, is_power
 from numalgsolve.MacaulayReduce import find_degree, add_polys
 from scipy.linalg import qr, solve_triangular, qr_multiply
