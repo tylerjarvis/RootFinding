@@ -3,10 +3,13 @@ from numalgsolve.OneDimension import multPowerR, multChebR
 from numalgsolve.polynomial import MultiCheb, MultiPower, getPoly
 from numalgsolve.polyroots import solve as prsolve
 from numalgsolve.subdivision import solve as subsolve
+from numalgsolve.TVBMethod import solve as TVBsolve
 import matplotlib.pyplot as plt
 import argparse
 import cProfile, pstats, io
 import time
+import os
+import pickle
 import warnings
 
 def _multPowerR(poly):
@@ -16,10 +19,10 @@ def _multChebR(poly):
     multChebR(poly[0].coeff)
 
 def _div(poly):
-    prsolve(poly, 'div')
+    prsolve(poly, MSmatrix=-1)
 
 def _mult(poly):
-    prsolve(poly, 'mult')
+    prsolve(poly, MSmatrix=0)
 
 def _nproots(poly):
     np.roots(poly[0].coeff)
@@ -27,8 +30,20 @@ def _nproots(poly):
 def _npcheb(poly):
     np.polynomial.chebyshev.chebroots(poly[0].coeff)
 
+def _TVB(poly):
+    TVBsolve(poly)
+
 def bertini(polys):
     def mononmial_from_exp(exponents, var_chars):
+        """
+        Examples
+        --------
+        >>> expo = (1,2,3)
+        >>> chars = 'xyz'
+        >>> mon = mononmial_from_exp(expo, chars)
+        >>> mon
+        'x^1*y^2*z^3'
+        """
         s = ''
         for i,exp in enumerate(exponents):
             if exp > 0:
@@ -38,7 +53,8 @@ def bertini(polys):
     def coeff_to_str(coeff, var_chars):
         s = ''
         for pos, val in np.ndenumerate(coeff):
-            s += '{}*{}'.format(val, mononmial_from_exp(pos,var_chars)).rstrip('*') + '+'
+            if val != 0:
+                s += '{:.4f}*{}'.format(val, mononmial_from_exp(pos,var_chars)).rstrip('*') + '+'
         return s.rstrip('+')
 
     if len(polys) > 3:
@@ -46,11 +62,11 @@ def bertini(polys):
         var_chars = string.ascii_lowercase[:len(polys)]
     else:
         var_chars = 'xyz'[:len(polys)]
+        # "CONFIG\n"
+        #   "TRACKTYPE: 1;\n"
+        #   "END;\n"
 
-    header = ("CONFIG\n"
-              "TRACKTYPE: 1;\n"
-              "END;\n"
-              "INPUT\n"
+    header = ("INPUT\n"
               "variable_group {};\n".format(', '.join(var_chars))+
               "function {};\n".format(', '.join('f'+str(i) for i in range(len(polys))))
               )
@@ -65,7 +81,9 @@ def bertini(polys):
         f.write(header+body+footer)
 
     from subprocess import call
-    call(['./bertini/bertini.exe'])
+    # call(['./bertini/bertini.exe'])
+    # call(['./bertini/bertini-serial'])
+    call(['./bertini/bertini-run-parallel'])
 
     # print(coeff_to_str(poly.coeff))
 
@@ -88,13 +106,21 @@ def timer(solver, dim, power):
         list of average times for the solver based on degree
     """
     times = []
-    max_degree = {1:250, 2:20, 3:7, 4:4, 5:3}[dim] #keys by dimensions
-    interval = {1:30, 2:3, 3:1, 4:1, 5:1}[dim]
-    min_degree = {1:10, 2:2, 3:2, 4:2, 5:2}[dim]
+    # max_degree = {1:250, 2:20, 3:7, 4:4, 5:3}[dim] #keys by dimensions
+    # interval = {1:30, 2:3, 3:1, 4:1, 5:1}[dim]
+    # min_degree = {1:10, 2:2, 3:2, 4:2, 5:2}[dim]
+    # if solver.__name__ == 'bertini':
+    #     max_degree = {1:60,2:6,3:5,4:4,5:4}[dim]
+    #     interval = {1:10,2:1,3:1,4:1,5:1}[dim]
+    # degrees = list(range(min_degree,max_degree+1,interval))
+    degrees_dct = {2: [7,13,19,25,31,37,43,49],#,55,61],
+                   3: [3,5,7,9,11,13],
+                   4: [2,3,4],
+                   5: [2,3]
+                  }
+    degrees = degrees_dct[dim]
     if solver.__name__ == 'bertini':
-        max_degree = {1:60,2:6,3:5,4:4,5:4}[dim]
-        interval = {1:10,2:1,3:1,4:1,5:1}[dim]
-    degrees = list(range(min_degree,max_degree+1,interval))
+       degrees = [i for i in degrees if i < 19]
     for deg in degrees:
         np.random.seed(121*deg)
         tot_time = 0
@@ -133,6 +159,10 @@ def run_timer(args):
     results['Multiplication power'] = times
     print('Finished trials for multiplication power')
 
+    degrees, times = timer(_TVB, args.dim, power=True)
+    results['TVB power'] = times
+    print('Finished trials for TVB power')
+
     if args.bertini:
         degrees, times = timer(bertini, args.dim, power=True)
         results['bert_degrees'] = degrees
@@ -145,6 +175,10 @@ def run_timer(args):
     degrees, times = timer(_mult, args.dim, power=False)
     results['mult cheb'] = times
     print('Finished trials for multiplication chebyshev')
+
+    degrees, times = timer(_TVB, args.dim, power=False)
+    results['TVB cheb'] = times
+    print('Finished trials for TVB cheb')
 
     if args.dim == 1:
         degrees, times = timer(_multPowerR, args.dim, power=True)
@@ -212,8 +246,7 @@ def create_graph(results, args):
         plt.savefig(args.save+ext,bbox_inches="tight")
 
     if args.display:
-        plt.show()
-
+        plt.show(block=True)
 
 def run_single_problem(args):
     """
@@ -232,7 +265,7 @@ def run_single_problem(args):
 
     prof.enable()
     if args.method in ['mult', 'div']:
-        prsolve(polys, args.method)
+        prsolve(polys, {'mult':0, 'div':-1}[args.method])
     elif args.method == 'bertini':
         bertini(polys)
     prof.disable()
@@ -246,6 +279,24 @@ def run_single_problem(args):
         ps.print_stats()
 
     print(s.getvalue())
+
+def iterate(filename, ext):
+    print(filename, ext, os.path.exists(filename+ext))
+    if not os.path.exists(filename+ext):
+        return filename+ext
+    else:
+        i = 1
+        while os.path.exists(filename+"({})".format(i)+ext):
+            i+=1
+        return filename+"({})".format(i)+ext
+
+def save_results(obj, filename):
+    print(filename)
+    with open(filename, "wb") as f:
+        print("Before write")
+        pickle.dump(obj, f)
+    print("After write")
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Timing Options")
@@ -294,6 +345,7 @@ if __name__ == '__main__':
     # run small computations for graphing
     if args.display or args.save:
         results = run_timer(args)
+        save_results(results, iterate("timing_results",".pkl"))
         create_graph(results, args)
 
     # run one large computation

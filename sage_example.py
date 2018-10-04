@@ -38,4 +38,3 @@ f2 = 1+ y
 f3 = 1+x**2*y+x
 I = ideal(f1,f2,f3)
 buchberger(I)
-

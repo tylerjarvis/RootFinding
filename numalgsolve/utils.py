@@ -8,7 +8,7 @@ import time
 class InstabilityWarning(Warning):
     pass
 
-class TVBError(RuntimeError):
+class MacaulayError(RuntimeError):
     pass
 
 class Term(object):
@@ -341,7 +341,7 @@ def row_swap_matrix(matrix):
     ----------
     matrix : 2D numpy array
         The matrix whose rows need to be switched
-    
+
     Returns
     -------
     2D numpy array
@@ -576,7 +576,7 @@ def slice_top(matrix):
     slices = list()
     for i in matrix.shape:
         slices.append(slice(0,i))
-    return slices
+    return tuple(slices)
 
 def slice_bottom(matrix):
     ''' Gets the n-d slices needed to slice a matrix into the bottom corner of another.
@@ -593,7 +593,7 @@ def slice_bottom(matrix):
     slices = list()
     for i in matrix.shape:
         slices.append(slice(-i,None))
-    return slices
+    return tuple(slices)
 
 def match_poly_dimensions(polys):
     '''Matches the dimensions of a list of polynomials.
@@ -842,7 +842,7 @@ def mon_combos(mon, numLeft, spot = 0):
 
 def num_mons_full(deg, dim):
     '''Returns the number of monomials of a certain dimension and less than or equal to a certian degree.
-    
+
     Parameters
     ----------
     deg : int.
@@ -1293,12 +1293,12 @@ def newton_polish(polys,root,niter=100,tol=1e-5):
     -------
     x1 : ndarray
         The terminal point of Newton's method, an estimation for a root of the system
-    """    
+    """
     m = len(polys)
     dim = max(poly.dim for poly in polys)
     f_x = np.empty(m,dtype="complex_")
     jac = np.empty((m,dim),dtype="complex_")
-    
+
     def f(x):
         #f_x = np.empty(m,dtype="complex_")
         for i, poly in enumerate(polys):

@@ -13,7 +13,7 @@ numba==0.37.0
 sympy==1.1.1
 matplotlib==2.2.2
 
-pytest==3.4.2
+pytest==3.7.2
 pytest-cov==2.5.1
 pytest-runner==2.11.1
 codecov==2.0.15

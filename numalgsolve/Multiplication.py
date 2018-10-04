@@ -2,13 +2,13 @@ import numpy as np
 import itertools
 from scipy.linalg import solve_triangular, eig
 from numalgsolve.polynomial import MultiCheb, MultiPower, is_power
-from numalgsolve.TVBCore import rrqr_reduceTelenVanBarel2, rrqr_reduceTelenVanBarel, find_degree, add_polys
-from numalgsolve.utils import row_swap_matrix, TVBError, slice_top, get_var_list, \
+from numalgsolve.MacaulayReduce import rrqr_reduceMacaulay2, rrqr_reduceMacaulay, find_degree, add_polys
+from numalgsolve.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list, \
                               mon_combos, mon_combosHighest, sort_polys_by_degree, \
                               deg_d_polys, all_permutations_cheb
 import warnings
 
-def multiplication(polys, verbose=False, rand_poly=True, rotate=True):
+def multiplication(polys, verbose=False, MSmatrix=0, rotate=False):
     '''
     Finds the roots of the given list of multidimensional polynomials using a multiplication matrix.
 
@@ -16,6 +16,12 @@ def multiplication(polys, verbose=False, rand_poly=True, rotate=True):
     ----------
     polys : list of polynomial objects
         Polynomials to find the common roots of.
+    MSmatrix : int
+        Controls which Moller-Stetter matrix is constructed. The options are:
+            0 (default) -- The Moller-Stetter matrix of a random polynomial
+            Some positive integer i < dimension -- The Moller-Stetter matrix of x_i
+    verbose : bool
+        Prints information about how the roots are computed.
     returns
     -------
     roots : numpy array
@@ -24,11 +30,14 @@ def multiplication(polys, verbose=False, rand_poly=True, rotate=True):
     poly_type = is_power(polys, return_string = True)
     dim = polys[0].dim
 
+    if MSmatrix not in list(range(dim+1)):
+        raise ValueError('MSmatrix must be 0 (random polynomial), or the index of a variable')
+
     #By Bezout's Theorem. Useful for making sure that the reduced Macaulay Matrix is as we expect
     degrees = [poly.degree for poly in polys]
     max_number_of_roots = np.prod(degrees)
 
-    m_f, var_dict = TVBMultMatrix(polys, poly_type, max_number_of_roots, verbose=verbose, rand_poly=rand_poly)
+    m_f, var_dict = MSMultMatrix(polys, poly_type, max_number_of_roots, verbose=verbose, MSmatrix=MSmatrix)
 
     if rotate: #rotate multiplication matrix 180 degrees
         m_f = np.rot90(m_f,2)
@@ -36,7 +45,7 @@ def multiplication(polys, verbose=False, rand_poly=True, rotate=True):
     if verbose:
         print("\nM_f:\n", m_f[::-1,::-1])
 
-    # both TVBMultMatrix and groebnerMultMatrix will return m_f as
+    # both MSMultMatrix and will return m_f as
     # -1 if the ideal is not zero dimensional or if there are no roots
     if type(m_f) == int:
         return -1
@@ -49,7 +58,7 @@ def multiplication(polys, verbose=False, rand_poly=True, rotate=True):
         spot[i] = 1
         if not rotate:
             var_spots.append(var_dict[tuple(spot)])
-        else: #if m_f is rotate 180, the eigenvectors are backwards
+        else: #if m_f is rotated 180, the eigenvectors are backwards
             var_spots.append(m_f.shape[0] - 1 - var_dict[tuple(spot)])
         spot[i] = 0
 
@@ -64,7 +73,7 @@ def multiplication(polys, verbose=False, rand_poly=True, rotate=True):
     if rotate: #if m_f is rotate 180, the eigenvectors are backwards
         zeros_spot = m_f.shape[0] - 1 - zeros_spot
 
-    vecs = vecs[:,np.abs(vecs[zeros_spot]) > 1.e-10]
+    #vecs = vecs[:,np.abs(vecs[zeros_spot]) > 1.e-10]
     if verbose:
         print('\nVariable Spots in the Vector\n',var_spots)
         print('\nEigeinvecs at the Variable Spots:\n',vecs[var_spots])
@@ -81,10 +90,9 @@ def multiplication(polys, verbose=False, rand_poly=True, rotate=True):
         print("Number of Roots Lost:", max_number_of_roots - roots.shape[1])
     return roots.T
 
-def TVBMultMatrix(polys, poly_type, number_of_roots, verbose=False, rand_poly=True):
+def MSMultMatrix(polys, poly_type, number_of_roots, verbose=False, MSmatrix=0):
     '''
-    Finds the multiplication matrix using the reduced Macaulay matrix from the
-    TVB method.
+    Finds the multiplication matrix using the reduced Macaulay matrix.
 
     Parameters
     ----------
@@ -92,6 +100,12 @@ def TVBMultMatrix(polys, poly_type, number_of_roots, verbose=False, rand_poly=Tr
         The polynomials to find the common zeros of
     poly_type : string
         The type of the polynomials in polys
+    MSmatrix : int
+        Controls which Moller-Stetter matrix is constructed. The options are:
+            0 (default) -- The Moller-Stetter matrix of a random polynomial
+            Some positive integer i < dimension -- The Moller-Stetter matrix of x_i
+    verbose : bool
+        Prints information about how the roots are computed.
 
     Returns
     -------
@@ -100,17 +114,18 @@ def TVBMultMatrix(polys, poly_type, number_of_roots, verbose=False, rand_poly=Tr
     var_dict : dictionary
         Maps each variable to its position in the vector space basis
     '''
-    basisDict, VB, degree = TelenVanBarel(polys, number_of_roots, verbose=verbose)
+    basisDict, VB = MacaulayReduction(polys, number_of_roots, verbose=verbose)
 
     dim = max(f.dim for f in polys)
 
-    # Get random polynomial f
-    if rand_poly:
+    # Get the polynomial to make the MS matrix of
+    if MSmatrix==0: #random poly
         f = _random_poly(poly_type, dim)[0]
-    else:
+    else: #multiply by x_i where i is determined by MSmatrix
+        xi_ind = np.zeros(dim, dtype=int)
+        xi_ind[MSmatrix-1] = 1
         coef = np.zeros((2,)*dim)
-        x_ind = (1,) + (0,)*(dim-1)
-        coef[x_ind] = 1
+        coef[tuple(xi_ind)] = 1
         if poly_type == "MultiPower":
             f = MultiPower(np.array(coef))
         elif poly_type == "MultiCheb":
@@ -118,7 +133,7 @@ def TVBMultMatrix(polys, poly_type, number_of_roots, verbose=False, rand_poly=Tr
         else:
             raise ValueError()
     if verbose:
-        print("\nCoefficients of polynomial whose M_f matrix we construt\n", f.coeff)
+        print("\nCoefficients of polynomial whose Moller-Stetter matrix we construt\n", f.coeff)
 
     #Dictionary of terms in the vector basis their spots in the matrix.
     VBdict = {}
@@ -146,16 +161,13 @@ def TVBMultMatrix(polys, poly_type, number_of_roots, verbose=False, rand_poly=Tr
 
     return mMatrix, var_dict
 
-def TelenVanBarel(initial_poly_list, max_number_of_roots, accuracy = 1.e-10, verbose=False):
-    """Uses Telen and VanBarels matrix reduction method to find a vector basis for the system of polynomials.
+def MacaulayReduction(initial_poly_list, max_number_of_roots, accuracy = 1.e-10, verbose=False):
+    """Reduces the Macaulay matrix to find a vector basis for the system of polynomials.
 
     Parameters
     --------
     initial_poly_list: list
         The polynomials in the system we are solving.
-    run_checks : bool
-        If True, checks will be run to make sure TVB works and if it doesn't an S-polynomial will be searched
-        for to fix it.
     accuracy: float
         How small we want a number to be before assuming it is zero.
 
@@ -166,8 +178,6 @@ def TelenVanBarel(initial_poly_list, max_number_of_roots, accuracy = 1.e-10, ver
         can be reduced to.
     VB : numpy array
         The terms in the vector basis, each row being a term.
-    degree : int
-        The degree of the Macaualy matrix that was constructed.
     """
     power = is_power(initial_poly_list)
     dim = initial_poly_list[0].dim
@@ -189,7 +199,7 @@ def TelenVanBarel(initial_poly_list, max_number_of_roots, accuracy = 1.e-10, ver
     if verbose:
         np.set_printoptions(suppress=False, linewidth=200)
         print('\nStarting Macaulay Matrix\n', matrix)
-        print('\nColumns in Macaulay Matrix\nFirst element in tuple is degree of x monomial, Second element is degree of y monomial\n', matrix_terms)
+        print('\nColumns in Macaulay Matrix\nFirst element in tuple is degree of x, Second element is degree of y\n', matrix_terms)
         print('\nLocation of Cuts in the Macaulay Matrix into [ Mb | M1* | M2* ]\n', cuts)
 
     """This is the thrid matrix construction option, it uses the permutation arrays."""
@@ -198,16 +208,16 @@ def TelenVanBarel(initial_poly_list, max_number_of_roots, accuracy = 1.e-10, ver
     #else:
     #    matrix, matrix_terms, cuts = construction(initial_poly_list, degree, dim)
 
-    #If bottom left is zero only does step 1 of TVB-style QR reduction on top part of matrix (for speed). Otherwise does it on the whole thing
+    #If bottom left is zero only does the first QR reduction on top part of matrix (for speed). Otherwise does it on the whole thing
     if np.allclose(matrix[cuts[0]:,:cuts[0]], 0):
-        matrix, matrix_terms = rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts, max_number_of_roots, accuracy = accuracy)
+        matrix, matrix_terms = rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, max_number_of_roots, accuracy = accuracy)
     else:
-        matrix, matrix_terms = rrqr_reduceTelenVanBarel(matrix, matrix_terms, cuts, max_number_of_roots, accuracy = accuracy)
+        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_number_of_roots, accuracy = accuracy)
 
-    #Make there are enough rows in the reduced TVB matrix, i.e. didn't loose a row
+    #Make there are enough rows in the reduced Macaulay matrix, i.e. didn't loose a row
     assert matrix.shape[0] >= matrix.shape[1] - max_number_of_roots
 
-    #matrix, matrix_terms = rrqr_reduceTelenVanBarelFullRank(matrix, matrix_terms, cuts, number_of_roots, accuracy = accuracy)
+    #matrix, matrix_terms = rrqr_reduceMacaulayFullRank(matrix, matrix_terms, cuts, number_of_roots, accuracy = accuracy)
     height = matrix.shape[0]
     matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
     matrix[:,:height] = np.eye(height)
@@ -224,18 +234,18 @@ def TelenVanBarel(initial_poly_list, max_number_of_roots, accuracy = 1.e-10, ver
 
     basisDict = makeBasisDict(matrix, matrix_terms, VB, power)
 
-    return basisDict, VB, degree
+    return basisDict, VB
 
 def makeBasisDict(matrix, matrix_terms, VB, power):
     '''Calculates and returns the basisDict.
 
-    This is a dictionary of the terms on the diagonal of the reduced TVB matrix to the terms in the Vector Basis.
+    This is a dictionary of the terms on the diagonal of the reduced Macaulay matrix to the terms in the Vector Basis.
     It is used to create the multiplication matrix in root_finder.
 
     Parameters
     --------
     matrix: numpy array
-        The reduced TVB matrix.
+        The reduced Macaulay matrix.
     matrix_terms : numpy array
         The terms in the matrix. The i'th row is the term represented by the i'th column of the matrix.
     VB : numpy array
@@ -246,7 +256,7 @@ def makeBasisDict(matrix, matrix_terms, VB, power):
     Returns
     -----------
     basisDict : dict
-        Maps terms on the diagonal of the reduced TVB matrix (tuples) to numpy arrays that represent the
+        Maps terms on the diagonal of the reduced Macaulay matrix (tuples) to numpy arrays that represent the
         terms reduction into the Vector Basis.
     '''
     basisDict = {}
@@ -274,20 +284,20 @@ def makeBasisDict(matrix, matrix_terms, VB, power):
     return basisDict
 
 def create_matrix(poly_coeffs, degree, dim):
-    ''' Builds a Telen Van Barel matrix.
+    ''' Builds a Macaulay matrix.
 
     Parameters
     ----------
     poly_coeffs : list.
         Contains numpy arrays that hold the coefficients of the polynomials to be put in the matrix.
     degree : int
-        The degree of the TVB Matrix
+        The degree of the Macaulay Matrix
     dim : int
         The dimension of the polynomials going into the matrix.
     Returns
     -------
     matrix : 2D numpy array
-        The Telen Van Barel matrix.
+        The Macaulay matrix.
     matrix_terms : numpy array
         The ith row is the term represented by the ith column of the matrix.
     cuts : tuple
@@ -317,19 +327,19 @@ def create_matrix(poly_coeffs, degree, dim):
     matrix = np.reshape(flat_polys, (len(flat_polys),len(matrix_terms)))
 
     #if cuts[0] > matrix.shape[0]: #The matrix isn't tall enough, these can't all be pivot columns.
-    #    raise TVBError("HIGHEST NOT FULL RANK. TRY HIGHER DEGREE")
+    #    raise MacaulayError("HIGHEST NOT FULL RANK. TRY HIGHER DEGREE")
 
     #Sorts the rows of the matrix so it is close to upper triangular.
     matrix = row_swap_matrix(matrix)
     return matrix, matrix_terms, cuts
 
 def sorted_matrix_terms(degree, dim):
-    '''Finds the matrix_terms sorted in the term order needed for TelenVanBarel reduction.
+    '''Finds the matrix_terms sorted in the term order needed for Macaulay reduction.
     So the highest terms come first,the x,y,z etc monomials last.
     Parameters
     ----------
     degree : int
-        The degree of the TVB Matrix
+        The degree of the Macaulay Matrix
     dim : int
         The dimension of the polynomials going into the matrix.
     Returns

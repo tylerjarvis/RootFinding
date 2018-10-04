@@ -2,7 +2,7 @@ import numpy as np
 import itertools
 from scipy.linalg import qr, solve_triangular, qr_multiply
 from numalgsolve.polynomial import Polynomial, MultiCheb, MultiPower
-from numalgsolve.utils import row_swap_matrix, TVBError, slice_top, mon_combos, \
+from numalgsolve.utils import row_swap_matrix, MacaulayError, slice_top, mon_combos, \
                               num_mons_full, memoized_all_permutations, mons_ordered, \
                               all_permutations_cheb
 
@@ -15,7 +15,7 @@ def add_polys(degree, poly, poly_coeff_list):
     Parameters
     ----------
     degree : int
-        The degree of the TVB Matrix
+        The degree of the Macaulay Matrix
     poly : Polynomial
         One of the polynomials used to make the matrix.
     poly_coeff_list : list
@@ -37,8 +37,8 @@ def add_polys(degree, poly, poly_coeff_list):
         poly_coeff_list.append(poly.mon_mult(mon, returnType = 'Matrix'))
     return poly_coeff_list
 
-def find_degree(poly_list):
-    '''Finds the degree of a Macaulay Matrix.
+def find_degree(poly_list, verbose=False):
+    '''Finds the appropriate degree for the Macaulay Matrix.
 
     Parameters
     --------
@@ -51,10 +51,12 @@ def find_degree(poly_list):
         The degree of the Macaulay Matrix.
 
     '''
+    if verbose:
+        print('Degree of Macaulay Matrix:', sum(poly.degree for poly in poly_list) - len(poly_list) + 1)
     return sum(poly.degree for poly in poly_list) - len(poly_list) + 1
 
-def rrqr_reduceTelenVanBarel(matrix, matrix_terms, cuts, number_of_roots, accuracy = 1.e-10):
-    ''' Reduces a Telen Van Barel Macaulay matrix.
+def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, number_of_roots, accuracy = 1.e-10):
+    ''' Reduces a Macaulay matrix, BYU style.
 
     The matrix is split into the shape
     A B C
@@ -67,7 +69,7 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, cuts, number_of_roots, accura
     Parameters
     ----------
     matrix : numpy array.
-        The Macaulay matrix, sorted in TVB style.
+        The Macaulay matrix, sorted in BYU style.
     matrix_terms: numpy array
         Each row of the array contains a term in the matrix. The i'th row corresponds to
         the i'th column in the matrix.
@@ -85,11 +87,15 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, cuts, number_of_roots, accura
     #RRQR reduces A and D without pivoting sticking the result in it's place.
     Q1,matrix[:,:cuts[0]] = qr(matrix[:,:cuts[0]])
 
+    #check if there are zeros along the diagonal of R1
+    if any(np.isclose(np.diag(matrix[:,:cuts[0]]),0, rtol=accuracy)):
+        raise MacaulayError("R1 IS NOT FULL RANK")
+
     #Looks like 0 but not, add to the rank.
     #still_good = np.sum(np.abs(matrix[:,:cuts[0]].diagonal()) < accuracy)
     #if abs(matrix[:,:cuts[0]].diagonal()[-1]) < accuracy:
     #    print(matrix[:,:cuts[0]].diagonal())
-    #    raise TVBError("HIGHEST NOT FULL RANK")
+    #    raise MacaulayError("HIGHEST NOT FULL RANK")
 
     #Multiplying the rest of the matrix by Q.T
     matrix[:,cuts[0]:] = Q1.T@matrix[:,cuts[0]:]
@@ -126,13 +132,13 @@ def rrqr_reduceTelenVanBarel(matrix, matrix_terms, cuts, number_of_roots, accura
 
     #Resorts the matrix_terms.
     matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
-    #print("TVB1Rank:", np.sum(np.abs(matrix.diagonal())>accuracy))
+    #print("Macaulay1Rank:", np.sum(np.abs(matrix.diagonal())>accuracy))
     return matrix, matrix_terms
 
-def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts, number_of_roots, accuracy = 1.e-10):
-    ''' Reduces a Telen Van Barel Macaulay matrix.
+def rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, number_of_roots, accuracy = 1.e-10):
+    ''' Reduces a Macaulay matrix, BYU style
 
-    This function does the same thing as rrqr_reduceTelenVanBarel but uses
+    This function does the same thing as rrqr_reduceMacaulay but uses
     qr_multiply instead of qr and a multiplication
     to make the function faster and more memory efficient.
 
@@ -141,7 +147,7 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts, number_of_roots, accur
     Parameters
     ----------
     matrix : numpy array.
-        The Macaulay matrix, sorted in TVB style.
+        The Macaulay matrix, sorted in BYU style.
     matrix_terms: numpy array
         Each row of the array contains a term in the matrix. The i'th row corresponds to
         the i'th column in the matrix.
@@ -163,8 +169,12 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts, number_of_roots, accur
     matrix[:cuts[0],cuts[0]:] = C1.T
     C1 = 0
 
+    #check if there are zeros along the diagonal of R1
+    if any(np.isclose(np.diag(matrix[:,:cuts[0]]),0, rtol=accuracy)):
+        raise MacaulayError("R1 IS NOT FULL RANK")
+
     #if abs(matrix[:,:cuts[0]].diagonal()[-1]) < accuracy:
-    #    raise TVBError("HIGHEST NOT FULL RANK")
+    #    raise MacaulayError("HIGHEST NOT FULL RANK")
 
     #set small values to zero before backsolving
     matrix[np.isclose(matrix, 0, rtol=accuracy)] = 0
@@ -202,6 +212,8 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts, number_of_roots, accur
     always_useful_rows = matrix.shape[1] - number_of_roots
     #matrix = matrix[:useful_rows,:]
 
+    #set small values in the matrix to zero now, after the QR reduction
+    matrix[np.isclose(matrix, 0, rtol=accuracy)] = 0
     #eliminate zero rows from the bottom of the matrix. Zero rows above
     #nonzero elements are not eliminated. This saves time since Macaulay matrices
     #we deal with are only zero at the very bottom
@@ -214,17 +226,17 @@ def rrqr_reduceTelenVanBarel2(matrix, matrix_terms, cuts, number_of_roots, accur
 
     return matrix, matrix_terms
 
-def rrqr_reduceTelenVanBarelFullRank(matrix, matrix_terms, cuts, accuracy = 1.e-10):
-    ''' Reduces a Telen Van Barel Macaulay matrix.
+def rrqr_reduceMacaulayFullRank(matrix, matrix_terms, cuts, accuracy = 1.e-10):
+    ''' Reduces a Macaulay matrix, BYU style.
 
-    This function does the same thing as rrqr_reduceTelenVanBarel2 but only works if the matrix is full rank AND if
+    This function does the same thing as rrqr_reduceMacaulay2 but only works if the matrix is full rank AND if
     the top left corner (the square of side length cut[0]) is invertible.
     In this case it is faster.
 
     Parameters
     ----------
     matrix : numpy array.
-        The Macaulay matrix, sorted in TVB style.
+        The Macaulay matrix, sorted in BYU style.
     matrix_terms: numpy array
         Each row of the array contains a term in the matrix. The i'th row corresponds to
         the i'th column in the matrix.
@@ -245,8 +257,12 @@ def rrqr_reduceTelenVanBarelFullRank(matrix, matrix_terms, cuts, accuracy = 1.e-
     matrix[:cuts[0],cuts[0]:] = C1.T
     C1 = 0
 
+    #check if there are zeros along the diagonal of R1
+    if any(np.isclose(np.diag(matrix[:,:cuts[0]]),0, rtol=accuracy)):
+        raise MacaulayError("R1 IS NOT FULL RANK")
+
     #if abs(matrix[:,:cuts[0]].diagonal()[-1]) < accuracy:
-    #    raise TVBError("HIGHEST NOT FULL RANK")
+    #    raise MacaulayError("HIGHEST NOT FULL RANK")
 
     C,matrix[cuts[0]:,cuts[0]:cuts[1]],P = qr_multiply(matrix[cuts[0]:,cuts[0]:cuts[1]],\
                                                        matrix[cuts[0]:,cuts[1]:].T, mode = 'right', pivoting = True)
@@ -307,20 +323,20 @@ def get_ranges(nums):
     return ranges
 
 def createMatrixFast(polys, degree, dim):
-    ''' Builds a Telen Van Barel matrix using fast construction.
+    ''' Builds a Macaulay matrix using fast construction.
 
     Parameters
     ----------
     poly_coeffs : list.
         Contains numpy arrays that hold the coefficients of the polynomials to be put in the matrix.
     degree : int
-        The degree of the TVB Matrix
+        The degree of the Macaulay Matrix
     dim : int
         The dimension of the polynomials going into the matrix.
     Returns
     -------
     matrix : 2D numpy array
-        The Telen Van Barel matrix.
+        The Macaulay matrix.
     matrix_terms : numpy array
         The ith row is the term represented by the ith column of the matrix.
     cuts : tuple
@@ -362,27 +378,27 @@ def createMatrixFast(polys, degree, dim):
         matrix[matrix_range] = temp
 
     if matrix_shape_stuff[0] > matrix.shape[0]: #The matrix isn't tall enough, these can't all be pivot columns.
-        raise TVBError("HIGHEST NOT FULL RANK. TRY HIGHER DEGREE")
+        raise MacaulayError("HIGHEST NOT FULL RANK. TRY HIGHER DEGREE")
     #Sorts the rows of the matrix so it is close to upper triangular.
     if not checkEqual([poly.degree for poly in polys]): #Will need some switching possibly if some degrees are different.
         matrix = row_swap_matrix(matrix)
     return matrix, matrix_terms, cuts
 
 def construction(polys, degree, dim):
-    ''' Builds a Telen Van Barel matrix using fast construction in the Chebyshev basis.
+    ''' Builds a Macaulay matrix using fast construction in the Chebyshev basis.
 
     Parameters
     ----------
     polys : list.
         Contains numpy arrays that hold the coefficients of the polynomials to be put in the matrix.
     degree : int
-        The degree of the TVB Matrix
+        The degree of the Macaulay Matrix
     dim : int
         The dimension of the polynomials going into the matrix.
     Returns
     -------
     matrix : 2D numpy array
-        The Telen Van Barel matrix.
+        The Macaulay matrix.
     matrix_terms : numpy array
         The ith row is the term represented by the ith column of the matrix.
     cuts : tuple
@@ -426,7 +442,7 @@ def construction(polys, degree, dim):
     #print(flat_polys)
     matrix = np.vstack(flat_polys)
     if matrix_shape_stuff[0] > matrix.shape[0]: #The matrix isn't tall enough, these can't all be pivot columns.
-        raise TVBError("HIGHEST NOT FULL RANK. TRY HIGHER DEGREE")
+        raise MacaulayError("HIGHEST NOT FULL RANK. TRY HIGHER DEGREE")
     matrix = row_swap_matrix(matrix)
     #print(matrix)
     return matrix, matrix_terms, cuts
