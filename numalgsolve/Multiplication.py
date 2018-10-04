@@ -73,7 +73,7 @@ def multiplication(polys, verbose=False, MSmatrix=0, rotate=False):
     if rotate: #if m_f is rotate 180, the eigenvectors are backwards
         zeros_spot = m_f.shape[0] - 1 - zeros_spot
 
-    vecs = vecs[:,np.abs(vecs[zeros_spot]) > 1.e-10]
+    #vecs = vecs[:,np.abs(vecs[zeros_spot]) > 1.e-10]
     if verbose:
         print('\nVariable Spots in the Vector\n',var_spots)
         print('\nEigeinvecs at the Variable Spots:\n',vecs[var_spots])

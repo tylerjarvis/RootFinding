@@ -8,8 +8,9 @@ from numalgsolve.polynomial import MultiCheb, MultiPower, is_power
 from numalgsolve.MacaulayReduce import find_degree, add_polys
 from scipy.linalg import qr, solve_triangular, qr_multiply
 from numalgsolve.Multiplication import create_matrix, makeBasisDict
+from numalgsolve.ProjectiveSpace import pad_with_zeros
 
-def solve(polys, verbose=False):
+def solve(polys, verbose=False, sim_diag="Telen"):
     '''
     Finds the roots of a list of multivariate polynomials by simultaneously
     diagonalizing a multiplication matrices created with the TVB method.
@@ -54,7 +55,13 @@ def solve(polys, verbose=False):
         print('The Multiplication Matrices:\n', mult_matrices)
 
     #simultaneously diagonalize and return roots
-    roots = sim_diag(mult_matrices, verbose=verbose).T
+    if sim_diag == "Telen":
+        #Determine if the system contains only homogenous polynomials
+        homogenous = all([is_homogenous(poly) for poly in polys])
+        #Find the roots
+        roots = Telen_sim_diag(mult_matrices, verbose=verbose, homogenous=homogenous).T
+    else:
+        roots = sim_diag(mult_matrices, verbose=verbose).T
     if verbose:
         print("Roots:\n", roots)
     return roots
@@ -236,9 +243,9 @@ def sim_diag(Matrices, verbose=False):
 
     -------
     sim_diag : numpy array
-        The diagonals of each diagonalized matrix. The diagonal matrix is a row
+        The i-th row is the diagonal corresponding to the i-th matrix in matrices
     '''
-    sim_diag = np.zeros((Matrices.shape[0], Matrices.shape[1]), dtype='complex128')
+    sim_diag = np.zeros((Matrices.shape[0], Matrices.shape[1]), dtype='complex64')
     b = np.random.rand(Matrices.shape[0])
     lin_combo = sum([b[i] * Matrices[i] for i in range(Matrices.shape[0])]) #random linear combo of mult matrices to avoid issues with double eigenvalues
     vals, P = eig(lin_combo)
@@ -269,3 +276,71 @@ def sim_diag(Matrices, verbose=False):
     #     sim_diag[k] = (Pinv @ Matrices[k] @ P).diagonal()
 
     return sim_diag
+
+def Mourrain_sim_diag(Matrices, verbose=False, homogenous=False):
+    '''
+    Simultaneously diagonalizes several commuting matrices which have the same eigenvectors.
+    Uses the gitlab account method. For solving homogenous systems.
+
+    Parameters
+    ----------
+    matrices : ndarray
+        3D Tensor. Each matrix in the array must commute with every other matrix and they must share all eigenvectors)
+    verbose: bool
+        Prints information about the diagonalization.
+
+    -------
+    sim_diag : numpy array
+        The i-th row is the diagonal corresponding to the i-th matrix in matrices
+    '''
+    randvals = np.random.rand(Matrices.shape[0])
+    M0 = np.sum([ Matrices[i] * randvals[i] for i in range(Matrices.shape[0])], axis=0)
+    if verbose:
+        print('Linear Combo of Mult Matrices (M0):\n', M0)
+    I0 = np.linalg.inv(M0)
+    if verbose:
+        print('M0-inverse (I0):\n', I0)
+    Mg = I0 @ Matrices[0]
+    if verbose:
+        print('Mg (M0-inverse @ M1):\n', Mg)
+    eigvals, E = np.linalg.eig(Mg)
+    eigvals = 0
+    if verbose:
+        print('Eigenvectors of Mg:\n', E)
+    Z = np.linalg.inv(E) @ I0
+    if verbose:
+        print('Mg-inverse @ M0-inverse:\n', Z)
+    sim_diag = np.zeros((Matrices.shape[0], Matrices.shape[1]), dtype='complex64')
+    for j in range(Matrices.shape[0]):
+        Dj = Z @ Matrices[j] @ E
+        if verbose:
+            print('Diagonalization of M{}:\n'.format(j+1), Dj)
+        sim_diag[j] = np.diag(Dj)
+    if verbose:
+        print('Simultaneous Diagonalization:\n', sim_diag)
+
+    #normalize. If all the polys are homogenous, does it differently
+    if homogenous:
+        for i in range(sim_diag.shape[0]):
+            sim_diag[i,:] /= sim_diag[i, 0]
+        sim_diag = sim_diag[1:,:]
+    else:
+        for i in range(sim_diag.shape[0]):
+            sim_diag[i,:] /= np.linalg.norm(sim_diag[i,:])
+
+    return sim_diag
+
+def Telen_sim_diag
+
+def is_homogenous(poly):
+    '''
+    Tests whether a polynomial is homogenous or not
+
+    Args:
+        poly (a polynomail object): the polynomial to test
+
+    Returns:
+        bool. True if the polynomial is homogenous, False otherwise
+    '''
+    coeff = pad_with_zeros(poly.coeff)
+    return np.allclose(np.fliplr(coeff), np.diag(np.fliplr(coeff)))

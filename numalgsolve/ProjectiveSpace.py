@@ -17,6 +17,7 @@ def common_root_at_inf(polys):
     returns
     -------
     bool : whether or not there is at least one root at infinity
+    root : (tuple) the first root at infinity it found, if any exist
     '''
     f, g = polys
     f_is_first = True
@@ -33,10 +34,9 @@ def common_root_at_inf(polys):
         second_poly = MultiPower(np.diag(np.diag(np.fliplr(pad_with_zeros(g.coeff)))[::-1]))
     else:
         second_poly = MultiPower(np.diag(np.diag(np.fliplr(pad_with_zeros(f.coeff)))[::-1]))
-    print(inf_roots)
     for inf_root in inf_roots:
         if np.isclose(second_poly(inf_root), 0):
-            return True
+            return True, inf_root
     return False
 
 def roots_at_inf(f):
@@ -53,7 +53,6 @@ def roots_at_inf(f):
     '''
     #get the coefficients of the homogenous part of f: [y^d ... x^d]
     f_d_coefs = np.diag(np.fliplr(pad_with_zeros(f.coeff)))
-    print(f_d_coefs)
 
     #find all x s.t. f_d(x,1) == 0
     #essentially, set y = 1 and solve a 1D polynomial with coefficients from f_d
