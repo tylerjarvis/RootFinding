@@ -56,7 +56,7 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
     rows,columns = matrix.shape
 
     #Make there are enough rows in the reduced Macaulay matrix, i.e. didn't loose a row
-    #assert rows >= columns - max_number_of_roots
+    assert rows >= columns - max_number_of_roots
     
     VB = matrix_terms[matrix.shape[0]:]
     matrix = np.hstack((np.eye(rows),solve_triangular(matrix[:,:rows],matrix[:,rows:])))

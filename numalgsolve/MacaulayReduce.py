@@ -90,7 +90,7 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, number_of_roots, accuracy = 
         raise MacaulayError("R1 IS NOT FULL RANK")
 
     #Looks like 0 but not, add to the rank.
-    still_good = np.sum(np.abs(matrix[:,:cuts[0]].diagonal()) < accuracy)
+    #still_good = np.sum(np.abs(matrix[:,:cuts[0]].diagonal()) < accuracy)
     #if abs(matrix[:,:cuts[0]].diagonal()[-1]) < accuracy:
     #    print(matrix[:,:cuts[0]].diagonal())
     #    raise MacaulayError("HIGHEST NOT FULL RANK")

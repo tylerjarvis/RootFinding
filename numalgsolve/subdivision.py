@@ -303,7 +303,6 @@ def subdivision_solve_nd(funcs,a,b,deg,tol=1.e-8,tol2=1.e-8):
                               for interval in intervals])
         coeff = trim_coeff(coeff,tol=tol, tol2=tol2)
         cheb_approx_list.append(MultiCheb(coeff))
-
     zeros = np.array(division(cheb_approx_list, divisor_var = 0, tol = 1.e-14))
     if len(zeros) == 0:
         return np.zeros([0,dim])
