@@ -86,11 +86,11 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, number_of_roots, accuracy = 
     Q1,matrix[:,:cuts[0]] = qr(matrix[:,:cuts[0]])
 
     #check if there are zeros along the diagonal of R1
-    if any(np.isclose(np.diag(matrix[:,:cuts[0]]),0, rtol=accuracy)):
+    if any(np.isclose(np.diag(matrix[:,:cuts[0]]),0, atol=accuracy)):
         raise MacaulayError("R1 IS NOT FULL RANK")
 
     #Looks like 0 but not, add to the rank.
-    #still_good = np.sum(np.abs(matrix[:,:cuts[0]].diagonal()) < accuracy)
+    still_good = np.sum(np.abs(matrix[:,:cuts[0]].diagonal()) < accuracy)
     #if abs(matrix[:,:cuts[0]].diagonal()[-1]) < accuracy:
     #    print(matrix[:,:cuts[0]].diagonal())
     #    raise MacaulayError("HIGHEST NOT FULL RANK")
@@ -108,7 +108,7 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, number_of_roots, accuracy = 
 
     #Shifts the columns of B
     matrix[:cuts[0],cuts[0]:cuts[1]] = matrix[:cuts[0],cuts[0]:cuts[1]][:,P]
-
+    
     #Checks for 0 rows and gets rid of them.
     #rank = np.sum(np.abs(matrix.diagonal())>accuracy) + still_good
     #matrix = matrix[:rank]
@@ -126,7 +126,7 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, number_of_roots, accuracy = 
     #matrix = matrix[:useful_rows,:]
 
     #set very small values in the matrix to zero before backsolving
-    matrix[np.isclose(matrix, 0, rtol=accuracy)] = 0
+    matrix[np.isclose(matrix, 0, atol=accuracy)] = 0
 
     #Resorts the matrix_terms.
     matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
@@ -168,14 +168,14 @@ def rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, number_of_roots, accuracy =
     C1 = 0
 
     #check if there are zeros along the diagonal of R1
-    if any(np.isclose(np.diag(matrix[:,:cuts[0]]),0, rtol=accuracy)):
+    if any(np.isclose(np.diag(matrix[:,:cuts[0]]),0, atol=accuracy)):
         raise MacaulayError("R1 IS NOT FULL RANK")
 
     #if abs(matrix[:,:cuts[0]].diagonal()[-1]) < accuracy:
     #    raise MacaulayError("HIGHEST NOT FULL RANK")
 
     #set small values to zero before backsolving
-    matrix[np.isclose(matrix, 0, rtol=accuracy)] = 0
+    matrix[np.isclose(matrix, 0, atol=accuracy)] = 0
 
     matrix[:cuts[0],cuts[0]:] = solve_triangular(matrix[:cuts[0],:cuts[0]],matrix[:cuts[0],cuts[0]:])
     matrix[:cuts[0],:cuts[0]] = np.eye(cuts[0])
@@ -211,7 +211,7 @@ def rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, number_of_roots, accuracy =
     #matrix = matrix[:useful_rows,:]
 
     #set small values in the matrix to zero now, after the QR reduction
-    matrix[np.isclose(matrix, 0, rtol=accuracy)] = 0
+    matrix[np.isclose(matrix, 0, atol=accuracy)] = 0
     #eliminate zero rows from the bottom of the matrix. Zero rows above
     #nonzero elements are not eliminated. This saves time since Macaulay matrices
     #we deal with are only zero at the very bottom
@@ -256,7 +256,7 @@ def rrqr_reduceMacaulayFullRank(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     C1 = 0
 
     #check if there are zeros along the diagonal of R1
-    if any(np.isclose(np.diag(matrix[:,:cuts[0]]),0, rtol=accuracy)):
+    if any(np.isclose(np.diag(matrix[:,:cuts[0]]),0, atol=accuracy)):
         raise MacaulayError("R1 IS NOT FULL RANK")
 
     #if abs(matrix[:,:cuts[0]].diagonal()[-1]) < accuracy:
