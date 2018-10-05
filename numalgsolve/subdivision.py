@@ -272,7 +272,7 @@ def good_zeros_nd(zeros, imag_tol = 1.e-10):
     good_zeros = good_zeros[np.all(np.abs(good_zeros) <= 1,axis = 1)]
     return good_zeros
 
-def subdivision_solve_nd(funcs,a,b,deg,tol=1.e-8,tol2=1.e-8):
+def subdivision_solve_nd(funcs,a,b,deg,tol=0,tol2=1.e-4):
     """Finds the common zeros of the given functions.
 
     Parameters
@@ -295,7 +295,7 @@ def subdivision_solve_nd(funcs,a,b,deg,tol=1.e-8,tol2=1.e-8):
     dim = len(a)
     cheb_approx_list = []
     for func in funcs:
-        coeff = full_cheb_approximate(func,a,b,deg,tol=tol)
+        coeff = full_cheb_approximate(func,a,b,deg,tol=1.e-10)
         #Subdivides if needed.
         if coeff is None:
             intervals = get_subintervals(a,b,np.arange(dim))
@@ -303,7 +303,8 @@ def subdivision_solve_nd(funcs,a,b,deg,tol=1.e-8,tol2=1.e-8):
                               for interval in intervals])
         coeff = trim_coeff(coeff,tol=tol, tol2=tol2)
         cheb_approx_list.append(MultiCheb(coeff))
-    zeros = np.array(division(cheb_approx_list))
+    
+    zeros = np.array(division(cheb_approx_list), divisor_var = 0, tol = 1.e-10)
     if len(zeros) == 0:
         return np.zeros([0,dim])
     zeros = transform(good_zeros_nd(zeros),a,b)
