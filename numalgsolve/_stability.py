@@ -28,10 +28,10 @@ class Solver:
 
 class OneDSolver(Solver):
     def __init__(self, solver, name, basis, eigvals_avail):
-        super().__init__(self, solver, name, basis, eigvals_avail)
+        super().__init__(solver, name, basis, eigvals_avail)
 
     def __call__(self, poly, *args):
-        if self.eigvals_avail:
+        if self.eigvals:
             return self.solver(poly.coeff, *args)
         else:
             return self.solver(poly.coeff)
@@ -55,16 +55,13 @@ all_solvers = [multPowerR_s, multPower_s, divPower_s, numpy_s,
                multChebR_s, multCheb_s, divCheb_s, numpyCheb_s,
                multiplication_s, multrand_s, division_s, TVB_s]
 
-# import pdb
-# pdb.set_trace()
-
 def create_roots_graph(args, results):
     nrows = len(results)
     ncols = len(next(iter(results.values())))
     if not args.coeffs: ncols-=1  #get sub dictionary length, but ignore the roots item
 
     plt.figure(figsize=(2*ncols,2*nrows+0.5))
-    for i,(radius, sub_results) in enumerate(results.items()):
+    for i,(radius, (sub_results, residuals)) in enumerate(results.items()):
         radius = float(radius)
         if not args.coeffs:
             roots = sub_results['roots']
@@ -164,11 +161,11 @@ def run_one_dimension(args, radius, eigvals):
 
     for solver in all_solvers:
         if isinstance(solver,OneDSolver):
-            if (solver.basis == 'cheb' and args.cheb) and ((not eigvals) or solver.eigvals_avail):
+            if (solver.basis == 'cheb' and args.cheb) and ((not eigvals) or solver.eigvals):
                 name = str(solver)
                 root_pts[name] = solver(chebpoly, eigvals)
                 residuals[name] = maximal_residual(chebpoly, root_pts[name])
-            if (solver.basis == 'power' and args.power) and ((not eigvals) or solver.eigvals_avail):
+            if (solver.basis == 'power' and args.power) and ((not eigvals) or solver.eigvals):
                 name = str(solver)
                 root_pts[name] = solver(powerpoly, eigvals)
                 residuals[name] = maximal_residual(powerpoly, root_pts[name])
@@ -231,25 +228,19 @@ def run_n_dimension(args, radius, eigvals):
 
 
     for solver in all_solvers:
-        if not isinstance(solver,OneDSolver):
-            print(solver)
+        if not isinstance(solver,OneDSolver) and solver.basis in ['power','both']:
+            # if ((not eigvals) or solver.eigvals):
             name = str(solver) + ' Power'
             root_pts[name] = solver(powerpolys)
             residuals[name] = maximal_residual(powerpolys, root_pts[name])
 
+
     for solver in all_solvers:
-        if not isinstance(solver,OneDSolver):
-            print(solver)
+        if not isinstance(solver,OneDSolver) and solver.basis in ['cheb','both']:
+            # if ((not eigvals) or solver.eigvals):
             name = str(solver) + ' Cheb'
             root_pts[name] = solver(chebpolys)
             residuals[name] = maximal_residual(chebpolys, root_pts[name])
-
-    # res['mult power'] = multiplication(powerpolys, MSmatrix=1)
-    # res['multrand power'] = multiplication(powerpolys, MSmatrix=0)
-    # res['div power']  = division(powerpolys, MSmatrix=-1, get_divvar_coord_from_eigval=eigvals)
-    # res['mult cheb'] = multiplication(chebpolys, MSmatrix=1)
-    # res['multrand cheb'] = multiplication(chebpolys, MSmatrix=0)
-    # res['div cheb']  = division(chebpolys, MSmatrix=-1, get_divvar_coord_from_eigval=eigvals)
 
     if args.hist:
         evaluations = {}
@@ -270,7 +261,6 @@ def run_n_dimension(args, radius, eigvals):
             ax[i].set_title(k)
         plt.suptitle("Eigenvalues" if eigvals else "Eigenvectors")
         plt.show()
-
 
     return root_pts, residuals
 
@@ -321,25 +311,23 @@ if __name__ == "__main__":
     if args.nowarn:
         warnings.filterwarnings('ignore')
 
-    # print(args.eps, type(args.eps))
     if args.num_points <= 0: raise ValueError("Not enough points")
     if args.radius <= 0: raise ValueError("Max radius must be positive")
 
     results = run_roots_testing(args)
     if args.graph:
         create_roots_graph(args, results)
-    # import pdb; pdb.set_trace()
 
     print("With eigvals")
     try:
         for key,val in results[True][1].items():
-            print("{:>30} {}".format(key, val))
+            print("{:>30} {:.3e}".format(key, val))
     except:
         pass
 
     print("Without eigvals")
-    # try:
-    for key,val in results[False][1].items():
-        print("{:>30} {}".format(key, val))
-    # except:
-    #     pass
+    try:
+        for key,val in results[False][1].items():
+            print("{:>30} {:.3e}".format(key, val))
+    except:
+        pass
