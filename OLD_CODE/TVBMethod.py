@@ -280,7 +280,7 @@ def sim_diag(Matrices, verbose=False):
 def Mourrain_sim_diag(Matrices, verbose=False, homogenous=False):
     '''
     Simultaneously diagonalizes several commuting matrices which have the same eigenvectors.
-    Uses the gitlab account method. For solving homogenous systems.
+    Uses the gitlab account method. Only works for solving homogenous systems.
 
     Parameters
     ----------
@@ -330,7 +330,48 @@ def Mourrain_sim_diag(Matrices, verbose=False, homogenous=False):
 
     return sim_diag
 
-def Telen_sim_diag
+def Telen_sim_diag(Matrices, verbose=False, homogenous=False):
+    '''
+    Simultaneously diagonalizes several commuting matrices which have the same eigenvectors.
+    Uses Telen's method. For solving homogenous systems.
+
+    Parameters
+    ----------
+    matrices : ndarray
+        3D Tensor. Each matrix in the array must commute with every other matrix and they must share all eigenvectors)
+    verbose: bool
+        Prints information about the diagonalization.
+
+    -------
+    sim_diag : numpy array
+        The i-th row is the diagonal corresponding to the i-th matrix in matrices
+    '''
+    N = Matrices.shape[0]
+
+    #only 1 root, telen's code lines 33-34
+    if N == 1: #one by one matrices are their own eigvals
+        #unravel 1x1xn tensor into a row vector
+        return Matrices.ravel()
+
+    #set up the tesor T (telen's code lines 36-41)
+    T = np.zeros(N,N,n+1)
+    for i in range(n):
+        T[:,:,i] = Matrices[i]
+    T(:,:,n) = np.eye(N)
+
+    #compute the cpd_gevd, using random slices
+    S = S(indx{:})
+    Apt,Dpt = eig(S()
+
+    if exist('iperm','var'):
+        U = U(iperm)
+
+    #get the roots, telen's code lines 43-48
+    sol = U[2].T
+    for i in range(n):
+        sol[:,i] = sol[:,i]/sol[:,n] #element wise division
+
+    sol = sol[:,:n+1]
 
 def is_homogenous(poly):
     '''
