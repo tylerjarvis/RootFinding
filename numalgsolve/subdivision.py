@@ -426,13 +426,19 @@ def linear_check(test_coeff_in, intervals, a, b):
     
     Parameters
     ----------
-    coeff : numpy array
+    test_coeff_in : numpy array
         The coefficient matrix of the polynomial to check
+    intervals : list
+        A list of the intervals we want to check before subdividing them
+    a : numpy array
+        The lower bound on the interval.
+    b : numpy array
+        The upper bound on the interval.
     
     Returns
     -------
-    check1 : bool
-        False if there are no zeros in the unit box, True otherwise
+    intervals : list
+        The intervals we actually need to check. All the ones we can remove are gone.
     """
     test_coeff = test_coeff_in.copy()
     for i in range(len(intervals)):
