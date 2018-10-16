@@ -108,7 +108,7 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, number_of_roots, accuracy = 
 
     #Shifts the columns of B
     matrix[:cuts[0],cuts[0]:cuts[1]] = matrix[:cuts[0],cuts[0]:cuts[1]][:,P]
-    
+
     #Checks for 0 rows and gets rid of them.
     #rank = np.sum(np.abs(matrix.diagonal())>accuracy) + still_good
     #matrix = matrix[:rank]

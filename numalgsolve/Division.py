@@ -55,11 +55,10 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
 
     rows,columns = matrix.shape
 
-    #Make there are enough rows in the reduced Macaulay matrix, i.e. didn't loose a row
-    
+    #Make there are enough rows in the reduced Macaulay matrix, i.e. didn't loose a row    
     #This should be a valid assert statement but the max_number_of_roots won't be the product of dimensions for non homogenous polynomials
     #assert rows >= columns - max_number_of_roots
-    
+
     VB = matrix_terms[matrix.shape[0]:]
     matrix = np.hstack((np.eye(rows),solve_triangular(matrix[:,:rows],matrix[:,rows:])))
         
