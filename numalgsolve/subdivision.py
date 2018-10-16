@@ -51,13 +51,16 @@ def solve(funcs, a, b):
     else:
         #multi-dimensional case
         #choose an appropriate max degree for the given dimension
-        deg_dim = {2:10, 3:7, 4:4}
+        deg_dim = {2:10, 3:5, 4:4}
         if dim > 4:
             deg = 2
         else:
             deg = deg_dim[dim]
 
-        return subdivision_solve_nd(funcs,a,b,deg)
+        result = subdivision_solve_nd(funcs,a,b,deg)
+        print("Total intervals checked was {}".format(total_intervals))
+        print("The percent thrown out by each checker was {}".format((100*thrown_out / total_intervals).round(2)))
+        return result
 
 def transform(x,a,b):
     """Transforms points from the interval [-1,1] to the interval [a,b].
@@ -216,7 +219,7 @@ def get_subintervals(a,b,dimensions):
         subintervals.append((aTemp,bTemp))
     return subintervals
 
-def full_cheb_approximate(f,a,b,deg,tol=1.e-8):
+def full_cheb_approximate(f,a,b,deg,max_deg,tol=1.e-8, coeff = None):
     """Gives the full chebyshev approximation and checks if it's good enough.
 
     Called recursively.
@@ -231,25 +234,30 @@ def full_cheb_approximate(f,a,b,deg,tol=1.e-8):
         The upper bound on the interval.
     deg : int
         The degree to approximate with.
+    max_deg : int
+        The maximum degree before giving up on interpolation and returning none
     tol : float
         How small the high degree terms must be to consider the approximation accurate.
+    coeff : numpy array
+        The starting interpolation. Used to recursively get a higher approximation faster.
 
     Returns
     -------
     coeff : numpy array
         The coefficient array of the interpolation. If it can't get a good approximation and needs to subdivide, returns None.
     """
+    if deg > max_deg:
+        return None
     dim = len(a)
-
-    degs = np.array([deg]*dim)+1
-    coeff = interval_approximate_nd(f,a,b,degs)
+    degs = np.array([deg]*dim)
+    if coeff is None:
+        coeff = interval_approximate_nd(f,a,b,degs)
     coeff2 = interval_approximate_nd(f,a,b,degs*2)
     coeff2[slice_top(coeff)] -= coeff
-    #print(np.sum(np.abs(coeff2)))
     clean_zeros_from_matrix(coeff2,1.e-16)
-    #print(np.sum(np.abs(coeff2)))
     if np.sum(np.abs(coeff2)) > tol:
-        return None
+        coeff2[slice_top(coeff)] += coeff
+        return full_cheb_approximate(f,a,b,2*deg,max_deg,tol=tol, coeff = coeff2)
     else:
         return coeff
 
@@ -272,7 +280,216 @@ def good_zeros_nd(zeros, imag_tol = 1.e-10):
     good_zeros = good_zeros[np.all(np.abs(good_zeros) <= 1,axis = 1)]
     return good_zeros
 
-def subdivision_solve_nd(funcs,a,b,deg,tol=1.e-8,tol2=1.e-8):
+
+"""
+The check functions are all functions that take in a coefficent matrix and run a quick check
+to determine if there can ever be zeros on the unit box there. They are then put into the list
+all_bound_check_functions in the order we want to run them (probably fastest first). These are
+then all run to throw out intervals as possible.
+"""
+
+def ext_val3(test_coeff, maxx = True):
+    a,b,c = test_coeff
+    """Absolute value of max or min of a + bx + c(2x^2 - 1) on -1 to 1"""
+    if np.abs(c) < 1.e-10:
+        if maxx:
+            return abs(a) + abs(b)
+        else:
+            if abs(b) > abs(a):
+                return 0
+            else:
+                return abs(a) - abs(b)
+    else:
+        vals = [a - b + c, a + b + c] #at +-1
+        if np.abs(b/c) < 4:
+            vals.append(a - b**2/(8*c) - c) #at -b/(4c)
+        if maxx:
+            return max(np.abs(vals))
+        else:
+            vals = np.array(vals)
+            if np.any(vals > 0) and np.any(vals < 0):
+                return 0
+            else:
+                return min(np.abs(vals))
+        
+def ext_val4(test_coeff, maxx = True):
+    a,b,c,d = test_coeff
+    """Absolute value of max or min of a + bx + c(2x^2 - 1) + d*(4x^3 - 3x) on -1 to 1"""
+    if np.abs(d) < 1.e-10:
+        return ext_val3([a,b,c], maxx = maxx)
+    else:
+        vals = [a - b + c - d, a + b + c + d] #at +-1
+        
+        #The quadratic roots
+        if 16*c**2 >= 48*d*(b-3*d):
+            x1 = (-4*c + np.sqrt(16*c**2 - 48*d*(b-3*d))) / (24*d)
+            x2 = (-4*c - np.sqrt(16*c**2 - 48*d*(b-3*d))) / (24*d)
+            if np.abs(x1) < 1:
+                vals.append(a + b*x1 + c*(2*x1**2 - 1) + d*(4*x1**3 - 3*x1))
+            if np.abs(x2) < 1:
+                vals.append(a + b*x2 + c*(2*x2**2 - 1) + d*(4*x2**3 - 3*x2))
+        if maxx:
+            return max(np.abs(vals))
+        else:
+            vals = np.array(vals)
+            if np.any(vals > 0) and np.any(vals < 0):
+                return 0
+            else:
+                return min(np.abs(vals))
+
+def constant_term_check(test_coeff):
+    """Quick check of zeros in the unit box.
+    
+    Checks if the constant term is bigger than all the other terms combined, using the fact that
+    each Chebyshev monomial is bounded by 1.
+
+    Parameters
+    ----------
+    coeff : numpy array
+        The coefficient matrix of the polynomial to check
+    
+    Returns
+    -------
+    check1 : bool
+        False if there are no zeros in the unit box, True otherwise
+    """
+    test_sum = np.sum(np.abs(test_coeff))
+    if np.abs(test_coeff.flatten()[0]) * 2 > test_sum:
+        return False
+    else:
+        return True
+
+def check2(test_coeff):
+    """Quick check of zeros in the unit box.
+        
+    Parameters
+    ----------
+    coeff : numpy array
+        The coefficient matrix of the polynomial to check
+    
+    Returns
+    -------
+    check1 : bool
+        False if there are no zeros in the unit box, True otherwise
+    """
+    start = ext_val3(test_coeff[0,0:3], maxx = False)
+    rest = 0
+    for i in range(1, test_coeff.shape[0]):
+        rest += ext_val3(test_coeff[i,0:3])
+    rest += np.sum(np.abs(test_coeff[:,3:]))
+    if start > rest:
+        return False
+    
+    start = ext_val3(test_coeff[0:3,0], maxx = False)
+    rest = 0
+    for i in range(1, test_coeff.shape[1]):
+        rest += ext_val3(test_coeff[0:3,i])
+    rest += np.sum(np.abs(test_coeff[3:]))
+    if start > rest:
+        return False
+
+    return True
+
+def check3(test_coeff):
+    """Quick check of zeros in the unit box.
+        
+    Parameters
+    ----------
+    coeff : numpy array
+        The coefficient matrix of the polynomial to check
+    
+    Returns
+    -------
+    check1 : bool
+        False if there are no zeros in the unit box, True otherwise
+    """
+    start = ext_val4(test_coeff[0,0:4], maxx = False)
+    rest = 0
+    for i in range(1, test_coeff.shape[0]):
+        rest += ext_val4(test_coeff[i,0:4])
+    rest += np.sum(np.abs(test_coeff[:,4:]))
+    if start > rest:
+        return False
+    
+    start = ext_val4(test_coeff[0:4,0], maxx = False)
+    rest = 0
+    for i in range(1, test_coeff.shape[1]):
+        rest += ext_val4(test_coeff[0:4,i])
+    rest += np.sum(np.abs(test_coeff[4:]))
+    if start > rest:
+        return False
+
+    return True
+
+def linear_check(test_coeff_in, intervals, a, b):
+    """Quick check of zeros in intervals.
+    
+    Parameters
+    ----------
+    coeff : numpy array
+        The coefficient matrix of the polynomial to check
+    
+    Returns
+    -------
+    check1 : bool
+        False if there are no zeros in the unit box, True otherwise
+    """
+    test_coeff = test_coeff_in.copy()
+    for i in range(len(intervals)):
+        intervals[i] = tuple([inv_transform(intervals[i][j], a, b) for j in range(2)])
+    
+    mask = []
+    for interval in intervals:
+        spot = [0]*len(a)
+        const = test_coeff[tuple(spot)]
+        test_coeff[tuple(spot)] = 0
+        if const == 0:
+            mask.append(True)
+            continue
+        lin_change = 0
+        for dim in range(len(a)):
+            spot_temp = spot.copy()
+            spot_temp[dim] = 1
+            temp_coeff = test_coeff[tuple(spot_temp)]
+            test_coeff[tuple(spot_temp)] = 0
+            interval_temp = np.array(interval)
+            if const < 0:
+                lin_change += max(temp_coeff * interval_temp[:,dim])
+            else:
+                lin_change += min(temp_coeff * interval_temp[:,dim])
+                
+        if const > 0:
+            if -lin_change > const:
+                mask.append(True)
+                continue
+        else:
+            if -lin_change < const:
+                mask.append(True)
+                continue
+        
+        const += lin_change
+        if np.abs(const) > np.sum(np.abs(test_coeff)):
+            mask.append(False)
+            continue
+        mask.append(True)
+    
+    old_intervals = intervals
+    intervals = []
+    for i in range(len(old_intervals)):
+        if(mask[i]):
+            intervals.append(old_intervals[i])
+    
+    for i in range(len(intervals)):
+        intervals[i] = transform(intervals[i], a, b)
+    return intervals
+
+#Note checks 2 and 3 only work on 2D systems
+all_bound_check_functions = [constant_term_check, check2, check3]
+all_interval_check_functions = [linear_check]
+thrown_out = np.zeros(len(all_bound_check_functions) + len(all_interval_check_functions))
+total_intervals = 0
+
+def subdivision_solve_nd(funcs,a,b,deg,tol=1.e-4,tol2=1.e-12):
     """Finds the common zeros of the given functions.
 
     Parameters
@@ -291,23 +508,64 @@ def subdivision_solve_nd(funcs,a,b,deg,tol=1.e-8,tol2=1.e-8):
     good_zeros : numpy array
         The real zero in [-1,1] of the input zeros.
     """
-    print("Interval - ",a,b)
-    dim = len(a)
-    cheb_approx_list = []
-    for func in funcs:
-        coeff = full_cheb_approximate(func,a,b,deg,tol=tol)
-        #Subdivides if needed.
-        if coeff is None:
-            intervals = get_subintervals(a,b,np.arange(dim))
-            return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,tol=tol,tol2=tol2) \
+    global total_intervals, thrown_out
+    division_var = 0
+    try:
+        if np.random.rand() > .999:
+            print("Interval - ",a,b)
+        dim = len(a)
+        cheb_approx_list = []
+        for func in funcs:
+            coeff = full_cheb_approximate(func,a,b,deg,4*deg,tol=tol)
+
+            #Subdivides if needed.
+            if coeff is None:
+                intervals = get_subintervals(a,b,np.arange(dim))
+                return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,tol=tol,tol2=tol2) \
+                                  for interval in intervals])
+            elif coeff.shape[0] > deg + 1:
+                #Subdivide but run some checks on the intervals first
+                intervals = get_subintervals(a,b,np.arange(dim))
+                func_num = 0
+                for check_func in all_interval_check_functions:
+                    curr_intervals = len(intervals)
+                    intervals = check_func(coeff, intervals, a, b)
+                    total_intervals += curr_intervals - len(intervals)
+                    thrown_out[func_num + len(all_bound_check_functions)] += curr_intervals - len(intervals)
+                    func_num+=1
+
+                return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,tol=tol,tol2=tol2) \
+                                  for interval in intervals])
+            else:
+                coeff = trim_coeff(coeff,tol=tol, tol2=tol2)
+                #Run checks to try and throw out the interval
+                total_intervals += 1
+                func_num = 0
+                for check_func in all_bound_check_functions:
+                    if not check_func(coeff):
+                        thrown_out[func_num] += 1
+                        return np.zeros([0,dim])
+                    func_num+=1
+
+                cheb_approx_list.append(MultiCheb(coeff))
+
+        zeros = np.array(division(cheb_approx_list, divisor_var = 0, tol = 1.e-6))
+        #for i in range(len(zeros)):
+        #    zeros[i] = root = newton_polish(cheb_approx_list,zeros[i],tol = 1.e-10)
+        if len(zeros) == 0:
+            return np.zeros([0,dim])
+        zeros = transform(good_zeros_nd(zeros),a,b)
+        return zeros
+    except np.linalg.LinAlgError as e:
+        while division_var < len(a):
+            try:
+                zeros = np.array(division(cheb_approx_list, divisor_var = 0, tol = 1.e-6))
+                return zeros
+            except np.linalg.LinAlgError as e:
+                division_var += 1
+        intervals = get_subintervals(a,b,np.arange(dim))
+        return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,tol=tol,tol2=tol2) \
                               for interval in intervals])
-        coeff = trim_coeff(coeff,tol=tol, tol2=tol2)
-        cheb_approx_list.append(MultiCheb(coeff))
-    zeros = np.array(division(cheb_approx_list, divisor_var = 0, tol = 1.e-14))
-    if len(zeros) == 0:
-        return np.zeros([0,dim])
-    zeros = transform(good_zeros_nd(zeros),a,b)
-    return zeros
 
 def trim_coeff(coeff, tol=1.e-8, tol2=1.e-8):
     """Reduce the number of coefficients and the degree.

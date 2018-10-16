@@ -8,7 +8,7 @@ import time
 class InstabilityWarning(Warning):
     pass
 
-class MacaulayError(RuntimeError):
+class MacaulayError(np.linalg.LinAlgError):
     pass
 
 class Term(object):

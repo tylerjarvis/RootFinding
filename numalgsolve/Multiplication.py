@@ -84,10 +84,10 @@ def multiplication(polys, verbose=False, MSmatrix=0, rotate=False):
 
     #Checks that the algorithm finds the correct number of roots with Bezout's Theorem
     assert roots.shape[1] <= max_number_of_roots,"Found too many roots" #Check if too many roots
-    if roots.shape[1] < max_number_of_roots:
-        warnings.warn('Expected ' + str(max_number_of_roots)
-        + " roots, Found " + str(roots.shape[1]) , Warning)
-        print("Number of Roots Lost:", max_number_of_roots - roots.shape[1])
+    #if roots.shape[1] < max_number_of_roots:
+    #    warnings.warn('Expected ' + str(max_number_of_roots)
+    #    + " roots, Found " + str(roots.shape[1]) , Warning)
+    #    print("Number of Roots Lost:", max_number_of_roots - roots.shape[1])
     return roots.T
 
 def MSMultMatrix(polys, poly_type, number_of_roots, verbose=False, MSmatrix=0):
