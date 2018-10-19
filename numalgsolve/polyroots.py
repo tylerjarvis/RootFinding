@@ -23,7 +23,7 @@ def solve(polys, MSmatrix=0, eigvals=True, verbose=False):
         For a multivariate polynomial, the options are:
             0 (default) -- The Moller-Stetter matrix of a random polynomial
             Some positive integer i <= dimension -- The Moller-Stetter matrix of x_i, where variables are index from x1, ..., xn
-            -1 -- The Moller-Stetter matrix of x_1-inverse
+            Some negative integer i >= -dimension -- The Moller-Stetter matrix of x_i-inverse
     eigvals : bool
         Whether to compute roots of univariate polynomials from eigenvalues (True) or eigenvectors (False).
         Roots of multivariate polynomials are always comptued from eigenvectors
@@ -59,7 +59,7 @@ def solve(polys, MSmatrix=0, eigvals=True, verbose=False):
                 zeros = common
             return zeros
     else:
-        if MSmatrix == -1:
-            return division(polys, verbose=verbose)
+        if MSmatrix < 0:
+            return division(polys, verbose=verbose, divisor_var=-MSmatrix-1)
         else:
             return multiplication(polys, verbose=verbose, MSmatrix=MSmatrix)
