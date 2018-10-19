@@ -7,7 +7,7 @@ from numalgsolve.utils import get_var_list, slice_top, row_swap_matrix, \
                               mon_combos, newton_polish
 import warnings
 
-def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol = 1.e-12, verbose=False):
+def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol = 1.e-12, verbose=False, polish = False):
     '''Calculates the common zeros of polynomials using a division matrix.
 
     Parameters
@@ -55,11 +55,13 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
 
     rows,columns = matrix.shape
 
-    #Make there are enough rows in the reduced Macaulay matrix, i.e. didn't loose a row
-    assert rows >= columns - max_number_of_roots
+    #Make there are enough rows in the reduced Macaulay matrix, i.e. didn't loose a row    
+    #This should be a valid assert statement but the max_number_of_roots won't be the product of dimensions for non homogenous polynomials
+    #assert rows >= columns - max_number_of_roots
 
     VB = matrix_terms[matrix.shape[0]:]
     matrix = np.hstack((np.eye(rows),solve_triangular(matrix[:,:rows],matrix[:,rows:])))
+        
     if verbose:
         np.set_printoptions(suppress=True, linewidth=200)
         print("\nFinal Macaulay Matrix\n", matrix)
@@ -157,7 +159,8 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
     #Calculates the zeros, the x values from the eigenvalues and the y values from the eigenvectors.
     zeros = list()
     for i in range(len(vals)):
-        if abs(vecs[-1][i]) < 1.e-10: #This should be a root at infinity
+        if abs(vecs[-1][i]) < 1.e-3:
+            #This root has magnitude greater than 1, will possibly generate a false root due to instability
             continue
         root = np.zeros(dim, dtype=complex)
         if get_divvar_coord_from_eigval:
@@ -186,18 +189,18 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
                 root = root1
             else:
                 root = root2
-
-        #root = newton_polish(polys,root,tol = tol)
+        if polish:
+            root = newton_polish(polys,root,tol = tol)
         zeros.append(root)
 
     zeros = np.array(zeros)
 
     #Checks that the algorithm finds the correct number of roots with Bezout's Theorem
     assert zeros.shape[0] <= max_number_of_roots,"Found too many roots" #Check if too many roots
-    if zeros.shape[0] < max_number_of_roots:
-        warnings.warn('Expected ' + str(max_number_of_roots)
-        + " roots, Found " + str(zeros.shape[0]) , Warning)
-        print("Number of Roots Lost:", max_number_of_roots - zeros.shape[0])
+    #if zeros.shape[0] < max_number_of_roots:
+    #    warnings.warn('Expected ' + str(max_number_of_roots)
+    #    + " roots, Found " + str(zeros.shape[0]) , Warning)
+    #    print("Number of Roots Lost:", max_number_of_roots - zeros.shape[0])
     return zeros
 
 def get_matrix_terms(poly_coeffs, dim, divisor_var, deg, include_divvar_squared=True):
