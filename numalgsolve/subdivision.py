@@ -7,12 +7,16 @@ the approximation degree is small enough to be solved efficiently.
 """
 
 import numpy as np
-from numpy.fft.fftpack import fftn
+from numpy.fft.fftpack import rfftn
 from numalgsolve.OneDimension import divCheb,divPower,multCheb,multPower,solve
 from numalgsolve.Division import division
 from numalgsolve.utils import clean_zeros_from_matrix, slice_top
 from numalgsolve.polynomial import MultiCheb
 from itertools import product
+
+import matplotlib
+matplotlib.use("TkAgg")
+import matplotlib.pyplot as plt
 
 def solve(funcs, a, b):
     '''
@@ -165,7 +169,7 @@ def interval_approximate_nd(f,a,b,degs):
         cheb_points = transform(np.column_stack(map(flatten, cheb_grids)), a, b)
         values = f(cheb_points).reshape(2*n,2*n)
 
-    coeffs = np.real(fftn(values/np.product(degs)))
+    coeffs = rfftn(values/np.product(degs))
 
     for i in range(dim):
         #construct slices for the first and degs[i] entry in each dimension
@@ -243,7 +247,7 @@ def full_cheb_approximate(f,a,b,deg,tol=1.e-8):
 
     degs = np.array([deg]*dim)+1
     coeff = interval_approximate_nd(f,a,b,degs)
-    coeff2 = interval_approximate_nd(f,a,b,degs*2)
+    coeff2 = interval_approximate_nd(f,a,b,degs*2) #Check against an approximation of degree twice as high, to make sure a reasonable approximation
     coeff2[slice_top(coeff)] -= coeff
     #print(np.sum(np.abs(coeff2)))
     clean_zeros_from_matrix(coeff2,1.e-16)
@@ -300,16 +304,16 @@ def subdivision_solve_nd(funcs,a,b,deg,tol=1.e-8,tol2=1.e-8):
         if coeff is None:
             intervals = get_subintervals(a,b,np.arange(dim))
             return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,tol=tol,tol2=tol2) \
-                              for interval in intervals])
+                              for interval in intervals]) #subdivide and proceed recursively if too high degree
         coeff = trim_coeff(coeff,tol=tol, tol2=tol2)
-        cheb_approx_list.append(MultiCheb(coeff))
+        cheb_approx_list.append(MultiCheb(coeff)) #any zeros in the edges of the coeff matrix disappear here
     zeros = np.array(division(cheb_approx_list))
     if len(zeros) == 0:
         return np.zeros([0,dim])
     zeros = transform(good_zeros_nd(zeros),a,b)
     return zeros
 
-def trim_coeff(coeff, tol=1.e-8, tol2=1.e-8):
+def trim_coeff(coeff, tol=1.e-8, tol2=1.e-8, drop_off_tol=1.e-9):
     """Reduce the number of coefficients and the degree.
 
     Parameters
@@ -322,13 +326,21 @@ def trim_coeff(coeff, tol=1.e-8, tol2=1.e-8):
     coeff : numpy array
         The reduced degree Chebyshev coefficients for approximating a function.
     """
+    np.set_printoptions(linewidth=500)
+    print('before trim', coeff)
+    plt.clf()
+    plt.subplot(121)
+    plt.title("Before Trim")
+    plt.matshow(coeff)
     #Cuts down in the degree we are dividing by so the division matrix is stable.
-    for spot in zip(*np.where(np.abs(coeff[0]) < tol2)):
-        slices = []
-        slices.append(slice(0,None))
-        for s in spot:
-            slices.append(s)
-        coeff[slices] = 0
+    for spot in zip(*np.where(np.abs(coeff[0]) < tol2)): #spots in coeff where coeff[0]<tol2
+        #??? Why is coeff[0] instead of coeff?
+        #and abs(coeff[0] - coeff[1]) < drop_off_tol
+            slices = []
+            slices.append(slice(0,None))
+            for s in spot:
+                slices.append(s)
+            coeff[slices] = 0
 
     dim = coeff.ndim
 
@@ -338,16 +350,20 @@ def trim_coeff(coeff, tol=1.e-8, tol2=1.e-8):
         deg = np.sum(coeff.shape)-dim-1
         while True:
             mons = mon_combos_limited([0]*dim,deg,coeff.shape)
-            slices = []
+            slices = [] #becomes the indices of the terms of degree deg
             mons = np.array(mons).T
             for i in range(dim):
                 slices.append(mons[i])
-            if np.sum(np.abs(coeff[slices])) < tol:
+            if np.sum(np.abs(coeff[slices])) < tol: #L1 norm
+            # and abs(coeff[slices] - coeff[slices-1]) < drop_off_tol
                 coeff[slices] = 0
             else:
                 break
             deg -= 1
-
+    print('after trim', coeff)
+    plt.subplot(122)
+    plt.title("After Trim")
+    plt.matshow(coeff)
     return coeff
 
 def mon_combos_limited(mon, remaining_degrees, shape, cur_dim = 0):
