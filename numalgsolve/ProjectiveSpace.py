@@ -6,17 +6,19 @@ import numpy as np
 from numalgsolve.polynomial import MultiPower
 from numalgsolve.OneDimension import solve
 
-def common_root_at_inf(polys):
+def common_root_at_inf(polys, return_root=False):
     '''
     Tests if a system of upper-triagular bivariate power-basis polynomials has a common root at infinity.
 
     Parameters
     ----------
     polys (list, 2): polynomial objects
+    return_root (bool): whether to return the first root at infinity found, if any exist
 
     returns
     -------
     bool : whether or not there is at least one root at infinity
+    root : (tuple) the first root at infinity it found, if any exist
     '''
     f, g = polys
     f_is_first = True
@@ -33,10 +35,12 @@ def common_root_at_inf(polys):
         second_poly = MultiPower(np.diag(np.diag(np.fliplr(pad_with_zeros(g.coeff)))[::-1]))
     else:
         second_poly = MultiPower(np.diag(np.diag(np.fliplr(pad_with_zeros(f.coeff)))[::-1]))
-    print(inf_roots)
     for inf_root in inf_roots:
         if np.isclose(second_poly(inf_root), 0):
-            return True
+            if return_root:
+                return True, inf_root
+            else:
+                return True
     return False
 
 def roots_at_inf(f):
@@ -53,7 +57,6 @@ def roots_at_inf(f):
     '''
     #get the coefficients of the homogenous part of f: [y^d ... x^d]
     f_d_coefs = np.diag(np.fliplr(pad_with_zeros(f.coeff)))
-    print(f_d_coefs)
 
     #find all x s.t. f_d(x,1) == 0
     #essentially, set y = 1 and solve a 1D polynomial with coefficients from f_d

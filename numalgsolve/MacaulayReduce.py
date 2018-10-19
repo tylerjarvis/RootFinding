@@ -37,7 +37,7 @@ def add_polys(degree, poly, poly_coeff_list):
         poly_coeff_list.append(poly.mon_mult(mon, returnType = 'Matrix'))
     return poly_coeff_list
 
-def find_degree(poly_list):
+def find_degree(poly_list, verbose=False):
     '''Finds the appropriate degree for the Macaulay Matrix.
 
     Parameters
@@ -51,6 +51,8 @@ def find_degree(poly_list):
         The degree of the Macaulay Matrix.
 
     '''
+    if verbose:
+        print('Degree of Macaulay Matrix:', sum(poly.degree for poly in poly_list) - len(poly_list) + 1)
     return sum(poly.degree for poly in poly_list) - len(poly_list) + 1
 
 def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, number_of_roots, accuracy = 1.e-10):
