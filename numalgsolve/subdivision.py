@@ -748,7 +748,7 @@ def TylersFunction(coeff):
     b = np.array([1.]*poly.dim)
     return not can_eliminate(poly, a, b)
     
-def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],subinterval_checks=[],tol=1.e-3,tol2=1.e-12):
+def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],subinterval_checks=[],tol=1.e-3):
     """Finds the common zeros of the given functions.
 
     Parameters
@@ -770,7 +770,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],sub
     division_var = 0
     cheb_approx_list = []
     try:
-        if np.random.rand() > 1.99:
+        if np.random.rand() > .999:
             print("Interval - ",a,b)
         dim = len(a)
         for func in funcs:
@@ -781,10 +781,10 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],sub
                 intervals = get_subintervals(a,b,np.arange(dim),None,None,None)
                 
                 return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_results\
-                                                       ,interval_checks,subinterval_checks,tol=tol,tol2=tol2)
+                                                       ,interval_checks,subinterval_checks,tol=tol)
                                   for interval in intervals])
             else:
-                coeff = trim_coeff(coeff,tol=tol, tol2=tol2)
+                coeff = trim_coeff(coeff,tol=tol)
                 #Run checks to try and throw out the interval
                 for func_num, func in enumerate(interval_checks):
                     if not func(coeff):
@@ -813,10 +813,10 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],sub
             return np.zeros([0,dim])
         else:
             return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_results\
-                                               ,interval_checks,subinterval_checks,tol=tol,tol2=tol2)
+                                               ,interval_checks,subinterval_checks,tol=tol)
                           for interval in intervals])
 
-def trim_coeff(coeff, tol=1.e-8, tol2=1.e-8):
+def trim_coeff(coeff, tol=1.e-3):
     """Reduce the number of coefficients and the degree.
 
     Parameters
@@ -829,14 +829,6 @@ def trim_coeff(coeff, tol=1.e-8, tol2=1.e-8):
     coeff : numpy array
         The reduced degree Chebyshev coefficients for approximating a function.
     """
-    #Cuts down in the degree we are dividing by so the division matrix is stable.
-    for spot in zip(*np.where(np.abs(coeff[0]) < tol2)):
-        slices = []
-        slices.append(slice(0,None))
-        for s in spot:
-            slices.append(s)
-        coeff[slices] = 0
-
     dim = coeff.ndim
 
     #Cuts out the high diagonals as much as possible to minimize polynomial degree.
