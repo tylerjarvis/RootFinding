@@ -4,7 +4,7 @@ from scipy.linalg import solve_triangular, eig, qr
 from numalgsolve.polynomial import MultiCheb, MultiPower, is_power
 from numalgsolve.MacaulayReduce import add_polys, rrqr_reduceMacaulay, rrqr_reduceMacaulay2
 from numalgsolve.utils import get_var_list, slice_top, row_swap_matrix, \
-                              mon_combos, newton_polish
+                              mon_combos, newton_polish, MacaulayError
 import warnings
 
 def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol = 1.e-12, verbose=False, polish = False):
@@ -66,7 +66,7 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
         np.set_printoptions(suppress=True, linewidth=200)
         print("\nFinal Macaulay Matrix\n", matrix)
         print("\nColumns in Macaulay Matrix\n", matrix_terms)
-
+    
     #------------> chebyshev
     if not power:
         #Builds the inverse matrix. The terms are the vector basis as well as y^k/x terms for all k. Reducing
@@ -151,7 +151,7 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
             else:
                 division_matrix[:,i] -= basisDict[term]
         #<----------end Power
-
+        
     vals, vecs = eig(division_matrix.T)
     if verbose:
         print("\nDivision Matrix\n", np.round(division_matrix[::-1,::-1], 2))
@@ -245,32 +245,40 @@ def get_matrix_terms(poly_coeffs, dim, divisor_var, deg, include_divvar_squared=
                 matrix_term_set_y.add(term)
             else:
                 matrix_term_set_other.add(term)
-
-    #needed_terms = list()
-    base = np.zeros(dim, dtype = 'int')
-    base[divisor_var] = 1
-    matrix_term_set_other.remove(tuple(base))
-    matrix_term_end = base.copy()
+    try:
+        base = np.zeros(dim, dtype = 'int')
+        base[divisor_var] = 1
+        matrix_term_set_other.remove(tuple(base))
+        matrix_term_end = base.copy()
+    except KeyError as e:
+        print(matrix_term_set_other)
+        print(poly_coeffs, dim, divisor_var, deg, include_divvar_squared)
+        raise e
 
     #sorts the terms that do include the variable to be divided by into submatrices
     #matrix_term_end terms are always include in the basisDict
     #matrix_term_set_other are included only as needed
 
-    #if include_divvar_squared is set to True, then x^2 (or whatever variable we're dividing by) with be included in the basis
+    #if include_divvar_squared is set to True, then x^2 (or whatever variable we're dividing by) will be included in the basis
     if include_divvar_squared:
         divvar_squared_term = np.zeros(dim, dtype = 'int')
         divvar_squared_term[divisor_var] = 2
         matrix_term_set_other.remove(tuple(divvar_squared_term))
         matrix_term_end = np.vstack((divvar_squared_term,matrix_term_end))
-
-    for i in range(dim):
-        if i != divisor_var:
-            base[i] = 1
-            term = tuple(base)
-            matrix_term_set_other.remove(term)
-            matrix_term_end = np.vstack((term,matrix_term_end))
-            base[i] = 0
-
+    
+    try:
+        for i in range(dim):
+            if i != divisor_var:
+                base[i] = 1
+                term = tuple(base)
+                matrix_term_set_other.remove(term)
+                matrix_term_end = np.vstack((term,matrix_term_end))
+                base[i] = 0
+    except KeyError as e:
+        print(term)
+        print(matrix_term_set_other)
+        print(poly_coeffs, dim, divisor_var, deg, include_divvar_squared)
+        raise e
 
     #for term in needed_terms:
     #    matrix_term_set_other.remove(term)
