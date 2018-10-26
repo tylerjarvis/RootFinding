@@ -7,7 +7,7 @@ the approximation degree is small enough to be solved efficiently.
 """
 
 import numpy as np
-from numpy.fft.fftpack import rfftn
+from numpy.fft.fftpack import fftn
 from numalgsolve.OneDimension import divCheb,divPower,multCheb,multPower,solve
 from numalgsolve.Division import division
 from numalgsolve.utils import clean_zeros_from_matrix, slice_top
@@ -34,8 +34,8 @@ def solve(funcs, a, b, interval_data = False):
     roots : numpy array
         The common roots of the polynomials. Each row is a root.
     '''
-    interval_checks = [constant_term_check, full_quad_check]#, full_cubic_check, TylersFunction]
-    subinterval_checks = [linear_check]
+    interval_checks = [constant_term_check,full_quad_check,full_cubic_check, curvature_check]
+    subinterval_checks = [linear_check,quadratic_check1,quadratic_check2,quadratic_check3]
     interval_results = []
     for i in range(len(interval_checks) + len(subinterval_checks) + 1):
         interval_results.append([])
@@ -81,7 +81,7 @@ def solve(funcs, a, b, interval_data = False):
             print("The percent solved by each was {}".format((100*results_numbers / total_intervals).round(2)))
 
             if dim == 2:
-                colors = ['b', 'g', 'r', 'm', 'c', 'y']
+                colors = ['b', 'g', 'r', 'm', 'c', 'y', 'k','w','pink','fuchsia']
                 fig,ax = plt.subplots(1)
                 fig.set_size_inches(18, 10)
                 for i in range(len(interval_checks)):
@@ -242,7 +242,7 @@ def interval_approximate_nd(f,a,b,degs):
         cheb_points = transform(np.column_stack(map(flatten, cheb_grids)), a, b)
         values = f(cheb_points).reshape(2*n,2*n)
 
-    coeffs = rfftn(values/np.product(degs))
+    coeffs = fftn(values/np.product(degs))
 
     for i in range(dim):
         #construct slices for the first and degs[i] entry in each dimension
@@ -628,6 +628,237 @@ def linear_check(test_coeff_in, intervals):
             mask.append(False)
     return mask
 
+def quadratic_check1(test_coeff, intervals,tol=1e-12):
+    """Quick check of zeros in intervals.
+
+    Parameters
+    ----------
+    test_coeff : numpy array
+        The coefficient matrix of the polynomial to check
+    intervals : list
+        A list of the intervals we want to check before subdividing them
+
+    Returns
+    -------
+    mask : list
+        Masks out the intervals we don't want
+    """
+    #check using |c0 + c1x + c2y +c3x^2|
+    c0 = test_coeff[0,0].copy()
+    c1 = test_coeff[1,0].copy()
+    c2 = test_coeff[0,1].copy()
+    c3 = test_coeff[2,0].copy()
+
+    #if c3 != 0, same as a linear check
+    if np.isclose(c3, 0,atol=tol):
+        return [True]*len(intervals)
+    mask = []
+    for interval in intervals:
+        def quadratic_formula_check(y):
+            """given a fixed value of y, uses the quadratic formula
+                to see if c0 + c1x + c2y +c3x^2 = 0
+                for some x in [a0, b0]"""
+            discriminant = c1**2 - 4*(c2*y+c0)*c3
+            if np.isclose(discriminant, 0,atol=tol) and interval[0][0] < -c1/2/c3 < interval[1][0]:
+                 return True
+            elif discriminant > 0 and \
+                  (interval[0][0] < (-c1+np.sqrt(discriminant))/2/c3 < interval[1][0] or \
+                   interval[0][0] < (-c1-np.sqrt(discriminant))/2/c3 < interval[1][0]):
+                return True
+            else:
+                return False
+         #If c0 + c1x + c2y +c3x^2 = 0 in the region, useless check.
+        if np.isclose(c2, 0,atol=tol) and quadratic_formula_check(0):
+            mask.append(True)
+            continue
+        else:
+            y = lambda x: (-c3 *x**2 - c1 * x - c0)/c2
+            if interval[0][1] < y(interval[0][0]) < interval[1][1] or interval[0][1] < y(interval[1][0]) < interval[1][1]:
+                mask.append(True)
+                continue
+            elif quadratic_formula_check(interval[0][0]) or quadratic_formula_check(interval[1][0]):
+                mask.append(True)
+                continue
+
+         #function for evaluating |c0 + c1x + c2y +c3x^2|
+        eval = lambda xy: abs(c0 + c1*xy[:,0] + c2*xy[:,1] + c3 * xy[:,0]**2)
+         #In this case, extrema only occur on the edges since there are no critical points
+        #edges 1&2: x = a0, b0 --> potential extrema at corners
+        #edges 3&4: y = a1, b1 --> potential extrema at x0 = -c1/2c3, if that's in [a0, b0]
+        if interval[0][0] < -c1/2/c3 < interval[1][0]:
+            potential_minimizers = np.array([[interval[0][0],interval[0][1]],
+                                             [interval[0][0],interval[1][1]],
+                                             [interval[1][0],interval[0][1]],
+                                             [interval[1][0],interval[1][1]],
+                                             [-c1/2/c3,interval[0][1]],
+                                             [-c1/2/c3,interval[1][1]]])
+        else:
+            potential_minimizers = np.array([[interval[0][0],interval[0][1]],
+                                             [interval[0][0],interval[1][1]],
+                                             [interval[1][0],interval[0][1]],
+                                             [interval[1][0],interval[1][1]]])
+         #if min{|c0 + c1x + c2y +c3x^2|} > sum of other terms in test_coeff, no roots in the region
+        if min(eval(potential_minimizers)) > np.sum(np.abs(test_coeff)) - abs(c0) - abs(c1) - abs(c2) - abs(c3):
+            mask.append(False)
+        else:
+            mask.append(True)
+    return mask
+
+def quadratic_check2(test_coeff, intervals,tol=1e-12):
+    """Quick check of zeros in the unit box using the y^2 terms
+
+     Parameters
+     ----------
+     test_coeff : numpy array
+         The coefficient matrix of the polynomial to check
+     intervals : list
+         A list of the intervals we want to check before subdividing them
+
+     Returns
+     -------
+     mask : list
+         Masks out the intervals we don't want
+     """
+    #very similar to quadratic_check_1, but switch x and y
+    #check using |c0 + c1x + c2y +c3y^2|
+    c0 = test_coeff[0,0].copy()
+    c1 = test_coeff[1,0].copy()
+    c2 = test_coeff[0,1].copy()
+    c3 = test_coeff[0,2].copy()
+    #if c3 != 0, same as a linear check
+    if np.isclose(c3, 0,atol=tol):
+        return[True]*len(intervals)
+    mask = []
+    for interval in intervals:
+        def quadratic_formula_check(x):
+            """given a fixed value of x, uses the quadratic formula
+                to see if c0 + c1x + c2y +c3y^2 = 0
+                for some y in [a1, b1]"""
+            discriminant = c2**2 - 4*(c1*x+c0)*c3
+            if np.isclose(discriminant, 0,atol=tol) and interval[0][1] < -c2/2/c3 < interval[1][1]:
+                 return True
+            elif discriminant > 0 and \
+                  (interval[0][1] < (-c2+np.sqrt(discriminant))/2/c3 < interval[1][1] or \
+                   interval[0][1] < (-c2-np.sqrt(discriminant))/2/c3 < interval[1][1]):
+                return True
+            else:
+                return False
+         #If c0 + c1x + c2y +c3y^2 = 0 in the region, useless
+        if np.isclose(c1, 0) and quadratic_formula_check(0):
+            mask.append(True)
+            continue
+        else:
+            x = lambda y: (-c3 *y**2 - c2 * y - c0)/c1
+            if interval[0][0] < x(interval[0][1]) < interval[1][0] or interval[0][0] < x(interval[1][1]) < interval[1][0]:
+                mask.append(True)
+                continue
+            elif quadratic_formula_check(interval[0][1]) or quadratic_formula_check(interval[1][1]):
+                mask.append(True)
+                continue
+
+        #function to evaluate |c0 + c1x + c2y +c3y^2|
+        eval = lambda xy: abs(c0 + c1*xy[:,0] + c2*xy[:,1] + c3 * xy[:,1]**2)
+        #In this case, extrema only occur on the edges since there are no critical points
+        #edges 1&2: x = a0, b0 --> potential extrema at y0 = -c2/2c3, if that's in [a1, b1]
+        #edges 3&4: y = a1, b1 --> potential extrema at corners
+        if interval[0][1] < -c2/2/c3 < interval[1][1]:
+            potential_minimizers = np.array([[interval[0][0],interval[0][1]],
+                                             [interval[0][0],interval[1][1]],
+                                             [interval[1][0],interval[0][1]],
+                                             [interval[1][0],interval[1][1]],
+                                             [interval[0][0],-c2/2/c3],
+                                             [interval[1][0],-c2/2/c3]])
+        else:
+            potential_minimizers = np.array([[interval[0][0],interval[0][1]],
+                                             [interval[0][0],interval[1][1]],
+                                             [interval[1][0],interval[0][1]],
+                                             [interval[1][0],interval[1][1]]])
+         #if min{|c0 + c1x + c2y +c3y^2|} > sum of other terms in test_coeff, no roots in the region
+        if min(eval(potential_minimizers)) > np.sum(np.abs(test_coeff)) - abs(c0) - abs(c1) - abs(c2) - abs(c3):
+            mask.append(False)
+        else:
+            mask.append(True)
+    return mask
+
+def quadratic_check3(test_coeff, intervals,tol=1e-12):
+    """Quick check of zeros in the unit box using the xy terms
+
+     Parameters
+     ----------
+     test_coeff : numpy array
+         The coefficient matrix of the polynomial to check
+     intervals : list
+         A list of the intervals we want to check before subdividing them
+
+     Returns
+     -------
+     mask : list
+         Masks out the intervals we don't want
+     """
+    #check using |c0 + c1x + c2y +c3xy|
+    c0 = test_coeff[0,0].copy()
+    c1 = test_coeff[1,0].copy()
+    c2 = test_coeff[0,1].copy()
+    c3 = test_coeff[1,1].copy()
+
+    ##if c3 != 0, same as a linear check
+    if np.isclose(c3, 0,atol=tol):
+        return [True]*len(intervals)
+
+    mask = []
+    for interval in intervals:
+        ##If c0 + c1x + c2y +c3xy = 0 in the region, useless
+
+        #testing the vertical sides of the interval
+        vert_asymptote = -c2/c3
+        x = lambda y: (-c0 + c2*y)/(c1 + c3*y)
+        if np.isclose(interval[0][1], vert_asymptote):
+            if interval[0][0] < x(interval[1][1]) < interval[1][0]:
+                mask.append(True)
+                continue
+        elif np.isclose(interval[1][1], vert_asymptote):
+            if interval[0][0] < x(interval[0][1]) < interval[1][0]:
+                mask.append(True)
+                continue
+        elif interval[0][0] < x(interval[0][1]) < interval[1][0] or interval[0][0] < x(interval[1][1]) < interval[1][0]:
+            mask.append(True)
+            continue
+
+        #testing the horizontal sides of the interval
+        horiz_asymptote = -c1/c3
+        y = lambda x: (-c0 + c1*x)/(c2 + c3*x)
+        if np.isclose(interval[0][0], horiz_asymptote):
+            if interval[0][1] < y(interval[1][0]) < interval[1][1]:
+                mask.append(True)
+                continue
+        elif np.isclose(interval[1][0], horiz_asymptote):
+            if interval[0][1] < y(interval[0][0]) < interval[1][1]:
+                mask.append(True)
+                continue
+        elif interval[0][1] < y(interval[0][0]) < interval[1][1] or interval[0][1] < y(interval[1][0]) < interval[1][1]:
+            mask.append(True)
+            continue
+
+        ##Find the minimum
+
+        #function for evaluating |c0 + c1x + c2y +c3xy|
+        eval = lambda xy: abs(c0 + c1*xy[:,0] + c2*xy[:,1] + c3*xy[:,0]*xy[:,1])
+
+        #In this case, only critical point is saddle point, so all minima occur on the edges
+        #On all the edges it becomes linear, so extrema always ocur at the corners
+        potential_minimizers = np.array([[interval[0][0],interval[0][1]],
+                                         [interval[0][0],interval[1][1]],
+                                         [interval[1][0],interval[0][1]],
+                                         [interval[1][0],interval[1][1]]])
+
+        ##if min{|c0 + c1x + c2y +c3xy|} > sum of other terms in test_coeff, no roots in the region
+        if min(eval(potential_minimizers)) > np.sum(np.abs(test_coeff)) - np.sum(np.abs(test_coeff[:2,:2])):
+            mask.append(False)
+        else:
+            mask.append(True)
+
+    return mask
+
 #This is all for Tyler's new function
 from mpmath import iv
 from itertools import product
@@ -742,7 +973,7 @@ def can_eliminate(poly, a, b):
 #     print(max_curve * n * h**2/8)
     return min_corner > max_curve * n * h**2/8
 
-def TylersFunction(coeff):
+def curvature_check(coeff):
     poly = MultiCheb(coeff)
     a = np.array([-1.]*poly.dim)
     b = np.array([1.]*poly.dim)
@@ -847,10 +1078,7 @@ def trim_coeff(coeff, tol=1.e-3):
             else:
                 break
             deg -= 1
-    print('after trim', coeff)
-    plt.subplot(122)
-    plt.title("After Trim")
-    plt.matshow(coeff)
+
     return coeff
 
 def mon_combos_limited(mon, remaining_degrees, shape, cur_dim = 0):

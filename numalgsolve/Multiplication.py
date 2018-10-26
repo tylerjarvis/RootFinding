@@ -195,61 +195,64 @@ def MacaulayReduction(initial_poly_list, max_number_of_roots, accuracy = 1.e-10,
     #    poly_coeff_list += deg_d_polys(initial_poly_list, deg, dim)
 
     #Creates the matrix for either of the above two methods. Comment out if using the third method.
-    try:
-        matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, degree, dim)
-        if verbose:
-            np.set_printoptions(suppress=False, linewidth=200)
-            print('\nStarting Macaulay Matrix\n', matrix)
-            print('\nColumns in Macaulay Matrix\nFirst element in tuple is degree of x, Second element is degree of y\n', matrix_terms)
-            print('\nLocation of Cuts in the Macaulay Matrix into [ Mb | M1* | M2* ]\n', cuts)
+    #try:
+    matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, degree, dim)
+    if verbose:
+        np.set_printoptions(suppress=False, linewidth=200)
+        print('\nStarting Macaulay Matrix\n', matrix)
+        print('\nColumns in Macaulay Matrix\nFirst element in tuple is degree of x, Second element is degree of y\n', matrix_terms)
+        print('\nLocation of Cuts in the Macaulay Matrix into [ Mb | M1* | M2* ]\n', cuts)
 
-        """This is the thrid matrix construction option, it uses the permutation arrays."""
-        #if power:
-        #    matrix, matrix_terms, cuts = createMatrixFast(initial_poly_list, degree, dim)
-        #else:
-        #    matrix, matrix_terms, cuts = construction(initial_poly_list, degree, dim)
+    """This is the thrid matrix construction option, it uses the permutation arrays."""
+    #if power:
+    #    matrix, matrix_terms, cuts = createMatrixFast(initial_poly_list, degree, dim)
+    #else:
+    #    matrix, matrix_terms, cuts = construction(initial_poly_list, degree, dim)
 
-        #If bottom left is zero only does the first QR reduction on top part of matrix (for speed). Otherwise does it on the whole thing
-        if np.allclose(matrix[cuts[0]:,:cuts[0]], 0):
-            matrix, matrix_terms = rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, max_number_of_roots, accuracy = accuracy)
-        else:
-            matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_number_of_roots, accuracy = accuracy)
+    #If bottom left is zero only does the first QR reduction on top part of matrix (for speed). Otherwise does it on the whole thing
+    if np.allclose(matrix[cuts[0]:,:cuts[0]], 0):
+        matrix, matrix_terms = rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, max_number_of_roots, accuracy = accuracy)
+    else:
+        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_number_of_roots, accuracy = accuracy)
 
-        #Make there are enough rows in the reduced Macaulay matrix, i.e. didn't loose a row
-        assert matrix.shape[0] >= matrix.shape[1] - max_number_of_roots
+    #Make there are enough rows in the reduced Macaulay matrix, i.e. didn't loose a row
+    assert matrix.shape[0] >= matrix.shape[1] - max_number_of_roots
 
-        #matrix, matrix_terms = rrqr_reduceMacaulayFullRank(matrix, matrix_terms, cuts, number_of_roots, accuracy = accuracy)
-        height = matrix.shape[0]
-        matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
-    except Exception as e:
-        if str(e)[:46] == 'singular matrix: resolution failed at diagonal':
-            matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, degree+1, dim)
-            if verbose:
-                np.set_printoptions(suppress=False, linewidth=200)
-                print('\nNew, Bigger Macaulay Matrix\n', matrix)
-                print('\nColumns in Macaulay Matrix\nFirst element in tuple is degree of x, Second element is degree of y\n', matrix_terms)
-                print('\nLocation of Cuts in the Macaulay Matrix into [ Mb | M1* | M2* ]\n', cuts)
+    #matrix, matrix_terms = rrqr_reduceMacaulayFullRank(matrix, matrix_terms, cuts, number_of_roots, accuracy = accuracy)
+    height = matrix.shape[0]
+    matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
+    # except Exception as e:
+    #     if str(e)[:46] == 'singular matrix: resolution failed at diagonal':
+    #         matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, degree+1, dim)
+    #         if verbose:
+    #             np.set_printoptions(suppress=False, linewidth=200)
+    #             print('\nNew, Bigger Macaulay Matrix\n', matrix)
+    #             print('\nColumns in Macaulay Matrix\nFirst element in tuple is degree of x, Second element is degree of y\n', matrix_terms)
+    #             print('\nLocation of Cuts in the Macaulay Matrix into [ Mb | M1* | M2* ]\n', cuts)
+    #
+    #         """This is the thrid matrix construction option, it uses the permutation arrays."""
+    #         #if power:
+    #         #    matrix, matrix_terms, cuts = createMatrixFast(initial_poly_list, degree, dim)
+    #         #else:
+    #         #    matrix, matrix_terms, cuts = construction(initial_poly_list, degree, dim)
+    #
+    #         #If bottom left is zero only does the first QR reduction on top part of matrix (for speed). Otherwise does it on the whole thing
+    #         if np.allclose(matrix[cuts[0]:,:cuts[0]], 0):
+    #             matrix, matrix_terms = rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, max_number_of_roots, accuracy = accuracy)
+    #         else:
+    #             matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_number_of_roots, accuracy = accuracy)
+    #
+    #         #Make there are enough rows in the reduced Macaulay matrix, i.e. didn't loose a row
+    #         assert matrix.shape[0] >= matrix.shape[1] - max_number_of_roots
+    #
+    #         #matrix, matrix_terms = rrqr_reduceMacaulayFullRank(matrix, matrix_terms, cuts, number_of_roots, accuracy = accuracy)
+    #         height = matrix.shape[0]
+    #         matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
+    #     else:
+    #         raise e
 
-            """This is the thrid matrix construction option, it uses the permutation arrays."""
-            #if power:
-            #    matrix, matrix_terms, cuts = createMatrixFast(initial_poly_list, degree, dim)
-            #else:
-            #    matrix, matrix_terms, cuts = construction(initial_poly_list, degree, dim)
-
-            #If bottom left is zero only does the first QR reduction on top part of matrix (for speed). Otherwise does it on the whole thing
-            if np.allclose(matrix[cuts[0]:,:cuts[0]], 0):
-                matrix, matrix_terms = rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, max_number_of_roots, accuracy = accuracy)
-            else:
-                matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_number_of_roots, accuracy = accuracy)
-
-            #Make there are enough rows in the reduced Macaulay matrix, i.e. didn't loose a row
-            assert matrix.shape[0] >= matrix.shape[1] - max_number_of_roots
-
-            #matrix, matrix_terms = rrqr_reduceMacaulayFullRank(matrix, matrix_terms, cuts, number_of_roots, accuracy = accuracy)
-            height = matrix.shape[0]
-            matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
-        else:
-            raise e
+    #Make there are enough rows in the reduced Macaulay matrix, i.e. didn't loose a row
+    assert matrix.shape[0] >= matrix.shape[1] - max_number_of_roots
 
     matrix[:,:height] = np.eye(height)
     #return np.vstack((matrix[:,height:].T,np.eye(height))), matrix_terms
