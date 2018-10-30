@@ -34,7 +34,7 @@ def solve(funcs, a, b, interval_data = False):
     roots : numpy array
         The common roots of the polynomials. Each row is a root.
     '''
-    interval_checks = [constant_term_check,full_quad_check,full_cubic_check, curvature_check]
+    interval_checks = [constant_term_check,full_quad_check, curvature_check]#full_cubic_check,
     subinterval_checks = [linear_check,quadratic_check1,quadratic_check2,quadratic_check3]
     interval_results = []
     for i in range(len(interval_checks) + len(subinterval_checks) + 1):
@@ -83,7 +83,7 @@ def solve(funcs, a, b, interval_data = False):
             if dim == 2:
                 colors = ['b', 'g', 'r', 'm', 'c', 'y', 'k','w','pink','fuchsia']
                 fig,ax = plt.subplots(1)
-                fig.set_size_inches(18, 10)
+                fig.set_size_inches(10, 10)
                 for i in range(len(interval_checks)):
                     results = interval_results[i]
                     first = True
@@ -629,7 +629,7 @@ def linear_check(test_coeff_in, intervals):
     return mask
 
 def quadratic_check1(test_coeff, intervals,tol=1e-12):
-    """Quick check of zeros in intervals.
+    """Quick check of zeros in intervals using the x^2 terms.
 
     Parameters
     ----------
@@ -643,11 +643,11 @@ def quadratic_check1(test_coeff, intervals,tol=1e-12):
     mask : list
         Masks out the intervals we don't want
     """
-    #check using |c0 + c1x + c2y +c3x^2|
-    c0 = test_coeff[0,0].copy()
-    c1 = test_coeff[1,0].copy()
-    c2 = test_coeff[0,1].copy()
-    c3 = test_coeff[2,0].copy()
+    #check using |b0 + b1x + b2y +b3T_2(x)| = |(b0 - b3) + b1x + b2y + 2 b3x^2| = |c0 + c1x + c2y + c3x^2|
+    constant = test_coeff[0,0] - test_coeff[2,0]
+    c1 = test_coeff[1,0]
+    c2 = test_coeff[0,1]
+    c3 = 2*test_coeff[2,0]
 
     #if c3 != 0, same as a linear check
     if np.isclose(c3, 0,atol=tol):
@@ -656,9 +656,9 @@ def quadratic_check1(test_coeff, intervals,tol=1e-12):
     for interval in intervals:
         def quadratic_formula_check(y):
             """given a fixed value of y, uses the quadratic formula
-                to see if c0 + c1x + c2y +c3x^2 = 0
+                to see if constant + c1x + c2y +c3T_2(x) = 0
                 for some x in [a0, b0]"""
-            discriminant = c1**2 - 4*(c2*y+c0)*c3
+            discriminant = c1**2 - 4*(c2*y+constant)*c3
             if np.isclose(discriminant, 0,atol=tol) and interval[0][0] < -c1/2/c3 < interval[1][0]:
                  return True
             elif discriminant > 0 and \
@@ -667,12 +667,12 @@ def quadratic_check1(test_coeff, intervals,tol=1e-12):
                 return True
             else:
                 return False
-         #If c0 + c1x + c2y +c3x^2 = 0 in the region, useless check.
+         #If constant + c1x + c2y +c3x^2 = 0 in the region, useless check.
         if np.isclose(c2, 0,atol=tol) and quadratic_formula_check(0):
             mask.append(True)
             continue
         else:
-            y = lambda x: (-c3 *x**2 - c1 * x - c0)/c2
+            y = lambda x: (-c3 *x**2 - c1 * x - constant)/c2
             if interval[0][1] < y(interval[0][0]) < interval[1][1] or interval[0][1] < y(interval[1][0]) < interval[1][1]:
                 mask.append(True)
                 continue
@@ -680,8 +680,8 @@ def quadratic_check1(test_coeff, intervals,tol=1e-12):
                 mask.append(True)
                 continue
 
-         #function for evaluating |c0 + c1x + c2y +c3x^2|
-        eval = lambda xy: abs(c0 + c1*xy[:,0] + c2*xy[:,1] + c3 * xy[:,0]**2)
+         #function for evaluating |constant + c1x + c2y +c3x^2|
+        eval = lambda xy: abs(constant + c1*xy[:,0] + c2*xy[:,1] + c3 * xy[:,0]**2)
          #In this case, extrema only occur on the edges since there are no critical points
         #edges 1&2: x = a0, b0 --> potential extrema at corners
         #edges 3&4: y = a1, b1 --> potential extrema at x0 = -c1/2c3, if that's in [a0, b0]
@@ -697,8 +697,8 @@ def quadratic_check1(test_coeff, intervals,tol=1e-12):
                                              [interval[0][0],interval[1][1]],
                                              [interval[1][0],interval[0][1]],
                                              [interval[1][0],interval[1][1]]])
-         #if min{|c0 + c1x + c2y +c3x^2|} > sum of other terms in test_coeff, no roots in the region
-        if min(eval(potential_minimizers)) > np.sum(np.abs(test_coeff)) - abs(c0) - abs(c1) - abs(c2) - abs(c3):
+         #if min{|constant + c1x + c2y +c3x^2|} > sum of other terms in test_coeff, no roots in the region
+        if min(eval(potential_minimizers)) > np.sum(np.abs(test_coeff)) - abs(constant) - abs(c1) - abs(c2) - abs(c3):
             mask.append(False)
         else:
             mask.append(True)
@@ -720,11 +720,12 @@ def quadratic_check2(test_coeff, intervals,tol=1e-12):
          Masks out the intervals we don't want
      """
     #very similar to quadratic_check_1, but switch x and y
-    #check using |c0 + c1x + c2y +c3y^2|
-    c0 = test_coeff[0,0].copy()
-    c1 = test_coeff[1,0].copy()
-    c2 = test_coeff[0,1].copy()
-    c3 = test_coeff[0,2].copy()
+    #check using |b0 + b1x + b2y +b3T_2(y)| = |b0 - b3 + b1x + b2y + 2 b3y^2| = |c0 + c1x + c2y + c3y^2|
+    constant = test_coeff[0,0] - test_coeff[0,2]
+    c1 = test_coeff[1,0]
+    c2 = test_coeff[0,1]
+    c3 = 2*test_coeff[0,2]
+
     #if c3 != 0, same as a linear check
     if np.isclose(c3, 0,atol=tol):
         return[True]*len(intervals)
@@ -732,9 +733,9 @@ def quadratic_check2(test_coeff, intervals,tol=1e-12):
     for interval in intervals:
         def quadratic_formula_check(x):
             """given a fixed value of x, uses the quadratic formula
-                to see if c0 + c1x + c2y +c3y^2 = 0
+                to see if constant + c1x + c2y +c3y^2 = 0
                 for some y in [a1, b1]"""
-            discriminant = c2**2 - 4*(c1*x+c0)*c3
+            discriminant = c2**2 - 4*(c1*x+constant)*c3
             if np.isclose(discriminant, 0,atol=tol) and interval[0][1] < -c2/2/c3 < interval[1][1]:
                  return True
             elif discriminant > 0 and \
@@ -743,12 +744,12 @@ def quadratic_check2(test_coeff, intervals,tol=1e-12):
                 return True
             else:
                 return False
-         #If c0 + c1x + c2y +c3y^2 = 0 in the region, useless
+         #If constant + c1x + c2y +c3y^2 = 0 in the region, useless
         if np.isclose(c1, 0) and quadratic_formula_check(0):
             mask.append(True)
             continue
         else:
-            x = lambda y: (-c3 *y**2 - c2 * y - c0)/c1
+            x = lambda y: (-c3 *y**2 - c2 * y - constant)/c1
             if interval[0][0] < x(interval[0][1]) < interval[1][0] or interval[0][0] < x(interval[1][1]) < interval[1][0]:
                 mask.append(True)
                 continue
@@ -756,8 +757,8 @@ def quadratic_check2(test_coeff, intervals,tol=1e-12):
                 mask.append(True)
                 continue
 
-        #function to evaluate |c0 + c1x + c2y +c3y^2|
-        eval = lambda xy: abs(c0 + c1*xy[:,0] + c2*xy[:,1] + c3 * xy[:,1]**2)
+        #function to evaluate |constant + c1x + c2y +c3y^2|
+        eval = lambda xy: abs(constant + c1*xy[:,0] + c2*xy[:,1] + c3 * xy[:,1]**2)
         #In this case, extrema only occur on the edges since there are no critical points
         #edges 1&2: x = a0, b0 --> potential extrema at y0 = -c2/2c3, if that's in [a1, b1]
         #edges 3&4: y = a1, b1 --> potential extrema at corners
@@ -773,8 +774,8 @@ def quadratic_check2(test_coeff, intervals,tol=1e-12):
                                              [interval[0][0],interval[1][1]],
                                              [interval[1][0],interval[0][1]],
                                              [interval[1][0],interval[1][1]]])
-         #if min{|c0 + c1x + c2y +c3y^2|} > sum of other terms in test_coeff, no roots in the region
-        if min(eval(potential_minimizers)) > np.sum(np.abs(test_coeff)) - abs(c0) - abs(c1) - abs(c2) - abs(c3):
+         #if min{|constant + c1x + c2y +c3y^2|} > sum of other terms in test_coeff, no roots in the region
+        if min(eval(potential_minimizers)) > np.sum(np.abs(test_coeff)) - abs(constant) - abs(c1) - abs(c2) - abs(c3):
             mask.append(False)
         else:
             mask.append(True)
@@ -795,11 +796,11 @@ def quadratic_check3(test_coeff, intervals,tol=1e-12):
      mask : list
          Masks out the intervals we don't want
      """
-    #check using |c0 + c1x + c2y +c3xy|
-    c0 = test_coeff[0,0].copy()
-    c1 = test_coeff[1,0].copy()
-    c2 = test_coeff[0,1].copy()
-    c3 = test_coeff[1,1].copy()
+    #check using |constant + c1x + c2y +c3xy|
+    constant = test_coeff[0,0]
+    c1 = test_coeff[1,0]
+    c2 = test_coeff[0,1]
+    c3 = test_coeff[1,1]
 
     ##if c3 != 0, same as a linear check
     if np.isclose(c3, 0,atol=tol):
@@ -807,11 +808,11 @@ def quadratic_check3(test_coeff, intervals,tol=1e-12):
 
     mask = []
     for interval in intervals:
-        ##If c0 + c1x + c2y +c3xy = 0 in the region, useless
+        ##If constant + c1x + c2y +c3xy = 0 in the region, useless
 
         #testing the vertical sides of the interval
         vert_asymptote = -c2/c3
-        x = lambda y: (-c0 + c2*y)/(c1 + c3*y)
+        x = lambda y: (-constant + c2*y)/(c1 + c3*y)
         if np.isclose(interval[0][1], vert_asymptote):
             if interval[0][0] < x(interval[1][1]) < interval[1][0]:
                 mask.append(True)
@@ -826,7 +827,7 @@ def quadratic_check3(test_coeff, intervals,tol=1e-12):
 
         #testing the horizontal sides of the interval
         horiz_asymptote = -c1/c3
-        y = lambda x: (-c0 + c1*x)/(c2 + c3*x)
+        y = lambda x: (-constant + c1*x)/(c2 + c3*x)
         if np.isclose(interval[0][0], horiz_asymptote):
             if interval[0][1] < y(interval[1][0]) < interval[1][1]:
                 mask.append(True)
@@ -841,8 +842,8 @@ def quadratic_check3(test_coeff, intervals,tol=1e-12):
 
         ##Find the minimum
 
-        #function for evaluating |c0 + c1x + c2y +c3xy|
-        eval = lambda xy: abs(c0 + c1*xy[:,0] + c2*xy[:,1] + c3*xy[:,0]*xy[:,1])
+        #function for evaluating |constant + c1x + c2y +c3xy|
+        eval = lambda xy: abs(constant + c1*xy[:,0] + c2*xy[:,1] + c3*xy[:,0]*xy[:,1])
 
         #In this case, only critical point is saddle point, so all minima occur on the edges
         #On all the edges it becomes linear, so extrema always ocur at the corners
@@ -851,7 +852,7 @@ def quadratic_check3(test_coeff, intervals,tol=1e-12):
                                          [interval[1][0],interval[0][1]],
                                          [interval[1][0],interval[1][1]]])
 
-        ##if min{|c0 + c1x + c2y +c3xy|} > sum of other terms in test_coeff, no roots in the region
+        ##if min{|constant + c1x + c2y +c3xy|} > sum of other terms in test_coeff, no roots in the region
         if min(eval(potential_minimizers)) > np.sum(np.abs(test_coeff)) - np.sum(np.abs(test_coeff[:2,:2])):
             mask.append(False)
         else:
