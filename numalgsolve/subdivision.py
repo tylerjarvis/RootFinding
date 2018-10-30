@@ -242,7 +242,7 @@ def interval_approximate_nd(f,a,b,degs):
         cheb_points = transform(np.column_stack(map(flatten, cheb_grids)), a, b)
         values = f(cheb_points).reshape(2*n,2*n)
 
-    coeffs = fftn(values/np.product(degs))
+    coeffs = np.real(fftn(values/np.product(degs)))
 
     for i in range(dim):
         #construct slices for the first and degs[i] entry in each dimension
