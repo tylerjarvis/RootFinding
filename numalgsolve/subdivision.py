@@ -643,6 +643,8 @@ def quadratic_check1(test_coeff, intervals,tol=1e-12):
     mask : list
         Masks out the intervals we don't want
     """
+    if test_coeff.ndim > 2:
+        return [True]*len(intervals)
     #check using |b0 + b1x + b2y +b3T_2(x)| = |(b0 - b3) + b1x + b2y + 2 b3x^2| = |c0 + c1x + c2y + c3x^2|
     constant = test_coeff[0,0] - test_coeff[2,0]
     c1 = test_coeff[1,0]
@@ -718,7 +720,9 @@ def quadratic_check2(test_coeff, intervals,tol=1e-12):
      -------
      mask : list
          Masks out the intervals we don't want
-     """
+    """
+    if test_coeff.ndim > 2:
+         return [True]*len(intervals)
     #very similar to quadratic_check_1, but switch x and y
     #check using |b0 + b1x + b2y +b3T_2(y)| = |b0 - b3 + b1x + b2y + 2 b3y^2| = |c0 + c1x + c2y + c3y^2|
     constant = test_coeff[0,0] - test_coeff[0,2]
@@ -795,7 +799,9 @@ def quadratic_check3(test_coeff, intervals,tol=1e-12):
      -------
      mask : list
          Masks out the intervals we don't want
-     """
+    """
+    if test_coeff.ndim > 2:
+         return [True]*len(intervals)
     #check using |constant + c1x + c2y +c3xy|
     constant = test_coeff[0,0]
     c1 = test_coeff[1,0]

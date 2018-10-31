@@ -127,7 +127,6 @@ def test_subdivision_sine():
     expected_zeros = np.column_stack([X.flatten(), Y.flatten()])
     assert np.allclose(expected_zeros, zeros, atol=1e-4)
 
-
 #@unittest.skip("high degree polynomial explodes outside of the unit region")
 def test_subdivision_solve_with_transform():
     '''
@@ -183,9 +182,9 @@ def test_subdivision_solve_with_transform():
 def test_subdivision_solve_with_transform_1d():
     #Case 6 - One MultiPower 1D of degrees 10
     #choose a seed that has a zero like ?
-    np.random.seed(0)
+    np.random.seed(2)
     a = -2*np.ones(1);b = 2*np.ones(1)
-    A = getPoly(10,1,False)
+    A = getPoly(20,1,False)
     correctZeros([A], a, b)
 
 def test_good_zeros_nd():
