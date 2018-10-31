@@ -102,7 +102,7 @@ def test_subdivision_solve_1d():
     A = getPoly(20,1,False)
     correctZeros([A], a, b)
 
-@unittest.skip("This test is broken, but it shouldn't be. Let's fix the code.")
+#@unittest.skip("This test is broken, but it shouldn't be. Let's fix the code.")
 def test_subdivision_sine():
     '''
     Test case using basic sine function to put zeros on the coordinates.
@@ -127,8 +127,7 @@ def test_subdivision_sine():
     expected_zeros = np.column_stack([X.flatten(), Y.flatten()])
     assert np.allclose(expected_zeros, zeros, atol=1e-4)
 
-
-@unittest.skip("high degree polynomial explodes outside of the unit region")
+#@unittest.skip("high degree polynomial explodes outside of the unit region")
 def test_subdivision_solve_with_transform():
     '''
     The following tests will run subdivision.solve on relatively small random upper trianguler MultiPower.
@@ -179,13 +178,13 @@ def test_subdivision_solve_with_transform():
     C = getPoly(5,3,True)
     correctZeros([A,B,C], a, b)
 
-@unittest.skip("high degree polynomial explodes outside of the unit region")
+@unittest.skip("This test is broken because it produces a linear approximation.")
 def test_subdivision_solve_with_transform_1d():
     #Case 6 - One MultiPower 1D of degrees 10
     #choose a seed that has a zero like ?
-    np.random.seed(0)
+    np.random.seed(2)
     a = -2*np.ones(1);b = 2*np.ones(1)
-    A = getPoly(10,1,False)
+    A = getPoly(20,1,False)
     correctZeros([A], a, b)
 
 def test_good_zeros_nd():
@@ -211,3 +210,6 @@ def test_good_zeros_nd():
     ])
 
     assert np.all(subdiv.good_zeros_nd(zeros) == zeros[:2])
+
+if __name__ == "__main__":
+    test_subdivision_solve_with_transform()
