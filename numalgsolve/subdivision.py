@@ -200,7 +200,7 @@ def interval_approximate_1d(f,a,b,deg):
     coeffs[deg]/=2
     return coeffs[:deg+1]
 
-def interval_approximate_nd(f,a,b,degs):
+def interval_approximate_nd(f,a,b,degs,return_bools=False):
     """Finds the chebyshev approximation of an n-dimensional function on an interval.
 
     Parameters
@@ -213,11 +213,15 @@ def interval_approximate_nd(f,a,b,degs):
         The upper bound on the interval.
     deg : numpy array
         The degree of the interpolation in each dimension.
+    return_bools: bool
+        whether to return bools which indicate if a funtion changes sign or not
 
     Returns
     -------
     coeffs : numpy array
         The coefficient of the chebyshev interpolating polynomial.
+    changes_sign: numpy array
+        list of which subintervals change sign
     """
     if len(a)!=len(b):
         raise ValueError("Interval dimensions must be the same!")
@@ -232,6 +236,14 @@ def interval_approximate_nd(f,a,b,degs):
         cheb_values = np.cos(np.arange(2*n)*np.pi/n)
         xyz = transform(np.column_stack([cheb_values]*dim), a, b)
         values = f.evaluate_grid(xyz)
+
+        # there has to be a better way instead of evaluating f at the same value 2^n times
+        # highly symmetric evaluations matrix
+        # this works in 2D
+        # cheb_values = np.cos(np.arange(2*n//2+1)*np.pi/n)
+        # values = np.hstack((values, values[:,-2:0:-1]))
+        # values = np.vstack((values, values[-2:0:-1,:]))
+        # print('cheb_points',cheb_values,'evals',values,sep='\n')
     else:
         #if function f has no "evaluate_grid" method,
         #we evaluate each point individually
@@ -241,6 +253,45 @@ def interval_approximate_nd(f,a,b,degs):
         flatten = lambda x: x.flatten()
         cheb_points = transform(np.column_stack(map(flatten, cheb_grids)), a, b)
         values = f(cheb_points).reshape(2*n,2*n)
+
+    slices = []
+    for i in range(dim):
+        slices.append(slice(0,degs[i]+1))
+
+    #figure out on which subintervals the function changes sign
+    if return_bools:
+        #initialize bools array
+        bools = [np.ones(2**dim, dtype=bool)]
+
+        #get the valuations at the cheb_values and evaluations we actually care about (just from 1 to -1)
+        # (the others are just copies of the same values)
+        cheb_values = cheb_values[:len(cheb_values)//2+1]
+        evals = values[tuple(slices)]
+
+        #splitting point of cheb_values into each subinterval
+        split = 0.027860780181747646
+        split_point = len(np.where(cheb_values>split)[0])
+
+        #each subinterval is represented by an n-tuple like (T,F,T)
+        # False in the dimension i spot represents that the x_i > split
+        print(dim)
+        for k, subinterval in product([False,True], repeat=dim):
+            #get the subinterval by constructing the slicer
+            print(subinterval)
+            slicer = []*dim
+            for i in range(dim):
+                # evaluations corresponding to positive cheb_values towards the left,
+                # negative towards the right
+                if subinterval[i]:
+                    #x_i < split
+                    slicer.append(slice(split_point,None))
+                else:
+                    #x_i > split
+                    slicer.append(slice(None,split_point))
+
+            #test subinterval and update bool
+            if np.all(evals[tuple(slicer)]>0) or np.all(evals[tuple(slicer)]<0):
+                bools[k] = False
 
     coeffs = np.real(fftn(values/np.product(degs)))
 
@@ -256,11 +307,10 @@ def interval_approximate_nd(f,a,b,degs):
         coeffs[idx0] /= 2
         coeffs[idx_deg] /= 2
 
-    slices = []
-    for i in range(dim):
-        slices.append(slice(0,degs[i]+1))
+    # if return_bools:
+    #     coeffs[slices], bools
 
-    return coeffs[slices]
+    return coeffs[tuple(slices)]
 
 def get_subintervals(a,b,dimensions,subinterval_checks,interval_results,polys,check_subintervals=False):
     """Gets the subintervals to divide a matrix into.
@@ -285,12 +335,15 @@ def get_subintervals(a,b,dimensions,subinterval_checks,interval_results,polys,ch
     diffs2 = ((b-a)-(b-a)*RAND)[dimensions]
 
     for subset in product([False,True], repeat=len(dimensions)):
+        print(subset)
         subset = np.array(subset)
         aTemp = a.copy()
         bTemp = b.copy()
         aTemp[dimensions] += (~subset)*diffs1
         bTemp[dimensions] -= subset*diffs2
         subintervals.append((aTemp,bTemp))
+
+    print('start',*subintervals,sep='\n')
 
     if check_subintervals:
         scaled_subintervals = get_subintervals(-np.ones_like(a),np.ones_like(a),dimensions,None,None,None)
@@ -332,17 +385,19 @@ def full_cheb_approximate(f,a,b,deg,tol=1.e-8):
     -------
     coeff : numpy array
         The coefficient array of the interpolation. If it can't get a good approximation and needs to subdivide, returns None.
+    bools: numpy array
+        (2^n, 1) array of bools corresponding to which subintervals the function changes sign in
     """
     dim = len(a)
     degs = np.array([deg]*dim)
     coeff = interval_approximate_nd(f,a,b,degs)
-    coeff2 = interval_approximate_nd(f,a,b,degs*2)
+    coeff2 = interval_approximate_nd(f,a,b,degs*2,return_bools=True) #, bools
     coeff2[slice_top(coeff)] -= coeff
     clean_zeros_from_matrix(coeff2,1.e-16)
     if np.sum(np.abs(coeff2)) > tol:
         return None
     else:
-        return coeff
+        return coeff#, bools
 
 def good_zeros_nd(zeros, imag_tol = 1.e-10):
     """Get the real zeros in the -1 to 1 interval in each dimension.
@@ -1180,6 +1235,7 @@ def subdivision_solve_1d(f,a,b,cheb_approx_tol=1.e-10,max_degree=128):
                 return transform(good_zeros(multCheb(np.trim_zeros(coeffs.copy(),trim='b'))),a,b)
         intitial_approx = coeffs2N
         n*=2
+    print(coeffsN)
     #Subdivide the interval and recursively call the function.
     div_length = (b-a)/2
     return np.hstack([subdivision_solve_1d(f,a,b-div_length,max_degree=max_degree),\
