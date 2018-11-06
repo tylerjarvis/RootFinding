@@ -178,7 +178,7 @@ def test_subdivision_solve_with_transform():
     C = getPoly(5,3,True)
     correctZeros([A,B,C], a, b)
 
-#@unittest.skip("high degree polynomial explodes outside of the unit region")
+@unittest.skip("This test is broken because it produces a linear approximation.")
 def test_subdivision_solve_with_transform_1d():
     #Case 6 - One MultiPower 1D of degrees 10
     #choose a seed that has a zero like ?
