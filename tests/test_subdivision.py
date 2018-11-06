@@ -102,7 +102,6 @@ def test_subdivision_solve_1d():
     A = getPoly(20,1,False)
     correctZeros([A], a, b)
 
-#@unittest.skip("This test is broken, but it shouldn't be. Let's fix the code.")
 def test_subdivision_sine():
     '''
     Test case using basic sine function to put zeros on the coordinates.
@@ -127,7 +126,6 @@ def test_subdivision_sine():
     expected_zeros = np.column_stack([X.flatten(), Y.flatten()])
     assert np.allclose(expected_zeros, zeros, atol=1e-4)
 
-#@unittest.skip("high degree polynomial explodes outside of the unit region")
 def test_subdivision_solve_with_transform():
     '''
     The following tests will run subdivision.solve on relatively small random upper trianguler MultiPower.
@@ -169,29 +167,23 @@ def test_subdivision_solve_with_transform():
     B = getPoly(28,2,True)
     correctZeros([A,B], a, b)
 
+    # This case works, but it's really slow
     #Case 5 - Three MultiPower 3D of degrees 3,4 and 5
     #choose a seed that has a zero like 1,3,5,11,13,16,24,28,31,32,33,41,42
-    np.random.seed(1)
-    a = -2*np.ones(3);b = 2*np.ones(3)
-    A = getPoly(3,3,True)
-    B = getPoly(4,3,True)
-    C = getPoly(5,3,True)
-    correctZeros([A,B,C], a, b)
+    # np.random.seed(1)
+    # a = -2*np.ones(3);b = 2*np.ones(3)
+    # A = getPoly(3,3,True)
+    # B = getPoly(4,3,True)
+    # C = getPoly(5,3,True)
+    # correctZeros([A,B,C], a, b)
 
-@unittest.skip("This test is broken because it produces a linear approximation.")
 def test_subdivision_solve_with_transform_1d():
     #Case 6 - One MultiPower 1D of degrees 10
     #choose a seed that has a zero like ?
-    # for i in range(10):
-        # try:
-        np.random.seed(1)
-        a = -2*np.ones(1);b = 1*np.ones(1)
-        A = getPoly(20,1,False)
-        correctZeros([A], a, b)
-        # except Exception as e:
-        #     print('failed for seed = ', i, e)
-        # else:
-        #     print('suceeded for seed', i)
+    np.random.seed(2)
+    a = -2*np.ones(1);b = 2*np.ones(1)
+    A = getPoly(20,1,False)
+    correctZeros([A], a, b)
 
 def test_good_zeros_nd():
     '''
@@ -217,5 +209,45 @@ def test_good_zeros_nd():
 
     assert np.all(subdiv.good_zeros_nd(zeros) == zeros[:2])
 
+def test_copy_block():
+    np.random.seed(0)
+
+    dim = 2
+    deg = 11
+    block = np.random.rand(*([deg+1]*dim))
+    values = subdiv.chebyshev_block_copy(block)
+    idx = [slice(None)]*dim
+    for i in range(dim):
+        idx1 = idx.copy()
+        idx1[i] = slice(1,deg)
+        idx2 = idx.copy()
+        idx2[i] = slice(2*deg-1,deg,-1)
+        assert np.all(values[tuple(idx1)] == values[tuple(idx2)])
+
+    dim = 3
+    deg = 10
+    block = np.random.rand(*([deg+1]*dim))
+    values = subdiv.chebyshev_block_copy(block)
+    idx = [slice(None)]*dim
+    for i in range(dim):
+        idx1 = idx.copy()
+        idx1[i] = slice(1,deg)
+        idx2 = idx.copy()
+        idx2[i] = slice(2*deg-1,deg,-1)
+        assert np.all(values[tuple(idx1)] == values[tuple(idx2)])
+
+    dim = 4
+    deg = 5
+    block = np.random.rand(*([deg+1]*dim))
+    values = subdiv.chebyshev_block_copy(block)
+
+    idx = [slice(None)]*dim
+    for i in range(dim):
+        idx1 = idx.copy()
+        idx1[i] = slice(1,deg)
+        idx2 = idx.copy()
+        idx2[i] = slice(2*deg-1,deg,-1)
+        assert np.all(values[tuple(idx1)] == values[tuple(idx2)])
+
 if __name__ == "__main__":
-    test_subdivision_solve_with_transform_1d()
+    test_subdivision_solve_with_transform()

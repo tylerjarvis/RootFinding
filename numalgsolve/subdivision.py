@@ -174,6 +174,36 @@ def inv_transform(x,a,b):
     """
     return (2*x-b-a)/(b-a)
 
+def chebyshev_block_copy(values_block):
+    """This functions helps avoid double evaluation of functions at
+    interpolation points. It takes in a tensor of function evaluation values
+    and copies these values to a new tensor appropriately to prepare for
+    chebyshev interpolation.
+
+    Parameters
+    ----------
+    block_values : numpy array
+      block of values from function evaluation
+
+    Returns
+    -------
+    cheb_values : numpy array
+      chebyshev interpolation values
+    """
+    dim = values_block.ndim
+    deg = values_block.shape[0] - 1
+    values_cheb = np.empty(tuple([2*deg])*dim, dtype=values_block.dtype)
+
+    for block in product([False,True],repeat=dim):
+        cheb_idx = [slice(0,deg+1)]*dim
+        block_idx = [slice(None)]*dim
+        for i,flip_dim in enumerate(block):
+            if flip_dim:
+                cheb_idx[i] = slice(deg+1,None)
+                block_idx[i] = slice(deg-1,0,-1)
+        values_cheb[tuple(cheb_idx)] = values_block[tuple(block_idx)]
+    return values_cheb
+
 def interval_approximate_1d(f,a,b,deg):
     """Finds the chebyshev approximation of a one-dimensional function on an interval.
 
@@ -227,32 +257,24 @@ def interval_approximate_nd(f,a,b,degs,return_bools=False):
         raise ValueError("Interval dimensions must be the same!")
 
     dim = len(a)
-    n = degs[0]
+    deg = degs[0]
 
     if hasattr(f,"evaluate_grid"):
         #for polynomials, we can quickly evaluate all points in a grid
         #xyz does not contain points, but the nth column of xyz has the values needed
         #along the nth axis. The direct product of these values procuces the grid
-        cheb_values = np.cos(np.arange(2*n)*np.pi/n)
+        cheb_values = np.cos(np.arange(deg+1)*np.pi/deg)
         xyz = transform(np.column_stack([cheb_values]*dim), a, b)
-        values = f.evaluate_grid(xyz)
-
-        # there has to be a better way instead of evaluating f at the same value 2^n times
-        # highly symmetric evaluations matrix
-        # this works in 2D
-        # cheb_values = np.cos(np.arange(2*n//2+1)*np.pi/n)
-        # values = np.hstack((values, values[:,-2:0:-1]))
-        # values = np.vstack((values, values[-2:0:-1,:]))
-        # print('cheb_points',cheb_values,'evals',values,sep='\n')
+        values_block = f.evaluate_grid(xyz)
     else:
         #if function f has no "evaluate_grid" method,
         #we evaluate each point individually
-        cheb_values = np.cos(np.arange(2*n)*np.pi/n)
+        cheb_values = np.cos(np.arange(deg+1)*np.pi/deg)
         cheb_grids = np.meshgrid(*([cheb_values]*dim), indexing='ij')
 
         flatten = lambda x: x.flatten()
         cheb_points = transform(np.column_stack(map(flatten, cheb_grids)), a, b)
-        values = f(cheb_points).reshape(2*n,2*n)
+        values_block = f(cheb_points).reshape(*([deg+1]*dim))
 
     slices = []
     for i in range(dim):
@@ -263,21 +285,14 @@ def interval_approximate_nd(f,a,b,degs,return_bools=False):
         #initialize bools array
         bools = [np.ones(2**dim, dtype=bool)]
 
-        #get the valuations at the cheb_values and evaluations we actually care about (just from 1 to -1)
-        # (the others are just copies of the same values)
-        cheb_values = cheb_values[:len(cheb_values)//2+1]
-        evals = values[tuple(slices)]
-
         #splitting point of cheb_values into each subinterval
         split = 0.027860780181747646
         split_point = len(np.where(cheb_values>split)[0])
 
         #each subinterval is represented by an n-tuple like (T,F,T)
         # False in the dimension i spot represents that the x_i > split
-        print(dim)
         for k, subinterval in product([False,True], repeat=dim):
             #get the subinterval by constructing the slicer
-            print(subinterval)
             slicer = []*dim
             for i in range(dim):
                 # evaluations corresponding to positive cheb_values towards the left,
@@ -290,9 +305,10 @@ def interval_approximate_nd(f,a,b,degs,return_bools=False):
                     slicer.append(slice(None,split_point))
 
             #test subinterval and update bool
-            if np.all(evals[tuple(slicer)]>0) or np.all(evals[tuple(slicer)]<0):
+            if np.all(values_block[tuple(slicer)]>0) or np.all(values_block[tuple(slicer)]<0):
                 bools[k] = False
 
+    values = chebyshev_block_copy(values_block)
     coeffs = np.real(fftn(values/np.product(degs)))
 
     for i in range(dim):
@@ -307,10 +323,10 @@ def interval_approximate_nd(f,a,b,degs,return_bools=False):
         coeffs[idx0] /= 2
         coeffs[idx_deg] /= 2
 
-    # if return_bools:
-    #     coeffs[slices], bools
-
-    return coeffs[tuple(slices)]
+    if return_bools:
+        coeffs[tuple(slices)], bools
+    else:
+        return coeffs[tuple(slices)]
 
 def get_subintervals(a,b,dimensions,subinterval_checks,interval_results,polys,check_subintervals=False):
     """Gets the subintervals to divide a matrix into.
@@ -335,15 +351,12 @@ def get_subintervals(a,b,dimensions,subinterval_checks,interval_results,polys,ch
     diffs2 = ((b-a)-(b-a)*RAND)[dimensions]
 
     for subset in product([False,True], repeat=len(dimensions)):
-        print(subset)
         subset = np.array(subset)
         aTemp = a.copy()
         bTemp = b.copy()
         aTemp[dimensions] += (~subset)*diffs1
         bTemp[dimensions] -= subset*diffs2
         subintervals.append((aTemp,bTemp))
-
-    print('start',*subintervals,sep='\n')
 
     if check_subintervals:
         scaled_subintervals = get_subintervals(-np.ones_like(a),np.ones_like(a),dimensions,None,None,None)
@@ -391,13 +404,13 @@ def full_cheb_approximate(f,a,b,deg,tol=1.e-8):
     dim = len(a)
     degs = np.array([deg]*dim)
     coeff = interval_approximate_nd(f,a,b,degs)
-    coeff2 = interval_approximate_nd(f,a,b,degs*2,return_bools=True) #, bools
+    coeff2, bools = interval_approximate_nd(f,a,b,degs*2,return_bools=True)
     coeff2[slice_top(coeff)] -= coeff
     clean_zeros_from_matrix(coeff2,1.e-16)
     if np.sum(np.abs(coeff2)) > tol:
         return None
     else:
-        return coeff#, bools
+        return coeff, bools
 
 def good_zeros_nd(zeros, imag_tol = 1.e-10):
     """Get the real zeros in the -1 to 1 interval in each dimension.
@@ -654,33 +667,306 @@ def linear_check(test_coeff_in, intervals):
     mask : list
         Masks out the intervals we don't want
     """
+    dim = test_coeff_in.ndim
+    coeff_abs_sum = np.sum(np.abs(test_coeff_in))
     mask = []
     for interval in intervals:
         test_coeff = test_coeff_in.copy()
 
         a,b = interval
-        spot = [0]*len(a)
-        neg_most_corner = test_coeff[tuple(spot)]
-        test_coeff[tuple(spot)] = 0
-        for dim in range(len(a)):
-            spot[dim] = 1
-            neg_most_corner += a[dim]*test_coeff[tuple(spot)]
-            spot[dim] = 0
+        # abs_smallest_corner = test_coeff[tuple(spot)]
 
-        lin_min = neg_most_corner
-        for dim in range(len(a)):
-            spot[dim] = 1
-            if np.sign(test_coeff[tuple(spot)])*np.sign(neg_most_corner) < 0:
-                lin_min += (b[dim] - a[dim]) * test_coeff[tuple(spot)]
-            test_coeff[tuple(spot)] = 0
-            spot[dim] = 0
+        idx = [0]*dim
+        const = test_coeff_in[idx]
+        lin_coeff = np.zeros(dim)
+        for cur_dim in range(dim):
+            if test_coeff_in.shape[cur_dim] < 2:
+                continue
+            idx[cur_dim] = 1
+            lin_coeff[cur_dim] = test_coeff_in[tuple(idx)]
+            idx[cur_dim] = 0
 
-        if np.sign(lin_min)*np.sign(neg_most_corner) < 0:
+        corner_vals = []
+        for corner_pt in product(*zip(a,b)):
+            corner_vals.append(const + np.sum(np.array(corner_pt)*lin_coeff))
+        corner_vals = np.array(corner_vals)
+
+        # check if corners have mixed signs
+        if not (corner_vals.min() < 0 < corner_vals.max()):
             mask.append(True)
-        elif np.sum(np.abs(test_coeff)) >= np.abs(neg_most_corner):
-            mask.append(True)
-        else:
+            continue
+
+        abs_smallest_corner = np.min(np.abs(corner_vals))
+        if 2*abs_smallest_corner > coeff_abs_sum:
+            # case: corner is far enough from 0
             mask.append(False)
+        else:
+            mask.append(True)
+
+        # test_coeff[tuple(spot)] = 0
+        # for dim in range(len(a)):
+        #     spot[dim] = 1
+        #     neg_most_corner += a[dim]*test_coeff[tuple(spot)]
+        #     spot[dim] = 0
+        #
+        # lin_min = neg_most_corner
+        # for dim in range(len(a)):
+        #     spot[dim] = 1
+        #     if np.sign(test_coeff[tuple(spot)])*np.sign(neg_most_corner) < 0:
+        #         lin_min += (b[dim] - a[dim]) * test_coeff[tuple(spot)]
+        #     test_coeff[tuple(spot)] = 0
+        #     spot[dim] = 0
+        #
+        # if np.sign(lin_min)*np.sign(neg_most_corner) < 0:
+        #     mask.append(True)
+        # elif np.sum(np.abs(test_coeff)) >= np.abs(neg_most_corner):
+        #     mask.append(True)
+        # else:
+        #     mask.append(False)
+    return mask
+
+def quadratic_check1(test_coeff, intervals,tol=1e-12):
+    """Quick check of zeros in intervals using the x^2 terms.
+
+    Parameters
+    ----------
+    test_coeff : numpy array
+        The coefficient matrix of the polynomial to check
+    intervals : list
+        A list of the intervals we want to check before subdividing them
+
+    Returns
+    -------
+    mask : list
+        Masks out the intervals we don't want
+    """
+    if test_coeff.ndim > 2:
+        return [True]*len(intervals)
+    padding = [(0,max(0,3-i)) for i in test_coeff.shape]
+    test_coeff = np.pad(test_coeff.copy(), padding, mode='constant')
+    #check using |b0 + b1x + b2y +b3T_2(x)| = |(b0 - b3) + b1x + b2y + 2 b3x^2| = |c0 + c1x + c2y + c3x^2|
+    constant = test_coeff[0,0] - test_coeff[2,0]
+    c1 = test_coeff[1,0]
+    c2 = test_coeff[0,1]
+    c3 = 2*test_coeff[2,0]
+
+    #if c3 != 0, same as a linear check
+    if np.isclose(c3, 0, atol=tol) or np.isclose(c2, 0, atol=tol):
+        return [True]*len(intervals)
+    mask = []
+    for interval in intervals:
+        def quadratic_formula_check(y):
+            """given a fixed value of y, uses the quadratic formula
+                to see if constant + c1x + c2y +c3T_2(x) = 0
+                for some x in [a0, b0]"""
+            discriminant = c1**2 - 4*(c2*y+constant)*c3
+            if np.isclose(discriminant, 0,atol=tol) and interval[0][0] < -c1/2/c3 < interval[1][0]:
+                 return True
+            elif discriminant > 0 and \
+                  (interval[0][0] < (-c1+np.sqrt(discriminant))/2/c3 < interval[1][0] or \
+                   interval[0][0] < (-c1-np.sqrt(discriminant))/2/c3 < interval[1][0]):
+                return True
+            else:
+                return False
+         #If constant + c1x + c2y +c3x^2 = 0 in the region, useless check.
+        if np.isclose(c2, 0,atol=tol) and quadratic_formula_check(0):
+            mask.append(True)
+            continue
+        else:
+            y = lambda x: (-c3 *x**2 - c1 * x - constant)/c2
+            if interval[0][1] < y(interval[0][0]) < interval[1][1] or interval[0][1] < y(interval[1][0]) < interval[1][1]:
+                mask.append(True)
+                continue
+            elif quadratic_formula_check(interval[0][0]) or quadratic_formula_check(interval[1][0]):
+                mask.append(True)
+                continue
+
+         #function for evaluating |constant + c1x + c2y +c3x^2|
+        eval = lambda xy: abs(constant + c1*xy[:,0] + c2*xy[:,1] + c3 * xy[:,0]**2)
+         #In this case, extrema only occur on the edges since there are no critical points
+        #edges 1&2: x = a0, b0 --> potential extrema at corners
+        #edges 3&4: y = a1, b1 --> potential extrema at x0 = -c1/2c3, if that's in [a0, b0]
+        if interval[0][0] < -c1/2/c3 < interval[1][0]:
+            potential_minimizers = np.array([[interval[0][0],interval[0][1]],
+                                             [interval[0][0],interval[1][1]],
+                                             [interval[1][0],interval[0][1]],
+                                             [interval[1][0],interval[1][1]],
+                                             [-c1/2/c3,interval[0][1]],
+                                             [-c1/2/c3,interval[1][1]]])
+        else:
+            potential_minimizers = np.array([[interval[0][0],interval[0][1]],
+                                             [interval[0][0],interval[1][1]],
+                                             [interval[1][0],interval[0][1]],
+                                             [interval[1][0],interval[1][1]]])
+         #if min{|constant + c1x + c2y +c3x^2|} > sum of other terms in test_coeff, no roots in the region
+        if min(eval(potential_minimizers)) > np.sum(np.abs(test_coeff)) - abs(constant) - abs(c1) - abs(c2) - abs(c3):
+            mask.append(False)
+        else:
+            mask.append(True)
+    return mask
+
+def quadratic_check2(test_coeff, intervals,tol=1e-12):
+    """Quick check of zeros in the unit box using the y^2 terms
+
+     Parameters
+     ----------
+     test_coeff : numpy array
+         The coefficient matrix of the polynomial to check
+     intervals : list
+         A list of the intervals we want to check before subdividing them
+
+     Returns
+     -------
+     mask : list
+         Masks out the intervals we don't want
+    """
+    if test_coeff.ndim > 2:
+        return [True]*len(intervals)
+    padding = [(0,max(0,3-i)) for i in test_coeff.shape]
+    test_coeff = np.pad(test_coeff.copy(), padding, mode='constant')
+    #very similar to quadratic_check_1, but switch x and y
+    #check using |b0 + b1x + b2y +b3T_2(y)| = |b0 - b3 + b1x + b2y + 2 b3y^2| = |c0 + c1x + c2y + c3y^2|
+    constant = test_coeff[0,0] - test_coeff[0,2]
+    c1 = test_coeff[1,0]
+    c2 = test_coeff[0,1]
+    c3 = 2*test_coeff[0,2]
+
+    #if c3 != 0, same as a linear check
+    if np.isclose(c3, 0, atol=tol) or np.isclose(c1, 0, atol=tol):
+        return[True]*len(intervals)
+    mask = []
+    for interval in intervals:
+        def quadratic_formula_check(x):
+            """given a fixed value of x, uses the quadratic formula
+                to see if constant + c1x + c2y +c3y^2 = 0
+                for some y in [a1, b1]"""
+            discriminant = c2**2 - 4*(c1*x+constant)*c3
+            if np.isclose(discriminant, 0,atol=tol) and interval[0][1] < -c2/2/c3 < interval[1][1]:
+                 return True
+            elif discriminant > 0 and \
+                  (interval[0][1] < (-c2+np.sqrt(discriminant))/2/c3 < interval[1][1] or \
+                   interval[0][1] < (-c2-np.sqrt(discriminant))/2/c3 < interval[1][1]):
+                return True
+            else:
+                return False
+         #If constant + c1x + c2y +c3y^2 = 0 in the region, useless
+        if np.isclose(c1, 0) and quadratic_formula_check(0):
+            mask.append(True)
+            continue
+        else:
+            x = lambda y: (-c3 *y**2 - c2 * y - constant)/c1
+            if interval[0][0] < x(interval[0][1]) < interval[1][0] or interval[0][0] < x(interval[1][1]) < interval[1][0]:
+                mask.append(True)
+                continue
+            elif quadratic_formula_check(interval[0][1]) or quadratic_formula_check(interval[1][1]):
+                mask.append(True)
+                continue
+
+        #function to evaluate |constant + c1x + c2y +c3y^2|
+        eval = lambda xy: abs(constant + c1*xy[:,0] + c2*xy[:,1] + c3 * xy[:,1]**2)
+        #In this case, extrema only occur on the edges since there are no critical points
+        #edges 1&2: x = a0, b0 --> potential extrema at y0 = -c2/2c3, if that's in [a1, b1]
+        #edges 3&4: y = a1, b1 --> potential extrema at corners
+        if interval[0][1] < -c2/2/c3 < interval[1][1]:
+            potential_minimizers = np.array([[interval[0][0],interval[0][1]],
+                                             [interval[0][0],interval[1][1]],
+                                             [interval[1][0],interval[0][1]],
+                                             [interval[1][0],interval[1][1]],
+                                             [interval[0][0],-c2/2/c3],
+                                             [interval[1][0],-c2/2/c3]])
+        else:
+            potential_minimizers = np.array([[interval[0][0],interval[0][1]],
+                                             [interval[0][0],interval[1][1]],
+                                             [interval[1][0],interval[0][1]],
+                                             [interval[1][0],interval[1][1]]])
+         #if min{|constant + c1x + c2y +c3y^2|} > sum of other terms in test_coeff, no roots in the region
+        if min(eval(potential_minimizers)) > np.sum(np.abs(test_coeff)) - abs(constant) - abs(c1) - abs(c2) - abs(c3):
+            mask.append(False)
+        else:
+            mask.append(True)
+    return mask
+
+def quadratic_check3(test_coeff, intervals,tol=1e-12):
+    """Quick check of zeros in the unit box using the xy terms
+
+     Parameters
+     ----------
+     test_coeff : numpy array
+         The coefficient matrix of the polynomial to check
+     intervals : list
+         A list of the intervals we want to check before subdividing them
+
+     Returns
+     -------
+     mask : list
+         Masks out the intervals we don't want
+    """
+    if test_coeff.ndim > 2:
+        return [True]*len(intervals)
+    padding = [(0,max(0,3-i)) for i in test_coeff.shape]
+    test_coeff = np.pad(test_coeff.copy(), padding, mode='constant')
+    #check using |constant + c1x + c2y +c3xy|
+    constant = test_coeff[0,0]
+    c1 = test_coeff[1,0]
+    c2 = test_coeff[0,1]
+    c3 = test_coeff[1,1]
+
+    ##if c3 != 0, same as a linear check
+    if np.isclose(c3, 0,atol=tol):
+        return [True]*len(intervals)
+
+    mask = []
+    for interval in intervals:
+        ##If constant + c1x + c2y +c3xy = 0 in the region, useless
+
+        #testing the vertical sides of the interval
+        vert_asymptote = -c2/c3
+        x = lambda y: (-constant + c2*y)/(c1 + c3*y)
+        if np.isclose(interval[0][1], vert_asymptote):
+            if interval[0][0] < x(interval[1][1]) < interval[1][0]:
+                mask.append(True)
+                continue
+        elif np.isclose(interval[1][1], vert_asymptote):
+            if interval[0][0] < x(interval[0][1]) < interval[1][0]:
+                mask.append(True)
+                continue
+        elif interval[0][0] < x(interval[0][1]) < interval[1][0] or interval[0][0] < x(interval[1][1]) < interval[1][0]:
+            mask.append(True)
+            continue
+
+        #testing the horizontal sides of the interval
+        horiz_asymptote = -c1/c3
+        y = lambda x: (-constant + c1*x)/(c2 + c3*x)
+        if np.isclose(interval[0][0], horiz_asymptote):
+            if interval[0][1] < y(interval[1][0]) < interval[1][1]:
+                mask.append(True)
+                continue
+        elif np.isclose(interval[1][0], horiz_asymptote):
+            if interval[0][1] < y(interval[0][0]) < interval[1][1]:
+                mask.append(True)
+                continue
+        elif interval[0][1] < y(interval[0][0]) < interval[1][1] or interval[0][1] < y(interval[1][0]) < interval[1][1]:
+            mask.append(True)
+            continue
+
+        ##Find the minimum
+
+        #function for evaluating |constant + c1x + c2y +c3xy|
+        eval = lambda xy: abs(constant + c1*xy[:,0] + c2*xy[:,1] + c3*xy[:,0]*xy[:,1])
+
+        #In this case, only critical point is saddle point, so all minima occur on the edges
+        #On all the edges it becomes linear, so extrema always ocur at the corners
+        potential_minimizers = np.array([[interval[0][0],interval[0][1]],
+                                         [interval[0][0],interval[1][1]],
+                                         [interval[1][0],interval[0][1]],
+                                         [interval[1][0],interval[1][1]]])
+
+        ##if min{|constant + c1x + c2y +c3xy|} > sum of other terms in test_coeff, no roots in the region
+        if min(eval(potential_minimizers)) > np.sum(np.abs(test_coeff)) - np.sum(np.abs(test_coeff[:2,:2])):
+            mask.append(False)
+        else:
+            mask.append(True)
+
     return mask
 
 def quadratic_check1(test_coeff, intervals,tol=1e-12):
@@ -997,7 +1283,7 @@ class TabularCompute:
     def __rsub__(self, other):
         return (-1*self) + other
     def __str__(self):
-        return f"{self.iv}\n{self.iv_prime}\n{self.iv_lambda}"
+        return "{}\n{}\n{}".format(self.iv, self.iv_prime, self.iv_lambda)
     def __repr__(self):
         return str(self)
 
@@ -1200,7 +1486,7 @@ def good_zeros(zeros, imag_tol = 1.e-10):
     zeros = zeros[np.where(np.abs(zeros.imag) < imag_tol)]
     return zeros
 
-def subdivision_solve_1d(f,a,b,cheb_approx_tol=1.e-10,max_degree=128):
+def subdivision_solve_1d(f,a,b,cheb_approx_tol=1.e-3,max_degree=128):
     """Finds the roots of a one-dimensional function using subdivision and chebyshev approximation.
 
     Parameters
@@ -1219,23 +1505,23 @@ def subdivision_solve_1d(f,a,b,cheb_approx_tol=1.e-10,max_degree=128):
     coeffs : numpy array
         The coefficient of the chebyshev interpolating polynomial.
     """
-    n = 2
-    intitial_approx = interval_approximate_1d(f,a,b,deg = n)
-    while n<=max_degree:
-        coeffsN = np.zeros(2*n+1)
-        coeffsN[:n+1] = intitial_approx
-        coeffs2N = interval_approximate_1d(f,a,b,deg = 2*n)
+    cur_deg = 2
+    initial_approx = interval_approximate_1d(f,a,b,deg = cur_deg)
+    while cur_deg<=max_degree:
+        coeffsN = np.zeros(2*cur_deg+1)
+        coeffsN[:cur_deg+1] = initial_approx
+        coeffs2N = interval_approximate_1d(f,a,b,deg = 2*cur_deg)
         #Check if the approximation is good enough
-        if np.sum(np.abs(coeffs2N - coeffsN)) < cheb_approx_tol:
-            coeffs = coeffsN[:n+1]
+        # if np.sum(np.abs(coeffs2N - coeffsN)) < cheb_approx_tol:
+        if np.sum(np.abs(coeffs2N[cur_deg+1:])) < cheb_approx_tol:
+            coeffs = coeffsN[:cur_deg+1]
             #Division is faster after degree 75
-            if n > 75:
+            if cur_deg > 75:
                 return transform(good_zeros(divCheb(coeffs)),a,b)
             else:
                 return transform(good_zeros(multCheb(np.trim_zeros(coeffs.copy(),trim='b'))),a,b)
-        intitial_approx = coeffs2N
-        n*=2
-    print(coeffsN)
+        initial_approx = coeffs2N
+        cur_deg*=2
     #Subdivide the interval and recursively call the function.
     div_length = (b-a)/2
     return np.hstack([subdivision_solve_1d(f,a,b-div_length,max_degree=max_degree),\
