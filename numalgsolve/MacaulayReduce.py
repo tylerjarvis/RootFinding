@@ -82,11 +82,11 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, number_of_roots, accuracy = 
         The reduced matrix.
     matrix_terms: numpy array
         The resorted matrix_terms.
-    '''    
+    '''
     #print("Starting matrix.shape:\n", matrix.shape)
     #RRQR reduces A and D without pivoting sticking the result in it's place.
     Q1,matrix[:,:cuts[0]] = qr(matrix[:,:cuts[0]])
-    
+
     #check if there are zeros along the diagonal of R1
     if any(np.isclose(np.diag(matrix[:,:cuts[0]]),0, atol=accuracy)):
         raise MacaulayError("R1 IS NOT FULL RANK")
@@ -132,8 +132,8 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, number_of_roots, accuracy = 
 
     #Resorts the matrix_terms.
     matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
-    #print("Macaulay1Rank:", np.sum(np.abs(matrix.diagonal())>accuracy))    
-    
+    #print("Macaulay1Rank:", np.sum(np.abs(matrix.diagonal())>accuracy))
+
     return matrix, matrix_terms
 
 def rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, number_of_roots, accuracy = 1.e-10):
@@ -179,7 +179,6 @@ def rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, number_of_roots, accuracy =
 
     #set small values to zero before backsolving
     matrix[np.isclose(matrix, 0, atol=accuracy)] = 0
-
     matrix[:cuts[0],cuts[0]:] = solve_triangular(matrix[:cuts[0],:cuts[0]],matrix[:cuts[0],cuts[0]:])
     matrix[:cuts[0],:cuts[0]] = np.eye(cuts[0])
     matrix[cuts[0]:,cuts[0]:] -= (matrix[cuts[0]:,:cuts[0]])@matrix[:cuts[0],cuts[0]:] #?

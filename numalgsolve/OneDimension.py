@@ -57,17 +57,6 @@ def multPower(coeff, eigvals=True, verbose=False):
     zero : numpy array
         An array of the zeros.
     """
-<<<<<<< HEAD
-    #constant
-    if len(coeffs) < 2:
-        return np.zeros([0,1])
-    #linear polynomial
-    elif len(coeffs) < 3:
-        return -coeffs[0]/coeffs[1]
-
-    n = len(coeffs) - 1
-    matrix = np.zeros((n, n), dtype=coeffs.dtype)
-=======
     n = len(coeff) - 1
 
     # linear/constant cases
@@ -77,7 +66,6 @@ def multPower(coeff, eigvals=True, verbose=False):
         return np.array([-coeff[0]/coeff[1]])
 
     matrix = np.zeros((n, n), dtype=coeff.dtype)
->>>>>>> 73189ee99e14df2803d1766cd338ee948e864f6d
     bot = matrix.reshape(-1)[n::n+1]
     bot[...] = 1
     matrix[:, -1] -= coeff[:-1]/coeff[-1]
@@ -108,17 +96,6 @@ def multPowerR(coeff, eigvals=True, verbose=False):
     zero : numpy array
         An array of the zeros.
     """
-<<<<<<< HEAD
-    #constant
-    if len(coeffs) < 2:
-        return np.zeros([0,1])
-    #linear polynomial
-    elif len(coeffs) < 3:
-        return -coeffs[0]/coeffs[1]
-
-    n = len(coeffs) - 1
-    matrix = np.zeros((n, n), dtype=coeffs.dtype)
-=======
     n = len(coeff) - 1
 
     # linear/constant cases
@@ -128,7 +105,6 @@ def multPowerR(coeff, eigvals=True, verbose=False):
         return np.array([-coeff[0]/coeff[1]])
 
     matrix = np.zeros((n, n), dtype=coeff.dtype)
->>>>>>> 73189ee99e14df2803d1766cd338ee948e864f6d
     bot = matrix.reshape(-1)[n::n+1]
     bot[...] = 1
     matrix[:, -1] -= coeff[:-1]/coeff[-1]
@@ -160,17 +136,6 @@ def divPower(coeff, eigvals=True, verbose=False):
     zero : numpy array
         An array of the zeros.
     """
-<<<<<<< HEAD
-    #constant
-    if len(coeffs) < 2:
-        return np.zeros([0,1])
-    #linear polynomial
-    elif len(coeffs) < 3:
-        return -coeffs[0]/coeffs[1]
-
-    n = len(coeffs) - 1
-    matrix = np.zeros((n, n), dtype=coeffs.dtype)
-=======
     n = len(coeff) - 1
 
     # linear/constant cases
@@ -181,7 +146,6 @@ def divPower(coeff, eigvals=True, verbose=False):
 
 
     matrix = np.zeros((n, n), dtype=coeff.dtype)
->>>>>>> 73189ee99e14df2803d1766cd338ee948e864f6d
     bot = matrix.reshape(-1)[1::n+1]
     bot[...] = 1
     matrix[:, 0] -= coeff[1:]/coeff[0]
@@ -212,17 +176,6 @@ def multCheb(coeff, eigvals=True, verbose=False):
     zero : numpy array
         An array of the zeros.
     """
-<<<<<<< HEAD
-    #constant
-    if len(coeffs) < 2:
-        return np.zeros([0,1])
-    #linear polynomial
-    elif len(coeffs) < 3:
-        return -coeffs[0]/coeffs[1]
-    #higher degree
-    n = len(coeffs) - 1
-    matrix = np.zeros((n,n), dtype=coeffs.dtype)
-=======
     n = len(coeff) - 1
 
     # linear/constant cases
@@ -232,7 +185,6 @@ def multCheb(coeff, eigvals=True, verbose=False):
         return np.array([-coeff[0]/coeff[1]])
 
     matrix = np.zeros((n,n), dtype=coeff.dtype)
->>>>>>> 73189ee99e14df2803d1766cd338ee948e864f6d
     matrix[1][0] = 1
     bot = matrix.reshape(-1)[1::n+1]
     bot[...] = 1/2
@@ -266,17 +218,6 @@ def multChebR(coeff, eigvals=True, verbose=False):
     zero : numpy array
         An array of the zeros.
     """
-<<<<<<< HEAD
-    #constant
-    if len(coeffs) < 2:
-        return np.zeros([0,1])
-    #linear polynomial
-    elif len(coeffs) < 3:
-        return -coeffs[0]/coeffs[1]
-
-    n = len(coeffs) - 1
-    matrix = np.zeros((n,n), dtype=coeffs.dtype)
-=======
     n = len(coeff) - 1
 
     # linear/constant cases
@@ -286,7 +227,6 @@ def multChebR(coeff, eigvals=True, verbose=False):
         return np.array([-coeff[0]/coeff[1]])
 
     matrix = np.zeros((n,n), dtype=coeff.dtype)
->>>>>>> 73189ee99e14df2803d1766cd338ee948e864f6d
     matrix[1][0] = 1
     bot = matrix.reshape(-1)[1::n+1]
     bot[...] = 1/2
@@ -320,12 +260,8 @@ def getXinv(coeff):
     xinv[0]+=temp
     return xinv,curr[0]
 
-<<<<<<< HEAD
-def divCheb(coeffs, eigvals=True, verbose=False):
-=======
 
 def divCheb(coeff, eigvals=True, verbose=False):
->>>>>>> 73189ee99e14df2803d1766cd338ee948e864f6d
     """Finds the zeros of a 1-D chebyshev polynomial using a division matrix.
 
     Parameters
@@ -338,18 +274,6 @@ def divCheb(coeff, eigvals=True, verbose=False):
     zero : numpy array
         An array of the zeros.
     """
-<<<<<<< HEAD
-    #constant
-    if len(coeffs) < 2:
-        return np.zeros([0,1])
-    #linear polynomial
-    elif len(coeffs) < 3:
-        return -coeffs[0]/coeffs[1]
-
-    #higher degree
-    xinv,divisor = getXinv(coeffs)
-    n = len(coeffs)-1
-=======
     xinv,divisor = getXinv(coeff)
     n = len(coeff)-1
 
@@ -358,7 +282,6 @@ def divCheb(coeff, eigvals=True, verbose=False):
         return np.array([], dtype=coeff.dtype)
     if n == 1:
         return np.array([-coeff[0]/coeff[1]])
->>>>>>> 73189ee99e14df2803d1766cd338ee948e864f6d
 
     matrix = np.zeros((n,n), dtype=coeff.dtype)
 
