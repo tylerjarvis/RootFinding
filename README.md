@@ -2,7 +2,7 @@
 
 NumAlgSolve is a Python module for numerical and algebraic rootfinding. For our mathematical methods and their comparisons with other rootfinders, refer to [this paper](paper).
 
-<!-- [![Build Status](https://travis-ci.org/tylerjarvis/RootFinding.svg?branch=master)](https://travis-ci.org/tylerjarvis/RootFinding) -->
+<!-- [![Build Status](https://travis-ci.com/tylerjarvis/RootFinding.svg?branch=master)](https://travis-ci.com/tylerjarvis/RootFinding) -->
 <!-- [![codecov](https://codecov.io/gh/mtmoncur/tylerjarvis/branch/master/graphs/badge.svg)](https://codecov.io/gh/tylerjarvis/RootFinding) -->
 <!-- [![PyPI version](https://badge.fury.io/py/RootFinding.svg)](https://badge.fury.io/py/RootFinding) -->
 <!-- [![Code Health](https://landscape.io/github/tylerjarvis/RootFinding/pypackage/landscape.svg)](https://landscape.io/github/tylerjarvis/RootFinding/pypackage) -->
@@ -46,7 +46,7 @@ Please make sure to update tests as appropriate.
 
 |             | [master](https://github.com/tylerjarvis/RootFinding/tree/master) | [develop](https://github.com/tylerjarvis/RootFinding/tree/develop) |
 |-------------|--------|-----|
-| Status      |  [![Build Status](https://travis-ci.org/tylerjarvis/RootFinding.svg?branch=master)](https://travis-ci.org/tylerjarvis/RootFinding)      |  [![Build Status](https://travis-ci.org/tylerjarvis/RootFinding.svg?branch=develop)](https://travis-ci.org/tylerjarvis/RootFinding)    |
+| Status      |  [![Build Status](https://travis-ci.com/tylerjarvis/RootFinding.svg?branch=master)](https://travis-ci.com/tylerjarvis/RootFinding)      |  [![Build Status](https://travis-ci.com/tylerjarvis/RootFinding.svg?branch=develop)](https://travis-ci.com/tylerjarvis/RootFinding)    |
 | Codecov     |  [![Coverage Status](https://codecov.io/gh/mtmoncur/tylerjarvis/branch/master/graphs/badge.svg)](https://codecov.io/gh/tylerjarvis/RootFinding)  |  [![Coverage Status](https://codecov.io/gh/mtmoncur/tylerjarvis/branch/develop/graphs/badge.svg)](https://codecov.io/gh/tylerjarvis/RootFinding)   |
 
 ## License
