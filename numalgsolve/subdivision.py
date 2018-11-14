@@ -10,12 +10,14 @@ import numpy as np
 from numpy.fft.fftpack import fftn
 from numalgsolve.OneDimension import divCheb,divPower,multCheb,multPower,solve
 from numalgsolve.Division import division
-from numalgsolve.utils import clean_zeros_from_matrix, slice_top
+from numalgsolve.utils import clean_zeros_from_matrix, slice_top, MacaulayError, get_var_list
 from numalgsolve.polynomial import MultiCheb
+from numalgsolve.intervalChecks import constant_term_check, full_quad_check, full_cubic_check, TylersFunction, linear_check
 from itertools import product
 from matplotlib import pyplot as plt
 from matplotlib import patches
 import itertools
+import time
 
 def solve(funcs, a, b, interval_data = False):
     '''
@@ -35,7 +37,7 @@ def solve(funcs, a, b, interval_data = False):
         The common roots of the polynomials. Each row is a root.
     '''    
     interval_checks = [constant_term_check, full_quad_check]#, full_cubic_check, TylersFunction]
-    subinterval_checks = [linear_check]
+    subinterval_checks = []
     interval_results = []
     for i in range(len(interval_checks) + len(subinterval_checks) + 1):
         interval_results.append([])
@@ -67,6 +69,7 @@ def solve(funcs, a, b, interval_data = False):
             deg = deg_dim[dim]
 
         #Output the interval percentages
+        #result = subdivision_naive_solve_nd(funcs,a,b,deg,interval_results,interval_checks,subinterval_checks)
         result = subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks,subinterval_checks)
         
         #Plot what happened
@@ -296,7 +299,7 @@ def get_subintervals(a,b,dimensions,subinterval_checks,interval_results,polys,ch
         scaled_subintervals = get_subintervals(-np.ones_like(a),np.ones_like(a),dimensions,None,None,None)
         for check_num, check in enumerate(subinterval_checks):
             for poly in polys:
-                mask = check(poly.coeff, scaled_subintervals)
+                mask = check(poly, scaled_subintervals)
                 new_scaled_subintervals = []
                 new_subintervals = []
                 for i, result in enumerate(mask):
@@ -361,394 +364,70 @@ def good_zeros_nd(zeros, imag_tol = 1.e-10):
     """
     good_zeros = zeros[np.all(np.abs(zeros.imag) < imag_tol,axis = 1)]
     good_zeros = good_zeros[np.all(np.abs(good_zeros) <= 1,axis = 1)]
-    return good_zeros
+    return good_zeros    
 
-
-"""
-The check functions are all functions that take in a coefficent matrix and run a quick check
-to determine if there can ever be zeros on the unit box there. They are then put into the list
-all_bound_check_functions in the order we want to run them (probably fastest first). These are
-then all run to throw out intervals as possible.
-"""
-
-def ext_val3(test_coeff, maxx = True):
-    a,b,c = test_coeff
-    """Absolute value of max or min of a + bx + c(2x^2 - 1) on -1 to 1"""
-    if np.abs(c) < 1.e-10:
-        if maxx:
-            return abs(a) + abs(b)
-        else:
-            if abs(b) > abs(a):
-                return 0
-            else:
-                return abs(a) - abs(b)
-    else:
-        vals = [a - b + c, a + b + c] #at +-1
-        if np.abs(b/c) < 4:
-            vals.append(a - b**2/(8*c) - c) #at -b/(4c)
-        if maxx:
-            return max(np.abs(vals))
-        else:
-            vals = np.array(vals)
-            if np.any(vals > 0) and np.any(vals < 0):
-                return 0
-            else:
-                return min(np.abs(vals))
-        
-def ext_val4(test_coeff, maxx = True):
-    a,b,c,d = test_coeff
-    """Absolute value of max or min of a + bx + c(2x^2 - 1) + d*(4x^3 - 3x) on -1 to 1"""
-    if np.abs(d) < 1.e-10:
-        return ext_val3([a,b,c], maxx = maxx)
-    else:
-        vals = [a - b + c - d, a + b + c + d] #at +-1
-        
-        #The quadratic roots
-        if 16*c**2 >= 48*d*(b-3*d):
-            x1 = (-4*c + np.sqrt(16*c**2 - 48*d*(b-3*d))) / (24*d)
-            x2 = (-4*c - np.sqrt(16*c**2 - 48*d*(b-3*d))) / (24*d)
-            if np.abs(x1) < 1:
-                vals.append(a + b*x1 + c*(2*x1**2 - 1) + d*(4*x1**3 - 3*x1))
-            if np.abs(x2) < 1:
-                vals.append(a + b*x2 + c*(2*x2**2 - 1) + d*(4*x2**3 - 3*x2))
-        if maxx:
-            return max(np.abs(vals))
-        else:
-            vals = np.array(vals)
-            if np.any(vals > 0) and np.any(vals < 0):
-                return 0
-            else:
-                return min(np.abs(vals))
-
-def constant_term_check(test_coeff):
-    """Quick check of zeros in the unit box.
-    
-    Checks if the constant term is bigger than all the other terms combined, using the fact that
-    each Chebyshev monomial is bounded by 1.
+def subdivision_naive_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],subinterval_checks=[],tol=1.e-5):
+    """Finds the common zeros of the given functions.
 
     Parameters
     ----------
-    coeff : numpy array
-        The coefficient matrix of the polynomial to check
-    
-    Returns
-    -------
-    check1 : bool
-        False if there are no zeros in the unit box, True otherwise
-    """
-    test_sum = np.sum(np.abs(test_coeff))
-    if np.abs(test_coeff.flatten()[0]) * 2 > test_sum:
-        return False
-    else:
-        return True
-
-def quad_check(test_coeff):
-    """Quick check of zeros in the unit box.
-        
-    Parameters
-    ----------
-    test_coeff : numpy array
-        The coefficient matrix of the polynomial to check
-    
-    Returns
-    -------
-    quad_check : bool
-        False if there are no zeros in the unit box, True otherwise
-    """
-    dim = test_coeff.ndim
-    slices = []
-    slices.append(slice(0,3))
-    slice_direc = 0
-    for i in range(dim-1):
-        slices.append(0)
-
-    start = ext_val3(test_coeff[slices], maxx = False)
-    rest = 0
-
-    shape = list(test_coeff.shape)
-    shape[slice_direc] = 1
-    for spots in itertools.product(*[np.arange(i) for i in shape]):
-        if sum(spots) > 0:
-            for i in range(1, dim):
-                slices[i] = spots[i]
-            rest += ext_val3(test_coeff[slices])
-
-    while slice_direc < dim - 1:
-        slice_direc += 1
-        slices[slice_direc] = slice(0,3)
-
-        shape = np.array(test_coeff.shape)
-        shape[slice_direc] = 1
-        shape_diff = np.zeros_like(shape)
-        for i in range(slice_direc):
-            shape_diff[i] = 3
-        shape -= shape_diff
-        for spots in itertools.product(*[np.arange(i) for i in shape]):
-            spots += shape_diff
-            for i in range(dim):
-                if i != slice_direc:
-                    slices[i] = spots[i]
-            rest += ext_val3(test_coeff[slices])
-
-    if start > rest:
-        return False
-    else:
-        return True
-
-def cubic_check(test_coeff):
-    """Quick check of zeros in the unit box.
-        
-    Parameters
-    ----------
-    test_coeff : numpy array
-        The coefficient matrix of the polynomial to check
-    
-    Returns
-    -------
-    cubic_check : bool
-        False if there are no zeros in the unit box, True otherwise
-    """
-    dim = test_coeff.ndim
-    slices = []
-    slices.append(slice(0,4))
-    slice_direc = 0
-    for i in range(dim-1):
-        slices.append(0)
-
-    start = ext_val4(test_coeff[slices], maxx = False)
-    rest = 0
-
-    shape = list(test_coeff.shape)
-    shape[slice_direc] = 1
-    for spots in itertools.product(*[np.arange(i) for i in shape]):
-        if sum(spots) > 0:
-            for i in range(1, dim):
-                slices[i] = spots[i]
-            rest += ext_val4(test_coeff[slices])
-
-    while slice_direc < dim - 1:
-        slice_direc += 1
-        slices[slice_direc] = slice(0,4)
-
-        shape = np.array(test_coeff.shape)
-        shape[slice_direc] = 1
-        shape_diff = np.zeros_like(shape)
-        for i in range(slice_direc):
-            shape_diff[i] = 4
-        shape -= shape_diff
-        for spots in itertools.product(*[np.arange(i) for i in shape]):
-            spots += shape_diff
-            for i in range(dim):
-                if i != slice_direc:
-                    slices[i] = spots[i]
-            rest += ext_val4(test_coeff[slices])
-
-    if start > rest:
-        return False
-    else:
-        return True
-
-def full_quad_check(test_coeff):
-    """Quick check of zeros in the unit box.
-        
-    Parameters
-    ----------
-    test_coeff : numpy array
-        The coefficient matrix of the polynomial to check
-    
-    Returns
-    -------
-    full_quad_check : bool
-        False if there are no zeros in the unit box, True otherwise
-    """
-    for perm in itertools.permutations(np.arange(test_coeff.ndim)):
-        if not quad_check(test_coeff.transpose(perm)):
-            return False
-    return True
-
-def full_cubic_check(test_coeff):
-    """Quick check of zeros in the unit box.
-        
-    Parameters
-    ----------
-    test_coeff : numpy array
-        The coefficient matrix of the polynomial to check
-    
-    Returns
-    -------
-    full_quad_check : bool
-        False if there are no zeros in the unit box, True otherwise
-    """
-    for perm in itertools.permutations(np.arange(test_coeff.ndim)):
-        if not cubic_check(test_coeff.transpose(perm)):
-            return False
-    return True
-
-def linear_check(test_coeff_in, intervals):
-    """Quick check of zeros in intervals.
-    
-    Parameters
-    ----------
-    test_coeff_in : numpy array
-        The coefficient matrix of the polynomial to check
-    intervals : list
-        A list of the intervals we want to check before subdividing them
+    funcs : list
+        Each element of the list is a callable function.
+    a : numpy array
+        The lower bound on the interval.
+    b : numpy array
+        The upper bound on the interval.
+    deg : int
+        The degree to approximate with in the chebyshev approximation.
 
     Returns
     -------
-    mask : list
-        Masks out the intervals we don't want
+    good_zeros : numpy array
+        The real zero in [-1,1] of the input zeros.
     """
-    mask = []
-    for interval in intervals:
-        test_coeff = test_coeff_in.copy()
-        
-        a,b = interval
-        spot = [0]*len(a)
-        neg_most_corner = test_coeff[tuple(spot)]
-        test_coeff[tuple(spot)] = 0
-        for dim in range(len(a)):
-            spot[dim] = 1
-            neg_most_corner += a[dim]*test_coeff[tuple(spot)]
-            spot[dim] = 0
-        
-        lin_min = neg_most_corner
-        for dim in range(len(a)):
-            spot[dim] = 1
-            if np.sign(test_coeff[tuple(spot)])*np.sign(neg_most_corner) < 0:
-                lin_min += (b[dim] - a[dim]) * test_coeff[tuple(spot)]
-            test_coeff[tuple(spot)] = 0
-            spot[dim] = 0
-        
-        if np.sign(lin_min)*np.sign(neg_most_corner) < 0:
-            mask.append(True)
-        elif np.sum(np.abs(test_coeff)) >= np.abs(neg_most_corner):
-            mask.append(True)
+    deg = 3
+    polys = []
+    
+    if np.random.rand() > 0.9999:
+        print("Interval - ",a,b)
+    dim = len(a)
+    for func in funcs:
+        coeff = interval_approximate_nd(func,a,b,[deg]*dim)
+
+        test_coeff = np.zeros([2]*dim)
+        spot = tuple([0]*dim)
+        test_coeff[spot] = coeff[spot]
+        coeff[spot] = 0
+        for spot in get_var_list(dim):
+            test_coeff[spot] = coeff[spot]
+            coeff[spot] = 0
+        if np.sum(np.abs(test_coeff)) > tol:
+            intervals = get_subintervals(a,b,np.arange(dim),None,None,None)
+
+            return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_results\
+                                                   ,interval_checks,subinterval_checks,tol=tol)
+                              for interval in intervals])     
         else:
-            mask.append(False)
-    return mask
+            polys.append(MultiCheb(test_coeff))
 
-#This is all for Tyler's new function
-from mpmath import iv
-from itertools import product
-from copy import copy
-def lambda_s(a):
-    return sum(iv.mpf([0,1])*max(ai.a**2,ai.b**2) for ai in a)
+    A = np.zeros([dim,dim])
+    B = np.zeros(dim)
+    for row in range(dim):
+        coeff = polys[row].coeff
+        spot = tuple([0]*dim)
+        B[row] = coeff[spot]
+        var_list = get_var_list(dim)
+        for col in range(dim):
+            A[row,col] = coeff[var_list[col]]
 
-def beta(a,b):
-    return iv.mpf([-1,1])*iv.sqrt(lambda_s(a)*lambda_s(b))
-
-def lambda_t(a,b):
-    return beta(a,b) + np.dot(a,b)
-
-class TabularCompute:
-    def __init__(self,a,b,dim=False,index=None):
-        """Class for estimating the maximum curvature.
-        Parameters
-        ----------
-            a (int) - the starting value of the interval
-            b (int) - the ending value of the interval
-            dim (bool or int) - False if this is not an interval for a dimension
-                                integer indicating the number of dimensions
-            index (int) - defines which dimension this interval corresponds to
-        
-        """
-        self.iv = iv.mpf([a,b])
-        self.iv_lambda = iv.mpf([0,0])
-        if dim:
-            assert isinstance(dim, int)
-            assert isinstance(index, int) and 0<=index<dim
-            self.iv_prime = np.array([iv.mpf([0,0]) for _ in range(dim)])
-            self.iv_prime[index] = iv.mpf([1,1])
-        else:
-            self.iv_prime = iv.mpf([0,0])
-            
-    def copy(self):
-        new_copy = TabularCompute(0,0)
-        new_copy.iv = copy(self.iv)
-        new_copy.iv_prime = copy(self.iv_prime)
-        new_copy.iv_lambda = copy(self.iv_lambda)
-        return new_copy
-
-    def __add__(self, other):
-        new = self.copy()
-        if isinstance(other, TabularCompute):
-            new.iv += other.iv
-            new.iv_prime += other.iv_prime
-            new.iv_lambda += other.iv_lambda
-        else:
-            new.iv += other
-        return new
-    
-    def __mul__(self, other):
-        new = TabularCompute(0,0)
-        if isinstance(other, TabularCompute):
-            new.iv = self.iv*other.iv
-            tmp1 = np.array([self.iv])*other.iv_prime
-            tmp2 = np.array([other.iv])*self.iv_prime
-            new.iv_prime = tmp1 + tmp2
-            new.iv_lambda = (self.iv*other.iv_lambda
-                            + other.iv*self.iv_lambda
-                            + lambda_t(self.iv_prime, other.iv_prime))
-        else:
-            new.iv = self.iv*other
-            new.iv_prime = self.iv_prime*other
-            new.iv_lambda = self.iv_lambda*other
-        return new
-    def __sub__(self, other):
-        return self + (-1*other)
-    def __rmul__(self, other):
-        return self*other
-    def __radd__(self, other):
-        return self + other
-    def __rsub__(self, other):
-        return (-1*self) + other
-    def __str__(self):
-        return f"{self.iv}\n{self.iv_prime}\n{self.iv_lambda}"
-    def __repr__(self):
-        return str(self)
-
-chebval = np.polynomial.chebyshev.chebval
-def chebvalnd(intervals, poly):
-    n = poly.dim
-    c = poly.coeff
-    c = chebval(intervals[0],c, tensor=True)
-    for i in range(1,n):
-        c = chebval(intervals[i],c, tensor=False)
-    if len(poly.coeff) == 1:
-        return c[0]
+    zero = np.linalg.solve(A,-B)
+    return transform(zero,a,b)
+    if np.all(zero >= a) and np.all(zero <= b):
+        return transform(zero)
     else:
-        return c
+        return np.zeros([0,dim])
 
-def can_eliminate(poly, a, b):
-    assert len(a)==len(b)==poly.dim
-    n = poly.dim
-    h = (b-a)[0]
-    assert np.allclose(b-a, h)
-    
-    corners = poly(list(product(*zip(a,b))))
-    if not (all(corners>0) or all(corners<0)):
-        return False
-    
-    min_corner = abs(min(corners))
-    
-    x = []
-    n = len(a)
-    for i,(ai,bi) in enumerate(zip(a,b)):
-        x.append(TabularCompute(ai,bi,dim=n,index=i))
-    x = np.array(x)
-    
-    max_curve = abs(chebvalnd(x, poly).iv_lambda)
-#     print(max_curve * n * h**2/8)
-    return min_corner > max_curve * n * h**2/8
-
-def TylersFunction(coeff):
-    poly = MultiCheb(coeff)
-    a = np.array([-1.]*poly.dim)
-    b = np.array([1.]*poly.dim)
-    return not can_eliminate(poly, a, b)
-    
-def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],subinterval_checks=[],tol=1.e-3):
+def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],subinterval_checks=[],tol=1.e-8):
     """Finds the common zeros of the given functions.
 
     Parameters
@@ -770,7 +449,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],sub
     division_var = 0
     cheb_approx_list = []
     try:
-        if np.random.rand() > .999:
+        if np.random.rand() > 0.999:
             print("Interval - ",a,b)
         dim = len(a)
         for func in funcs:
@@ -784,31 +463,61 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],sub
                                                        ,interval_checks,subinterval_checks,tol=tol)
                                   for interval in intervals])
             else:
-                coeff = trim_coeff(coeff,tol=tol)
                 #Run checks to try and throw out the interval
                 for func_num, func in enumerate(interval_checks):
-                    if not func(coeff):
+                    if not func(coeff, tol):
                         interval_results[func_num].append([a,b])
                         return np.zeros([0,dim])
-                cheb_approx_list.append(MultiCheb(coeff))
+                cheb_approx_list.append(coeff)
+        
+        #Copy this in case we need to subdivide
+        original_cheb_approx_list = cheb_approx_list.copy()
+        #Make the system stable to solve
+        polys, divisor_var = trim_coeffs(cheb_approx_list)
 
-        zeros = np.array(division(cheb_approx_list, get_divvar_coord_from_eigval = True, divisor_var = 0, tol = 1.e-6))
+        #Check if everything is linear
+        if np.all(np.array([poly.degree for poly in polys]) == 1):
+            A = np.zeros([dim,dim])
+            B = np.zeros(dim)
+            for row in range(dim):
+                coeff = polys[row].coeff
+                spot = tuple([0]*dim)
+                B[row] = coeff[spot]
+                var_list = get_var_list(dim)
+                for col in range(dim):
+                    A[row,col] = coeff[var_list[col]]
+
+            zero = np.linalg.solve(A,-B)
+            return transform(zero,a,b)
+            if np.all(zero >= a) and np.all(zero <= b):
+                return transform(zero)
+            else:
+                return np.zeros([0,dim])
+        
+        if divisor_var < 0:
+            #Subdivide but run some checks on the intervals first
+            intervals = get_subintervals(a,b,np.arange(dim),subinterval_checks,interval_results\
+                                         ,original_cheb_approx_list,check_subintervals=True)
+            if len(intervals) == 0:
+                return np.zeros([0,dim])
+            else:
+                return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_results\
+                                                   ,interval_checks,subinterval_checks,tol=tol)
+                              for interval in intervals])
+        
+        zeros = np.array(division(polys, get_divvar_coord_from_eigval = True, divisor_var = 0, tol = 1.e-6))
         interval_results[-1].append([a,b])
         if len(zeros) == 0:
             return np.zeros([0,dim])
         return transform(good_zeros_nd(zeros),a,b)
     
     except np.linalg.LinAlgError as e:
-        while division_var < len(a):
-            try:
-                zeros = np.array(division(cheb_approx_list, get_divvar_coord_from_eigval = True, divisor_var = 0, tol = 1.e-6))
-                return zeros
-            except np.linalg.LinAlgError as e:
-                division_var += 1
-        
+        #for poly in polys:
+        #    print(poly.coeff)
+        #print(e)
         #Subdivide but run some checks on the intervals first
         intervals = get_subintervals(a,b,np.arange(dim),subinterval_checks,interval_results\
-                                     ,cheb_approx_list,check_subintervals=True)
+                                     ,original_cheb_approx_list,check_subintervals=True)
         if len(intervals) == 0:
             return np.zeros([0,dim])
         else:
@@ -816,38 +525,111 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],sub
                                                ,interval_checks,subinterval_checks,tol=tol)
                           for interval in intervals])
 
-def trim_coeff(coeff, tol=1.e-3):
-    """Reduce the number of coefficients and the degree.
+def trim_coeffs(coeffs, tol=1.e-5):
+    """Trim the coefficient matrices so they are stable and choose a direction to divide in.
 
     Parameters
     ----------
-    coeff : numpy array
-        The Chebyshev coefficients for approximating a function.
+    coeffs : list
+        The coefficient matrices of the Chebyshev polynomials we are solving.
 
     Returns
     -------
-    coeff : numpy array
-        The reduced degree Chebyshev coefficients for approximating a function.
+    polys : list
+        The reduced degree Chebyshev polynomials
+    divisor_var : int
+        What direction to do the division in to be stable. -1 means we should subdivide.
     """
-    dim = coeff.ndim
-
-    #Cuts out the high diagonals as much as possible to minimize polynomial degree.
-    if abs(coeff[tuple([-1]*dim)]) < tol:
-        coeff[tuple([-1]*dim)] = 0
-        deg = np.sum(coeff.shape)-dim-1
-        while deg > 2:
+    dim = coeffs[0].ndim
+    error = [0.]*len(coeffs)
+    degrees = [np.sum(coeffs[0].shape)-dim]*dim
+    first_time = True
+    
+    while True:
+        changed = False
+        for num, coeff in enumerate(coeffs):
+            deg = degrees[num]
+            if deg <= 1: #This is to not trim past linear
+                continue
             mons = mon_combos_limited([0]*dim,deg,coeff.shape)
             slices = []
             mons = np.array(mons).T
+            if len(mons) == 0:
+                continue
+            
             for i in range(dim):
                 slices.append(mons[i])
-            if np.sum(np.abs(coeff[slices])) < tol:
+            
+            slice_error = np.sum(np.abs(coeff[slices]))
+            if error[num] + slice_error < tol:
+                error[num] += slice_error
                 coeff[slices] = 0
-            else:
-                break
-            deg -= 1
+                new_slices = [slice(0,deg,None) for i in range(dim)]
+                coeff = coeff[new_slices]
+                changed = True
+                degrees[num] -= 1
+            coeffs[num] = coeff
+        if not changed and not first_time:
+            polys = []
+            for coeff in coeffs:
+                polys.append(MultiCheb(coeff))
+            return polys, -1
+        d = pick_stable_dim(coeffs)
+        if d >= 0:
+            polys = []
+            for coeff in coeffs:
+                polys.append(MultiCheb(coeff))
+            return polys, d
+        
+        first_time = False
 
-    return coeff
+def pick_stable_dim(coeffs, tol = 1.e-3):
+    dimension = coeffs[0].ndim
+    for dim in range(dimension):
+        corner_spots = []
+        for i in range(dimension):
+            corner_spots.append([])
+        
+        for coeff in coeffs:
+            spot = [0]*dimension
+            for dim2 in range(dimension):
+                if dim != dim2:
+                    spot[dim2] = coeff.shape[dim2] - 1
+                    corner_spots[dim2].append(coeff[tuple(spot)])
+                    spot[dim2] = 0 
+                else:
+                    spot[dim2] = 0
+                    corner_spots[dim2].append(coeff[tuple(spot)])
+                
+        for perm in itertools.permutations(np.arange(dimension)):
+            valid = True
+            for i,j in enumerate(perm):
+                if np.abs(corner_spots[i][j]) < tol:
+                    valid = False
+                    break
+            if valid:
+                return dim
+    return -1
+
+def pick_stable_dim2(coeffs, tol = 1.e-3):
+    dimension = coeffs[0].ndim
+    for dim in range(dimension):
+        for coeff in coeffs:
+            spot = [0]*dimension
+            for dim2 in range(dimension):
+                if dim != dim2:
+                    spot[dim2] = coeff.shape[dim2] - 1
+                    if np.abs(coeff[tuple(spot)]) < tol:
+                        return -1
+                    spot[dim2] = 0 
+                else:
+                    spot[dim2] = 0
+                    if np.abs(coeff[tuple(spot)]) < tol:
+                        return -1
+                
+        return dim
+    return -1
+
 
 def mon_combos_limited(mon, remaining_degrees, shape, cur_dim = 0):
     '''Finds all the monomials of a given degree that fits in a given shape and returns them. Works recursively.
