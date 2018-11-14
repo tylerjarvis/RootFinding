@@ -1,14 +1,59 @@
 import numpy as np
 from numalgsolve.polynomial import MultiCheb, MultiPower
 from numalgsolve.OneDimension import multPowerR, multChebR, multPower, multCheb, divPower, divCheb
+from numalgsolve.TVBMethod import solve as TVBsolve
 from numalgsolve.polyroots import solve
 from numalgsolve.Division import division
 from numalgsolve.Multiplication import multiplication
 from numpy.polynomial.polynomial import polyfromroots, polyroots
 from numpy.polynomial.chebyshev import chebfromroots, chebroots
 from matplotlib import pyplot as plt
+from itertools import product
 import argparse
 import warnings
+
+class Solver:
+    def __init__(self, solver, name, basis, eigvals_avail, defaults_kwargs={}):
+        self.solver = solver
+        self.name = name
+        self.basis = basis
+        self.eigvals = eigvals_avail
+        self.defaults_kwargs = defaults_kwargs
+
+    def __call__(self, polys, *args, **kwargs):
+        return self.solver(polys, *args, **self.defaults_kwargs, **kwargs)
+
+    def __str__(self):
+        return self.name
+
+class OneDSolver(Solver):
+    def __init__(self, solver, name, basis, eigvals_avail):
+        super().__init__(solver, name, basis, eigvals_avail)
+
+    def __call__(self, poly, *args):
+        if self.eigvals:
+            return self.solver(poly.coeff, *args)
+        else:
+            return self.solver(poly.coeff)
+
+multPowerR_s = OneDSolver(multPowerR, "Rotated Mult Power", 'power', True)
+multPower_s = OneDSolver(multPower, "Mult Power", 'power', True)
+divPower_s = OneDSolver(divPower, "Div Power", 'power', True)
+numpy_s = OneDSolver(polyroots, "Numpy Power", 'power', False)
+
+multChebR_s = OneDSolver(multChebR, "Rotated Mult Cheb", 'cheb', True)
+multCheb_s = OneDSolver(multCheb, "Mult Cheb", 'cheb', True)
+divCheb_s = OneDSolver(divCheb, "Div Cheb", 'cheb', True)
+numpyCheb_s = OneDSolver(chebroots, "Numpy Cheb", 'cheb', False)
+
+multiplication_s = Solver(multiplication, "Multiplication", "both", True, defaults_kwargs={'MSmatrix':1})
+multrand_s = Solver(multiplication, "Multiplication Random", "both", True, defaults_kwargs={'MSmatrix':0})
+division_s = Solver(division, "Division", "both", True)
+TVB_s = Solver(TVBsolve, "TVB", "power", False)
+
+all_solvers = [multPowerR_s, multPower_s, divPower_s, numpy_s,
+               multChebR_s, multCheb_s, divCheb_s, numpyCheb_s,
+               multiplication_s, multrand_s, division_s, TVB_s]
 
 def create_roots_graph(args, results):
     nrows = len(results)
@@ -16,7 +61,7 @@ def create_roots_graph(args, results):
     if not args.coeffs: ncols-=1  #get sub dictionary length, but ignore the roots item
 
     plt.figure(figsize=(2*ncols,2*nrows+0.5))
-    for i,(radius, sub_results) in enumerate(results.items()):
+    for i,(radius, (sub_results, residuals)) in enumerate(results.items()):
         radius = float(radius)
         if not args.coeffs:
             roots = sub_results['roots']
@@ -55,6 +100,27 @@ def create_roots_graph(args, results):
 def create_stability_graph():
     raise NotImplementedError()
 
+def calculate_residual(fs, z):
+    """See definition 2 of
+    A Stabilized Normal Form Algorithm for
+    Generic Systems of Polynomial Equations
+    by Simon Telen and Marc Van Barel
+    """
+    rs = []
+    n = len(fs)
+    for f_i in fs:
+        f_i_abs = type(f_i)(np.abs(f_i.coeff))
+        r_i = (np.abs(f_i(z)) / (f_i_abs(np.abs(z))+1))
+        rs.append(r_i)
+    return sum(rs)/n
+
+def maximal_residual(polys, roots):
+    residuals = []
+    polys = polys if isinstance(polys,list) else [polys]
+    for root in roots:
+        residuals.append(calculate_residual(polys, root))
+    return max(residuals)
+
 def logplot(*vals):
     cnt = len(vals)
     plt.figure(figsize=(2.5*cnt+0.5,3.5))
@@ -70,10 +136,10 @@ def run_one_dimension(args, radius, eigvals):
     eps = args.eps
     power = args.power
     real = args.real
-    # eigvals = True if args.eig == 'val' else False
     by_coeffs = args.coeffs
 
-    res = {}
+    root_pts = {}
+    residuals = {}
     if by_coeffs:
         coeffs = (np.random.random(num_points+1)*2 - 1)*radius
         powerpoly = MultiPower(coeffs)
@@ -85,39 +151,32 @@ def run_one_dimension(args, radius, eigvals):
             roots = r*np.exp(angles*1j)
         else:
             roots = 2*r-radius
-
-        # res['roots#{:.2f}'.format(radius)] = roots
-        res = {'roots':roots}
+        root_pts = {'roots':roots}
 
         powerpoly = MultiPower(polyfromroots(roots))
         chebpoly = MultiCheb(chebfromroots(roots))
     n = 1000
     x = np.linspace(-1,1,n)
     X,Y = np.meshgrid(x,1j*x)
-    # logplot(chebpoly((X+Y).flatten()).reshape((n,n)))
-    # logplot(powerpoly((X+Y).flatten()).reshape((n,n)))
 
-    # print('chebpoly:\n',chebpoly[0].coeff)
-    # logplot(powerpoly[0].coeff)
-    # logplot(chebpoly[0].coeff)
+    for solver in all_solvers:
+        if isinstance(solver,OneDSolver):
+            if (solver.basis == 'cheb' and args.cheb) and ((not eigvals) or solver.eigvals):
+                name = str(solver)
+                root_pts[name] = solver(chebpoly, eigvals)
+                residuals[name] = maximal_residual(chebpoly, root_pts[name])
+            if (solver.basis == 'power' and args.power) and ((not eigvals) or solver.eigvals):
+                name = str(solver)
+                root_pts[name] = solver(powerpoly, eigvals)
+                residuals[name] = maximal_residual(powerpoly, root_pts[name])
 
-    if power:
-        res['mult power']  = multPower(powerpoly.coeff, eigvals)
-        res['multR power']  = multPowerR(powerpoly.coeff, eigvals)
-        res['div power']   = divPower(powerpoly.coeff, eigvals)
-        if eigvals: res['numpy power'] = polyroots(powerpoly.coeff)
-    else:
-        res['mult cheb']   = multCheb(chebpoly.coeff, eigvals)
-        res['multR cheb']   = multChebR(chebpoly.coeff, eigvals)
-        res['div cheb']    = divCheb(chebpoly.coeff, eigvals)
-        if eigvals: res['numpy cheb']  = chebroots(chebpoly.coeff)
 
     if args.hist:
         evaluations = {}
-        for k,v in res.items():
+        for k,v in root_pts.items():
             if k == 'roots': continue
             poly = powerpoly if 'power' in k else chebpoly
-            evaluations[k] = np.abs(poly(res[k]))
+            evaluations[k] = np.abs(poly(root_pts[k]))
         ncols = len(evaluations)
         fig, ax = plt.subplots(1,ncols, sharey=True, figsize=(12,4))
         minimal = -20
@@ -129,18 +188,18 @@ def run_one_dimension(args, radius, eigvals):
         plt.suptitle("Eigenvalues" if eigvals else "Eigenvectors")
         plt.show()
 
-    return res
+    return root_pts, residuals
 
 def run_n_dimension(args, radius, eigvals):
     num_points = args.num_points
     eps = args.eps
     power = args.power
     real = args.real
-    # eigvals = True if args.eig == 'val' else False
     by_coeffs = args.coeffs
     dim = args.dimension
 
-    res = {}
+    root_pts = {}
+    residuals = {}
     powerpolys = []
     chebpolys = []
     if by_coeffs:
@@ -152,8 +211,7 @@ def run_n_dimension(args, radius, eigvals):
         r = np.random.random((num_points, dim))*radius + eps
         roots = 2*r-radius
 
-        from itertools import product
-        res = {'roots':np.array(list(product(*np.rot90(roots))))}
+        root_pts = {'roots':np.array(list(product(*np.rot90(roots))))}
 
         for i in range(dim):
             coeffs = np.zeros((num_points+1,)*dim)
@@ -168,34 +226,30 @@ def run_n_dimension(args, radius, eigvals):
             chebpolys.append(MultiCheb(coeffs))#, lead_term=lt, clean_zeros=False))
             # plt.subplot(121);plt.imshow(coeffs);plt.subplot(122);plt.imshow(chebpolys[0].coeff);plt.show()
 
-    # if args.dimension == 2:
-    #     n = 1000
-    #     x = np.linspace(-1,1,n)
-    #     xy = np.column_stack([x,x])
-    #     logplot(powerpolys[0].evaluate_grid(xy),
-    #             powerpolys[1].evaluate_grid(xy),
-    #             chebpolys[0].evaluate_grid(xy),
-    #             chebpolys[1].evaluate_grid(xy))
-        # powerpolys[0] = MultiPower(powerpolys[0].coeff)
-        # powerpolys[1] = MultiPower(powerpolys[1].coeff)
 
-    # if power:
-    res['mult power'] = multiplication(powerpolys, MSmatrix=1)
-    res['multrand power'] = multiplication(powerpolys, MSmatrix=0)
-    res['div power']  = division(powerpolys, MSmatrix=-1, get_divvar_coord_from_eigval=eigvals)
-    # else:
-    res['mult cheb'] = multiplication(chebpolys, MSmatrix=1)
-    res['multrand cheb'] = multiplication(chebpolys, MSmatrix=0)
-    res['div cheb']  = division(chebpolys, MSmatrix=-1, get_divvar_coord_from_eigval=eigvals)
+    for solver in all_solvers:
+        if not isinstance(solver,OneDSolver) and solver.basis in ['power','both']:
+            # if ((not eigvals) or solver.eigvals):
+            name = str(solver) + ' Power'
+            root_pts[name] = solver(powerpolys)
+            residuals[name] = maximal_residual(powerpolys, root_pts[name])
+
+
+    for solver in all_solvers:
+        if not isinstance(solver,OneDSolver) and solver.basis in ['cheb','both']:
+            # if ((not eigvals) or solver.eigvals):
+            name = str(solver) + ' Cheb'
+            root_pts[name] = solver(chebpolys)
+            residuals[name] = maximal_residual(chebpolys, root_pts[name])
 
     if args.hist:
         evaluations = {}
-        for k,v in res.items():
+        for k,v in root_pts.items():
             if k == 'roots': continue
             # evaluations[k] = []
-            polys = powerpolys if 'power' in k else chebpolys
+            polys = powerpolys if 'Power' in k else chebpolys
             # for poly in polys:
-            evaluations[k] = sum(np.abs(poly(res[k])) for poly in polys)
+            evaluations[k] = sum(np.abs(poly(root_pts[k])) for poly in polys)
         ncols = len(evaluations)
         # plt.figure(figsize=(12,6))
         fig, ax = plt.subplots(1,ncols, sharey=True, figsize=(12,4))
@@ -208,12 +262,10 @@ def run_n_dimension(args, radius, eigvals):
         plt.suptitle("Eigenvalues" if eigvals else "Eigenvectors")
         plt.show()
 
-
-    return res
+    return root_pts, residuals
 
 def run_roots_testing(args):
 
-    shrink_factor = 0.7
     radius = args.radius
     dim = args.dimension
     results = {}
@@ -222,12 +274,9 @@ def run_roots_testing(args):
 
     seed = np.random.randint(0,100000)
     if dim == 1:
-        # for _ in range(3):
-        # r_trunc = '{:.2f}'.format(radius)
         for option in eigvals_options:
             np.random.seed(seed)
             results[option] = run_one_dimension(args, radius, option)
-        # radius *= shrink_factor
     else:
         for option in eigvals_options:
             np.random.seed(seed)
@@ -237,6 +286,7 @@ def run_roots_testing(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description = "Stability Test Options")
+    parser.add_argument('-g', '--graph', action='store_true', help='Graph Zeros')
     parser.add_argument('-d', '--dimension', type=int, default=1, help='Polynomial dimension')
     parser.add_argument('-n', '--num_points', type=int, default=50, help='Number of complex roots, minimum of 2')
     parser.add_argument('--real', action='store_true', help='Use just real points')
@@ -252,8 +302,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     #assert only power or cheb
-    if args.power and args.cheb:
-        raise ValueError("Choose either power or chebyshev basis, but not both.")
+    # if args.power and args.cheb:
+    #     raise ValueError("Choose either power or chebyshev basis, but not both.")
 
     if not (args.power or args.cheb):
         args.power = True
@@ -261,10 +311,23 @@ if __name__ == "__main__":
     if args.nowarn:
         warnings.filterwarnings('ignore')
 
-    # print(args.eps, type(args.eps))
     if args.num_points <= 0: raise ValueError("Not enough points")
     if args.radius <= 0: raise ValueError("Max radius must be positive")
 
     results = run_roots_testing(args)
-    # print(results)
-    create_roots_graph(args, results)
+    if args.graph:
+        create_roots_graph(args, results)
+
+    print("With eigvals")
+    try:
+        for key,val in results[True][1].items():
+            print("{:>30} {:.3e}".format(key, val))
+    except:
+        pass
+
+    print("Without eigvals")
+    try:
+        for key,val in results[False][1].items():
+            print("{:>30} {:.3e}".format(key, val))
+    except:
+        pass
