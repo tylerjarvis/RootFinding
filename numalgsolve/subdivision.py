@@ -129,6 +129,10 @@ def solve(funcs, a, b, interval_data = False):
                     ax.add_patch(rect)
 
                 plt.title('What happened to the intervals')
+                # plt.plot(-0.60273975, -1.44116099,'o')
+                # plt.plot(-1.44116099, -0.60273975,'o')
+                plt.plot(-0.73622152, -0.14926265,'*')
+                plt.plot(-0.14926265, -0.73622152,'*')
                 plt.xlim(a[0],b[0])
                 plt.ylim(a[1],b[1])
                 plt.legend()
@@ -652,7 +656,7 @@ def full_cubic_check(test_coeff):
             return False
     return True
 
-def linear_check(test_coeff_in, intervals, change_sign=None):
+def linear_check(test_coeff_in, intervals, change_sign):
     """Quick check of zeros in intervals.
 
     Parameters
@@ -729,7 +733,7 @@ def linear_check(test_coeff_in, intervals, change_sign=None):
         #     mask.append(False)
     return mask
 
-def quadratic_check1(test_coeff, intervals, change_sign=None, tol=1e-12):
+def quadratic_check1(test_coeff, intervals, change_sign, tol=1e-12):
     """Quick check of zeros in intervals using the x^2 terms.
 
     Parameters
@@ -814,7 +818,7 @@ def quadratic_check1(test_coeff, intervals, change_sign=None, tol=1e-12):
             mask.append(True)
     return mask
 
-def quadratic_check2(test_coeff, intervals, change_sign=None, tol=1e-12):
+def quadratic_check2(test_coeff, intervals, change_sign, tol=1e-12):
     """Quick check of zeros in the unit box using the y^2 terms
 
      Parameters
@@ -898,7 +902,7 @@ def quadratic_check2(test_coeff, intervals, change_sign=None, tol=1e-12):
             mask.append(True)
     return mask
 
-def quadratic_check3(test_coeff, intervals,change_sign=None,tol=1e-12):
+def quadratic_check3(test_coeff, intervals,change_sign,tol=1e-12):
     """Quick check of zeros in the unit box using the xy terms
 
      Parameters

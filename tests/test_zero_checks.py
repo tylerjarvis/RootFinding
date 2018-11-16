@@ -64,3 +64,6 @@ def test_zero_check2D():
         [0.1,   0,    0, 0]
         ])
         assert method(c) == True
+
+    if __name__ == "__main__":
+        test_zero_check2D()
