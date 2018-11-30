@@ -2,7 +2,6 @@ import numpy as np
 import os,sys
 from numalgsolve.polynomial import MultiPower
 import pytest
-import random
 from numalgsolve import utils
 
 
@@ -45,19 +44,22 @@ def test_mon_mult():
     assert np.allclose(T1.coeff, T2.coeff, atol = 1.0e-10)
 
 def test_mon_mult_random():
+
+    np.random.seed(988)
+
     #test with random matrices
     possible_dim = np.random.randint(1,5, (1,10))
-    dim = possible_dim[0, random.randint(1,9)]
+    dim = possible_dim[0, np.random.randint(1,9)]
 
     shape = list()
     for i in range(dim):
-        shape.append(random.randint(2,4))
+        shape.append(np.random.randint(2,4))
     matrix1 = np.random.randint(1,11,(shape))
     M1 = MultiPower(matrix1)
 
     shape2 = list()
     for i in range(dim):
-        shape2.append(random.randint(2,4))
+        shape2.append(np.random.randint(2,4))
     matrix2 = np.ones(shape2)
     M2 = MultiPower(matrix2)
 
@@ -87,6 +89,8 @@ def test_evaluate():
 
     assert(poly((4,2,1)) == 15)
 
+    assert(np.allclose(poly([[4,2,1],[1,1,2]]), [15,6]))
+
 def test_evaluate2():
     # Evaluate -.5x^2y + 2xy^2 - 3z^2 + yz at (7.4,2.33,.25)
     poly = MultiPower(np.array([[[0,0,-3],
@@ -100,3 +104,39 @@ def test_evaluate2():
                                 [0,0,0]]]))
 
     assert(np.isclose(poly((7.4, 2.33, .25)), 16.94732))
+
+def test_evaluate_grid1():
+    #Evaluate 2 + yx^2 + 3y^2 - xy on grid (0,0), (0,1), (0,2), (1,0), (1,1), (1,2), (2,0), (2,1), (2,2)
+    poly = MultiPower(np.array([[2,0,3],
+                                [0,-1,0],
+                                [0,1,0]]))
+    x = np.arange(3)
+    xy = np.column_stack([x,x])
+    sol = np.array([[2,5,14],
+                    [2,5,14],
+                    [2,7,18]])
+    assert(np.all(poly.evaluate_grid(xy) == sol))
+
+def test_evaluate_grid2():
+    #Evaluate zy^2 + 3z^2 + 3x + zx^2y^2 on grid {0, 1, 2}X{0, 1, 2}X{0, 1, 2}
+    poly = MultiPower(np.array([[[0,0,3],
+                                [0,0,0],
+                                [0,1,0]],
+                                [[3,0,0],
+                                [0,0,0],
+                                [0,0,0]],
+                                [[0,0,0],
+                                [0,0,0],
+                                [0,1,0]]]))
+    x = np.arange(3)
+    xyz = np.column_stack([x,x,x])
+    sol = np.array([[[0,3,12],
+                    [0,4,14],
+                    [0,7,20]],
+                    [[3,6,15],
+                    [3,8,19],
+                    [3,14,31]],
+                    [[6,9,18],
+                    [6,14,28],
+                    [6,29,58]]])
+    assert(np.all(poly.evaluate_grid(xyz) == sol))

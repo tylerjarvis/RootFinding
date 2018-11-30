@@ -2,7 +2,6 @@ import numpy as np
 from numalgsolve.polynomial import MultiCheb, MultiPower, poly2cheb, cheb2poly
 import pytest
 import pdb
-import random
 
 
 def test_add():
@@ -18,6 +17,8 @@ def test_mon_mult():
     """
     Tests monomial multiplication using normal polynomial multiplication.
     """
+
+    np.random.seed(4)
 
     #Simple 2D test cases
     cheb1 = MultiCheb(np.array([[0,0,0],[0,0,0],[0,0,1]]))
@@ -77,7 +78,39 @@ def test_evaluate():
     value = cheb((.25,.5))
     assert(np.isclose(value, -.5625))
 
+    values = cheb([[.25,.5],[1.2,2.2]])
+    print(values)
+    assert(np.allclose(values, [-0.5625,52.3104]))
+
 def test_evaluate2():
     cheb = MultiCheb(np.array([[0,0,0,1],[0,0,0,0],[0,0,.5,0]]))
     value = cheb((2,5))
     assert(np.isclose(value, 656.5))
+
+def test_evaluate_grid1():
+    poly = MultiCheb(np.array([[2,0,3],
+                                [0,-1,0],
+                                [0,1,0]]))
+    x = np.arange(3)
+    xy = np.column_stack([x,x])
+
+    sol = np.polynomial.chebyshev.chebgrid2d(x, x, poly.coeff)
+
+    assert(np.all(poly.evaluate_grid(xy) == sol))
+
+
+def test_evaluate_grid2():
+    poly = MultiCheb(np.array([[[0,0,3],
+                                [0,0,0],
+                                [0,1,0]],
+                                [[3,0,0],
+                                [0,0,0],
+                                [0,0,0]],
+                                [[0,0,0],
+                                [0,0,0],
+                                [0,1,0]]]))
+    x = np.arange(3)
+    xyz = np.column_stack([x,x,x])
+
+    sol = np.polynomial.chebyshev.chebgrid3d(x, x, x, poly.coeff)
+    assert(np.all(poly.evaluate_grid(xyz) == sol))
