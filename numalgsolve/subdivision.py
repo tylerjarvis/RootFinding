@@ -63,7 +63,7 @@ def solve(funcs, a, b, interval_data = False):
     else:
         #multi-dimensional case
         #choose an appropriate max degree for the given dimension
-        deg_dim = {2:10, 3:4, 4:3}
+        deg_dim = {2:5, 3:4, 4:3}
         if dim > 4:
             deg = 2
         else:
@@ -540,6 +540,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],sub
                 return np.zeros([0,dim])
         
         if divisor_var < 0:
+            print("Probably bad")
             #Subdivide but run some checks on the intervals first
             intervals = get_subintervals(a,b,np.arange(dim),subinterval_checks,interval_results\
                                          ,original_cheb_approx_list,check_subintervals=True)
