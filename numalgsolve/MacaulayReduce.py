@@ -5,6 +5,7 @@ from numalgsolve.polynomial import Polynomial, MultiCheb, MultiPower
 from numalgsolve.utils import row_swap_matrix, MacaulayError, slice_top, mon_combos, \
                               num_mons_full, memoized_all_permutations, mons_ordered, \
                               all_permutations_cheb
+from matplotlib import pyplot as plt
 
 def add_polys(degree, poly, poly_coeff_list):
     """Adds polynomials to a Macaulay Matrix.
@@ -133,6 +134,12 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, number_of_roots, accuracy = 
     #Resorts the matrix_terms.
     matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
     #print("Macaulay1Rank:", np.sum(np.abs(matrix.diagonal())>accuracy))
+
+    if any(np.isclose(np.diag(matrix),0, atol=accuracy)):
+        #print(matrix_terms.T)
+        #plt.imshow([i for i in matrix])
+        #plt.show()
+        raise MacaulayError("FULL MATRIX IS NOT FULL RANK")
 
     return matrix, matrix_terms
 

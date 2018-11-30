@@ -12,7 +12,7 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
 
     Parameters
     --------
-    polys: MultiCheb Polynomials
+    polys: list of MultiCheb Polynomials
         The polynomials for which the common roots are found.
     divisor_var : int
         What variable is being divided by. 0 is x, 1 is y, etc. Defaults to x.
@@ -25,6 +25,8 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
     zeros : numpy array
         The common roots of the polynomials. Each row is a root.
     '''
+    non_constant_polys = []    
+    
     #This first section creates the Macaulay Matrix with the monomials that don't have
     #the divisor variable in the first columns.
     power = is_power(polys)
@@ -236,7 +238,7 @@ def get_matrix_terms(poly_coeffs, dim, divisor_var, deg, include_divvar_squared=
     mons = array[perm]
     cuts = tuple([mDeg+1, len(perm) - 2])
     return mons, cuts
-    """
+    """    
     matrix_term_set_y= set()
     matrix_term_set_other= set()
     for coeffs in poly_coeffs:
@@ -282,7 +284,6 @@ def get_matrix_terms(poly_coeffs, dim, divisor_var, deg, include_divvar_squared=
 
     #for term in needed_terms:
     #    matrix_term_set_other.remove(term)
-
     matrix_terms = np.vstack((np.vstack(matrix_term_set_y),np.vstack(matrix_term_set_other),matrix_term_end))
     return matrix_terms, tuple([len(matrix_term_set_y), len(matrix_term_set_y)+len(matrix_term_set_other)])
 
