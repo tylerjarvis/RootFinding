@@ -670,7 +670,7 @@ def trim_coeffs(coeffs, tol=1.e-5):
 
         first_time = False
 
-def pick_stable_dim(coeffs, tol = 1.e-3):
+def pick_stable_dim(coeffs, tol = 1.e-5):
     dimension = coeffs[0].ndim
     for dim in range(dimension):
         corner_spots = []
