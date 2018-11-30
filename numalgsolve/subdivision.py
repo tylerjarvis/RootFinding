@@ -63,7 +63,7 @@ def solve(funcs, a, b, interval_data = False):
     else:
         #multi-dimensional case
         #choose an appropriate max degree for the given dimension
-        deg_dim = {2:10, 3:4, 4:3}
+        deg_dim = {2:5, 3:4, 4:3}
         if dim > 4:
             deg = 2
         else:
@@ -149,10 +149,6 @@ def solve(funcs, a, b, interval_data = False):
 
 
                 plt.title('What happened to the intervals')
-                # plt.plot(-0.60273975, -1.44116099,'o')
-                # plt.plot(-1.44116099, -0.60273975,'o')
-                plt.plot(-0.73622152, -0.14926265,'*')
-                plt.plot(-0.14926265, -0.73622152,'*')
                 plt.xlim(a[0],b[0])
                 plt.ylim(a[1],b[1])
                 plt.legend()
@@ -469,7 +465,6 @@ def subdivision_naive_solve_nd(funcs,a,b,deg,interval_results,interval_checks = 
     deg : int
         The degree to approximate with in the chebyshev approximation.
     """
-
     deg = 3
     polys = []
 

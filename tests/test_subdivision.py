@@ -26,7 +26,7 @@ def correctZeros(polys, a, b):
     In this function it ignores the number of zeros since it only searches a specific interval. It asserts that at least 95%
     of the zeros are correct (so it will pass even on bad random runs)
     '''
-    zeros = subdiv.solve(polys, a, b)
+    zeros = subdiv.solve(polys, a, b, interval_data=True)
     correct = 0
     outOfRange = 0
     for zero in zeros:
@@ -42,7 +42,7 @@ def correctZeros(polys, a, b):
     if len(zeros) == outOfRange:
         raise Exception("No zeros found")
     else:
-        assert(100*correct/(len(zeros)-outOfRange) > 95)
+        assert(100*correct/(len(zeros)-outOfRange) > 95),(zeros)
 
 def test_subdivision_solve_polys():
     '''
@@ -57,6 +57,7 @@ def test_subdivision_solve_polys():
     A = getPoly(10,2,True)
     B = getPoly(10,2,True)
     correctZeros([A,B], a, b)
+    print('case 1 passed')
 
     #Case 2 - Three MultiPower 3D degree 4 polynomials.
     #choose a seed that has a zero like 1,23,27,29,39,43,44,46,51,53,54,68,71,72,93
@@ -66,6 +67,7 @@ def test_subdivision_solve_polys():
     B = getPoly(4,3,True)
     C = getPoly(4,3,True)
     correctZeros([A,B,C], a, b)
+    print('case 2 passed')
 
     #Case 3 - Four MultiPower 4D degree 2 polynomials.
     #choose a seed that has a zero like 21,43,65,72,83
@@ -76,6 +78,7 @@ def test_subdivision_solve_polys():
     C = getPoly(2,4,True)
     D = getPoly(2,4,True)
     correctZeros([A,B,C,D], a, b)
+    print('case 3 passed')
 
     #Case 4 - Two MultiPower 2D, one degree 20 and one degree 28
     #choose a seed that has a zero like 0,1,2,3,4,5,6,7,8,9,10
@@ -93,6 +96,7 @@ def test_subdivision_solve_polys():
     B = getPoly(4,3,True)
     C = getPoly(5,3,True)
     correctZeros([A,B,C], a, b)
+    print('case 4 passed')
 
 def test_subdivision_solve_1d():
     #Case 6 - One MultiPower 1D of degrees 10
@@ -250,4 +254,5 @@ def test_copy_block():
         assert np.all(values[tuple(idx1)] == values[tuple(idx2)])
 
 if __name__ == "__main__":
-    test_subdivision_solve_with_transform()
+    test_subdivision_solve_polys()
+    print('passed!')

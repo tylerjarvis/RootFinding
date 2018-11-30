@@ -45,8 +45,8 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
     matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, matrix_degree, dim, divisor_var, get_divvar_coord_from_eigval)
 
     #if too many small columns, B is probably unstable
-    nonzero_columns = np.max(matrix[:,cuts[0]:cuts[1]],axis=0) > tol
-    if np.sum(nonzero_columns) <= max_number_of_roots - dim - 1:
+    zero_columns = np.max(np.abs(matrix[:,cuts[0]:cuts[1]]),axis=0) < tol
+    if np.sum(zero_columns) >= max_number_of_roots - dim - 1:
         raise MacaulayError("B is probably not stable")
 
     if verbose:
