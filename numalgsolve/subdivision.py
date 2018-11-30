@@ -36,7 +36,7 @@ def solve(funcs, a, b, interval_data = False):
     -------
     roots : numpy array
         The common roots of the polynomials. Each row is a root.
-    '''    
+    '''
     interval_checks = [constant_term_check, full_quad_check, full_cubic_check]
     subinterval_checks = [linear_check, quadratic_check1, quadratic_check2]
     interval_results = []
@@ -710,7 +710,7 @@ def mon_combos_limited(mon, remaining_degrees, shape, cur_dim = 0):
     temp = mon.copy() #Quicker than copying every time inside the loop.
     for i in range(min(shape[cur_dim],remaining_degrees+1)): #Recursively add to mon further down.
         temp[cur_dim] = i
-        answers += mon_combos_limited(temp, remaining_degrees-i, shape, cur_dim+1)
+        answers.extend(mon_combos_limited(temp, remaining_degrees-i, shape, cur_dim+1))
     return answers
 
 def good_zeros(zeros, imag_tol = 1.e-10):
