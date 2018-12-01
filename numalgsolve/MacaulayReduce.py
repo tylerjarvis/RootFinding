@@ -83,7 +83,7 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, number_of_roots, accuracy = 
         The reduced matrix.
     matrix_terms: numpy array
         The resorted matrix_terms.
-    '''    
+    '''
     #print("Starting matrix.shape:\n", matrix.shape)
     #RRQR reduces A and D without pivoting sticking the result in it's place.
     Q1,matrix[:,:cuts[0]] = qr(matrix[:,:cuts[0]])
@@ -116,11 +116,18 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, number_of_roots, accuracy = 
     #rank = np.sum(np.abs(matrix.diagonal())>accuracy) + still_good
     #matrix = matrix[:rank]
 
+#     plt.imshow(matrix)
+#     plt.show()
+#     print(np.diag(matrix))
+    
+#     for ii in range(20):
+#         print(matrix[:,ii])
+    
     #eliminates rows we don't care about-- those at the bottom of the matrix
     #since the top corner is a square identity matrix, useful_rows + number_of_roots is the width of the Macaulay matrix
     matrix = row_swap_matrix(matrix)
     for row in matrix[::-1]:
-        if np.allclose(row, 0):
+        if np.allclose(row, 0, atol=accuracy):
             matrix = matrix[:-1]
         else:
             break
@@ -130,7 +137,8 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, number_of_roots, accuracy = 
 
     #set very small values in the matrix to zero before backsolving
     matrix[np.isclose(matrix, 0, atol=accuracy)] = 0
-
+#     print(np.diag(matrix))
+    
     #Resorts the matrix_terms.
     matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
     #print("Macaulay1Rank:", np.sum(np.abs(matrix.diagonal())>accuracy))    
