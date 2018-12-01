@@ -26,7 +26,7 @@ def correctZeros(polys, a, b):
     In this function it ignores the number of zeros since it only searches a specific interval. It asserts that at least 95%
     of the zeros are correct (so it will pass even on bad random runs)
     '''
-    zeros = subdiv.solve(polys, a, b, interval_data=True)
+    zeros = subdiv.solve(polys, a, b)
     correct = 0
     outOfRange = 0
     for zero in zeros:
