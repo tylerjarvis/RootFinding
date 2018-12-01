@@ -1,7 +1,6 @@
 import numpy as np
 from numalgsolve.polynomial import MultiCheb, MultiPower
 from numalgsolve.OneDimension import multPowerR, multChebR, multPower, multCheb, divPower, divCheb
-from numalgsolve.TVBMethod import solve as TVBsolve
 from numalgsolve.polyroots import solve
 from numalgsolve.Division import division
 from numalgsolve.Multiplication import multiplication
@@ -49,11 +48,10 @@ numpyCheb_s = OneDSolver(chebroots, "Numpy Cheb", 'cheb', False)
 multiplication_s = Solver(multiplication, "Multiplication", "both", True, defaults_kwargs={'MSmatrix':1})
 multrand_s = Solver(multiplication, "Multiplication Random", "both", True, defaults_kwargs={'MSmatrix':0})
 division_s = Solver(division, "Division", "both", True)
-TVB_s = Solver(TVBsolve, "TVB", "power", False)
 
 all_solvers = [multPowerR_s, multPower_s, divPower_s, numpy_s,
                multChebR_s, multCheb_s, divCheb_s, numpyCheb_s,
-               multiplication_s, multrand_s, division_s, TVB_s]
+               multiplication_s, multrand_s, division_s]
 
 def create_roots_graph(args, results):
     nrows = len(results)

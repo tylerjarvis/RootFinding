@@ -10,6 +10,10 @@ from itertools import product
 import itertools
 from numalgsolve.polynomial import MultiCheb
 
+global interval_default_tol,quadratic_default_tol
+interval_default_tol = 1.e-3
+quadratic_default_tol = 1.e-12
+
 def ext_val3(test_coeff, maxx = True):
     a,b,c = test_coeff
     """Absolute value of max or min of a + bx + c(2x^2 - 1) on -1 to 1"""
@@ -59,7 +63,7 @@ def ext_val4(test_coeff, maxx = True):
             else:
                 return min(np.abs(vals))
 
-def constant_term_check(test_coeff, tol):
+def constant_term_check(test_coeff, tol=interval_default_tol):
     """Quick check of zeros in the unit box.
 
     Checks if the constant term is bigger than all the other terms combined, using the fact that
@@ -81,7 +85,7 @@ def constant_term_check(test_coeff, tol):
     else:
         return True
 
-def quad_check(test_coeff, tol):
+def quad_check(test_coeff, tol=interval_default_tol):
     """Quick check of zeros in the unit box.
 
     Parameters
@@ -134,7 +138,7 @@ def quad_check(test_coeff, tol):
     else:
         return True
 
-def cubic_check(test_coeff, tol):
+def cubic_check(test_coeff, tol=interval_default_tol):
     """Quick check of zeros in the unit box.
 
     Parameters
@@ -187,7 +191,7 @@ def cubic_check(test_coeff, tol):
     else:
         return True
 
-def full_quad_check(test_coeff, tol):
+def full_quad_check(test_coeff, tol=interval_default_tol):
     """Quick check of zeros in the unit box.
 
     Parameters
@@ -205,7 +209,7 @@ def full_quad_check(test_coeff, tol):
             return False
     return True
 
-def full_cubic_check(test_coeff, tol):
+def full_cubic_check(test_coeff, tol=interval_default_tol):
     """Quick check of zeros in the unit box.
 
     Parameters
@@ -300,7 +304,7 @@ def linear_check(test_coeff_in, intervals, change_sign):
         #     mask.append(False)
     return mask
 
-def quadratic_check1(test_coeff, intervals, change_sign, tol=1e-12):
+def quadratic_check1(test_coeff, intervals, change_sign, tol=quadratic_default_tol):
     """Quick check of zeros in intervals using the x^2 terms.
 
     Parameters
@@ -385,7 +389,7 @@ def quadratic_check1(test_coeff, intervals, change_sign, tol=1e-12):
             mask.append(True)
     return mask
 
-def quadratic_check2(test_coeff, intervals, change_sign, tol=1e-12):
+def quadratic_check2(test_coeff, intervals, change_sign, tol=quadratic_default_tol):
     """Quick check of zeros in the unit box using the y^2 terms
 
      Parameters
@@ -469,7 +473,7 @@ def quadratic_check2(test_coeff, intervals, change_sign, tol=1e-12):
             mask.append(True)
     return mask
 
-def quadratic_check3(test_coeff, intervals,change_sign,tol=1e-12):
+def quadratic_check3(test_coeff, intervals,change_sign,tol=quadratic_default_tol):
     """Quick check of zeros in the unit box using the xy terms
 
      Parameters
@@ -669,7 +673,7 @@ def can_eliminate(poly, a, b, tol):
 #     print(max_curve * n * h**2/8)
     return min_corner > max_curve * n * h**2/8 + tol
 
-def curvature_check(coeff, tol):
+def curvature_check(coeff, tol=interval_default_tol):
     poly = MultiCheb(coeff)
     a = np.array([-1.]*poly.dim)
     b = np.array([1.]*poly.dim)
