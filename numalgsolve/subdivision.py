@@ -9,7 +9,7 @@ the approximation degree is small enough to be solved efficiently.
 import numpy as np
 from numpy.fft.fftpack import fftn
 from numalgsolve.OneDimension import divCheb,divPower,multCheb,multPower,solve
-from numalgsolve.Division import division, div_sim_diag_solve
+from numalgsolve.Division import division
 from numalgsolve.utils import clean_zeros_from_matrix, slice_top, MacaulayError, get_var_list
 from numalgsolve.polynomial import MultiCheb, Polynomial
 from numalgsolve.intervalChecks import constant_term_check, full_quad_check, quad_check, full_cubic_check,\
@@ -467,7 +467,7 @@ def full_cheb_approximate(f,a,b,deg,tol=1.e-8):
     else:
         return coeff, bools
 
-def good_zeros_nd(zeros, imag_tol = 1.e-1, real_tol = 1.e-1):
+def good_zeros_nd(zeros, imag_tol = 1.e-5, real_tol = 1.e-5):
     """Get the real zeros in the -1 to 1 interval in each dimension.
 
     Parameters
@@ -615,6 +615,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],sub
             else:
                 return np.zeros([0,dim])
 
+        divisor_var = 0
         if divisor_var < 0:
             probably_bads += 1
             was_bad = False

@@ -383,7 +383,7 @@ def quadratic_check1(test_coeff, intervals, change_sign, tol=quadratic_default_t
                                              [interval[1][0],interval[0][1]],
                                              [interval[1][0],interval[1][1]]])
          #if min{|constant + c1x + c2y +c3x^2|} > sum of other terms in test_coeff, no roots in the region
-        if min(eval(potential_minimizers)) > np.sum(np.abs(test_coeff)) - abs(constant) - abs(c1) - abs(c2) - abs(c3):
+        if min(eval(potential_minimizers))-tol > np.sum(np.abs(test_coeff)) - abs(constant) - abs(c1) - abs(c2) - abs(c3):
             mask.append(False)
         else:
             mask.append(True)
@@ -467,7 +467,7 @@ def quadratic_check2(test_coeff, intervals, change_sign, tol=quadratic_default_t
                                              [interval[1][0],interval[0][1]],
                                              [interval[1][0],interval[1][1]]])
          #if min{|constant + c1x + c2y +c3y^2|} > sum of other terms in test_coeff, no roots in the region
-        if min(eval(potential_minimizers)) > np.sum(np.abs(test_coeff)) - abs(constant) - abs(c1) - abs(c2) - abs(c3):
+        if min(eval(potential_minimizers))-tol > np.sum(np.abs(test_coeff)) - abs(constant) - abs(c1) - abs(c2) - abs(c3):
             mask.append(False)
         else:
             mask.append(True)
@@ -552,7 +552,7 @@ def quadratic_check3(test_coeff, intervals,change_sign,tol=quadratic_default_tol
                                          [interval[1][0],interval[1][1]]])
 
         ##if min{|constant + c1x + c2y +c3xy|} > sum of other terms in test_coeff, no roots in the region
-        if min(eval(potential_minimizers)) > np.sum(np.abs(test_coeff)) - np.sum(np.abs(test_coeff[:2,:2])):
+        if min(eval(potential_minimizers))-tol > np.sum(np.abs(test_coeff)) - np.sum(np.abs(test_coeff[:2,:2])):
             mask.append(False)
         else:
             mask.append(True)
