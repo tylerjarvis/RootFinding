@@ -9,9 +9,9 @@ the approximation degree is small enough to be solved efficiently.
 import numpy as np
 from numpy.fft.fftpack import fftn
 from numalgsolve.OneDimension import divCheb,divPower,multCheb,multPower,solve
-from numalgsolve.Division import division
+from numalgsolve.Division import division, div_sim_diag_solve
 from numalgsolve.utils import clean_zeros_from_matrix, slice_top, MacaulayError, get_var_list
-from numalgsolve.polynomial import MultiCheb
+from numalgsolve.polynomial import MultiCheb, Polynomial
 from numalgsolve.intervalChecks import constant_term_check, full_quad_check, quad_check, full_cubic_check,\
             cubic_check, curvature_check, linear_check, quadratic_check1, quadratic_check2, quadratic_check3
 from itertools import product
@@ -102,6 +102,7 @@ def solve(funcs, a, b, interval_data = False, plot_intervals = False, contours =
                 fig.set_size_inches(10, 10)
 
                 if plot_intervals:
+                    plt.title('What happened to the intervals')
                     for i in range(len(interval_checks)):
                         results = interval_results[i]
                         first = True
@@ -166,18 +167,23 @@ def solve(funcs, a, b, interval_data = False, plot_intervals = False, contours =
                     contour_colors = ['#FF00D4','w']
                     if not plot_intervals:
                         contour_colors[1] = 'k'
-                    x = np.linspace(-1,1,100)
-                    y = np.linspace(-1,1,100)
+                    x = np.linspace(-a[0],b[0],100)
+                    y = np.linspace(-a[1],b[1],100)
                     X,Y = np.meshgrid(x,y)
 
                     for i in range(dim):
-                        plt.contour(X,Y,funcs[i](X,Y),levels=[0],colors=contour_colors[i])
+                        if isinstance(funcs[i], Polynomial):
+                            Z = np.zeros_like(X)
+                            for spot,num in np.ndenumerate(X):
+                                Z[spot] = funcs[i]([X[spot],Y[spot]])
+                            plt.contour(X,Y,Z,levels=[0],colors=contour_colors[i])
+                        else:
+                            plt.contour(X,Y,funcs[i](X,Y),levels=[0],colors=contour_colors[i])
 
                 #Plot the zeros
                 if show_zeros:
                     plt.plot(np.real(result[:,0]), np.real(result[:,1]),'o',color = '#FF9300')
 
-                plt.title('What happened to the intervals')
                 plt.xlim(a[0],b[0])
                 plt.ylim(a[1],b[1])
                 plt.show()
@@ -613,6 +619,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],sub
             probably_bads += 1
             was_bad = False
             try:
+                # zeros = np.array(div_sim_diag_solve(polys))
                 zeros = np.array(division(polys, get_divvar_coord_from_eigval = True, divisor_var = 0, tol = solve_tol))
                 was_bad = False
             except np.linalg.LinAlgError as e:
@@ -629,7 +636,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],sub
                 return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_results\
                                                    ,interval_checks,subinterval_checks,approx_tol=approx_tol)
                               for interval in intervals])
-
+        # zeros = np.array(div_sim_diag_solve(polys))
         zeros = np.array(division(polys, get_divvar_coord_from_eigval = True, divisor_var = 0, tol = solve_tol))
         interval_results[-2].append([a,b])
         if len(zeros) == 0:

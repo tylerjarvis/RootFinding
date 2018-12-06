@@ -7,6 +7,196 @@ from numalgsolve.utils import get_var_list, slice_top, row_swap_matrix, \
                               mon_combos, newton_polish, MacaulayError
 import warnings
 
+
+def sim_diag(Matrices, verbose=False):
+    '''
+    Simultaneously diagonalizes several commuting matrices which have the same eigenvectors.
+
+    Parameters
+    ----------
+    matrices : ndarray
+        3D Tensor. Each matrix in the array must commute with every other matrix and they must share all eigenvectors)
+    verbose: bool
+        Prints information about the diagonalization.
+
+    -------
+    sim_diag : numpy array
+        The i-th row is the diagonal corresponding to the i-th matrix in matrices
+    '''
+    sim_diag = np.zeros((Matrices.shape[0], Matrices.shape[1]), dtype='complex64')
+    b = np.random.rand(Matrices.shape[0])
+    lin_combo = sum([b[i] * Matrices[i] for i in range(Matrices.shape[0])]) #random linear combo of mult matrices to avoid issues with double eigenvalues
+    vals, P = eig(lin_combo)
+    vals = 0 #don't need the vals of the lin_combo matrix. Delete for memory
+    if verbose:
+        print("The linear combo of multiplication matrices:\n", lin_combo)
+        print("The basis which simultanously diagonalizes the matrices:\n", P)
+
+    for k in range(Matrices.shape[0]):
+        A = Matrices[k] @ P
+        i = np.argmax(P, axis = 0) #get largest value in each column of P
+        for j in range(Matrices.shape[1]):
+            sim_diag[k,j] = A[i[j]][j]/P[i[j]][j]
+
+    return sim_diag
+
+def div_sim_diag_solve(polys, verbose=False,imag_tol=1.e-10):
+    '''
+    Finds the roots of a list of multivariate polynomials by simultaneously
+    diagonalizing a multiplication matrices created with the TVB method.
+
+    Parameters
+    ----------
+    polys : list of polynomial objects
+        Polynomials to find the common roots of.
+    verbose : bool
+        Print information about how the roots are computed.
+    returns
+    -------
+    roots : numpy array
+        The common roots of the polynomials. Each row is a root.
+    '''
+    dim = polys[0].dim
+
+    #make Dx1, ..., Dxn
+    div_matrices = []
+    for i in range(dim):
+        div_matrices.append(div_matrix(polys,i))
+
+    if verbose:
+        print('Division Matrices:\n',len(div_matrices), div_matrices)
+
+    # simultaneously diagonalize and return roots
+    roots = 1/sim_diag(np.array(div_matrices), verbose=verbose).T
+    # roots = roots[np.max(np.abs(roots),axis=1) <= 1] #only return roots inside the interval
+    # roots = roots[np.isreal(roots)] #that are real
+
+    if verbose:
+        print("Roots:\n", roots)
+    return roots
+
+def div_matrix(polys,divisor_var,tol=1.e-12):
+    '''get the ith cheb division matrix'''
+    non_constant_polys = []
+
+    #This first section creates the Macaulay Matrix with the monomials that don't have
+    #the divisor variable in the first columns.
+    power = False
+    dim = polys[0].dim
+
+    #By Bezout's Theorem. Useful for making sure that the reduced Macaulay Matrix is as we expect
+    degrees = [poly.degree for poly in polys]
+    max_number_of_roots = np.prod(degrees)
+
+    matrix_degree = np.sum(poly.degree for poly in polys) - len(polys) + 1
+
+    poly_coeff_list = []
+    for poly in polys:
+        poly_coeff_list = add_polys(matrix_degree, poly, poly_coeff_list)
+
+    matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, matrix_degree, dim, divisor_var)
+
+    #If bottom left is zero only does the first QR reduction on top part of matrix (for speed). Otherwise does it on the whole thing
+    if np.allclose(matrix[cuts[0]:,:cuts[0]], 0):
+        matrix, matrix_terms = rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, max_number_of_roots, tol)
+    else:
+        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_number_of_roots, tol)
+
+    rows,columns = matrix.shape
+
+    #Make there are enough rows in the reduced Macaulay matrix, i.e. didn't loose a row
+    #This should be a valid assert statement but the max_number_of_roots won't be the product of dimensions for non homogenous polynomials
+    #assert rows >= columns - max_number_of_roots
+
+    VB = matrix_terms[matrix.shape[0]:]
+    matrix = np.hstack((np.eye(rows),solve_triangular(matrix[:,:rows],matrix[:,rows:])))
+
+    #------------> chebyshev
+    if not power:
+        #Builds the inverse matrix. The terms are the vector basis as well as y^k/x terms for all k. Reducing
+        #this matrix allows the y^k/x terms to be reduced back into the vector basis.
+        inverses = matrix_terms[np.where(matrix_terms[:,divisor_var] == 0)[0]]
+        inverses[:,divisor_var] = -np.ones(inverses.shape[0], dtype = 'int')
+        inv_matrix_terms = np.vstack((inverses, VB))
+        inv_matrix = np.zeros([len(inverses),len(inv_matrix_terms)])
+
+        #A bunch of different dictionaries are used below for speed purposes and to prevent repeat calculations.
+
+        #A dictionary of term in inv_matrix_terms to their spot in inv_matrix_terms.
+        inv_spot_dict = dict()
+        spot = 0
+        for term in inv_matrix_terms:
+            inv_spot_dict[tuple(term)] = spot
+            spot+=1
+
+        #A dictionary of terms on the diagonal to their reduction in the vector basis.
+        diag_reduction_dict = dict()
+        for i in range(matrix.shape[0]):
+            term = matrix_terms[i]
+            diag_reduction_dict[tuple(term)] = matrix[i][-len(VB):]
+
+        #A dictionary of terms to the terms in their quotient when divided by x.
+        divisor_terms_dict = dict()
+        for term in matrix_terms:
+            divisor_terms_dict[tuple(term)] = get_divisor_terms(term, divisor_var)
+
+        #A dictionary of terms to their quotient when divided by x.
+        term_divide_dict = dict()
+        for term in matrix_terms[-len(VB):]:
+            term_divide_dict[tuple(term)] = divide_term(term, inv_matrix_terms, inv_spot_dict, diag_reduction_dict,
+                                                          len(VB), divisor_terms_dict)
+
+        #Builds the inv_matrix by dividing the rows of matrix by x.
+        for i in range(cuts[0]):
+            inv_matrix[i] = divide_row(matrix[i][-len(VB):], matrix_terms[-len(VB):], term_divide_dict, len(inv_matrix_terms))
+            spot = matrix_terms[i]
+            spot[divisor_var] -= 1
+            inv_matrix[i][inv_spot_dict[tuple(spot)]] += 1
+
+        #Reduces the inv_matrix to solve for the y^k/x terms in the vector basis.
+        Q,R = qr(inv_matrix)
+
+        inv_solutions = np.hstack((np.eye(R.shape[0]),solve_triangular(R[:,:R.shape[0]], R[:,R.shape[0]:])))
+
+        #A dictionary of term in the vector basis to their spot in the vector basis.
+        VB_spot_dict = dict()
+        spot = 0
+        for row in VB:
+            VB_spot_dict[tuple(row)] = spot
+            spot+=1
+
+        #A dictionary of terms of type y^k/x to their reduction in the vector basis.
+        inv_reduction_dict = dict()
+        for i in range(len(inv_solutions)):
+            inv_reduction_dict[tuple(inv_matrix_terms[i])] = inv_solutions[i][len(inv_solutions):]
+
+        #Builds the division matrix and finds the eigenvalues and eigenvectors.
+        division_matrix = build_division_matrix(VB, VB_spot_dict, diag_reduction_dict, inv_reduction_dict, divisor_terms_dict)
+        #<---------end Chebyshev
+    else:
+        #--------->Power
+        basisDict = makeBasisDict(matrix, matrix_terms, VB)
+
+        #Dictionary of terms in the vector basis their spots in the matrix.
+        VBdict = {}
+        spot = 0
+        for row in VB:
+            VBdict[tuple(row)] = spot
+            spot+=1
+
+        # Build division matrix
+        division_matrix = np.zeros((len(VB), len(VB)))
+        for i in range(VB.shape[0]):
+            var = np.zeros(dim)
+            var[divisor_var] = 1
+            term = tuple(VB[i] - var)
+            if term in VBdict:
+                division_matrix[VBdict[term]][i] += 1
+            else:
+                division_matrix[:,i] -= basisDict[term]
+        #<----------end Power
+    return division_matrix
+
 def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol = 1.e-12, verbose=False, polish = False):
     '''Calculates the common zeros of polynomials using a division matrix.
 
