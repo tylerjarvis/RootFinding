@@ -635,7 +635,7 @@ class TabularCompute:
     def __rsub__(self, other):
         return (-1*self) + other
     def __str__(self):
-        return f"{self.iv}\n{self.iv_prime}\n{self.iv_lambda}"
+        return "{}\n{}\n{}".format(self.iv,self.iv_prime,self.iv_lambda)
     def __repr__(self):
         return str(self)
 
