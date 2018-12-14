@@ -116,7 +116,7 @@ def solve(funcs, a, b, plot = False, plot_intervals = False):
                     plt.contour(X,Y,funcs[i](X,Y),levels=[0],colors=contour_colors[i])
 
             #Plot the zeros
-            plt.plot(np.real(result[:,0]), np.real(result[:,1]),'o',color = '#FF9300')
+            plt.plot(np.real(zeros[:,0]), np.real(zeros[:,1]),'o',color = '#FF9300')
 
             colors = ['#d3d3d3', 'g', 'r', '#FFB726', 'c', '#FFF300', 'k','#8A8A8A','pink','fuchsia', '#23FF3E', 'b']
 
@@ -347,7 +347,7 @@ def interval_approximate_nd(f,a,b,degs,return_bools=False):
     else:
         return coeffs[tuple(slices)]
 
-def get_subintervals(a,b,dimensions,subinterval_checks,interval_results,polys,change_sign,check_subintervals=False):
+def get_subintervals(a,b,dimensions,subinterval_checks,interval_results,polys,change_sign,approx_tol,check_subintervals=False):
     """Gets the subintervals to divide a search interval into.
 
     Parameters
@@ -378,10 +378,11 @@ def get_subintervals(a,b,dimensions,subinterval_checks,interval_results,polys,ch
         subintervals.append((aTemp,bTemp))
 
     if check_subintervals:
-        scaled_subintervals = get_subintervals(-np.ones_like(a),np.ones_like(a),dimensions,None,None,None,None)
+        scaled_subintervals = get_subintervals(-np.ones_like(a),np.ones_like(a),dimensions,subinterval_checks=None,\
+                                                interval_results=None,polys=None,change_sign=None,approx_tol=approx_tol,check_subintervals=False)
         for check_num, check in enumerate(subinterval_checks):
             for poly in polys:
-                mask = check(poly, scaled_subintervals, change_sign)
+                mask = check(poly, scaled_subintervals, change_sign, approx_tol)
                 new_scaled_subintervals = []
                 new_subintervals = []
                 for i, result in enumerate(mask):
@@ -448,7 +449,7 @@ def good_zeros_nd(zeros, imag_tol = 1.e-5, real_tol = 1.e-5):
     """
     good_zeros = zeros[np.all(np.abs(zeros.imag) < imag_tol,axis = 1)]
     good_zeros = good_zeros[np.all(np.abs(good_zeros) <= 1 + real_tol,axis = 1)]
-    return good_zeros
+    return good_zeros.real
 
 def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],subinterval_checks=[],approx_tol=1.e-4, cutoff_tol=1.e-5, solve_tol = 1.e-8):
     """Finds the common zeros of the given functions.
@@ -469,18 +470,17 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],sub
     good_zeros : numpy array
         The real zero in [-1,1] of the input zeros.
     """
-    division_var = 0
     cheb_approx_list = []
     try:
-        if np.random.rand() > 0.999: #replace this with a progress bar
-            print("Interval - ",a,b)
+        if np.random.rand() > .99: #replace this with a progress bar
+            print("Interval")
         dim = len(a)
         for func in funcs:
             coeff, change_sign = full_cheb_approximate(func,a,b,deg,tol=approx_tol)
 
             #Subdivides if a bad approximation
             if coeff is None:
-                intervals = get_subintervals(a,b,np.arange(dim),None,None,None,None)
+                intervals = get_subintervals(a,b,np.arange(dim),None,None,None,approx_tol,None)
 
                 return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_results\
                                                        ,interval_checks,subinterval_checks,approx_tol=approx_tol)
@@ -520,11 +520,10 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],sub
                 return transform(zero)
             else:
                 return np.zeros([0,dim])
-
         if divisor_var < 0:
             #Subdivide but run some checks on the intervals first
             intervals = get_subintervals(a,b,np.arange(dim),subinterval_checks,interval_results\
-                                         ,cheb_approx_list,change_sign,check_subintervals=True)
+                                         ,cheb_approx_list,change_sign,approx_tol,check_subintervals=True)
             if len(intervals) == 0:
                 return np.zeros([0,dim])
             else:
@@ -532,7 +531,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],sub
                                                    ,interval_checks,subinterval_checks,approx_tol=approx_tol)
                               for interval in intervals])
 
-        zeros = np.array(division(polys, get_divvar_coord_from_eigval = True, divisor_var = divisor_var, tol = solve_tol))
+        zeros = np.array(division(polys,divisor_var = divisor_var, tol = solve_tol))
         interval_results[-2].append([a,b])
         if len(zeros) == 0:
             return np.zeros([0,dim])
@@ -541,7 +540,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],sub
     except np.linalg.LinAlgError as e:
         #Subdivide but run some checks on the intervals first
         intervals = get_subintervals(a,b,np.arange(dim),subinterval_checks,interval_results\
-                                     ,cheb_approx_list,change_sign,check_subintervals=True)
+                                     ,cheb_approx_list,change_sign,approx_tol,check_subintervals=True)
         if len(intervals) == 0:
             return np.zeros([0,dim])
         else:

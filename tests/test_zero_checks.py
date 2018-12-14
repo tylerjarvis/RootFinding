@@ -8,7 +8,8 @@ def test_zero_check2D():
     subinterval_checks = [linear_check,quadratic_check1,quadratic_check2,quadratic_check3]
     a = -np.ones(2)
     b = np.ones(2)
-    interval_checks.extend([lambda x: f(x, [(a,b)],[False])[0]  for f in subinterval_checks] )
+    tol = 1.e-4
+    interval_checks.extend([lambda x, tol: f(x, [(a,b)],[False], tol)[0]  for f in subinterval_checks])
 
     for method in interval_checks:
         # this function barely does not have a zero
@@ -29,7 +30,7 @@ def test_zero_check2D():
         [-1,  1,  0,  0],
         [ 1,  0,  0,  0]
         ])
-        assert method(c) == False
+        assert method(c,tol) == False
 
         # has zeros, must return true
         c = np.array([
@@ -38,7 +39,7 @@ def test_zero_check2D():
         [-1,  1,  0,  0],
         [ 1,  0,  0,  0]
         ])
-        assert method(c) == True
+        assert method(c,tol) == True
 
         # has zeros, must return true
         c = np.array([
@@ -46,7 +47,7 @@ def test_zero_check2D():
         [0.2,   .001, 0],
         [0.5,  0,     0],
         ])
-        assert method(c) == True
+        assert method(c,tol) == True
 
         # has zeros, must return true
         c = np.array([
@@ -54,7 +55,7 @@ def test_zero_check2D():
         [.2,   .001, 0],
         [.5,  0,     0],
         ])
-        assert method(c) == True
+        assert method(c,tol) == True
 
         # has zeros, must return true
         c = np.array([
@@ -63,7 +64,7 @@ def test_zero_check2D():
         [0.5,  .1,    0, 0],
         [0.1,   0,    0, 0]
         ])
-        assert method(c) == True
+        assert method(c,tol) == True
 
     if __name__ == "__main__":
         test_zero_check2D()

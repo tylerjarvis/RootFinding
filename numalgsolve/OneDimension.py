@@ -14,8 +14,7 @@ def solve(poly, MSmatrix=0, eigvals=True, verbose=False):
     MSmatrix : int
         Controls which Moller-Stetter matrix is constructed
         For a univariate polynomial, the options are:
-            0 (default) -- The companion or colleague matrix, rotated 180 degrees
-            1 -- The unrotated companion or colleague matrix
+            0 (default) -- The companion or colleague matrix
             -1 -- The inverse of the companion or colleague matrix
 
     Returns
@@ -30,60 +29,18 @@ def solve(poly, MSmatrix=0, eigvals=True, verbose=False):
         size = len(poly.coeff)
         coeff = np.trim_zeros(poly.coeff)
         zeros = np.zeros(size - len(coeff), dtype = 'complex')
-        if MSmatrix == 1:
+        if MSmatrix == 0:
+            #multPower is rotated 180 so it plays nice with hessenberg properties
             return np.hstack((zeros,multPower(coeff, eigvals, verbose=verbose)))
-        elif MSmatrix == 0:
-            return np.hstack((zeros,multPowerR(coeff, eigvals, verbose=verbose)))
         else:
             return np.hstack((zeros,divPower(coeff, eigvals, verbose=verbose)))
     else:
-        if MSmatrix == 1:
+        if MSmatrix == 0:
             return multCheb(poly.coeff, eigvals, verbose=verbose)
-        elif MSmatrix == 0:
-            return multChebR(poly.coeff, eigvals, verbose=verbose)
         else:
             return divCheb(poly.coeff, eigvals, verbose=verbose)
 
 def multPower(coeff, eigvals=True, verbose=False):
-    """Finds the zeros of a 1-D power polynomial using a multiplication matrix.
-
-    Parameters
-    ----------
-    coeff : numpy array
-        The coefficients of the polynomial.
-
-    Returns
-    -------
-    zero : numpy array
-        An array of the zeros.
-    """
-    n = len(coeff) - 1
-
-    # linear/constant cases
-    if n < 1:
-        return np.array([], dtype=coeff.dtype)
-    if n == 1:
-        return np.array([-coeff[0]/coeff[1]])
-
-    matrix = np.zeros((n, n), dtype=coeff.dtype)
-    bot = matrix.reshape(-1)[n::n+1]
-    bot[...] = 1
-    matrix[:, -1] -= coeff[:-1]/coeff[-1]
-    if verbose:
-        print('Companion Matrix\n', matrix)
-    if eigvals:
-        zeros = la.eigvals(matrix)
-        if verbose:
-            print('Eigenvalues\n',zeros)
-        return zeros
-    else:
-        vals,vecs = eig(matrix.T)
-        if verbose:
-            print('Eigenvalues\n',vals)
-            print('Left Eigenvectors\n',vecs)
-        return vecs[1,:]/vecs[0,:]
-
-def multPowerR(coeff, eigvals=True, verbose=False):
     """Finds the zeros of a 1-D power polynomial using a rotated multiplication matrix.
 
     Parameters
@@ -205,50 +162,8 @@ def multCheb(coeff, eigvals=True, verbose=False):
             print('Left Eigenvectors\n',vecs)
         return vecs[1,:]/vecs[0,:]
 
-def multChebR(coeff, eigvals=True, verbose=False):
-    """Finds the zeros of a 1-D chebyshev polynomial using a multiplication matrix.
-
-    Parameters
-    ----------
-    coeff : numpy array
-        The coefficients of the polynomial.
-
-    Returns
-    -------
-    zero : numpy array
-        An array of the zeros.
-    """
-    n = len(coeff) - 1
-
-    # linear/constant cases
-    if n < 1:
-        return np.array([], dtype=coeff.dtype)
-    if n == 1:
-        return np.array([-coeff[0]/coeff[1]])
-
-    matrix = np.zeros((n,n), dtype=coeff.dtype)
-    matrix[1][0] = 1
-    bot = matrix.reshape(-1)[1::n+1]
-    bot[...] = 1/2
-    bot = matrix.reshape(-1)[2*n+1::n+1]
-    bot[...] = 1/2
-    matrix[:,-1] -= .5*coeff[:-1]/coeff[-1]
-    matrix = np.rot90(matrix,2)
-    if verbose:
-        print('Rotated Colleague Matrix\n', matrix)
-    if eigvals:
-        zeros = la.eigvals(matrix)
-        if verbose:
-            print('Eigenvalues\n',zeros)
-        return zeros
-    else:
-        vals,vecs = eig(matrix, left=True, right=False)
-        if verbose:
-            print('Eigenvalues\n',vals)
-            print('Left Eigenvectors\n',vecs)
-        return np.conjugate(vecs[-2,:]/vecs[-1,:])
-
 def getXinv(coeff):
+    """Helper function for division matrix"""
     n = len(coeff)-1
     curr = coeff.copy()
     xinv = np.zeros(n, dtype=coeff.dtype)
@@ -259,7 +174,6 @@ def getXinv(coeff):
     temp = -curr[1]
     xinv[0]+=temp
     return xinv,curr[0]
-
 
 def divCheb(coeff, eigvals=True, verbose=False):
     """Finds the zeros of a 1-D chebyshev polynomial using a division matrix.

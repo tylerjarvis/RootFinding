@@ -124,7 +124,6 @@ def test_subdivision_sine():
 
     zeros = subdiv.solve([f, g], a, b)
     zeros = np.array(sorted(list(zeros), key=lambda x: 10*x[0] + x[1]))
-
     assert len(zeros) == 16
 
     X,Y = np.meshgrid(range(4),range(4),indexing='ij')
@@ -195,6 +194,8 @@ def test_good_zeros_nd():
     The good zeros function should remove zeros with imaginary part or outside
     the range [-1,1]X[-1,1]X...
     '''
+    imag_tol = 1.e-5
+    real_tol = 1.e-5
 
     zeros = np.array([
     [0.9+0j, 0.9+0j],   #good
@@ -202,8 +203,7 @@ def test_good_zeros_nd():
     [-1.1+0j, 0.1+0j],  #out of range
     [0.1+0.1j, 0.1+0j], #imaginary
     ])
-    print(subdiv.good_zeros_nd(zeros))
-    assert np.all(subdiv.good_zeros_nd(zeros) == zeros[:2])
+    assert np.all(subdiv.good_zeros_nd(zeros, imag_tol=imag_tol,real_tol=real_tol) == zeros[:2].real)
 
     zeros = np.array([
     [0.9+0j, 0.9+0j, -0.1+0j],    #good
@@ -212,7 +212,7 @@ def test_good_zeros_nd():
     [0.1+0.1j, 0.1+0j, 0.8-0.1j], #imaginary
     ])
 
-    assert np.all(subdiv.good_zeros_nd(zeros) == zeros[:2])
+    assert np.all(subdiv.good_zeros_nd(zeros,imag_tol=imag_tol,real_tol=real_tol) == zeros[:2].real)
 
 def test_copy_block():
     np.random.seed(0)

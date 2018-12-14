@@ -62,9 +62,9 @@ def multiplication(polys, verbose=False, MSmatrix=0, rotate=False):
             var_spots.append(m_f.shape[0] - 1 - var_dict[tuple(spot)])
         spot[i] = 0
 
-    # Get left eigenvectors
+    # Get left eigenvectors (come in conjugate pairs)
+    vals,vecs = eig(m_f,left=True,right=False)
 
-    vals,vecs = np.linalg.eig(m_f.T)
     if verbose:
         print('\nLeft Eigenvectors (as rows)\n',vecs.T)
         print('\nEigenvals\n', vals)
