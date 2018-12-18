@@ -1,9 +1,9 @@
 import pytest
 import numpy as np
 import sympy as sy
-from numalgsolve import utils as ut
-from numalgsolve.utils import *
-from numalgsolve.polynomial import MultiCheb, MultiPower
+from yroots import utils as ut
+from yroots.utils import *
+from yroots.polynomial import MultiCheb, MultiPower
 from scipy.linalg import qr, solve_triangular
 from itertools import product
 

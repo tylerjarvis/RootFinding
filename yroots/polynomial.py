@@ -3,7 +3,7 @@ import itertools
 from numpy.polynomial import chebyshev as cheb
 from numpy.polynomial import polynomial as poly
 from scipy.signal import fftconvolve, convolve
-from numalgsolve.utils import Term, makePolyCoeffMatrix, match_size, slice_top, slice_bottom
+from yroots.utils import Term, makePolyCoeffMatrix, match_size, slice_top, slice_bottom
 import time
 
 from numba import jit

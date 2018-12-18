@@ -7,7 +7,7 @@ then all run to throw out intervals as possible.
 import numpy as np
 from itertools import product
 import itertools
-from numalgsolve.polynomial import MultiCheb
+from yroots.polynomial import MultiCheb
 
 def extreme_val3(test_coeff, maxx = True):
     """Absolute value of max or min of |a + bx + c(2x^2 - 1)| on -1 to 1, used by quad_check"""

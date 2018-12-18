@@ -1,9 +1,9 @@
 import numpy as np
 import itertools
 from scipy.linalg import solve_triangular, eig
-from numalgsolve.polynomial import MultiCheb, MultiPower, is_power
-from numalgsolve.MacaulayReduce import rrqr_reduceMacaulay2, rrqr_reduceMacaulay, find_degree, add_polys
-from numalgsolve.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list, \
+from yroots.polynomial import MultiCheb, MultiPower, is_power
+from yroots.MacaulayReduce import rrqr_reduceMacaulay2, rrqr_reduceMacaulay, find_degree, add_polys
+from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list, \
                               mon_combos, mon_combosHighest, sort_polys_by_degree, \
                               deg_d_polys, all_permutations_cheb
 import warnings

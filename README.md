@@ -1,6 +1,6 @@
-# NumAlgSolve
+# yroots
 
-NumAlgSolve is a Python module for numerical and algebraic rootfinding. For our mathematical methods and their comparisons with other rootfinders, refer to [this paper](paper).
+YRoots is a Python module for numerical and algebraic rootfinding. For our mathematical methods and their comparisons with other rootfinders, refer to [this paper](paper).
 
 <!-- [![Build Status](https://travis-ci.com/tylerjarvis/RootFinding.svg?branch=master)](https://travis-ci.com/tylerjarvis/RootFinding) -->
 <!-- [![codecov](https://codecov.io/gh/mtmoncur/tylerjarvis/branch/master/graphs/badge.svg)](https://codecov.io/gh/tylerjarvis/RootFinding) -->
@@ -17,7 +17,7 @@ NumAlgSolve is a Python module for numerical and algebraic rootfinding. For our 
 (We are currently working on getting a `pip` or `conda` for download)
 
 Rootfinding can now be installed locally by using `pip install -e .` while inside the RootFinding folder.
-The package can then by imported using `import numalgsolve`.
+The package can then by imported using `import yroots`.
 
 ## Usage
 
@@ -26,8 +26,8 @@ The package can then by imported using `import numalgsolve`.
 import numpy as np
 
 #local imports
-from numalgsolve.polynomial import MultiCheb, MultiPower
-from numalgsolve.polyroots import solve
+from yroots.polynomial import MultiCheb, MultiPower
+from yroots.polyroots import solve
 
 A = MultiCheb(np.array([[1,2,3,1],[2,3,1,0],[2,3,0,0],[1,0,0,0]]))
 B = MultiCheb(np.array([[1,0,0,1],[1,0,1,0],[0,0,0,0],[1,0,0,0]]))

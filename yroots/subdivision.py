@@ -8,11 +8,11 @@ the approximation degree is small enough to be solved efficiently.
 
 import numpy as np
 from numpy.fft.fftpack import fftn
-from numalgsolve.OneDimension import divCheb,divPower,multCheb,multPower,solve
-from numalgsolve.Division import division
-from numalgsolve.utils import clean_zeros_from_matrix, slice_top, MacaulayError, get_var_list
-from numalgsolve.polynomial import MultiCheb, Polynomial
-from numalgsolve.intervalChecks import constant_term_check, full_quad_check, quad_check, full_cubic_check,\
+from yroots.OneDimension import divCheb,divPower,multCheb,multPower,solve
+from yroots.Division import division
+from yroots.utils import clean_zeros_from_matrix, slice_top, MacaulayError, get_var_list
+from yroots.polynomial import MultiCheb, Polynomial
+from yroots.intervalChecks import constant_term_check, full_quad_check, quad_check, full_cubic_check,\
             cubic_check, curvature_check, linear_check, quadratic_check1, quadratic_check2, quadratic_check3
 from itertools import product
 from matplotlib import pyplot as plt
@@ -473,7 +473,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],sub
     cheb_approx_list = []
     try:
         if np.random.rand() > .99: #replace this with a progress bar
-            print("Interval")
+            print("Interval - ",a,b)
         dim = len(a)
         for func in funcs:
             coeff, change_sign = full_cheb_approximate(func,a,b,deg,tol=approx_tol)

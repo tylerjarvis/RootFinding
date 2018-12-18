@@ -1,8 +1,8 @@
 import numpy as np
 import itertools
 from scipy.linalg import qr, solve_triangular, qr_multiply
-from numalgsolve.polynomial import Polynomial, MultiCheb, MultiPower
-from numalgsolve.utils import row_swap_matrix, MacaulayError, slice_top, mon_combos, \
+from yroots.polynomial import Polynomial, MultiCheb, MultiPower
+from yroots.utils import row_swap_matrix, MacaulayError, slice_top, mon_combos, \
                               num_mons_full, memoized_all_permutations, mons_ordered, \
                               all_permutations_cheb
 from matplotlib import pyplot as plt
@@ -119,10 +119,10 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, number_of_roots, accuracy = 
 #     plt.imshow(matrix)
 #     plt.show()
 #     print(np.diag(matrix))
-    
+
 #     for ii in range(20):
 #         print(matrix[:,ii])
-    
+
     #eliminates rows we don't care about-- those at the bottom of the matrix
     #since the top corner is a square identity matrix, useful_rows + number_of_roots is the width of the Macaulay matrix
     matrix = row_swap_matrix(matrix)
@@ -138,7 +138,7 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, number_of_roots, accuracy = 
     #set very small values in the matrix to zero before backsolving
     matrix[np.isclose(matrix, 0, atol=accuracy)] = 0
 #     print(np.diag(matrix))
-    
+
     #Resorts the matrix_terms.
     matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
     #print("Macaulay1Rank:", np.sum(np.abs(matrix.diagonal())>accuracy))

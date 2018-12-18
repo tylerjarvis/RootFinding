@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
-from numalgsolve.polynomial import Polynomial, MultiCheb, MultiPower
-from numalgsolve import subdivision as subdiv
+from yroots.polynomial import Polynomial, MultiCheb, MultiPower
+from yroots import subdivision as subdiv
 from itertools import product
 
 def getPoly(deg,dim,power):

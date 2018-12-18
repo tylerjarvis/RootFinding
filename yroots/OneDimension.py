@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.linalg import eig, eigvals
 from numpy import linalg as la
-from numalgsolve.polynomial import MultiCheb, MultiPower
+from yroots.polynomial import MultiCheb, MultiPower
 
 def solve(poly, MSmatrix=0, eigvals=True, verbose=False):
     """Finds the zeros of a 1-D polynomial.
