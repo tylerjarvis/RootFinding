@@ -25,8 +25,8 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
     zeros : numpy array
         The common roots of the polynomials. Each row is a root.
     '''
-    non_constant_polys = []    
-    
+    non_constant_polys = []
+
     #This first section creates the Macaulay Matrix with the monomials that don't have
     #the divisor variable in the first columns.
     power = is_power(polys)
@@ -43,6 +43,13 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
         poly_coeff_list = add_polys(matrix_degree, poly, poly_coeff_list)
 
     matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, matrix_degree, dim, divisor_var, get_divvar_coord_from_eigval)
+
+    #if too many small columns, B is probably unstable
+    zero_columns = np.max(np.abs(matrix[:,cuts[0]:cuts[1]]),axis=0) < tol
+    # if np.sum(zero_columns) >= max_number_of_roots - dim - 1:
+    #     #raise MacaulayError("B is probably not stable")
+    #     B_probably_unstable = True
+
     if verbose:
         np.set_printoptions(suppress=False, linewidth=200)
         print('\nStarting Macaulay Matrix\n', matrix)
@@ -57,18 +64,18 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
 
     rows,columns = matrix.shape
 
-    #Make there are enough rows in the reduced Macaulay matrix, i.e. didn't loose a row    
+    #Make there are enough rows in the reduced Macaulay matrix, i.e. didn't loose a row
     #This should be a valid assert statement but the max_number_of_roots won't be the product of dimensions for non homogenous polynomials
     #assert rows >= columns - max_number_of_roots
 
     VB = matrix_terms[matrix.shape[0]:]
     matrix = np.hstack((np.eye(rows),solve_triangular(matrix[:,:rows],matrix[:,rows:])))
-        
+
     if verbose:
         np.set_printoptions(suppress=True, linewidth=200)
         print("\nFinal Macaulay Matrix\n", matrix)
         print("\nColumns in Macaulay Matrix\n", matrix_terms)
-    
+
     #------------> chebyshev
     if not power:
         #Builds the inverse matrix. The terms are the vector basis as well as y^k/x terms for all k. Reducing
@@ -153,7 +160,7 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
             else:
                 division_matrix[:,i] -= basisDict[term]
         #<----------end Power
-        
+
     vals, vecs = eig(division_matrix.T)
     if verbose:
         print("\nDivision Matrix\n", np.round(division_matrix[::-1,::-1], 2))
@@ -238,7 +245,7 @@ def get_matrix_terms(poly_coeffs, dim, divisor_var, deg, include_divvar_squared=
     mons = array[perm]
     cuts = tuple([mDeg+1, len(perm) - 2])
     return mons, cuts
-    """    
+    """
     matrix_term_set_y= set()
     matrix_term_set_other= set()
     for coeffs in poly_coeffs:
@@ -267,7 +274,7 @@ def get_matrix_terms(poly_coeffs, dim, divisor_var, deg, include_divvar_squared=
         divvar_squared_term[divisor_var] = 2
         matrix_term_set_other.remove(tuple(divvar_squared_term))
         matrix_term_end = np.vstack((divvar_squared_term,matrix_term_end))
-    
+
     try:
         for i in range(dim):
             if i != divisor_var:

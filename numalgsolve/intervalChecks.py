@@ -10,6 +10,10 @@ from itertools import product
 import itertools
 from numalgsolve.polynomial import MultiCheb
 
+global interval_default_tol,quadratic_default_tol
+interval_default_tol = 1.e-3
+quadratic_default_tol = 1.e-12
+
 def ext_val3(test_coeff, maxx = True):
     a,b,c = test_coeff
     """Absolute value of max or min of a + bx + c(2x^2 - 1) on -1 to 1"""
@@ -33,7 +37,7 @@ def ext_val3(test_coeff, maxx = True):
                 return 0
             else:
                 return min(np.abs(vals))
-        
+
 def ext_val4(test_coeff, maxx = True):
     a,b,c,d = test_coeff
     """Absolute value of max or min of a + bx + c(2x^2 - 1) + d*(4x^3 - 3x) on -1 to 1"""
@@ -41,7 +45,7 @@ def ext_val4(test_coeff, maxx = True):
         return ext_val3([a,b,c], maxx = maxx)
     else:
         vals = [a - b + c - d, a + b + c + d] #at +-1
-        
+
         #The quadratic roots
         if 16*c**2 >= 48*d*(b-3*d):
             x1 = (-4*c + np.sqrt(16*c**2 - 48*d*(b-3*d))) / (24*d)
@@ -59,9 +63,9 @@ def ext_val4(test_coeff, maxx = True):
             else:
                 return min(np.abs(vals))
 
-def constant_term_check(test_coeff, tol):
+def constant_term_check(test_coeff, tol=interval_default_tol):
     """Quick check of zeros in the unit box.
-    
+
     Checks if the constant term is bigger than all the other terms combined, using the fact that
     each Chebyshev monomial is bounded by 1.
 
@@ -69,7 +73,7 @@ def constant_term_check(test_coeff, tol):
     ----------
     coeff : numpy array
         The coefficient matrix of the polynomial to check
-    
+
     Returns
     -------
     check1 : bool
@@ -81,14 +85,14 @@ def constant_term_check(test_coeff, tol):
     else:
         return True
 
-def quad_check(test_coeff, tol):
+def quad_check(test_coeff, tol=interval_default_tol):
     """Quick check of zeros in the unit box.
-        
+
     Parameters
     ----------
     test_coeff : numpy array
         The coefficient matrix of the polynomial to check
-    
+
     Returns
     -------
     quad_check : bool
@@ -134,14 +138,14 @@ def quad_check(test_coeff, tol):
     else:
         return True
 
-def cubic_check(test_coeff, tol):
+def cubic_check(test_coeff, tol=interval_default_tol):
     """Quick check of zeros in the unit box.
-        
+
     Parameters
     ----------
     test_coeff : numpy array
         The coefficient matrix of the polynomial to check
-    
+
     Returns
     -------
     cubic_check : bool
@@ -187,14 +191,14 @@ def cubic_check(test_coeff, tol):
     else:
         return True
 
-def full_quad_check(test_coeff, tol):
+def full_quad_check(test_coeff, tol=interval_default_tol):
     """Quick check of zeros in the unit box.
-        
+
     Parameters
     ----------
     test_coeff : numpy array
         The coefficient matrix of the polynomial to check
-    
+
     Returns
     -------
     full_quad_check : bool
@@ -205,14 +209,14 @@ def full_quad_check(test_coeff, tol):
             return False
     return True
 
-def full_cubic_check(test_coeff, tol):
+def full_cubic_check(test_coeff, tol=interval_default_tol):
     """Quick check of zeros in the unit box.
-        
+
     Parameters
     ----------
     test_coeff : numpy array
         The coefficient matrix of the polynomial to check
-    
+
     Returns
     -------
     full_quad_check : bool
@@ -223,7 +227,7 @@ def full_cubic_check(test_coeff, tol):
             return False
     return True
 
-def linear_check(test_coeff_in, intervals):
+def linear_check(test_coeff_in, intervals, change_sign):
     """Quick check of zeros in intervals.
 
     Parameters
@@ -236,12 +240,16 @@ def linear_check(test_coeff_in, intervals):
     Returns
     -------
     mask : list
-        Masks out the intervals we don't want
+        Masks out the intervals we know there are no roots in
     """
     dim = test_coeff_in.ndim
     coeff_abs_sum = np.sum(np.abs(test_coeff_in))
     mask = []
-    for interval in intervals:
+    for i, interval in enumerate(intervals):
+        if change_sign[i]:
+            mask.append(True)
+            continue
+
         test_coeff = test_coeff_in.copy()
 
         a,b = interval
@@ -296,7 +304,7 @@ def linear_check(test_coeff_in, intervals):
         #     mask.append(False)
     return mask
 
-def quadratic_check1(test_coeff, intervals,tol=1e-12):
+def quadratic_check1(test_coeff, intervals, change_sign, tol=quadratic_default_tol):
     """Quick check of zeros in intervals using the x^2 terms.
 
     Parameters
@@ -309,7 +317,7 @@ def quadratic_check1(test_coeff, intervals,tol=1e-12):
     Returns
     -------
     mask : list
-        Masks out the intervals we don't want
+        Masks out the intervals we know there aren't roots in
     """
     if test_coeff.ndim > 2:
         return [True]*len(intervals)
@@ -325,7 +333,12 @@ def quadratic_check1(test_coeff, intervals,tol=1e-12):
     if np.isclose(c3, 0, atol=tol) or np.isclose(c2, 0, atol=tol):
         return [True]*len(intervals)
     mask = []
-    for interval in intervals:
+    for i, interval in enumerate(intervals):
+        #if it changes sign, there's a root there
+        if change_sign[i]:
+            mask.append(True)
+            continue
+
         def quadratic_formula_check(y):
             """given a fixed value of y, uses the quadratic formula
                 to see if constant + c1x + c2y +c3T_2(x) = 0
@@ -341,7 +354,7 @@ def quadratic_check1(test_coeff, intervals,tol=1e-12):
                 return False
          #If constant + c1x + c2y +c3x^2 = 0 in the region, useless check.
         if np.isclose(c2, 0,atol=tol) and quadratic_formula_check(0):
-            mask.append(True)
+            mask.append(True) #could be a root there
             continue
         else:
             y = lambda x: (-c3 *x**2 - c1 * x - constant)/c2
@@ -370,13 +383,13 @@ def quadratic_check1(test_coeff, intervals,tol=1e-12):
                                              [interval[1][0],interval[0][1]],
                                              [interval[1][0],interval[1][1]]])
          #if min{|constant + c1x + c2y +c3x^2|} > sum of other terms in test_coeff, no roots in the region
-        if min(eval(potential_minimizers)) > np.sum(np.abs(test_coeff)) - abs(constant) - abs(c1) - abs(c2) - abs(c3):
+        if min(eval(potential_minimizers))-tol > np.sum(np.abs(test_coeff)) - abs(constant) - abs(c1) - abs(c2) - abs(c3):
             mask.append(False)
         else:
             mask.append(True)
     return mask
 
-def quadratic_check2(test_coeff, intervals,tol=1e-12):
+def quadratic_check2(test_coeff, intervals, change_sign, tol=quadratic_default_tol):
     """Quick check of zeros in the unit box using the y^2 terms
 
      Parameters
@@ -406,7 +419,10 @@ def quadratic_check2(test_coeff, intervals,tol=1e-12):
     if np.isclose(c3, 0, atol=tol) or np.isclose(c1, 0, atol=tol):
         return[True]*len(intervals)
     mask = []
-    for interval in intervals:
+    for i, interval in enumerate(intervals):
+        if change_sign[i]:
+            mask.append(True)
+            continue
         def quadratic_formula_check(x):
             """given a fixed value of x, uses the quadratic formula
                 to see if constant + c1x + c2y +c3y^2 = 0
@@ -451,13 +467,13 @@ def quadratic_check2(test_coeff, intervals,tol=1e-12):
                                              [interval[1][0],interval[0][1]],
                                              [interval[1][0],interval[1][1]]])
          #if min{|constant + c1x + c2y +c3y^2|} > sum of other terms in test_coeff, no roots in the region
-        if min(eval(potential_minimizers)) > np.sum(np.abs(test_coeff)) - abs(constant) - abs(c1) - abs(c2) - abs(c3):
+        if min(eval(potential_minimizers))-tol > np.sum(np.abs(test_coeff)) - abs(constant) - abs(c1) - abs(c2) - abs(c3):
             mask.append(False)
         else:
             mask.append(True)
     return mask
 
-def quadratic_check3(test_coeff, intervals,tol=1e-12):
+def quadratic_check3(test_coeff, intervals,change_sign,tol=quadratic_default_tol):
     """Quick check of zeros in the unit box using the xy terms
 
      Parameters
@@ -487,7 +503,10 @@ def quadratic_check3(test_coeff, intervals,tol=1e-12):
         return [True]*len(intervals)
 
     mask = []
-    for interval in intervals:
+    for i, interval in enumerate(intervals):
+        if change_sign[i]:
+            mask.append(True)
+            continue
         ##If constant + c1x + c2y +c3xy = 0 in the region, useless
 
         #testing the vertical sides of the interval
@@ -533,7 +552,7 @@ def quadratic_check3(test_coeff, intervals,tol=1e-12):
                                          [interval[1][0],interval[1][1]]])
 
         ##if min{|constant + c1x + c2y +c3xy|} > sum of other terms in test_coeff, no roots in the region
-        if min(eval(potential_minimizers)) > np.sum(np.abs(test_coeff)) - np.sum(np.abs(test_coeff[:2,:2])):
+        if min(eval(potential_minimizers))-tol > np.sum(np.abs(test_coeff)) - np.sum(np.abs(test_coeff[:2,:2])):
             mask.append(False)
         else:
             mask.append(True)
@@ -563,7 +582,7 @@ class TabularCompute:
             dim (bool or int) - False if this is not an interval for a dimension
                                 integer indicating the number of dimensions
             index (int) - defines which dimension this interval corresponds to
-        
+
         """
         self.iv = iv.mpf([a,b])
         self.iv_lambda = iv.mpf([0,0])
@@ -574,7 +593,7 @@ class TabularCompute:
             self.iv_prime[index] = iv.mpf([1,1])
         else:
             self.iv_prime = iv.mpf([0,0])
-            
+
     def copy(self):
         new_copy = TabularCompute(0,0)
         new_copy.iv = copy(self.iv)
@@ -591,7 +610,7 @@ class TabularCompute:
         else:
             new.iv += other
         return new
-    
+
     def __mul__(self, other):
         new = TabularCompute(0,0)
         if isinstance(other, TabularCompute):
@@ -616,7 +635,7 @@ class TabularCompute:
     def __rsub__(self, other):
         return (-1*self) + other
     def __str__(self):
-        return f"{self.iv}\n{self.iv_prime}\n{self.iv_lambda}"
+        return "{}\n{}\n{}".format(self.iv,self.iv_prime,self.iv_lambda)
     def __repr__(self):
         return str(self)
 
@@ -637,24 +656,24 @@ def can_eliminate(poly, a, b, tol):
     n = poly.dim
     h = (b-a)[0]
     assert np.allclose(b-a, h)
-    
+
     corners = poly(list(product(*zip(a,b))))
     if not (all(corners>0) or all(corners<0)):
         return False
-    
+
     min_corner = abs(min(corners))
-    
+
     x = []
     n = len(a)
     for i,(ai,bi) in enumerate(zip(a,b)):
         x.append(TabularCompute(ai,bi,dim=n,index=i))
     x = np.array(x)
-    
+
     max_curve = abs(chebvalnd(x, poly).iv_lambda)
 #     print(max_curve * n * h**2/8)
     return min_corner > max_curve * n * h**2/8 + tol
 
-def curvature_check(coeff, tol):
+def curvature_check(coeff, tol=interval_default_tol):
     poly = MultiCheb(coeff)
     a = np.array([-1.]*poly.dim)
     b = np.array([1.]*poly.dim)
