@@ -352,7 +352,7 @@ def create_matrix(poly_coeffs, degree, dim):
     for coeff in poly_coeffs:
         slices = slice_top(coeff)
         added_zeros[slices] = coeff
-        flat_polys.append(added_zeros[matrix_term_indexes])
+        flat_polys.append(added_zeros[tuple(matrix_term_indexes)])
         added_zeros[slices] = np.zeros_like(coeff)
         coeff = 0
     poly_coeffs = 0

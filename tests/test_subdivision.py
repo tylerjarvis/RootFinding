@@ -1,23 +1,8 @@
 import unittest
 import numpy as np
-from yroots.polynomial import Polynomial, MultiCheb, MultiPower
+from yroots.polynomial import Polynomial, MultiCheb, MultiPower, getPoly
 from yroots import subdivision as subdiv
 from itertools import product
-
-def getPoly(deg,dim,power):
-    '''
-    A helper function for testing. Returns a random upper triangular polynomial of the given dimension and degree.
-    power is a boolean indicating whether or not the polynomial should be MultiPower.
-    '''
-    deg += 1
-    ACoeff = np.random.random_sample(deg*np.ones(dim, dtype = int))
-    for i,j in np.ndenumerate(ACoeff):
-        if np.sum(i) >= deg:
-            ACoeff[i] = 0
-    if power:
-        return MultiPower(ACoeff)
-    else:
-        return MultiCheb(ACoeff)
 
 def correctZeros(polys, a, b):
     '''
@@ -52,12 +37,11 @@ def test_subdivision_solve_polys():
     '''
     #Case 1 - Two MultiPower 2D degree 10 polynomials.
     #choose a seed that has a zero like 1,3,7,8,12,20,21,22,22,27,38,41,42,43,46,51,54,55,57,60,65,67,68,69,73,74,78,80,81,84,86,90,95
-    np.random.seed(1)
+    np.random.seed(2)
     a = -np.ones(2);b = np.ones(2)
     A = getPoly(10,2,True)
     B = getPoly(10,2,True)
     correctZeros([A,B], a, b)
-    print(1)
 
     #Case 2 - Three MultiPower 3D degree 4 polynomials.
     # #choose a seed that has a zero like 1,23,27,29,39,43,44,46,51,53,54,68,71,72,93
@@ -67,27 +51,24 @@ def test_subdivision_solve_polys():
     # B = getPoly(4,3,True)
     # C = getPoly(4,3,True)
     # correctZeros([A,B,C], a, b)
-    # print(2)
 
     #Case 3 - Four MultiPower 4D degree 2 polynomials.
     #choose a seed that has a zero like 21,43,65,72,83
-    np.random.seed(21)
+    np.random.seed(1)
     a = -np.ones(4);b = np.ones(4)
     A = getPoly(2,4,True)
     B = getPoly(2,4,True)
     C = getPoly(2,4,True)
     D = getPoly(2,4,True)
     correctZeros([A,B,C,D], a, b)
-    print(3)
 
     #Case 4 - Two MultiPower 2D, one degree 20 and one degree 28
     #choose a seed that has a zero like 0,1,2,3,4,5,6,7,8,9,10
-    np.random.seed(0)
+    np.random.seed(1)
     a = -np.ones(2);b = np.ones(2)
     A = getPoly(20,2,True)
     B = getPoly(28,2,True)
     correctZeros([A,B], a, b)
-    print(4)
 
     #Case 5 - Three MultiPower 3D of degrees 3,4 and 5
     #choose a seed that has a zero like 1,3,5,11,13,16,24,28,31,32,33,41,42
@@ -97,7 +78,6 @@ def test_subdivision_solve_polys():
     # B = getPoly(4,3,True)
     # C = getPoly(5,3,True)
     # correctZeros([A,B,C], a, b)
-    # print(5)
 
 def test_subdivision_solve_1d():
     #Case 6 - One MultiPower 1D of degrees 10

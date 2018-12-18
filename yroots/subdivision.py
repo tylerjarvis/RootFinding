@@ -583,12 +583,12 @@ def trim_coeffs(coeffs, approx_tol, tol):
             for i in range(dim):
                 slices.append(mons[i])
 
-            slice_error = np.sum(np.abs(coeff[slices]))
+            slice_error = np.sum(np.abs(coeff[tuple(slices)]))
             if error[num] + slice_error < approx_tol:
                 error[num] += slice_error
-                coeff[slices] = 0
+                coeff[tuple(slices)] = 0
                 new_slices = [slice(0,deg,None) for i in range(dim)]
-                coeff = coeff[new_slices]
+                coeff = coeff[tuple(new_slices)]
                 changed = True
                 degrees[num] -= 1
             coeffs[num] = coeff

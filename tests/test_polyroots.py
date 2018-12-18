@@ -1,5 +1,5 @@
 import numpy as np
-from yroots.polynomial import Polynomial, MultiCheb, MultiPower
+from yroots.polynomial import Polynomial, MultiCheb, MultiPower, getPoly
 from yroots.MacaulayReduce import find_degree, mon_combos
 from yroots import polyroots as pr
 from yroots.utils import InstabilityWarning, arrays
@@ -76,23 +76,6 @@ def test_paper_example():
     for root in cheb_div_roots:
         assert np.isclose(0, c1(root), atol = 1.e-8)
         assert np.isclose(0, c2(root), atol = 1.e-8)
-
-def getPoly(deg,dim,power):
-    '''
-    A helper function for testing. Returns a random upper triangular polynomial
-    of the given dimension and degree.
-    power is a boolean indicating whether or not the polynomial should be
-    MultiPower.
-    '''
-    deg += 1
-    ACoeff = np.random.random_sample(deg*np.ones(dim, dtype = int))
-    for i,j in np.ndenumerate(ACoeff):
-        if np.sum(i) >= deg:
-            ACoeff[i] = 0
-    if power:
-        return MultiPower(ACoeff)
-    else:
-        return MultiCheb(ACoeff)
 
 def correctZeros(polys, MSmatrix):
     '''

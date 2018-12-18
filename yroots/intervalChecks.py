@@ -100,7 +100,7 @@ def quad_check(test_coeff, tol):
     for i in range(dim-1):
         slices.append(0)
 
-    start = extreme_val3(test_coeff[slices], maxx = False)
+    start = extreme_val3(test_coeff[tuple(slices)], maxx = False)
     rest = 0
 
     shape = list(test_coeff.shape)
@@ -109,7 +109,7 @@ def quad_check(test_coeff, tol):
         if sum(spots) > 0:
             for i in range(1, dim):
                 slices[i] = spots[i]
-            rest += extreme_val3(test_coeff[slices])
+            rest += extreme_val3(test_coeff[tuple(slices)])
 
     while slice_direc < dim - 1:
         slice_direc += 1
@@ -126,7 +126,7 @@ def quad_check(test_coeff, tol):
             for i in range(dim):
                 if i != slice_direc:
                     slices[i] = spots[i]
-            rest += extreme_val3(test_coeff[slices])
+            rest += extreme_val3(test_coeff[tuple(slices)])
 
     if start > rest + tol:
         return False
@@ -153,7 +153,7 @@ def cubic_check(test_coeff, tol):
     for i in range(dim-1):
         slices.append(0)
 
-    start = extreme_val4(test_coeff[slices], maxx = False)
+    start = extreme_val4(test_coeff[tuple(slices)], maxx = False)
     rest = 0
 
     shape = list(test_coeff.shape)
@@ -162,7 +162,7 @@ def cubic_check(test_coeff, tol):
         if sum(spots) > 0:
             for i in range(1, dim):
                 slices[i] = spots[i]
-            rest += extreme_val4(test_coeff[slices])
+            rest += extreme_val4(test_coeff[tuple(slices)])
 
     while slice_direc < dim - 1:
         slice_direc += 1
@@ -179,7 +179,7 @@ def cubic_check(test_coeff, tol):
             for i in range(dim):
                 if i != slice_direc:
                     slices[i] = spots[i]
-            rest += extreme_val4(test_coeff[slices])
+            rest += extreme_val4(test_coeff[tuple(slices)])
 
     if start > rest + tol:
         return False

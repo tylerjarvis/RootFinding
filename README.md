@@ -1,6 +1,6 @@
 # yroots
 
-YRoots is a Python module for numerical and algebraic rootfinding. For our mathematical methods and their comparisons with other rootfinders, refer to [this paper](paper).
+YRoots is a Python module for numerical and algebraic rootfinding. See the DemoNotebook for a demonstration of the code's capabilities.
 
 <!-- [![Build Status](https://travis-ci.com/tylerjarvis/RootFinding.svg?branch=master)](https://travis-ci.com/tylerjarvis/RootFinding) -->
 <!-- [![codecov](https://codecov.io/gh/mtmoncur/tylerjarvis/branch/master/graphs/badge.svg)](https://codecov.io/gh/tylerjarvis/RootFinding) -->
