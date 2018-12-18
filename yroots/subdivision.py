@@ -62,8 +62,8 @@ def solve(funcs, a, b, plot = False, plot_intervals = False):
         if plot:
             x = np.linspace(a,b,1000)
             for f in funcs:
-                plt.plot(x,f(x))
-            plt.plot(np.real(zeros),np.zeros(len(zeros)),'o',color = '#FF9300')
+                plt.plot(x,f(x),color='k')
+            plt.plot(np.real(zeros),np.zeros(len(zeros)),'o',color = 'none',markeredgecolor='r')
             plt.show()
         return zeros
     else:
@@ -82,8 +82,14 @@ def solve(funcs, a, b, plot = False, plot_intervals = False):
         #Output the interval percentages
         zeros = subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks,subinterval_checks)
 
+#colors: use alpha = .5, dark green, black, orange roots. Change colors of check info plots
+#3D plot with small alpha, matplotlib interactive, animation
+#make logo
+#make easier to input lower/upper bounds as a list
+
         #Plot what happened
         if plot and dim == 2:
+            plt.figure(dpi=1200)
             fig,ax = plt.subplots(1)
             fig.set_size_inches(10, 10)
             plt.xlim(a[0],b[0])
@@ -98,14 +104,10 @@ def solve(funcs, a, b, plot = False, plot_intervals = False):
                     ["Division"] + ['Base Case']
 
             #print the contours
-            contour_colors = ['#FF00D4','w']
-            if not plot_intervals:
-                contour_colors[1] = 'k'
-
+            contour_colors = ['#003cff','k'] #royal blue and black
             x = np.linspace(a[0],b[0],100)
             y = np.linspace(a[1],b[1],100)
             X,Y = np.meshgrid(x,y)
-
             for i in range(dim):
                 if isinstance(funcs[i], Polynomial):
                     Z = np.zeros_like(X)
@@ -116,15 +118,15 @@ def solve(funcs, a, b, plot = False, plot_intervals = False):
                     plt.contour(X,Y,funcs[i](X,Y),levels=[0],colors=contour_colors[i])
 
             #Plot the zeros
-            plt.plot(np.real(zeros[:,0]), np.real(zeros[:,1]),'o',color = '#FF9300')
-
-            colors = ['#d3d3d3', 'g', 'r', '#FFB726', 'c', '#FFF300', 'k','#8A8A8A','pink','fuchsia', '#23FF3E', 'b']
+            plt.plot(np.real(zeros[:,0]), np.real(zeros[:,1]),'o',color='none',markeredgecolor='r',markersize=10)
+            colors = ['w','#d3d3d3', '#708090', '#c5af7d', '#897A57', '#D6C7A4','#73e600','#ccff99']
 
             if plot_intervals:
                 print("Total intervals checked was {}".format(total_intervals))
                 print("Methods used were {}".format(checkers))
                 print("The percent solved by each was {}".format((100*results_numbers / total_intervals).round(2)))
                 plt.title('What happened to the intervals')
+                #plot interval checks
                 for i in range(len(interval_checks)):
                     results = interval_results[i]
                     first = True
@@ -132,14 +134,14 @@ def solve(funcs, a, b, plot = False, plot_intervals = False):
                         a0,b0 = data
                         if first:
                             first = False
-                            rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.001,\
-                                                     edgecolor=colors[i],facecolor=colors[i]\
+                            rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.05,\
+                                                     edgecolor='k',facecolor=colors[i]\
                                                      , label = interval_checks[i].__name__)
                         else:
-                            rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.001\
-                                                     ,edgecolor=colors[i],facecolor=colors[i])
+                            rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.05,\
+                                                     edgecolor='k',facecolor=colors[i])
                         ax.add_patch(rect)
-
+                #subinterval checks
                 for i in range(len(interval_checks), len(interval_checks) + len(subinterval_checks)):
                     results = interval_results[i]
                     first = True
@@ -147,26 +149,27 @@ def solve(funcs, a, b, plot = False, plot_intervals = False):
                         a0,b0 = data
                         if first:
                             first = False
-                            rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.001\
-                                                     ,edgecolor=colors[i],facecolor=colors[i]\
+                            rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.05,\
+                                                     edgecolor='k',facecolor=colors[i]\
                                                      , label = subinterval_checks[i - len(interval_checks)].__name__)
                         else:
-                            rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.001\
-                                                     ,edgecolor=colors[i],facecolor=colors[i])
+                            rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.05,\
+                                                     edgecolor='k',facecolor=colors[i])
                         ax.add_patch(rect)
 
                 i = len(interval_checks) +len(subinterval_checks)
                 results = interval_results[i]
                 first = True
+                #plot basecase and division solve
                 for data in results:
                     a0,b0 = data
                     if first:
                         first = False
-                        rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.001\
-                                                 ,edgecolor=colors[i],facecolor=colors[i], label = 'Division Solve')
+                        rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.05,\
+                                                 edgecolor='k',facecolor=colors[i], label = 'Division Solve')
                     else:
-                        rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.001\
-                                                 ,edgecolor=colors[i],facecolor=colors[i])
+                        rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.05,\
+                                                 edgecolor='k',facecolor=colors[i])
                     ax.add_patch(rect)
 
                 i = len(interval_checks) +len(subinterval_checks) + 1
@@ -176,14 +179,13 @@ def solve(funcs, a, b, plot = False, plot_intervals = False):
                     a0,b0 = data
                     if first:
                         first = False
-                        rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.001\
-                                                 ,edgecolor=colors[i],facecolor=colors[i], label = 'Base Case')
+                        rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.05,\
+                                                 edgecolor='k',facecolor=colors[i], label = 'Base Case')
                     else:
-                        rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.001\
-                                                 ,edgecolor=colors[i],facecolor=colors[i])
+                        rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.05,\
+                                                 edgecolor='k',facecolor=colors[i])
                     ax.add_patch(rect)
                 plt.legend()
-
             plt.show()
 
         return zeros
