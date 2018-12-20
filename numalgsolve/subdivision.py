@@ -184,8 +184,8 @@ def solve(funcs, a, b, interval_data = False, plot_intervals = False, contours =
                     contour_colors = ['#FF00D4','w']
                     if not plot_intervals:
                         contour_colors[1] = 'k'
-                    x = np.linspace(-a[0],b[0],100)
-                    y = np.linspace(-a[1],b[1],100)
+                    x = np.linspace(a[0],b[0],100)
+                    y = np.linspace(a[1],b[1],100)
                     X,Y = np.meshgrid(x,y)
 
                     for i in range(dim):
@@ -199,7 +199,7 @@ def solve(funcs, a, b, interval_data = False, plot_intervals = False, contours =
 
                 #Plot the zeros
                 if show_zeros:
-                    plt.plot(np.real(result[:,0]), np.real(result[:,1]),'o',color = '#FF9300')
+                    plt.plot(np.real(result[:,0]), np.real(result[:,1]),'o',color = 'k')
 
                 plt.xlim(a[0],b[0])
                 plt.ylim(a[1],b[1])
