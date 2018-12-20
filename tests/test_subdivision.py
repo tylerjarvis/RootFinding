@@ -45,7 +45,7 @@ def correctZeros(polys, a, b):
     if len(zeros) == outOfRange:
         raise Exception("No zeros found")
     else:
-        assert(100*correct/(len(zeros)-outOfRange) > 95)
+        assert(100*correct/(len(zeros)-outOfRange) > 95),(zeros)
 
 def test_subdivision_solve_polys():
     '''
@@ -60,15 +60,17 @@ def test_subdivision_solve_polys():
     A = getPoly(10,2,True)
     B = getPoly(10,2,True)
     correctZeros([A,B], a, b)
+    print(1)
 
     #Case 2 - Three MultiPower 3D degree 4 polynomials.
-    #choose a seed that has a zero like 1,23,27,29,39,43,44,46,51,53,54,68,71,72,93
-    np.random.seed(1)
-    a = -np.ones(3);b = np.ones(3)
-    A = getPoly(4,3,True)
-    B = getPoly(4,3,True)
-    C = getPoly(4,3,True)
-    correctZeros([A,B,C], a, b)
+    # #choose a seed that has a zero like 1,23,27,29,39,43,44,46,51,53,54,68,71,72,93
+    # np.random.seed(1)
+    # a = -np.ones(3);b = np.ones(3)
+    # A = getPoly(4,3,True)
+    # B = getPoly(4,3,True)
+    # C = getPoly(4,3,True)
+    # correctZeros([A,B,C], a, b)
+    # print(2)
 
     #Case 3 - Four MultiPower 4D degree 2 polynomials.
     #choose a seed that has a zero like 21,43,65,72,83
@@ -79,23 +81,26 @@ def test_subdivision_solve_polys():
     C = getPoly(2,4,True)
     D = getPoly(2,4,True)
     correctZeros([A,B,C,D], a, b)
+    print(3)
 
     #Case 4 - Two MultiPower 2D, one degree 20 and one degree 28
     #choose a seed that has a zero like 0,1,2,3,4,5,6,7,8,9,10
-    # np.random.seed(0)
-    # a = -np.ones(2);b = np.ones(2)
-    # A = getPoly(20,2,True)
-    # B = getPoly(28,2,True)
-    # correctZeros([A,B], a, b)
+    np.random.seed(0)
+    a = -np.ones(2);b = np.ones(2)
+    A = getPoly(20,2,True)
+    B = getPoly(28,2,True)
+    correctZeros([A,B], a, b)
+    print(4)
 
     #Case 5 - Three MultiPower 3D of degrees 3,4 and 5
     #choose a seed that has a zero like 1,3,5,11,13,16,24,28,31,32,33,41,42
-    np.random.seed(1)
-    a = -np.ones(3);b = np.ones(3)
-    A = getPoly(3,3,True)
-    B = getPoly(4,3,True)
-    C = getPoly(5,3,True)
-    correctZeros([A,B,C], a, b)
+    # np.random.seed(1)
+    # a = -np.ones(3);b = np.ones(3)
+    # A = getPoly(3,3,True)
+    # B = getPoly(4,3,True)
+    # C = getPoly(5,3,True)
+    # correctZeros([A,B,C], a, b)
+    # print(5)
 
 def test_subdivision_solve_1d():
     #Case 6 - One MultiPower 1D of degrees 10
@@ -115,8 +120,8 @@ def test_subdivision_sine():
     (3,0), (3,1), (3,2), (3,3),
 
     '''
-    f = lambda x: np.sin(np.pi*x[:,1])
-    g = lambda x: np.sin(np.pi*(x[:,0]+x[:,1]))
+    f = lambda x,y: np.sin(np.pi*y)
+    g = lambda x,y: np.sin(np.pi*(x+y))
     a = -0.511*np.ones(2)
     b = 3.511*np.ones(2)
 
@@ -145,12 +150,12 @@ def test_subdivision_solve_with_transform():
 
     #Case 2 - Three MultiPower 3D degree 4 polynomials.
     #choose a seed that has a zero like 1,23,27,29,39,43,44,46,51,53,54,68,71,72,93
-    np.random.seed(1)
-    a = -2*np.ones(3);b = 2*np.ones(3)
-    A = getPoly(4,3,True)
-    B = getPoly(4,3,True)
-    C = getPoly(4,3,True)
-    correctZeros([A,B,C], a, b)
+    # np.random.seed(1)
+    # a = -2*np.ones(3);b = 2*np.ones(3)
+    # A = getPoly(4,3,True)
+    # B = getPoly(4,3,True)
+    # C = getPoly(4,3,True)
+    # correctZeros([A,B,C], a, b)
 
     #Case 3 - Four MultiPower 4D degree 2 polynomials.
     #choose a seed that has a zero like 21,43,65,72,83
@@ -171,8 +176,8 @@ def test_subdivision_solve_with_transform():
     correctZeros([A,B], a, b)
 
     # This case works, but it's really slow
-    #Case 5 - Three MultiPower 3D of degrees 3,4 and 5
-    #choose a seed that has a zero like 1,3,5,11,13,16,24,28,31,32,33,41,42
+    # Case 5 - Three MultiPower 3D of degrees 3,4 and 5
+    # choose a seed that has a zero like 1,3,5,11,13,16,24,28,31,32,33,41,42
     # np.random.seed(1)
     # a = -2*np.ones(3);b = 2*np.ones(3)
     # A = getPoly(3,3,True)
@@ -200,7 +205,7 @@ def test_good_zeros_nd():
     [-1.1+0j, 0.1+0j],  #out of range
     [0.1+0.1j, 0.1+0j], #imaginary
     ])
-
+    print(subdiv.good_zeros_nd(zeros))
     assert np.all(subdiv.good_zeros_nd(zeros) == zeros[:2])
 
     zeros = np.array([
@@ -251,6 +256,3 @@ def test_copy_block():
         idx2 = idx.copy()
         idx2[i] = slice(2*deg-1,deg,-1)
         assert np.all(values[tuple(idx1)] == values[tuple(idx2)])
-
-if __name__ == "__main__":
-    test_subdivision_solve_with_transform()

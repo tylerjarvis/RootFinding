@@ -248,7 +248,6 @@ def multChebR(coeff, eigvals=True, verbose=False):
             print('Left Eigenvectors\n',vecs)
         return np.conjugate(vecs[-2,:]/vecs[-1,:])
 
-
 def getXinv(coeff):
     n = len(coeff)-1
     curr = coeff.copy()

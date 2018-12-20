@@ -8,7 +8,7 @@ def test_zero_check2D():
     subinterval_checks = [linear_check,quadratic_check1,quadratic_check2,quadratic_check3]
     a = -np.ones(2)
     b = np.ones(2)
-    interval_checks.extend([lambda x: f(x, [(a,b)])[0]  for f in subinterval_checks] )
+    interval_checks.extend([lambda x: f(x, [(a,b)],[False])[0]  for f in subinterval_checks] )
 
     for method in interval_checks:
         # this function barely does not have a zero
@@ -64,3 +64,6 @@ def test_zero_check2D():
         [0.1,   0,    0, 0]
         ])
         assert method(c) == True
+
+    if __name__ == "__main__":
+        test_zero_check2D()
