@@ -125,9 +125,9 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, number_of_roots, accuracy = 
     
     #eliminates rows we don't care about-- those at the bottom of the matrix
     #since the top corner is a square identity matrix, useful_rows + number_of_roots is the width of the Macaulay matrix
-    matrix = row_swap_matrix(matrix)
+#     matrix = row_swap_matrix(matrix)
     for row in matrix[::-1]:
-        if np.allclose(row, 0, atol=accuracy):
+        if np.allclose(row, 0):
             matrix = matrix[:-1]
         else:
             break
@@ -136,7 +136,7 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, number_of_roots, accuracy = 
     #matrix = matrix[:useful_rows,:]
 
     #set very small values in the matrix to zero before backsolving
-    matrix[np.isclose(matrix, 0, atol=accuracy)] = 0
+    matrix[np.isclose(matrix, 0)] = 0
 #     print(np.diag(matrix))
     
     #Resorts the matrix_terms.

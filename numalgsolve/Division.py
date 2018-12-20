@@ -7,7 +7,7 @@ from numalgsolve.utils import get_var_list, slice_top, row_swap_matrix, \
                               mon_combos, newton_polish, MacaulayError
 import warnings
 
-def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol = 1.e-12, verbose=False, polish = False):
+def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol = 1.e-10, verbose=False, polish = False, skip_imag = True):
     '''Calculates the common zeros of polynomials using a division matrix.
 
     Parameters
@@ -25,12 +25,20 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
     zeros : numpy array
         The common roots of the polynomials. Each row is a root.
     '''
+#     print([poly(np.array([-0.7004552660681691,-0.12949629036998073]).reshape([1,2])) for poly in polys])
+#     print([poly(np.array([-0.6997550079412335, 0.24536183884976376]).reshape([1,2])) for poly in polys])
+#     print([poly(np.array([-0.9144532651026993, 0.15984665626858421]).reshape([1,2])) for poly in polys])
+#     print(divisor_var)
+#     for poly in polys:
+#         print(poly.coeff)
     non_constant_polys = []    
     
     #This first section creates the Macaulay Matrix with the monomials that don't have
     #the divisor variable in the first columns.
     power = is_power(polys)
     dim = polys[0].dim
+    
+    get_divvar_coord_from_eigval = not power
 
     #By Bezout's Theorem. Useful for making sure that the reduced Macaulay Matrix is as we expect
     degrees = [poly.degree for poly in polys]
@@ -153,17 +161,62 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
             else:
                 division_matrix[:,i] -= basisDict[term]
         #<----------end Power
-        
+
+#     print(VB)
     vals, vecs = eig(division_matrix.T)
+    vals2, vecs2 = eig(vecs)
+    sorted_vals2 = np.sort(np.abs(vals2))
+#     print(sorted_vals2[-1]/sorted_vals2[0])
+    
+    if sorted_vals2[0] < 1.e-15:
+        raise MacaulayError("The Division Matrix was ill-conditioned")
+    if sorted_vals2[-1]/sorted_vals2[0] > 1.e8:
+        raise MacaulayError("The Division Matrix was ill-conditioned")
     if verbose:
         print("\nDivision Matrix\n", np.round(division_matrix[::-1,::-1], 2))
         print("\nLeft Eigenvectors (as rows)\n", vecs.T)
+    
+    
     #Calculates the zeros, the x values from the eigenvalues and the y values from the eigenvectors.
     zeros = list()
     for i in range(len(vals)):
-        if abs(vecs[-1][i]) < 1.e-3:
+        if abs(vecs[-1][i]) < 1.e-3 and power:
             #This root has magnitude greater than 1, will possibly generate a false root due to instability
             continue
+        if not power:
+            if skip_imag:
+                #Skip stuff that has imaginary terms
+                if np.abs(vals[i]) == 0:
+                    continue
+                elif np.abs(np.imag(1/vals[i])) > 1.e-5:
+                    continue
+
+            const = vecs[-1][i] * vals[i]
+#             if abs(vals[i]) > 1:
+#                 if abs(vecs[-2,i]/vecs[-1,i]) < 1:
+#                     print()
+#                     print("Small")
+#                     print("x,y,const,other,cxy,cx")
+#                     print(1/vals[i], vecs[-2,i]/vecs[-1,i])
+#                     print(const, .001/np.sqrt(len(vecs[i])))
+#                     print(vecs[-2,i], vecs[-1,i])
+#                     for k in range(len(VB)):
+#                         test_poly_coeff = np.zeros([10]*2)
+#                         test_poly_coeff[tuple(VB[k])] = 1
+#                         test_poly = MultiCheb(test_poly_coeff)
+#                         curr_point = np.array([1/vals[i], vecs[-2,i]/vecs[-1,i]]).reshape([1,2])
+#                         print(VB[k], vecs[k,i], test_poly(curr_point)*const)
+#             print(1/vals[i], vecs[-2,i]/vecs[-1,i])
+#             print(np.abs(const) , .1/np.sqrt(len(vecs[i])))
+#             if np.abs(const) < .00001/np.sqrt(len(vecs[i])):
+#                 continue
+#             print(const)
+#             print(1/vals[i], vecs[-2,i]/vecs[-1,i])
+#             if abs(vals[i]) > .66:
+#                 if abs(vecs[-2,i]/vecs[-1,i]) < 1.5:
+#                     print("Small Still there")
+#             if abs(vals[i]) > 5.e1:
+#                 print("Small Still there")
         root = np.zeros(dim, dtype=complex)
         if get_divvar_coord_from_eigval:
             for spot in range(0,divisor_var):
@@ -187,12 +240,18 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
             root2 = root.copy()
             root2[divisor_var] = (vecval - np.sqrt(vecval**2 + 8))/4
 
+#             print("THIS IS BAD")
+            
             if sum(np.abs(poly(root1)) for poly in polys) < sum(np.abs(poly(root2)) for poly in polys):
                 root = root1
             else:
                 root = root2
         if polish:
             root = newton_polish(polys,root,tol = tol)
+        
+        if np.any([np.abs(poly(root)) > 1.e-2 for poly in polys]):
+            continue
+        
         zeros.append(root)
 
     zeros = np.array(zeros)
@@ -253,8 +312,8 @@ def get_matrix_terms(poly_coeffs, dim, divisor_var, deg, include_divvar_squared=
         matrix_term_set_other.remove(tuple(base))
         matrix_term_end = base.copy()
     except KeyError as e:
-        print(matrix_term_set_other)
-        print(poly_coeffs, dim, divisor_var, deg, include_divvar_squared)
+#         print(matrix_term_set_other)
+#         print(poly_coeffs, dim, divisor_var, deg, include_divvar_squared)
         raise e
 
     #sorts the terms that do include the variable to be divided by into submatrices
@@ -277,9 +336,9 @@ def get_matrix_terms(poly_coeffs, dim, divisor_var, deg, include_divvar_squared=
                 matrix_term_end = np.vstack((term,matrix_term_end))
                 base[i] = 0
     except KeyError as e:
-        print(term)
-        print(matrix_term_set_other)
-        print(poly_coeffs, dim, divisor_var, deg, include_divvar_squared)
+#         print(term)
+#         print(matrix_term_set_other)
+#         print(poly_coeffs, dim, divisor_var, deg, include_divvar_squared)
         raise e
 
     #for term in needed_terms:

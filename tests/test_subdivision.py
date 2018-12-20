@@ -4,6 +4,9 @@ from numalgsolve.polynomial import Polynomial, MultiCheb, MultiPower
 from numalgsolve import subdivision as subdiv
 from itertools import product
 
+if __name__ == "__main__":
+    test_subdivision_sine()
+
 def getPoly(deg,dim,power):
     '''
     A helper function for testing. Returns a random upper triangular polynomial of the given dimension and degree.
