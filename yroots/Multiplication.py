@@ -8,7 +8,7 @@ from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list
                               deg_d_polys, all_permutations_cheb
 import warnings
 
-def multiplication(polys, verbose=False, MSmatrix=0, rotate=False):
+def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True):
     '''
     Finds the roots of the given list of multidimensional polynomials using a multiplication matrix.
 
@@ -37,30 +37,16 @@ def multiplication(polys, verbose=False, MSmatrix=0, rotate=False):
     degrees = [poly.degree for poly in polys]
     max_number_of_roots = np.prod(degrees)
 
-    m_f, var_dict = MSMultMatrix(polys, poly_type, max_number_of_roots, verbose=verbose, MSmatrix=MSmatrix)
-
-    if rotate: #rotate multiplication matrix 180 degrees
-        m_f = np.rot90(m_f,2)
+    m_f, var_dict = MSMultMatrix(polys, poly_type, verbose=verbose, MSmatrix=MSmatrix)
 
     if verbose:
         print("\nM_f:\n", m_f[::-1,::-1])
 
-    # both MSMultMatrix and will return m_f as
-    # -1 if the ideal is not zero dimensional or if there are no roots
-    if type(m_f) == int:
-        return -1
-
     # Get list of indexes of single variables and store vars that were not
     # in the vector space basis.
     var_spots = list()
-    spot = np.zeros(dim)
-    for i in range(dim):
-        spot[i] = 1
-        if not rotate:
-            var_spots.append(var_dict[tuple(spot)])
-        else: #if m_f is rotated 180, the eigenvectors are backwards
-            var_spots.append(m_f.shape[0] - 1 - var_dict[tuple(spot)])
-        spot[i] = 0
+    for spot in get_var_list(dim):
+        var_spots.append(var_dict[tuple(spot)])
 
     # Get left eigenvectors (come in conjugate pairs)
     vals,vecs = eig(m_f,left=True,right=False)
@@ -70,10 +56,9 @@ def multiplication(polys, verbose=False, MSmatrix=0, rotate=False):
         print('\nEigenvals\n', vals)
 
     zeros_spot = var_dict[tuple(0 for i in range(dim))]
-    if rotate: #if m_f is rotate 180, the eigenvectors are backwards
-        zeros_spot = m_f.shape[0] - 1 - zeros_spot
 
-    #vecs = vecs[:,np.abs(vecs[zeros_spot]) > 1.e-10]
+    #throw out roots that were calculated unstably
+    vecs = vecs[:,np.abs(vecs[zeros_spot]) > 1.e-10]
     if verbose:
         print('\nVariable Spots in the Vector\n',var_spots)
         print('\nEigeinvecs at the Variable Spots:\n',vecs[var_spots])
@@ -82,15 +67,16 @@ def multiplication(polys, verbose=False, MSmatrix=0, rotate=False):
 
     roots = vecs[var_spots]/vecs[zeros_spot]
 
-    #Checks that the algorithm finds the correct number of roots with Bezout's Theorem
-    assert roots.shape[1] <= max_number_of_roots,"Found too many roots" #Check if too many roots
-    #if roots.shape[1] < max_number_of_roots:
-    #    warnings.warn('Expected ' + str(max_number_of_roots)
-    #    + " roots, Found " + str(roots.shape[1]) , Warning)
-    #    print("Number of Roots Lost:", max_number_of_roots - roots.shape[1])
-    return roots.T
+    #Check if too many roots
+    assert roots.shape[1] <= max_number_of_roots,"Found too many roots"
 
-def MSMultMatrix(polys, poly_type, number_of_roots, verbose=False, MSmatrix=0):
+    if return_all_roots:
+        return roots.T
+    else:
+        # only return roots in the unit complex hyperbox
+        return roots[np.all(np.abs(roots) <= 1,axis = 1)].T
+
+def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0):
     '''
     Finds the multiplication matrix using the reduced Macaulay matrix.
 
@@ -114,7 +100,7 @@ def MSMultMatrix(polys, poly_type, number_of_roots, verbose=False, MSmatrix=0):
     var_dict : dictionary
         Maps each variable to its position in the vector space basis
     '''
-    basisDict, VB = MacaulayReduction(polys, number_of_roots, verbose=verbose)
+    basisDict, VB = MacaulayReduction(polys, verbose=verbose)
 
     dim = max(f.dim for f in polys)
 
@@ -132,6 +118,7 @@ def MSMultMatrix(polys, poly_type, number_of_roots, verbose=False, MSmatrix=0):
             f = MultiCheb(np.array(coef))
         else:
             raise ValueError()
+
     if verbose:
         print("\nCoefficients of polynomial whose Moller-Stetter matrix we construt\n", f.coeff)
 
@@ -161,7 +148,7 @@ def MSMultMatrix(polys, poly_type, number_of_roots, verbose=False, MSmatrix=0):
 
     return mMatrix, var_dict
 
-def MacaulayReduction(initial_poly_list, max_number_of_roots, accuracy = 1.e-10, verbose=False):
+def MacaulayReduction(initial_poly_list, accuracy = 1.e-10, verbose=False):
     """Reduces the Macaulay matrix to find a vector basis for the system of polynomials.
 
     Parameters
@@ -184,18 +171,10 @@ def MacaulayReduction(initial_poly_list, max_number_of_roots, accuracy = 1.e-10,
     poly_coeff_list = []
     degree = find_degree(initial_poly_list)
 
-    #This sorting is required for fast matrix construction. Ascending should be False.
-    initial_poly_list = sort_polys_by_degree(initial_poly_list, ascending = False)
-
-    """This is the first construction option, simple monomial multiplication."""
     for poly in initial_poly_list:
         poly_coeff_list = add_polys(degree, poly, poly_coeff_list)
-    """This is the second construction option, it uses the fancy triangle method that is faster but less stable."""
-    #for deg in reversed(range(min([poly.degree for poly in initial_poly_list]), degree+1)):
-    #    poly_coeff_list += deg_d_polys(initial_poly_list, deg, dim)
 
-    #Creates the matrix for either of the above two methods. Comment out if using the third method.
-    #try:
+    #Creates the matrix
     matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, degree, dim)
     if verbose:
         np.set_printoptions(suppress=False, linewidth=200)
@@ -203,69 +182,18 @@ def MacaulayReduction(initial_poly_list, max_number_of_roots, accuracy = 1.e-10,
         print('\nColumns in Macaulay Matrix\nFirst element in tuple is degree of x, Second element is degree of y\n', matrix_terms)
         print('\nLocation of Cuts in the Macaulay Matrix into [ Mb | M1* | M2* ]\n', cuts)
 
-    """This is the thrid matrix construction option, it uses the permutation arrays."""
-    #if power:
-    #    matrix, matrix_terms, cuts = createMatrixFast(initial_poly_list, degree, dim)
-    #else:
-    #    matrix, matrix_terms, cuts = construction(initial_poly_list, degree, dim)
-
-    #If bottom left is zero only does the first QR reduction on top part of matrix (for speed). Otherwise does it on the whole thing
+    #Should be combined into one function
     if np.allclose(matrix[cuts[0]:,:cuts[0]], 0):
-        matrix, matrix_terms = rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, max_number_of_roots, accuracy = accuracy)
+        matrix, matrix_terms = rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy = accuracy)
     else:
-        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_number_of_roots, accuracy = accuracy)
-
-    #Make there are enough rows in the reduced Macaulay matrix, i.e. didn't loose a row
-    assert matrix.shape[0] >= matrix.shape[1] - max_number_of_roots
-
-    #matrix, matrix_terms = rrqr_reduceMacaulayFullRank(matrix, matrix_terms, cuts, number_of_roots, accuracy = accuracy)
-    height = matrix.shape[0]
-    matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
-    # except Exception as e:
-    #     if str(e)[:46] == 'singular matrix: resolution failed at diagonal':
-    #         matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, degree+1, dim)
-    #         if verbose:
-    #             np.set_printoptions(suppress=False, linewidth=200)
-    #             print('\nNew, Bigger Macaulay Matrix\n', matrix)
-    #             print('\nColumns in Macaulay Matrix\nFirst element in tuple is degree of x, Second element is degree of y\n', matrix_terms)
-    #             print('\nLocation of Cuts in the Macaulay Matrix into [ Mb | M1* | M2* ]\n', cuts)
-    #
-    #         """This is the thrid matrix construction option, it uses the permutation arrays."""
-    #         #if power:
-    #         #    matrix, matrix_terms, cuts = createMatrixFast(initial_poly_list, degree, dim)
-    #         #else:
-    #         #    matrix, matrix_terms, cuts = construction(initial_poly_list, degree, dim)
-    #
-    #         #If bottom left is zero only does the first QR reduction on top part of matrix (for speed). Otherwise does it on the whole thing
-    #         if np.allclose(matrix[cuts[0]:,:cuts[0]], 0):
-    #             matrix, matrix_terms = rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, max_number_of_roots, accuracy = accuracy)
-    #         else:
-    #             matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_number_of_roots, accuracy = accuracy)
-    #
-    #         #Make there are enough rows in the reduced Macaulay matrix, i.e. didn't loose a row
-    #         assert matrix.shape[0] >= matrix.shape[1] - max_number_of_roots
-    #
-    #         #matrix, matrix_terms = rrqr_reduceMacaulayFullRank(matrix, matrix_terms, cuts, number_of_roots, accuracy = accuracy)
-    #         height = matrix.shape[0]
-    #         matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
-    #     else:
-    #         raise e
-
-    #Make there are enough rows in the reduced Macaulay matrix, i.e. didn't loose a row
-    assert matrix.shape[0] >= matrix.shape[1] - max_number_of_roots
-
-    matrix[:,:height] = np.eye(height)
-    #return np.vstack((matrix[:,height:].T,np.eye(height))), matrix_terms
+        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = accuracy)
 
     if verbose:
         np.set_printoptions(suppress=True, linewidth=200)
         print("\nFinal Macaulay Matrix\n", matrix)
         print("\nColumns in Macaulay Matrix\n", matrix_terms)
-    VB = matrix_terms[height:]
 
-    #plt.plot(matrix_terms[:,0],matrix_terms[:,1],'kx')
-    #plt.plot(VB[:,0],VB[:,1],'r.')
-
+    VB = matrix_terms[matrix.shape[0]:]
     basisDict = makeBasisDict(matrix, matrix_terms, VB, power)
 
     return basisDict, VB
@@ -299,15 +227,12 @@ def makeBasisDict(matrix, matrix_terms, VB, power):
     for i in VB:
         VBSet.add(tuple(i))
 
-    if power: #We don't actually need most of the rows, so we only get the ones we need.
+    #We don't actually need most of the rows, so we only get the ones we need
+    if power:
         neededSpots = set()
         for term, mon in itertools.product(VB,get_var_list(VB.shape[1])):
             if tuple(term+mon) not in VBSet:
                 neededSpots.add(tuple(term+mon))
-
-    #spots = list()
-    #for dim in range(VB.shape[1]):
-    #    spots.append(VB.T[dim])
 
     for i in range(matrix.shape[0]):
         term = tuple(matrix_terms[i])
@@ -354,14 +279,10 @@ def create_matrix(poly_coeffs, degree, dim):
         added_zeros[slices] = coeff
         flat_polys.append(added_zeros[tuple(matrix_term_indexes)])
         added_zeros[slices] = np.zeros_like(coeff)
-        coeff = 0
-    poly_coeffs = 0
+    del poly_coeffs
 
     #Make the matrix. Reshape is faster than stacking.
     matrix = np.reshape(flat_polys, (len(flat_polys),len(matrix_terms)))
-
-    #if cuts[0] > matrix.shape[0]: #The matrix isn't tall enough, these can't all be pivot columns.
-    #    raise MacaulayError("HIGHEST NOT FULL RANK. TRY HIGHER DEGREE")
 
     #Sorts the rows of the matrix so it is close to upper triangular.
     matrix = row_swap_matrix(matrix)
@@ -398,7 +319,7 @@ def sorted_matrix_terms(degree, dim):
 
 def _random_poly(_type, dim):
     '''
-    Generates a random polynomial that has the form
+    Generates a random linear polynomial that has the form
     c_1x_1 + c_2x_2 + ... + c_nx_n where n = dim and each c_i is a randomly
     chosen integer between 0 and 1000.
 

@@ -52,10 +52,9 @@ def solve(funcs, a, b, plot = False, plot_intervals = False):
     if not isinstance(funcs,list):
         funcs = [funcs]
         dim = 1
-    elif not isinstance(a, np.ndarray) or not isinstance(b, np.ndarray):
-        dim = 1
     else:
-        dim = len(a)
+        dim = len(funcs)
+
     if dim == 1:
         #one dimensional case
         zeros = subdivision_solve_1d(funcs[0],a,b)
@@ -82,11 +81,6 @@ def solve(funcs, a, b, plot = False, plot_intervals = False):
         #Output the interval percentages
         zeros = subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks,subinterval_checks)
 
-#colors: use alpha = .5, dark green, black, orange roots. Change colors of check info plots
-#3D plot with small alpha, matplotlib interactive, animation
-#make logo
-#make easier to input lower/upper bounds as a list
-
         #Plot what happened
         if plot and dim == 2:
             plt.figure(dpi=1200)
@@ -98,15 +92,10 @@ def solve(funcs, a, b, plot = False, plot_intervals = False):
             plt.ylabel('$y$')
             plt.title('Zero-Loci and Roots')
 
-            results_numbers = np.array([len(i) for i in interval_results])
-            total_intervals = sum(results_numbers)
-            checkers = [func.__name__ for func in interval_checks]+[func.__name__ for func in subinterval_checks]+\
-                    ["Division"] + ['Base Case']
-
-            #print the contours
+            #plot the contours
             contour_colors = ['#003cff','k'] #royal blue and black
-            x = np.linspace(a[0],b[0],100)
-            y = np.linspace(a[1],b[1],100)
+            x = np.linspace(a[0],b[0],1000)
+            y = np.linspace(a[1],b[1],1000)
             X,Y = np.meshgrid(x,y)
             for i in range(dim):
                 if isinstance(funcs[i], Polynomial):
@@ -121,10 +110,16 @@ def solve(funcs, a, b, plot = False, plot_intervals = False):
             plt.plot(np.real(zeros[:,0]), np.real(zeros[:,1]),'o',color='none',markeredgecolor='r',markersize=10)
             colors = ['w','#d3d3d3', '#708090', '#c5af7d', '#897A57', '#D6C7A4','#73e600','#ccff99']
 
-            if plot_intervals:
-                print("Total intervals checked was {}".format(total_intervals))
-                print("Methods used were {}".format(checkers))
-                print("The percent solved by each was {}".format((100*results_numbers / total_intervals).round(2)))
+        if plot_intervals:
+            results_numbers = np.array([len(i) for i in interval_results])
+            total_intervals = sum(results_numbers)
+            checkers = [func.__name__ for func in interval_checks]+[func.__name__ for func in subinterval_checks]+\
+                    ["Division"] + ['Base Case']
+
+            print("Total intervals checked was {}".format(total_intervals))
+            print("Methods used were {}".format(checkers))
+            print("The percent solved by each was {}".format((100*results_numbers / total_intervals).round(2)))
+            if dim == 2:
                 plt.title('What happened to the intervals')
                 #plot interval checks
                 for i in range(len(interval_checks)):
@@ -186,7 +181,7 @@ def solve(funcs, a, b, plot = False, plot_intervals = False):
                                                  edgecolor='k',facecolor=colors[i])
                     ax.add_patch(rect)
                 plt.legend()
-            plt.show()
+        plt.show()
 
         return zeros
 
@@ -475,7 +470,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],sub
     cheb_approx_list = []
     try:
         if np.random.rand() > .99: #replace this with a progress bar
-            print("Interval - ",a,b)
+            print("\rInterval - ",a,b,end='')
         dim = len(a)
         for func in funcs:
             coeff, change_sign = full_cheb_approximate(func,a,b,deg,tol=approx_tol)
@@ -516,12 +511,9 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],sub
 
             zero = np.linalg.solve(A,-B)
             interval_results[-1].append([a,b])
-            return transform(zero,a,b)
+            # print('Interval',a,b,'zeros',transform(good_zeros_nd(zero.reshape([1,dim])),a,b),sep='\n')
+            return transform(good_zeros_nd(zero.reshape([1,dim])),a,b)
 
-            if np.all(zero >= a) and np.all(zero <= b):
-                return transform(zero)
-            else:
-                return np.zeros([0,dim])
         if divisor_var < 0:
             #Subdivide but run some checks on the intervals first
             intervals = get_subintervals(a,b,np.arange(dim),subinterval_checks,interval_results\
@@ -532,9 +524,9 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],sub
                 return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_results\
                                                    ,interval_checks,subinterval_checks,approx_tol=approx_tol)
                               for interval in intervals])
-
         zeros = np.array(division(polys,divisor_var = divisor_var, tol = solve_tol))
         interval_results[-2].append([a,b])
+        print('Interval',a,b)
         if len(zeros) == 0:
             return np.zeros([0,dim])
         return transform(good_zeros_nd(zeros),a,b)
