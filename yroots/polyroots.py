@@ -1,12 +1,12 @@
 import numpy as np
 import itertools
-from numalgsolve import OneDimension as oneD
-from numalgsolve.polynomial import MultiCheb, MultiPower, is_power
-from numalgsolve.Division import division
-from numalgsolve.Multiplication import multiplication
-from numalgsolve.utils import Term, get_var_list, divides, MacaulayError, InstabilityWarning, match_size, match_poly_dimensions
+from yroots import OneDimension as oneD
+from yroots.polynomial import MultiCheb, MultiPower, is_power
+from yroots.Division import division
+from yroots.Multiplication import multiplication
+from yroots.utils import Term, get_var_list, divides, MacaulayError, InstabilityWarning, match_size, match_poly_dimensions
 
-def solve(polys, MSmatrix=0, eigvals=True, verbose=False):
+def solve(polys,MSmatrix=0, eigvals=True, verbose=False):
     '''
     Finds the roots of the given list of polynomials.
 

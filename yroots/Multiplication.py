@@ -1,9 +1,9 @@
 import numpy as np
 import itertools
 from scipy.linalg import solve_triangular, eig
-from numalgsolve.polynomial import MultiCheb, MultiPower, is_power
-from numalgsolve.MacaulayReduce import rrqr_reduceMacaulay2, rrqr_reduceMacaulay, find_degree, add_polys
-from numalgsolve.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list, \
+from yroots.polynomial import MultiCheb, MultiPower, is_power
+from yroots.MacaulayReduce import rrqr_reduceMacaulay2, rrqr_reduceMacaulay, find_degree, add_polys
+from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list, \
                               mon_combos, mon_combosHighest, sort_polys_by_degree, \
                               deg_d_polys, all_permutations_cheb
 import warnings
@@ -62,9 +62,9 @@ def multiplication(polys, verbose=False, MSmatrix=0, rotate=False):
             var_spots.append(m_f.shape[0] - 1 - var_dict[tuple(spot)])
         spot[i] = 0
 
-    # Get left eigenvectors
+    # Get left eigenvectors (come in conjugate pairs)
+    vals,vecs = eig(m_f,left=True,right=False)
 
-    vals,vecs = np.linalg.eig(m_f.T)
     if verbose:
         print('\nLeft Eigenvectors (as rows)\n',vecs.T)
         print('\nEigenvals\n', vals)
@@ -352,7 +352,7 @@ def create_matrix(poly_coeffs, degree, dim):
     for coeff in poly_coeffs:
         slices = slice_top(coeff)
         added_zeros[slices] = coeff
-        flat_polys.append(added_zeros[matrix_term_indexes])
+        flat_polys.append(added_zeros[tuple(matrix_term_indexes)])
         added_zeros[slices] = np.zeros_like(coeff)
         coeff = 0
     poly_coeffs = 0

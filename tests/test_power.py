@@ -1,8 +1,8 @@
 import numpy as np
 import os,sys
-from numalgsolve.polynomial import MultiPower
+from yroots.polynomial import MultiPower
 import pytest
-from numalgsolve import utils
+from yroots import utils
 
 
 def test_add():

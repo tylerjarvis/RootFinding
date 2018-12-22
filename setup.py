@@ -35,7 +35,7 @@ setup(
     include_package_data=True,
     keywords='RootFinding',
     name='RootFinding',
-    packages=find_packages(include=['numalgsolve', 'CHEBYSHEV/TVB_Method']),
+    packages=find_packages(include=['yroots', 'CHEBYSHEV/TVB_Method']),
     setup_requires=setup_requirements,
     test_suite='tests',
     tests_require=test_requirements,
