@@ -26,6 +26,13 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
         The common roots of the polynomials. Each row is a root.
     '''
     non_constant_polys = []
+    
+#     for poly in polys:
+#         print(poly(np.array([.637497878252542, 0.7827105625831011])))
+    
+#     for poly in polys:
+#         print(poly.coeff)
+#     print(divisor_var)
 
     #This first section creates the Macaulay Matrix with the monomials that don't have
     #the divisor variable in the first columns.
@@ -51,7 +58,7 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
     # if np.sum(zero_columns) >= max_number_of_roots - dim - 1:
     #     #raise MacaulayError("B is probably not stable")
     #     B_probably_unstable = True
-
+        
     if verbose:
         np.set_printoptions(suppress=False, linewidth=200)
         print('\nStarting Macaulay Matrix\n', matrix)
@@ -64,6 +71,15 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
     else:
         matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_number_of_roots, tol)
 
+        
+#     print()
+#     for row in matrix:
+#         temp_coeff = np.zeros([10,10])
+#         for i in range(len(matrix_terms)):
+#             temp_coeff[tuple(matrix_terms[i])] = row[i]
+#         temp_poly = MultiCheb(temp_coeff)
+#         print(temp_poly(np.array([.637497878252542, 0.7827105625831011])))
+        
     rows,columns = matrix.shape
 
     #Make there are enough rows in the reduced Macaulay matrix, i.e. didn't loose a row
@@ -71,8 +87,31 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
     #assert rows >= columns - max_number_of_roots
 
     VB = matrix_terms[matrix.shape[0]:]
+    
+#     print(matrix.diagonal())
+    
+#     print(matrix)
+#     from matplotlib import pyplot as plt
+#     plt.imshow(matrix)
+#     plt.show()
+    
+    
     matrix = np.hstack((np.eye(rows),solve_triangular(matrix[:,:rows],matrix[:,rows:])))
 
+#     plt.imshow(matrix)
+#     plt.show()
+#     print(matrix)
+    
+#     print()
+#     for row in matrix:
+#         temp_coeff = np.zeros([10,10])
+#         for i in range(len(matrix_terms)):
+#             temp_coeff[tuple(matrix_terms[i])] = row[i]
+#         temp_poly = MultiCheb(temp_coeff)
+#         print(temp_poly(np.array([.637497878252542, 0.7827105625831011])))
+    
+    
+    
     if verbose:
         np.set_printoptions(suppress=True, linewidth=200)
         print("\nFinal Macaulay Matrix\n", matrix)
@@ -176,7 +215,10 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
         print("\nDivision Matrix\n", np.round(division_matrix[::-1,::-1], 2))
         print("\nLeft Eigenvectors (as rows)\n", vecs.T)
     
-    
+#     print(VB)
+#     print(vals)
+#     print(vecs)
+        
     #Calculates the zeros, the x values from the eigenvalues and the y values from the eigenvectors.
     zeros = list()
     for i in range(len(vals)):
@@ -184,6 +226,12 @@ def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol =
             #This root has magnitude greater than 1, will possibly generate a false root due to instability
             continue
         if not power:
+            const = vecs[-1][i] * vals[i]
+#             print()
+#             print("x,y,const,other,cxy,cx")
+#             print(1/vals[i], vecs[-2,i]/vecs[-1,i])
+#             print(const, .001/np.sqrt(len(vecs[i])))
+#             print(vecs[-2,i], vecs[-1,i])
             if skip_imag:
                 #Skip stuff that has imaginary terms
                 if np.abs(vals[i]) == 0:

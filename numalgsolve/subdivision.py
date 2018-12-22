@@ -20,10 +20,6 @@ from matplotlib import patches
 import itertools
 import time
 
-probably_bads = 0
-actually_bads = 0
-errors = 0
-
 def solve(funcs, a, b, interval_data = False, plot_intervals = False, contours = False, show_zeros = False, polish = True):
     '''
     Finds the real roots of the given list of functions on a given interval.
@@ -41,13 +37,8 @@ def solve(funcs, a, b, interval_data = False, plot_intervals = False, contours =
     roots : numpy array
         The common roots of the polynomials. Each row is a root.
     '''
-    global probably_bads,actually_bads,errors
-    probably_bads = 0
-    actually_bads = 0
-    errors = 0
-
     interval_checks = [constant_term_check, full_quad_check, full_cubic_check]
-    subinterval_checks = []#linear_check, quadratic_check1, quadratic_check2]
+    subinterval_checks = [linear_check, quadratic_check1, quadratic_check2, quadratic_check3]
     interval_results = []
     for i in range(len(interval_checks) + len(subinterval_checks) + 2):
         interval_results.append([])
@@ -98,8 +89,6 @@ def solve(funcs, a, b, interval_data = False, plot_intervals = False, contours =
 #                 final_zeros.append(avg_zero)
 #         result = np.vstack(final_zeros)
         result = zeros
-
-        print("Probably bad count {}, actually bad counts {}, errors {}".format(probably_bads, actually_bads, errors))
 
         #Plot what happened
         if interval_data:
@@ -575,7 +564,12 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks,subinter
     good_zeros : numpy array
         The real zero in [-1,1] of the input zeros.
     """
-    global probably_bads,actually_bads,errors
+    
+#     approx_tol=1.e-3
+#     cutoff_tol=1.e-4
+#     solve_tol=1.e-7
+    
+    
     division_var = 0
     cheb_approx_list = []
     try:
@@ -588,11 +582,9 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks,subinter
             #Subdivides if a bad approximation
             if coeff is None:
                 intervals = get_subintervals(a,b,np.arange(dim),None,None,None,None)
-
-                zeros = np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_results\
-                                                   ,interval_checks,subinterval_checks,approx_tol=approx_tol,\
-                                                        polish=polish) for interval in intervals])
-                return zeros
+                return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_results\
+                                    ,interval_checks,subinterval_checks,approx_tol=approx_tol,cutoff_tol=cutoff_tol\
+                                        ,solve_tol=solve_tol,polish=polish) for interval in intervals])
             else:
                 #if the function changes sign on at least one subinterval, skip the checks
                 if np.any(change_sign):
@@ -620,11 +612,18 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks,subinter
                 B[row] = coeff[spot]
                 var_list = get_var_list(dim)
                 for col in range(dim):
-                    A[row,col] = coeff[var_list[col]]
+                    if coeff.shape[0] == 1:
+                        A[row,col] = 0
+                    else:
+                        A[row,col] = coeff[var_list[col]]
 
+            if np.rank(A) < dim:
+                return np.zeros([0,dim])
             zero = np.linalg.solve(A,-B)
             interval_results[-1].append([a,b])
             return transform(good_zeros_nd(zero.reshape([1,dim])),a,b)
+        elif np.any(np.array([poly.degree for poly in polys]) == 1):
+            raise MacaulayError('AHHH SOMETHING IS LINEAR AND I CANT HANDLE IT!!!')
         
         if divisor_var < 0:                
             #Subdivide but run some checks on the intervals first
@@ -634,8 +633,8 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks,subinter
                 return np.zeros([0,dim])
             else:
                 return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_results\
-                                                   ,interval_checks,subinterval_checks,approx_tol=approx_tol)
-                              for interval in intervals])
+                                    ,interval_checks,subinterval_checks,approx_tol=approx_tol,cutoff_tol=cutoff_tol\
+                                        ,solve_tol=solve_tol,polish=polish) for interval in intervals])
         zeros = np.array(division(polys, get_divvar_coord_from_eigval = True, divisor_var = 0, tol = solve_tol))
         interval_results[-2].append([a,b])
         if len(zeros) == 0:
@@ -646,18 +645,15 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks,subinter
             return transform(good_zeros_nd(zeros),a,b)
 
     except np.linalg.LinAlgError as e:
-        errors += 1
-        #print(e)
         #Subdivide but run some checks on the intervals first
         intervals = get_subintervals(a,b,np.arange(dim),subinterval_checks,interval_results\
                                      ,original_cheb_approx_list,change_sign,check_subintervals=True)
         if len(intervals) == 0:
             return np.zeros([0,dim])
         else:
-            zeros = np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_results\
-                                               ,interval_checks,subinterval_checks,approx_tol=approx_tol,
-                                                    polish=polish) for interval in intervals])
-            return zeros
+            return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_results\
+                                ,interval_checks,subinterval_checks,approx_tol=approx_tol,cutoff_tol=cutoff_tol\
+                                    ,solve_tol=solve_tol,polish=polish) for interval in intervals])
 
 def polish_zeros(zeros, funcs, interval_checks,subinterval_checks,tol=1.e-2):
     if len(zeros) == 0:
