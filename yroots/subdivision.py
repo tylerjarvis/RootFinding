@@ -13,14 +13,14 @@ from yroots.Division import division
 from yroots.utils import clean_zeros_from_matrix, slice_top, MacaulayError, get_var_list
 from yroots.polynomial import MultiCheb, Polynomial
 from yroots.intervalChecks import constant_term_check, full_quad_check, quad_check, full_cubic_check,\
-            cubic_check, curvature_check, linear_check, quadratic_check1, quadratic_check2, quadratic_check3
+            cubic_check, curvature_check, linear_check, quadratic_check1, quadratic_check2, quadratic_check3, quadratic_check
 from itertools import product
 from matplotlib import pyplot as plt
 from matplotlib import patches
 import itertools
 import time
 
-def solve(funcs, a, b, plot = False, plot_intervals = False):
+def solve(funcs, a, b, plot = False, plot_intervals = False, polish = False):
     '''
     Finds the real roots of the given list of functions on a given interval.
 
@@ -44,7 +44,7 @@ def solve(funcs, a, b, plot = False, plot_intervals = False):
         The common roots of the polynomials. Each row is a root.
     '''
     interval_checks = [constant_term_check, full_quad_check, full_cubic_check]
-    subinterval_checks = []#linear_check, quadratic_check1, quadratic_check2, quadratic_check3]
+    subinterval_checks = [quadratic_check]
     interval_results = []
     for i in range(len(interval_checks) + len(subinterval_checks) + 2):
         interval_results.append([])
@@ -73,14 +73,14 @@ def solve(funcs, a, b, plot = False, plot_intervals = False):
         a = np.float64(a)
         b = np.float64(b)
         #choose an appropriate max degree for the given dimension
-        deg_dim = {2:5, 3:4, 4:3}
+        deg_dim = {2:7, 3:4, 4:3}
         if dim > 4:
             deg = 2
         else:
             deg = deg_dim[dim]
 
         #Output the interval percentages
-        zeros = subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks,subinterval_checks)
+        zeros = subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks,subinterval_checks,polish=polish)
 
 #colors: use alpha = .5, dark green, black, orange roots. Change colors of check info plots
 #3D plot with small alpha, matplotlib interactive, animation
@@ -121,10 +121,11 @@ def solve(funcs, a, b, plot = False, plot_intervals = False):
             plt.plot(np.real(zeros[:,0]), np.real(zeros[:,1]),'o',color='none',markeredgecolor='r',markersize=10)
             colors = ['w','#d3d3d3', '#708090', '#c5af7d', '#897A57', '#D6C7A4','#73e600','#ccff99']
 
+            print("Total intervals checked was {}".format(total_intervals))
+            print("Methods used were {}".format(checkers))
+            print("The percent solved by each was {}".format((100*results_numbers / total_intervals).round(2)))
+            
             if plot_intervals:
-                print("Total intervals checked was {}".format(total_intervals))
-                print("Methods used were {}".format(checkers))
-                print("The percent solved by each was {}".format((100*results_numbers / total_intervals).round(2)))
                 plt.title('What happened to the intervals')
                 #plot interval checks
                 for i in range(len(interval_checks)):
@@ -383,7 +384,9 @@ def get_subintervals(a,b,dimensions,subinterval_checks,interval_results,polys,ch
         scaled_subintervals = get_subintervals(-np.ones_like(a),np.ones_like(a),dimensions,subinterval_checks=None,\
                                                 interval_results=None,polys=None,change_sign=None,approx_tol=approx_tol,check_subintervals=False)
         for check_num, check in enumerate(subinterval_checks):
+#             print("new check")
             for poly in polys:
+#                 print("new poly")
                 mask = check(poly, scaled_subintervals, change_sign, approx_tol)
                 new_scaled_subintervals = []
                 new_subintervals = []
@@ -453,10 +456,7 @@ def good_zeros_nd(zeros, imag_tol = 1.e-5, real_tol = 1.e-5):
     good_zeros = good_zeros[np.all(np.abs(good_zeros) <= 1 + real_tol,axis = 1)]
     return good_zeros.real
 
-def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks,subinterval_checks,approx_tol=1.e-4, cutoff_tol=1.e-5, solve_tol = 1.e-8, polish = False):
-    
-    #TODO - make ALL the tolerances pass through the recursive calls
-    
+def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks,subinterval_checks,approx_tol=1.e-4, cutoff_tol=1.e-5, solve_tol = 1.e-8, polish = False):    
     """Finds the common zeros of the given functions.
 
     Parameters
@@ -524,12 +524,10 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks,subinter
                 return np.zeros([0,dim])
             zero = np.linalg.solve(A,-B)
             interval_results[-1].append([a,b])
-            return transform(zero,a,b)
+            return transform(good_zeros_nd(zero.reshape([1,dim])),a,b)
+        elif np.any(np.array([poly.degree for poly in polys]) == 1):
+            raise MacaulayError('AHHH SOMETHING IS LINEAR AND I CANT HANDLE IT!!!')
 
-            if np.all(zero >= a) and np.all(zero <= b):
-                return transform(zero)
-            else:
-                return np.zeros([0,dim])
         if divisor_var < 0:
             #Subdivide but run some checks on the intervals first
             intervals = get_subintervals(a,b,np.arange(dim),subinterval_checks,interval_results\
@@ -538,15 +536,16 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks,subinter
                 return np.zeros([0,dim])
             else:
                 return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_results\
-                                                   ,interval_checks,subinterval_checks,approx_tol=approx_tol)
-                              for interval in intervals])
+                                    ,interval_checks,subinterval_checks,approx_tol=approx_tol,cutoff_tol=cutoff_tol\
+                                        ,solve_tol=solve_tol,polish=polish) for interval in intervals])
 
         zeros = np.array(division(polys,divisor_var = divisor_var, tol = solve_tol))
         interval_results[-2].append([a,b])
         if len(zeros) == 0:
             return np.zeros([0,dim])
         if polish:
-            return polish_zeros(transform(good_zeros_nd(zeros),a,b), funcs, interval_checks,subinterval_checks)
+            polish_tol = (b[0]-a[0])*approx_tol*10
+            return polish_zeros(transform(good_zeros_nd(zeros),a,b), funcs, interval_checks,subinterval_checks, tol=polish_tol)
         else:
             return transform(good_zeros_nd(zeros),a,b)
 
@@ -561,7 +560,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks,subinter
                                 ,interval_checks,subinterval_checks,approx_tol=approx_tol,cutoff_tol=cutoff_tol\
                                     ,solve_tol=solve_tol,polish=polish) for interval in intervals])
 
-def polish_zeros(zeros, funcs, interval_checks,subinterval_checks,tol=1.e-2):
+def polish_zeros(zeros, funcs, interval_checks,subinterval_checks,tol=1.e-5):
     if len(zeros) == 0:
         return zeros
     dim = zeros.shape[1]

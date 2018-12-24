@@ -25,6 +25,10 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False):
     zeros : numpy array
         The common roots of the polynomials. Each row is a root.
     '''
+#     for poly in polys:
+#         print(poly.coeff)
+    
+    
     #This first section creates the Macaulay Matrix with the monomials that don't have
     #the divisor variable in the first columns.
     power = is_power(polys)
@@ -159,6 +163,19 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False):
         
     #Calculates the zeros, the x values from the eigenvalues and the y values from the eigenvectors.
     zeros = list()
+    
+    print(1/vals)
+#     from matplotlib import pyplot as plt
+#     contour_colors = ['#003cff','k'] #royal blue and black
+#     x = np.linspace(-1.,1.,100)
+#     y = np.linspace(-1.,1.,100)
+#     X,Y = np.meshgrid(x,y)
+#     for i in range(dim):
+#         Z = np.zeros_like(X)
+#         for spot,num in np.ndenumerate(X):
+#             Z[spot] = polys[i]([X[spot],Y[spot]])
+#         plt.contour(X,Y,Z,levels=[0],colors=contour_colors[i])
+#     plt.show()
 
     for i in range(len(vals)):
         if power and abs(vecs[-1][i]) < 1.e-3:

@@ -461,7 +461,7 @@ def quadratic_check3(test_coeff, intervals,change_sign,tol):
      -------
      mask : list
          Masks out the intervals we don't want
-    """
+    """    
     if test_coeff.ndim > 2:
         return [True]*len(intervals)
     padding = [(0,max(0,3-i)) for i in test_coeff.shape]
@@ -472,7 +472,7 @@ def quadratic_check3(test_coeff, intervals,change_sign,tol):
     c2 = test_coeff[0,1]
     c3 = test_coeff[1,1]
 
-    ##if c3 != 0, same as a linear check
+    ##if c3 == 0, same as a linear check
     if np.isclose(c3, 0,atol=tol):
         return [True]*len(intervals)
 
@@ -532,6 +532,124 @@ def quadratic_check3(test_coeff, intervals,change_sign,tol):
             mask.append(True)
 
     return mask
+
+
+def quadratic_check(test_coeff, intervals,change_sign,tol):
+    """Quick check of zeros in the unit box using the xy terms
+
+     Parameters
+     ----------
+     test_coeff : numpy array
+         The coefficient matrix of the polynomial to check
+     intervals : list
+         A list of the intervals we want to check before subdividing them
+
+     Returns
+     -------
+     mask : list
+         Masks out the intervals we don't want
+    """
+    if test_coeff.ndim > 2:
+        return [True]*len(intervals)
+    padding = [(0,max(0,3-i)) for i in test_coeff.shape]
+    test_coeff = np.pad(test_coeff.copy(), padding, mode='constant')
+    #check using |constant + c1x + c2y +c3xy|
+    c0 = test_coeff[0,0]
+    c1 = test_coeff[1,0]
+    c2 = test_coeff[0,1]
+    c3 = test_coeff[2,0]
+    c4 = test_coeff[1,1]
+    c5 = test_coeff[0,2]
+    #The sum of the absolute values of everything else
+    other_sum = np.sum(np.abs(test_coeff)) - np.sum(np.abs([c0,c1,c2,c3,c4,c5]))
+    
+    #function for evaluating c0 + c1x + c2y +c3x^2 + c4xy + c5y^2 (note these are chebyshev monomials)
+    eval_func = lambda x,y: c0 + c1*x + c2*y + c3*(2*x**2-1) + c4*x*y + c5*(2*y**2-1)
+    
+    mask = []
+    for i, interval in enumerate(intervals):
+#         print(interval)
+#         if change_sign[i]:
+#             mask.append(True)
+#             continue
+        ##If constant + c1x + c2y +c3xy = 0 in the region, useless
+        
+        extreme_points = []
+        #Add all the corners
+        extreme_points.append(eval_func(interval[0][0], interval[0][1]))
+        extreme_points.append(eval_func(interval[1][0], interval[0][1]))
+        extreme_points.append(eval_func(interval[0][0], interval[1][1]))
+        extreme_points.append(eval_func(interval[1][0], interval[1][1]))
+        
+#         print()
+#         print(interval)
+        
+        #Add the x constant boundaries
+        x = interval[0][0]
+        y = -(c2 + c4*x)/(4*c5)
+        if interval[0][1] < y < interval[1][1]:
+            extreme_points.append(eval_func(x,y))
+        x = interval[1][0]
+        y = -(c2 + c4*x)/(4*c5)
+        if interval[0][1] < y < interval[1][1]:
+            extreme_points.append(eval_func(x,y))
+            
+        #Add the y constant boundaries
+        y = interval[0][1]
+        x = -(c1 + c4*y)/(4*c3)
+        if interval[0][0] < x < interval[1][0]:
+            extreme_points.append(eval_func(x,y))
+        y = interval[1][1]
+        x = -(c1 + c4*y)/(4*c3)
+        if interval[0][0] < x < interval[1][0]:
+            extreme_points.append(eval_func(x,y))
+            
+        #Add the interior value
+        x = (c2*c4 - 4*c1*c5)/(16*c3*c5 - c4**2)
+        y = (c1*c4 - 4*c2*c3)/(16*c3*c5 - c4**2)
+        if interval[0][0] < x < interval[1][0]:
+            if interval[0][1] < y < interval[1][1]:
+                extreme_points.append(eval_func(x,y))
+        
+        extreme_points = np.array(extreme_points)
+#         print(extreme_points)
+        
+#         min_val = -100
+#         min_spot = [10,10]
+#         for x in np.linspace(interval[0][0], interval[1][0], 25):
+#             for y in np.linspace(interval[0][1], interval[1][1], 25):
+#                 val = eval_func(x,y)
+#                 if val > min_val:
+#                     min_val = val
+#                     min_spot = [x,y]
+#         print(min_val, min_spot)
+        
+        
+#         test_poly = MultiCheb(test_coeff)
+#         min_val = -100
+#         min_spot = [10,10]
+#         for x in np.linspace(interval[0][0], interval[1][0], 25):
+#             for y in np.linspace(interval[0][1], interval[1][1], 25):
+#                 val = test_poly([x,y])
+#                 if val > min_val:
+#                     min_val = val
+#                     min_spot = [x,y]
+#         print(min_val, min_spot)
+        
+        
+        #If sign change, True
+        if not np.all(extreme_points > 0) and not np.all(extreme_points < 0):
+            mask.append(True)
+            continue
+        
+#         print(tol, other_sum)
+        if np.min(np.abs(extreme_points)) - tol > other_sum:
+            mask.append(False)
+        else:
+            mask.append(True)
+
+    return mask
+
 
 #This is all for Tyler's new function
 from mpmath import iv
