@@ -6,6 +6,7 @@ from yroots.utils import row_swap_matrix, MacaulayError, slice_top, mon_combos, 
                               num_mons_full, memoized_all_permutations, mons_ordered, \
                               all_permutations_cheb
 from matplotlib import pyplot as plt
+from scipy.linalg import svd
 
 def add_polys(degree, poly, poly_coeff_list):
     """Adds polynomials to a Macaulay Matrix.
@@ -56,7 +57,7 @@ def find_degree(poly_list, verbose=False):
         print('Degree of Macaulay Matrix:', sum(poly.degree for poly in poly_list) - len(poly_list) + 1)
     return sum(poly.degree for poly in poly_list) - len(poly_list) + 1
 
-def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, number_of_roots, accuracy = 1.e-10):
+def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     ''' Reduces a Macaulay matrix, BYU style.
 
     The matrix is split into the shape
@@ -113,7 +114,8 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, number_of_roots, accuracy = 
     #set very small values in the matrix to zero before backsolving
     matrix[np.isclose(matrix, 0)] = 0
     
-    U,D,V = np.linalg.svd(matrix[:,:matrix.shape[0]])
+    D = np.linalg.svd(matrix[:,:matrix.shape[0]], compute_uv=False)
+#     print(D[0]/D[-1], 1/accuracy, accuracy)
     if D[0]/D[-1] > 1/accuracy:
         raise MacaulayError("BAD SINGULAR VALUES")
         

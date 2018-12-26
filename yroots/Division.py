@@ -25,6 +25,8 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False):
     zeros : numpy array
         The common roots of the polynomials. Each row is a root.
     '''
+#     if divisor_var == 1:
+#         print('TRYING AGAIN')
 #     for poly in polys:
 #         print(poly.coeff)
     
@@ -52,9 +54,9 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False):
 
     #If bottom left is zero only does the first QR reduction on top part of matrix (for speed). Otherwise does it on the whole thing
     if np.allclose(matrix[cuts[0]:,:cuts[0]], 0):
-        matrix, matrix_terms = rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, tol)
+        matrix, matrix_terms = rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy=tol)
     else:
-        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, tol)
+        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy=tol)
         
     rows,columns = matrix.shape
 
@@ -156,15 +158,26 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False):
     vals, vecs = eig(division_matrix,left=True,right=False)
     #conjugate because scipy gives the conjugate eigenvector
     vecs = vecs.conj()
+    
+    vals2, vecs2 = eig(vecs)
+    sorted_vals2 = np.sort(np.abs(vals2))
+#     print(sorted_vals2[-1]/sorted_vals2[0])
+    if sorted_vals2[0] < 1.e-15:
+        raise MacaulayError("The Division Matrix was ill-conditioned")
+    if sorted_vals2[-1]/sorted_vals2[0] > 1.e8:
+        raise MacaulayError("The Division Matrix was ill-conditioned")
 
     if verbose:
         print("\nDivision Matrix\n", np.round(division_matrix[::-1,::-1], 2))
         print("\nLeft Eigenvectors (as rows)\n", vecs.T)
-        
+    if not power:
+        if np.max(np.abs(vals)) > 1.e6:
+            raise MacaulayError("Root from eigenvalue too small, can't find zeros stabiliy")
+    
     #Calculates the zeros, the x values from the eigenvalues and the y values from the eigenvectors.
     zeros = list()
     
-    print(1/vals)
+#     print(1/vals)
 #     from matplotlib import pyplot as plt
 #     contour_colors = ['#003cff','k'] #royal blue and black
 #     x = np.linspace(-1.,1.,100)
@@ -181,6 +194,9 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False):
         if power and abs(vecs[-1][i]) < 1.e-3:
             #This root has magnitude greater than 1, will possibly generate a false root due to instability
             continue
+#         if np.abs(np.imag(vals[i])) < 1.e-5:
+#             if np.abs(vals[i] > 1):
+#                 print(1/vals[i], vecs[-2,i]/vecs[-1,i])
         root = np.zeros(dim, dtype=complex)
         for spot in range(0,divisor_var):
             root[spot] = vecs[-(2+spot)][i]/vecs[-1][i]
