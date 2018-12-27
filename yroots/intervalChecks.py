@@ -8,6 +8,103 @@ import numpy as np
 from itertools import product
 import itertools
 from yroots.polynomial import MultiCheb
+from matplotlib import pyplot as plt
+from yroots.polynomial import MultiCheb, Polynomial
+from matplotlib import patches
+
+class IntervalData:
+    def __init__(self,a,b):
+        self.interval_checks = [constant_term_check]
+        self.subinterval_checks = [quadratic_check]
+        self.a = a
+        self.b = b
+        self.interval_results = dict()
+        for check in self.interval_checks:
+            self.interval_results[check.__name__] = []
+        for check in self.subinterval_checks:
+            self.interval_results[check.__name__] = []
+        self.interval_results["Base Case"] = []
+        self.interval_results["Division"] = []
+        self.total_area = np.prod(self.b-self.a)
+        self.current_area = 0.
+        self.polishing = False
+        self.tick = 0
+    
+    def track_interval(self, name, interval):
+        if not self.polishing:
+            self.interval_results[name].append(interval)
+            self.current_area += np.prod(interval[1] - interval[0])
+        
+    def print_progress(self):
+        if not self.polishing:
+            if self.tick == 100:
+                self.tick = 0
+                print("\rPercent Finished: {}%       ".format(round(100*self.current_area/self.total_area,2)), end='')
+            self.tick += 1
+        
+    def print_results(self):
+        results_numbers = np.array([len(self.interval_results[i]) for i in self.interval_results])
+        total_intervals = sum(results_numbers)
+        checkers = [func.__name__ for func in self.interval_checks]+[func.__name__ for func in self.subinterval_checks]+\
+                ["Division"] + ['Base Case']
+        print("Total intervals checked was {}".format(total_intervals))
+        print("Methods used were {}".format(checkers))
+        print("The percent solved by each was {}".format((100*results_numbers / total_intervals).round(2)))
+        
+    def plot_results(self, funcs, zeros, plot_intervals):
+        #colors: use alpha = .5, dark green, black, orange roots. Change colors of check info plots
+        #3D plot with small alpha, matplotlib interactive, animation
+        #make logo
+        #make easier to input lower/upper bounds as a list
+        plt.figure(dpi=1200)
+        fig,ax = plt.subplots(1)
+        fig.set_size_inches(10, 10)
+        plt.xlim(self.a[0],self.b[0])
+        plt.xlabel('$x$')
+        plt.ylim(self.a[1],self.b[1])
+        plt.ylabel('$y$')
+        plt.title('Zero-Loci and Roots')
+
+        dim = 2
+        
+        #print the contours
+        contour_colors = ['#003cff','k'] #royal blue and black
+        x = np.linspace(self.a[0],self.b[0],100)
+        y = np.linspace(self.a[1],self.b[1],100)
+        X,Y = np.meshgrid(x,y)
+        for i in range(dim):
+            if isinstance(funcs[i], Polynomial):
+                Z = np.zeros_like(X)
+                for spot,num in np.ndenumerate(X):
+                    Z[spot] = funcs[i]([X[spot],Y[spot]])
+                plt.contour(X,Y,Z,levels=[0],colors=contour_colors[i])
+            else:
+                plt.contour(X,Y,funcs[i](X,Y),levels=[0],colors=contour_colors[i])
+
+        #Plot the zeros
+        plt.plot(np.real(zeros[:,0]), np.real(zeros[:,1]),'o',color='none',markeredgecolor='r',markersize=10)
+        colors = ['w','#d3d3d3', '#708090', '#c5af7d', '#897A57', '#D6C7A4','#73e600','#ccff99']
+
+        if plot_intervals:
+            plt.title('What happened to the intervals')
+            #plot results
+            i = -1
+            for check in self.interval_results:
+                i += 1
+                results = self.interval_results[check]
+                first = True
+                for data in results:
+                    a0,b0 = data
+                    if first:
+                        first = False
+                        rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.05,\
+                                                 edgecolor='k',facecolor=colors[i], label=check)
+                    else:
+                        rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.05,\
+                                                 edgecolor='k',facecolor=colors[i])
+                    ax.add_patch(rect)
+            plt.legend()
+        plt.show()
 
 def extreme_val3(test_coeff, maxx = True):
     """Absolute value of max or min of |a + bx + c(2x^2 - 1)| on -1 to 1, used by quad_check"""
