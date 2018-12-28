@@ -210,7 +210,7 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False):
 
         #throw out bad roots in cheb
         if not power:
-            if np.any([abs(poly(root)) > 1.e-2 for poly in polys]):
+            if np.any([abs(poly(root)) > 1.e-1 for poly in polys]):
                 continue
 
         zeros.append(root)

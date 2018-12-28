@@ -30,6 +30,22 @@ class IntervalData:
         self.polishing = False
         self.tick = 0
     
+    def check_subintervals(self, subintervals, scaled_subintervals, polys, change_sign, approx_tol):
+        for check in self.subinterval_checks:
+            for poly in polys:
+                mask = check(poly, scaled_subintervals, change_sign, approx_tol)
+                new_scaled_subintervals = []
+                new_subintervals = []
+                for i, result in enumerate(mask):
+                    if result:
+                        new_scaled_subintervals.append(scaled_subintervals[i])
+                        new_subintervals.append(subintervals[i])
+                    else:
+                        self.track_interval(check.__name__, subintervals[i])
+                scaled_subintervals = new_scaled_subintervals
+                subintervals = new_subintervals
+        return subintervals
+    
     def track_interval(self, name, interval):
         if not self.polishing:
             self.interval_results[name].append(interval)
@@ -43,10 +59,9 @@ class IntervalData:
             self.tick += 1
         
     def print_results(self):
-        results_numbers = np.array([len(self.interval_results[i]) for i in self.interval_results])
+        results_numbers = np.array([len(self.interval_results[name]) for name in self.interval_results])
         total_intervals = sum(results_numbers)
-        checkers = [func.__name__ for func in self.interval_checks]+[func.__name__ for func in self.subinterval_checks]+\
-                ["Division"] + ['Base Case']
+        checkers = [name for name in self.interval_results]
         print("Total intervals checked was {}".format(total_intervals))
         print("Methods used were {}".format(checkers))
         print("The percent solved by each was {}".format((100*results_numbers / total_intervals).round(2)))
@@ -190,6 +205,8 @@ def quad_check(test_coeff, tol):
     quad_check : bool
         False if there are no zeros in the unit box, True otherwise
     """
+    if np.any(np.array(test_coeff.shape) < 3):
+        return True
     dim = test_coeff.ndim
     slices = []
     slices.append(slice(0,3))
@@ -243,6 +260,8 @@ def cubic_check(test_coeff, tol):
     cubic_check : bool
         False if there are no zeros in the unit box, True otherwise
     """
+    if np.any(np.array(test_coeff.shape) < 4):
+        return True
     dim = test_coeff.ndim
     slices = []
     slices.append(slice(0,4))

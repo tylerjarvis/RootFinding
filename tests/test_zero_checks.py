@@ -1,5 +1,5 @@
 import numpy as np
-from yroots.subdivision import constant_term_check, full_quad_check, full_cubic_check, curvature_check, \
+from yroots.IntervalChecks import constant_term_check, full_quad_check, full_cubic_check, curvature_check, \
 linear_check, quadratic_check1, quadratic_check2, quadratic_check3
 from yroots.polynomial import MultiCheb,MultiPower
 
@@ -8,12 +8,8 @@ def test_zero_check2D():
     subinterval_checks = [linear_check,quadratic_check1,quadratic_check2,quadratic_check3]
     a = -np.ones(2)
     b = np.ones(2)
-<<<<<<< HEAD
-    interval_checks.extend([lambda x: f(x, [(a,b)],[False])[0]  for f in subinterval_checks] )
-=======
     tol = 1.e-4
     interval_checks.extend([lambda x, tol: f(x, [(a,b)],[False], tol)[0]  for f in subinterval_checks])
->>>>>>> cafa732c0bef3234a994644f7b1bdf611206e509
 
     for method in interval_checks:
         # this function barely does not have a zero
@@ -68,11 +64,7 @@ def test_zero_check2D():
         [0.5,  .1,    0, 0],
         [0.1,   0,    0, 0]
         ])
-<<<<<<< HEAD
-        assert method(c) == True
-=======
         assert method(c,tol) == True
->>>>>>> cafa732c0bef3234a994644f7b1bdf611206e509
 
     if __name__ == "__main__":
         test_zero_check2D()

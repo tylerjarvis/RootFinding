@@ -121,7 +121,7 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
         
     return matrix, matrix_terms
 
-def rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, number_of_roots, accuracy = 1.e-10):
+def rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     ''' Reduces a Macaulay matrix, BYU style
 
     This function does the same thing as rrqr_reduceMacaulay but uses
@@ -180,22 +180,6 @@ def rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, number_of_roots, accuracy =
     matrix[:cuts[0],cuts[0]:cuts[1]] = matrix[:cuts[0],cuts[0]:cuts[1]][:,P]
     matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
     P = 0
-
-    # Check if there are no solutions
-    #rank = np.sum(np.abs(matrix.diagonal())>accuracy)
-
-    # extra_block = matrix[rank:, -matrix_shape_stuff[2]:]
-    # Q,R = qr(extra_block)
-    # if np.sum(np.abs(R.diagonal())>accuracy) == matrix_shape_stuff[2]:
-    #     raise ValueError("The system given has no roots.")
-
-    #Get rid of 0 rows at the bottom.
-    #matrix = matrix[:rank]
-
-    #eliminates rows we don't care about-- those at the bottom of the matrix
-    #since the top corner is a square identity matrix, always_useful_rows + number_of_roots is the width of the Macaulay matrix
-    always_useful_rows = matrix.shape[1] - number_of_roots
-    #matrix = matrix[:useful_rows,:]
 
     #set small values in the matrix to zero now, after the QR reduction
     matrix[np.isclose(matrix, 0, atol=accuracy)] = 0
