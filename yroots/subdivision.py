@@ -383,10 +383,9 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
                     cheb_approx_list.append(coeff)
                     continue
                 #Run checks to try and throw out the interval
-                for check_num, check in enumerate(interval_data.interval_checks):
-                    if not check(coeff, approx_tol):
-                        interval_data.track_interval(check.__name__, [a,b])
-                        return np.zeros([0,dim])
+                if interval_data.check_intervals(coeff, approx_tol, a, b):
+                    return np.zeros([0,dim])
+
                 cheb_approx_list.append(coeff)
         
         #Make the system stable to solve

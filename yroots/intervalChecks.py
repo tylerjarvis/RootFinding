@@ -13,6 +13,53 @@ from yroots.polynomial import MultiCheb, Polynomial
 from matplotlib import patches
 
 class IntervalData:
+    '''
+    Class to handle all the things realted to intervals. It holds and runs the interval checks
+    and also tracks what happened to each interval, and how much progress has been made.
+
+    Attributes
+    ----------
+    interval_checks: list
+        A list of functions. Each function accepts a coefficient matrix and a tolerance, 
+        and returns whether the Chebyshev Polynomial represented by that matrix, and
+        accurate to within that tolerance, can ever be zero on the n dimensional interval [-1,1].
+    subinterval_checks:list
+        A list of functions. Each function accepts a coefficient matrix, a list of intervals, a list of
+        sign changes,and a tolerance. It then returns a list of booleans whether the Chebyshev Polynomial
+        represented by that matrix, and accurate to within that tolerance, can ever be zero on the given intervals.
+        The list of sign changes represents if we already know the function changes sign on a given interval.
+    a: numpy array
+        The lower bounds of the overall interval to solve on.
+    b: numpy array
+        The upper bounds of the overall interval to solve on.
+    interval_results: dictionary
+        A dictionary of funciton names to lists of intervals that were solved by that function.
+    total_area: float
+        The total n dimensional volume of the overall interval being solved on.
+    current_area: float
+        How much of the n dimensional volume has been checked.
+    polishing: bool
+        If true this class is just being used as a shell to pass into the polish code.
+    tick: int
+        Keeps track of how many intervals have been solved. Every 100 it resets and prints the progress.
+
+    Methods
+    -------
+    __init__
+        Initializes everything.
+    check_intervals
+        Checks if a polynomial can be zero on an interval.
+    check_subintervals
+        Checks if a polynomial can be zero on an list of intervals.
+    track_interval
+        Tracks what happened to a given interval. 
+    print_progress
+        Prints what percentage of the domain has been searched
+    print_results
+        Prints the results of how much each method contributed to the overall search
+    plot_results
+        Plots the results of subdivision solve
+    '''
     def __init__(self,a,b):
         self.interval_checks = [constant_term_check]
         self.subinterval_checks = [quadratic_check]
@@ -29,6 +76,13 @@ class IntervalData:
         self.current_area = 0.
         self.polishing = False
         self.tick = 0
+    
+    def check_intervals(self, coeff, approx_tol, a, b):
+        for check in self.interval_checks:
+            if not check(coeff, approx_tol):
+                self.track_interval(check.__name__, [a,b])
+                return True
+        return False
     
     def check_subintervals(self, subintervals, scaled_subintervals, polys, change_sign, approx_tol):
         for check in self.subinterval_checks:
