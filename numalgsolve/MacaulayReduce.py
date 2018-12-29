@@ -1,12 +1,11 @@
 import numpy as np
 import itertools
 from scipy.linalg import qr, solve_triangular, qr_multiply
-from yroots.polynomial import Polynomial, MultiCheb, MultiPower
-from yroots.utils import row_swap_matrix, MacaulayError, slice_top, mon_combos, \
+from numalgsolve.polynomial import Polynomial, MultiCheb, MultiPower
+from numalgsolve.utils import row_swap_matrix, MacaulayError, slice_top, mon_combos, \
                               num_mons_full, memoized_all_permutations, mons_ordered, \
                               all_permutations_cheb
 from matplotlib import pyplot as plt
-from scipy.linalg import svd
 
 def add_polys(degree, poly, poly_coeff_list):
     """Adds polynomials to a Macaulay Matrix.
@@ -57,7 +56,7 @@ def find_degree(poly_list, verbose=False):
         print('Degree of Macaulay Matrix:', sum(poly.degree for poly in poly_list) - len(poly_list) + 1)
     return sum(poly.degree for poly in poly_list) - len(poly_list) + 1
 
-def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
+def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, number_of_roots, accuracy = 1.e-10):
     ''' Reduces a Macaulay matrix, BYU style.
 
     The matrix is split into the shape
@@ -85,8 +84,15 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     matrix_terms: numpy array
         The resorted matrix_terms.
     '''
+#     original = matrix.copy()
+    
+    
     #RRQR reduces A and D without pivoting sticking the result in it's place.
     Q1,matrix[:,:cuts[0]] = qr(matrix[:,:cuts[0]])
+    
+    #check if there are zeros along the diagonal of R1
+#     if any(np.isclose(np.diag(matrix[:,:cuts[0]]),0, atol=accuracy)):
+#         raise MacaulayError("R1 IS NOT FULL RANK")
 
     #Multiplying the rest of the matrix by Q.T
     matrix[:,cuts[0]:] = Q1.T@matrix[:,cuts[0]:]
@@ -113,15 +119,30 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
 
     #set very small values in the matrix to zero before backsolving
     matrix[np.isclose(matrix, 0)] = 0
+#     print(np.diag(matrix))
+        
+#     if any(np.isclose(np.diag(matrix),0, atol=accuracy)):
+#         raise MacaulayError("FULL MATRIX IS NOT FULL RANK")
+        
+        
+        
+#     original[:,cuts[0]:cuts[1]] = original[:,cuts[0]:cuts[1]][:,P]
     
-    D = np.linalg.svd(matrix[:,:matrix.shape[0]], compute_uv=False)
-#     print(D[0]/D[-1], 1/accuracy, accuracy)
+#     test_vals = np.linalg.eigvals(original[:,:original.shape[0]])
+#     test_vals = np.abs(test_vals)
+#     test_vals = np.sort(test_vals)
+#     print(test_vals[-1]/test_vals[0])
+    
+#     U,D,V = np.linalg.svd(original[:,:original.shape[0]])
+#     print(D)
+    
+    U,D,V = np.linalg.svd(matrix[:,:matrix.shape[0]])
     if D[0]/D[-1] > 1/accuracy:
         raise MacaulayError("BAD SINGULAR VALUES")
         
     return matrix, matrix_terms
 
-def rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
+def rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, number_of_roots, accuracy = 1.e-10):
     ''' Reduces a Macaulay matrix, BYU style
 
     This function does the same thing as rrqr_reduceMacaulay but uses
@@ -180,6 +201,22 @@ def rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     matrix[:cuts[0],cuts[0]:cuts[1]] = matrix[:cuts[0],cuts[0]:cuts[1]][:,P]
     matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
     P = 0
+
+    # Check if there are no solutions
+    #rank = np.sum(np.abs(matrix.diagonal())>accuracy)
+
+    # extra_block = matrix[rank:, -matrix_shape_stuff[2]:]
+    # Q,R = qr(extra_block)
+    # if np.sum(np.abs(R.diagonal())>accuracy) == matrix_shape_stuff[2]:
+    #     raise ValueError("The system given has no roots.")
+
+    #Get rid of 0 rows at the bottom.
+    #matrix = matrix[:rank]
+
+    #eliminates rows we don't care about-- those at the bottom of the matrix
+    #since the top corner is a square identity matrix, always_useful_rows + number_of_roots is the width of the Macaulay matrix
+    always_useful_rows = matrix.shape[1] - number_of_roots
+    #matrix = matrix[:useful_rows,:]
 
     #set small values in the matrix to zero now, after the QR reduction
     matrix[np.isclose(matrix, 0, atol=accuracy)] = 0

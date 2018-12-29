@@ -211,9 +211,9 @@ def MacaulayReduction(initial_poly_list, max_number_of_roots, accuracy = 1.e-10,
 
     #If bottom left is zero only does the first QR reduction on top part of matrix (for speed). Otherwise does it on the whole thing
     if np.allclose(matrix[cuts[0]:,:cuts[0]], 0):
-        matrix, matrix_terms = rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, max_number_of_roots, accuracy = accuracy)
+        matrix, matrix_terms = rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy = accuracy)
     else:
-        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_number_of_roots, accuracy = accuracy)
+        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = accuracy)
 
     #Make there are enough rows in the reduced Macaulay matrix, i.e. didn't loose a row
     assert matrix.shape[0] >= matrix.shape[1] - max_number_of_roots

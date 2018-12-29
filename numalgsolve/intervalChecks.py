@@ -4,14 +4,19 @@ to determine if there can ever be zeros on the unit box there. They are then put
 all_bound_check_functions in the order we want to run them (probably fastest first). These are
 then all run to throw out intervals as possible.
 """
+
 import numpy as np
 from itertools import product
 import itertools
-from yroots.polynomial import MultiCheb
+from numalgsolve.polynomial import MultiCheb
 
-def extreme_val3(test_coeff, maxx = True):
-    """Absolute value of max or min of |a + bx + c(2x^2 - 1)| on -1 to 1, used by quad_check"""
+global interval_default_tol,quadratic_default_tol
+interval_default_tol = 1.e-3
+quadratic_default_tol = 1.e-12
+
+def ext_val3(test_coeff, maxx = True):
     a,b,c = test_coeff
+    """Absolute value of max or min of a + bx + c(2x^2 - 1) on -1 to 1"""
     if np.abs(c) < 1.e-10:
         if maxx:
             return abs(a) + abs(b)
@@ -33,11 +38,11 @@ def extreme_val3(test_coeff, maxx = True):
             else:
                 return min(np.abs(vals))
 
-def extreme_val4(test_coeff, maxx = True):
-    """Absolute value of max or min of a + bx + c(2x^2 - 1) + d*(4x^3 - 3x) on -1 to 1"""
+def ext_val4(test_coeff, maxx = True):
     a,b,c,d = test_coeff
+    """Absolute value of max or min of a + bx + c(2x^2 - 1) + d*(4x^3 - 3x) on -1 to 1"""
     if np.abs(d) < 1.e-10:
-        return extreme_val3([a,b,c], maxx = maxx)
+        return ext_val3([a,b,c], maxx = maxx)
     else:
         vals = [a - b + c - d, a + b + c + d] #at +-1
 
@@ -58,7 +63,7 @@ def extreme_val4(test_coeff, maxx = True):
             else:
                 return min(np.abs(vals))
 
-def constant_term_check(test_coeff, tol):
+def constant_term_check(test_coeff, tol=interval_default_tol):
     """Quick check of zeros in the unit box.
 
     Checks if the constant term is bigger than all the other terms combined, using the fact that
@@ -80,7 +85,7 @@ def constant_term_check(test_coeff, tol):
     else:
         return True
 
-def quad_check(test_coeff, tol):
+def quad_check(test_coeff, tol=interval_default_tol):
     """Quick check of zeros in the unit box.
 
     Parameters
@@ -100,7 +105,7 @@ def quad_check(test_coeff, tol):
     for i in range(dim-1):
         slices.append(0)
 
-    start = extreme_val3(test_coeff[tuple(slices)], maxx = False)
+    start = ext_val3(test_coeff[slices], maxx = False)
     rest = 0
 
     shape = list(test_coeff.shape)
@@ -109,7 +114,7 @@ def quad_check(test_coeff, tol):
         if sum(spots) > 0:
             for i in range(1, dim):
                 slices[i] = spots[i]
-            rest += extreme_val3(test_coeff[tuple(slices)])
+            rest += ext_val3(test_coeff[slices])
 
     while slice_direc < dim - 1:
         slice_direc += 1
@@ -126,14 +131,14 @@ def quad_check(test_coeff, tol):
             for i in range(dim):
                 if i != slice_direc:
                     slices[i] = spots[i]
-            rest += extreme_val3(test_coeff[tuple(slices)])
+            rest += ext_val3(test_coeff[slices])
 
     if start > rest + tol:
         return False
     else:
         return True
 
-def cubic_check(test_coeff, tol):
+def cubic_check(test_coeff, tol=interval_default_tol):
     """Quick check of zeros in the unit box.
 
     Parameters
@@ -153,7 +158,7 @@ def cubic_check(test_coeff, tol):
     for i in range(dim-1):
         slices.append(0)
 
-    start = extreme_val4(test_coeff[tuple(slices)], maxx = False)
+    start = ext_val4(test_coeff[slices], maxx = False)
     rest = 0
 
     shape = list(test_coeff.shape)
@@ -162,7 +167,7 @@ def cubic_check(test_coeff, tol):
         if sum(spots) > 0:
             for i in range(1, dim):
                 slices[i] = spots[i]
-            rest += extreme_val4(test_coeff[tuple(slices)])
+            rest += ext_val4(test_coeff[slices])
 
     while slice_direc < dim - 1:
         slice_direc += 1
@@ -179,14 +184,14 @@ def cubic_check(test_coeff, tol):
             for i in range(dim):
                 if i != slice_direc:
                     slices[i] = spots[i]
-            rest += extreme_val4(test_coeff[tuple(slices)])
+            rest += ext_val4(test_coeff[slices])
 
     if start > rest + tol:
         return False
     else:
         return True
 
-def full_quad_check(test_coeff, tol):
+def full_quad_check(test_coeff, tol=interval_default_tol):
     """Quick check of zeros in the unit box.
 
     Parameters
@@ -204,7 +209,7 @@ def full_quad_check(test_coeff, tol):
             return False
     return True
 
-def full_cubic_check(test_coeff, tol):
+def full_cubic_check(test_coeff, tol=interval_default_tol):
     """Quick check of zeros in the unit box.
 
     Parameters
@@ -222,7 +227,7 @@ def full_cubic_check(test_coeff, tol):
             return False
     return True
 
-def linear_check(test_coeff_in, intervals, change_sign, tol):
+def linear_check(test_coeff_in, intervals, change_sign):
     """Quick check of zeros in intervals.
 
     Parameters
@@ -248,6 +253,7 @@ def linear_check(test_coeff_in, intervals, change_sign, tol):
         test_coeff = test_coeff_in.copy()
 
         a,b = interval
+        # abs_smallest_corner = test_coeff[tuple(spot)]
 
         idx = [0]*dim
         const = test_coeff_in[idx]
@@ -270,15 +276,35 @@ def linear_check(test_coeff_in, intervals, change_sign, tol):
             continue
 
         abs_smallest_corner = np.min(np.abs(corner_vals))
-        if 2*abs_smallest_corner > coeff_abs_sum + tol:
+        if 2*abs_smallest_corner > coeff_abs_sum:
             # case: corner is far enough from 0
             mask.append(False)
         else:
             mask.append(True)
 
+        # test_coeff[tuple(spot)] = 0
+        # for dim in range(len(a)):
+        #     spot[dim] = 1
+        #     neg_most_corner += a[dim]*test_coeff[tuple(spot)]
+        #     spot[dim] = 0
+        #
+        # lin_min = neg_most_corner
+        # for dim in range(len(a)):
+        #     spot[dim] = 1
+        #     if np.sign(test_coeff[tuple(spot)])*np.sign(neg_most_corner) < 0:
+        #         lin_min += (b[dim] - a[dim]) * test_coeff[tuple(spot)]
+        #     test_coeff[tuple(spot)] = 0
+        #     spot[dim] = 0
+        #
+        # if np.sign(lin_min)*np.sign(neg_most_corner) < 0:
+        #     mask.append(True)
+        # elif np.sum(np.abs(test_coeff)) >= np.abs(neg_most_corner):
+        #     mask.append(True)
+        # else:
+        #     mask.append(False)
     return mask
 
-def quadratic_check1(test_coeff, intervals, change_sign, tol):
+def quadratic_check1(test_coeff, intervals, change_sign, tol=quadratic_default_tol):
     """Quick check of zeros in intervals using the x^2 terms.
 
     Parameters
@@ -363,7 +389,7 @@ def quadratic_check1(test_coeff, intervals, change_sign, tol):
             mask.append(True)
     return mask
 
-def quadratic_check2(test_coeff, intervals, change_sign, tol):
+def quadratic_check2(test_coeff, intervals, change_sign, tol=quadratic_default_tol):
     """Quick check of zeros in the unit box using the y^2 terms
 
      Parameters
@@ -447,7 +473,7 @@ def quadratic_check2(test_coeff, intervals, change_sign, tol):
             mask.append(True)
     return mask
 
-def quadratic_check3(test_coeff, intervals,change_sign,tol):
+def quadratic_check3(test_coeff, intervals,change_sign,tol=quadratic_default_tol):
     """Quick check of zeros in the unit box using the xy terms
 
      Parameters
@@ -647,7 +673,7 @@ def can_eliminate(poly, a, b, tol):
 #     print(max_curve * n * h**2/8)
     return min_corner > max_curve * n * h**2/8 + tol
 
-def curvature_check(coeff, tol):
+def curvature_check(coeff, tol=interval_default_tol):
     poly = MultiCheb(coeff)
     a = np.array([-1.]*poly.dim)
     b = np.array([1.]*poly.dim)
