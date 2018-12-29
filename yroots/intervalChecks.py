@@ -77,7 +77,24 @@ class IntervalData:
         self.polishing = False
         self.tick = 0
     
-    def check_intervals(self, coeff, approx_tol, a, b):
+    def check_interval(self, coeff, approx_tol, a, b):
+        ''' Runs the interval checks on the interval [a,b]
+
+        Parameters
+        ----------
+        coeff : numpy array.
+            The coefficient matrix of the Chebyshev approximation to check.
+        approx_tol: float
+            The sup norm bound on the approximation error.
+        a: numpy array
+            The lower bounds of the interval to check.
+        b: numpy array
+            The upper bounds of the interval to check.
+        Returns
+        -------
+        check_interval : bool
+            True if we can throw out the interval. Otherwise False.
+        '''
         for check in self.interval_checks:
             if not check(coeff, approx_tol):
                 self.track_interval(check.__name__, [a,b])
@@ -85,6 +102,25 @@ class IntervalData:
         return False
     
     def check_subintervals(self, subintervals, scaled_subintervals, polys, change_sign, approx_tol):
+        ''' Runs the subinterval checks on the given intervals
+
+        Parameters
+        ----------
+        subintervals : list
+            A list of the intervals to check.
+        scaled_subintervals: list
+            A list of the intervals to check, scaled to the unit box that the approxiations are valid on.
+        polys: list
+            The MultiCheb polynomials that approximate the functions on these intervals.
+        change_sign: list
+            A list of bools of whether we know the functions can change sign on the subintervals.
+        approx_tol: float
+            The sup norm bound on the approximation error.
+        Returns
+        -------
+        check_interval : bool
+            True if we can throw out the interval. Otherwise False.
+        '''
         for check in self.subinterval_checks:
             for poly in polys:
                 mask = check(poly, scaled_subintervals, change_sign, approx_tol)
