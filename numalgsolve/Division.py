@@ -1,13 +1,13 @@
 import numpy as np
 import itertools
 from scipy.linalg import solve_triangular, eig, qr
-from yroots.polynomial import MultiCheb, MultiPower, is_power
-from yroots.MacaulayReduce import add_polys, rrqr_reduceMacaulay, rrqr_reduceMacaulay2
-from yroots.utils import get_var_list, slice_top, row_swap_matrix, \
+from numalgsolve.polynomial import MultiCheb, MultiPower, is_power
+from numalgsolve.MacaulayReduce import add_polys, rrqr_reduceMacaulay, rrqr_reduceMacaulay2
+from numalgsolve.utils import get_var_list, slice_top, row_swap_matrix, \
                               mon_combos, newton_polish, MacaulayError
 import warnings
 
-def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False):
+def division(polys, get_divvar_coord_from_eigval = False, divisor_var = 0, tol = 1.e-10, verbose=False, polish = False, skip_imag = True):
     '''Calculates the common zeros of polynomials using a division matrix.
 
     Parameters
@@ -16,31 +16,49 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False):
         The polynomials for which the common roots are found.
     divisor_var : int
         What variable is being divided by. 0 is x, 1 is y, etc. Defaults to x.
-    tol : float
-        The tolerance parameter for the Macaulay Reduce.
-    verbose : bool
-        If True prints information about the solve.
-    polish: bool
-        If True runs a newton polish on the zeros before returning.
+    get_divvar_coord_from_eigval: bool
+        Whether the divisor_var-coordinate of the roots is calculated from the eigenvalue or eigenvector.
+        More stable to use the eigenvector. Defaults to false
 
     Returns
     -----------
     zeros : numpy array
         The common roots of the polynomials. Each row is a root.
     '''
+    non_constant_polys = []
+    
+#     for poly in polys:
+#         print(poly(np.array([.637497878252542, 0.7827105625831011])))
+    
+#     for poly in polys:
+#         print(poly.coeff)
+#     print(divisor_var)
+
     #This first section creates the Macaulay Matrix with the monomials that don't have
     #the divisor variable in the first columns.
     power = is_power(polys)
     dim = polys[0].dim
     
+    get_divvar_coord_from_eigval = not power
+
+    #By Bezout's Theorem. Useful for making sure that the reduced Macaulay Matrix is as we expect
+    degrees = [poly.degree for poly in polys]
+    max_number_of_roots = np.prod(degrees)
+
     matrix_degree = np.sum(poly.degree for poly in polys) - len(polys) + 1
 
     poly_coeff_list = []
     for poly in polys:
         poly_coeff_list = add_polys(matrix_degree, poly, poly_coeff_list)
 
-    matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, matrix_degree, dim, divisor_var)
+    matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, matrix_degree, dim, divisor_var, get_divvar_coord_from_eigval)
 
+    #if too many small columns, B is probably unstable
+    zero_columns = np.max(np.abs(matrix[:,cuts[0]:cuts[1]]),axis=0) < tol
+    # if np.sum(zero_columns) >= max_number_of_roots - dim - 1:
+    #     #raise MacaulayError("B is probably not stable")
+    #     B_probably_unstable = True
+        
     if verbose:
         np.set_printoptions(suppress=False, linewidth=200)
         print('\nStarting Macaulay Matrix\n', matrix)
@@ -49,16 +67,51 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False):
 
     #If bottom left is zero only does the first QR reduction on top part of matrix (for speed). Otherwise does it on the whole thing
     if np.allclose(matrix[cuts[0]:,:cuts[0]], 0):
-        matrix, matrix_terms = rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy=tol)
+        matrix, matrix_terms = rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, max_number_of_roots, tol)
     else:
-        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy=tol)
+        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_number_of_roots, tol)
+
+        
+#     print()
+#     for row in matrix:
+#         temp_coeff = np.zeros([10,10])
+#         for i in range(len(matrix_terms)):
+#             temp_coeff[tuple(matrix_terms[i])] = row[i]
+#         temp_poly = MultiCheb(temp_coeff)
+#         print(temp_poly(np.array([.637497878252542, 0.7827105625831011])))
         
     rows,columns = matrix.shape
 
+    #Make there are enough rows in the reduced Macaulay matrix, i.e. didn't loose a row
+    #This should be a valid assert statement but the max_number_of_roots won't be the product of dimensions for non homogenous polynomials
+    #assert rows >= columns - max_number_of_roots
+
     VB = matrix_terms[matrix.shape[0]:]
+    
+#     print(matrix.diagonal())
+    
+#     print(matrix)
+#     from matplotlib import pyplot as plt
+#     plt.imshow(matrix)
+#     plt.show()
+    
     
     matrix = np.hstack((np.eye(rows),solve_triangular(matrix[:,:rows],matrix[:,rows:])))
 
+#     plt.imshow(matrix)
+#     plt.show()
+#     print(matrix)
+    
+#     print()
+#     for row in matrix:
+#         temp_coeff = np.zeros([10,10])
+#         for i in range(len(matrix_terms)):
+#             temp_coeff[tuple(matrix_terms[i])] = row[i]
+#         temp_poly = MultiCheb(temp_coeff)
+#         print(temp_poly(np.array([.637497878252542, 0.7827105625831011])))
+    
+    
+    
     if verbose:
         np.set_printoptions(suppress=True, linewidth=200)
         print("\nFinal Macaulay Matrix\n", matrix)
@@ -68,10 +121,10 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False):
     if not power:
         #Builds the inverse matrix. The terms are the vector basis as well as y^k/x terms for all k. Reducing
         #this matrix allows the y^k/x terms to be reduced back into the vector basis.
-        x_pows_over_y = matrix_terms[np.where(matrix_terms[:,divisor_var] == 0)[0]]
-        x_pows_over_y[:,divisor_var] = -np.ones(x_pows_over_y.shape[0], dtype = 'int')
-        inv_matrix_terms = np.vstack((x_pows_over_y, VB))
-        inv_matrix = np.zeros([len(x_pows_over_y),len(inv_matrix_terms)])
+        inverses = matrix_terms[np.where(matrix_terms[:,divisor_var] == 0)[0]]
+        inverses[:,divisor_var] = -np.ones(inverses.shape[0], dtype = 'int')
+        inv_matrix_terms = np.vstack((inverses, VB))
+        inv_matrix = np.zeros([len(inverses),len(inv_matrix_terms)])
 
         #A bunch of different dictionaries are used below for speed purposes and to prevent repeat calculations.
 
@@ -88,12 +141,12 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False):
             term = matrix_terms[i]
             diag_reduction_dict[tuple(term)] = matrix[i][-len(VB):]
 
-        #A dictionary of terms to the terms in their quotient when divided by x. (symbolically)
+        #A dictionary of terms to the terms in their quotient when divided by x.
         divisor_terms_dict = dict()
         for term in matrix_terms:
             divisor_terms_dict[tuple(term)] = get_divisor_terms(term, divisor_var)
 
-        #A dictionary of terms to their quotient when divided by x. (in the vector basis)
+        #A dictionary of terms to their quotient when divided by x.
         term_divide_dict = dict()
         for term in matrix_terms[-len(VB):]:
             term_divide_dict[tuple(term)] = divide_term(term, inv_matrix_terms, inv_spot_dict, diag_reduction_dict,
@@ -149,54 +202,117 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False):
                 division_matrix[:,i] -= basisDict[term]
         #<----------end Power
 
-    vals, vecs = eig(division_matrix,left=True,right=False)
-    #conjugate because scipy gives the conjugate eigenvector
-    vecs = vecs.conj()
-    
+    vals, vecs = eig(division_matrix.T)
     vals2, vecs2 = eig(vecs)
     sorted_vals2 = np.sort(np.abs(vals2))
+#     print(sorted_vals2[-1]/sorted_vals2[0])
+    
     if sorted_vals2[0] < 1.e-15:
         raise MacaulayError("The Division Matrix was ill-conditioned")
-    if sorted_vals2[0]/sorted_vals2[-1] < tol:
+    if sorted_vals2[-1]/sorted_vals2[0] > 1.e8:
         raise MacaulayError("The Division Matrix was ill-conditioned")
-
     if verbose:
         print("\nDivision Matrix\n", np.round(division_matrix[::-1,::-1], 2))
         print("\nLeft Eigenvectors (as rows)\n", vecs.T)
-    if not power:
-        if np.max(np.abs(vals)) > 1.e6:
-            raise MacaulayError("Root from eigenvalue too small, can't find zeros stabiliy")
     
+#     print(VB)
+#     print(vals)
+#     print(vecs)
+        
     #Calculates the zeros, the x values from the eigenvalues and the y values from the eigenvectors.
     zeros = list()
-    
     for i in range(len(vals)):
-        if power and abs(vecs[-1][i]) < 1.e-3:
+        if abs(vecs[-1][i]) < 1.e-3 and power:
             #This root has magnitude greater than 1, will possibly generate a false root due to instability
             continue
+        if not power:
+            const = vecs[-1][i] * vals[i]
+#             print()
+#             print("x,y,const,other,cxy,cx")
+#             print(1/vals[i], vecs[-2,i]/vecs[-1,i])
+#             print(const, .001/np.sqrt(len(vecs[i])))
+#             print(vecs[-2,i], vecs[-1,i])
+            if skip_imag:
+                #Skip stuff that has imaginary terms
+                if np.abs(vals[i]) == 0:
+                    continue
+                elif np.abs(np.imag(1/vals[i])) > 1.e-5:
+                    continue
+
+            const = vecs[-1][i] * vals[i]
+#             if abs(vals[i]) > 1:
+#                 if abs(vecs[-2,i]/vecs[-1,i]) < 1:
+#                     print()
+#                     print("Small")
+#                     print("x,y,const,other,cxy,cx")
+#                     print(1/vals[i], vecs[-2,i]/vecs[-1,i])
+#                     print(const, .001/np.sqrt(len(vecs[i])))
+#                     print(vecs[-2,i], vecs[-1,i])
+#                     for k in range(len(VB)):
+#                         test_poly_coeff = np.zeros([10]*2)
+#                         test_poly_coeff[tuple(VB[k])] = 1
+#                         test_poly = MultiCheb(test_poly_coeff)
+#                         curr_point = np.array([1/vals[i], vecs[-2,i]/vecs[-1,i]]).reshape([1,2])
+#                         print(VB[k], vecs[k,i], test_poly(curr_point)*const)
+#             print(1/vals[i], vecs[-2,i]/vecs[-1,i])
+#             print(np.abs(const) , .1/np.sqrt(len(vecs[i])))
+#             if np.abs(const) < .00001/np.sqrt(len(vecs[i])):
+#                 continue
+#             print(const)
+#             print(1/vals[i], vecs[-2,i]/vecs[-1,i])
+#             if abs(vals[i]) > .66:
+#                 if abs(vecs[-2,i]/vecs[-1,i]) < 1.5:
+#                     print("Small Still there")
+#             if abs(vals[i]) > 5.e1:
+#                 print("Small Still there")
         root = np.zeros(dim, dtype=complex)
-        for spot in range(0,divisor_var):
-            root[spot] = vecs[-(2+spot)][i]/vecs[-1][i]
-        for spot in range(divisor_var+1,dim):
-            root[spot] = vecs[-(1+spot)][i]/vecs[-1][i]
+        if get_divvar_coord_from_eigval:
+            for spot in range(0,divisor_var):
+                root[spot] = vecs[-(2+spot)][i]/vecs[-1][i]
+            for spot in range(divisor_var+1,dim):
+                root[spot] = vecs[-(1+spot)][i]/vecs[-1][i]
+        else:
+            for spot in range(0,divisor_var):
+                root[spot] = vecs[-(3+spot)][i]/vecs[-1][i]
+            for spot in range(divisor_var+1,dim):
+                root[spot] = vecs[-(2+spot)][i]/vecs[-1][i]
 
-        root[divisor_var] = 1/vals[i]
+        if get_divvar_coord_from_eigval: #If get_divvar_coord_from_eigval, use the eigenval to calulate that coordinate
+            root[divisor_var] = 1/vals[i]
+        elif power: #If using the eigenvector and it's in power form, normal calculation of coordinate
+            root[divisor_var] = vecs[-(2)][i]/vecs[-1][i]
+        else: #If using the eigenvector and it's in cheb form, have to use quadratic formula to calculate coordinate.
+            vecval = vecs[-(2)][i]/vecs[-1][i] #vecval = cT2(x)/cT1(x) = c(2x^2-1)/cx = (2x^2-1)/x
+            root1 = root.copy()
+            root1[divisor_var] = (vecval + np.sqrt(vecval**2 + 8))/4
+            root2 = root.copy()
+            root2[divisor_var] = (vecval - np.sqrt(vecval**2 + 8))/4
 
+#             print("THIS IS BAD")
+            
+            if sum(np.abs(poly(root1)) for poly in polys) < sum(np.abs(poly(root2)) for poly in polys):
+                root = root1
+            else:
+                root = root2
         if polish:
             root = newton_polish(polys,root,tol = tol)
-
-        #throw out bad roots in cheb
-        if not power:
-            if np.any([abs(poly(root)) > 1.e-1 for poly in polys]):
-                continue
-
+        
+        if np.any([np.abs(poly(root)) > 1.e-2 for poly in polys]):
+            continue
+        
         zeros.append(root)
 
     zeros = np.array(zeros)
 
+    #Checks that the algorithm finds the correct number of roots with Bezout's Theorem
+    assert zeros.shape[0] <= max_number_of_roots,"Found too many roots" #Check if too many roots
+    #if zeros.shape[0] < max_number_of_roots:
+    #    warnings.warn('Expected ' + str(max_number_of_roots)
+    #    + " roots, Found " + str(zeros.shape[0]) , Warning)
+    #    print("Number of Roots Lost:", max_number_of_roots - zeros.shape[0])
     return zeros
 
-def get_matrix_terms(poly_coeffs, dim, divisor_var):
+def get_matrix_terms(poly_coeffs, dim, divisor_var, deg, include_divvar_squared=True):
     '''Finds the terms in the Macaulay matrix.
 
     Parameters
@@ -207,6 +323,10 @@ def get_matrix_terms(poly_coeffs, dim, divisor_var):
         The dimension of the polynomials in the matrix.
     divisor_var : int
         What variable is being divided by. 0 is x, 1 is y, etc.
+    include_divvar_squared: bool
+        Whether the divisor_var^2 (or T_2(divisor_var) for cheb division) term is included in the vector basis.
+        Should be true if calculating divisor_var-coordinates from the eigenvector and not the eigenvalue
+        Defaults to True
 
     Returns
     -----------
@@ -216,6 +336,16 @@ def get_matrix_terms(poly_coeffs, dim, divisor_var):
         When the matrix is reduced it is split into 3 parts with restricted pivoting. These numbers indicate
         where those cuts happen.
     '''
+    """
+    #The following code is just for testing, just two dimensional divide by x.
+    mDeg = deg
+    array = np.array(mon_combos([0]*dim,mDeg))
+    perm = np.arange(mDeg+1)
+    perm = np.hstack((perm, np.arange(len(perm)+2,len(array)), np.arange(len(perm),len(perm)+2)[::-1]))
+    mons = array[perm]
+    cuts = tuple([mDeg+1, len(perm) - 2])
+    return mons, cuts
+    """
     matrix_term_set_y= set()
     matrix_term_set_other= set()
     for coeffs in poly_coeffs:
@@ -230,11 +360,20 @@ def get_matrix_terms(poly_coeffs, dim, divisor_var):
         matrix_term_set_other.remove(tuple(base))
         matrix_term_end = base.copy()
     except KeyError as e:
-        raise MacaulayError('Key Error Thrown in get_matrix_terms; probably linear')
+#         print(matrix_term_set_other)
+#         print(poly_coeffs, dim, divisor_var, deg, include_divvar_squared)
+        raise e
 
     #sorts the terms that do include the variable to be divided by into submatrices
     #matrix_term_end terms are always include in the basisDict
     #matrix_term_set_other are included only as needed
+
+    #if include_divvar_squared is set to True, then x^2 (or whatever variable we're dividing by) will be included in the basis
+    if include_divvar_squared:
+        divvar_squared_term = np.zeros(dim, dtype = 'int')
+        divvar_squared_term[divisor_var] = 2
+        matrix_term_set_other.remove(tuple(divvar_squared_term))
+        matrix_term_end = np.vstack((divvar_squared_term,matrix_term_end))
 
     try:
         for i in range(dim):
@@ -245,8 +384,13 @@ def get_matrix_terms(poly_coeffs, dim, divisor_var):
                 matrix_term_end = np.vstack((term,matrix_term_end))
                 base[i] = 0
     except KeyError as e:
-        raise MacaulayError('Key Error Thrown in get_matrix_terms; probably linear')
+#         print(term)
+#         print(matrix_term_set_other)
+#         print(poly_coeffs, dim, divisor_var, deg, include_divvar_squared)
+        raise e
 
+    #for term in needed_terms:
+    #    matrix_term_set_other.remove(term)
     matrix_terms = np.vstack((np.vstack(matrix_term_set_y),np.vstack(matrix_term_set_other),matrix_term_end))
     return matrix_terms, tuple([len(matrix_term_set_y), len(matrix_term_set_y)+len(matrix_term_set_other)])
 
@@ -289,7 +433,7 @@ def makeBasisDict(matrix, matrix_terms, VB):
         basisDict[term] = matrix[i][matrix.shape[0]:]
     return basisDict
 
-def create_matrix(poly_coeffs, degree, dim, divisor_var):
+def create_matrix(poly_coeffs, degree, dim, divisor_var, get_divvar_coord_from_eigval = False):
     ''' Builds a Macaulay matrix for reduction.
 
     Parameters
@@ -302,6 +446,9 @@ def create_matrix(poly_coeffs, degree, dim, divisor_var):
         The dimension of the polynomials going into the matrix.
     divisor_var : int
         What variable is being divided by. 0 is x, 1 is y, etc. Defaults to x.
+    get_divvar_coord_from_eigval: bool
+        Whether the divisor_var-coordinate of the roots is calculated from the eigenvalue or eigenvector.
+        More stable to use the eigenvector. Defaults to false
 
     Returns
     -------
@@ -315,7 +462,10 @@ def create_matrix(poly_coeffs, degree, dim, divisor_var):
     '''
     bigShape = [degree+1]*dim
 
-    matrix_terms, cuts = get_matrix_terms(poly_coeffs, dim, divisor_var)
+    #If you get_divvar_coord_from_eigval, then you should not include_divvar_squared in the basis, and vice versa
+    include_divvar_squared = not get_divvar_coord_from_eigval
+
+    matrix_terms, cuts = get_matrix_terms(poly_coeffs, dim, divisor_var, degree, include_divvar_squared)
 
     #Get the slices needed to pull the matrix_terms from the coeff matrix.
     matrix_term_indexes = list()
@@ -328,7 +478,7 @@ def create_matrix(poly_coeffs, degree, dim, divisor_var):
     for coeff in poly_coeffs:
         slices = slice_top(coeff)
         added_zeros[slices] = coeff
-        flat_polys.append(added_zeros[tuple(matrix_term_indexes)])
+        flat_polys.append(added_zeros[matrix_term_indexes])
         added_zeros[slices] = np.zeros_like(coeff)
         coeff = 0
     poly_coeffs = 0
@@ -409,13 +559,13 @@ def get_divisor_terms(term, divisor_var):
     ----------
     term: numpy array
         The term to divide.
-    divisor_var : int
-        What variable is being divided by. 0 is x, 1 is y, etc.
 
     Returns
     -------
     terms : numpy array
         Each row is a term that will be in the quotient.
+    divisor_var : int
+        What variable is being divided by. 0 is x, 1 is y, etc.
     """
     dim = len(term)
     diff = np.zeros(dim)
@@ -447,9 +597,10 @@ def build_division_matrix(VB, VB_spot_dict, diag_reduction_dict, inv_reduction_d
 
     Returns
     -------
-    div_matrix : numpy array
-        The division matrix.
+    row : numpy array
+        The row we get in the inverse_matrix by dividing the term by x.
     """
+
     div_matrix = np.zeros((len(VB), len(VB)))
     for i in range(len(VB)):
         term = VB[i]

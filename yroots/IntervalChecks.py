@@ -1110,7 +1110,6 @@ def can_eliminate(poly, a, b, tol):
     x = np.array(x)
 
     max_curve = abs(chebvalnd(x, poly).iv_lambda)
-#     print(max_curve * n * h**2/8)
     return min_corner > max_curve * n * h**2/8 + tol
 
 def curvature_check(coeff, tol):

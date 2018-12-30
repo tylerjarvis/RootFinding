@@ -1,6 +1,10 @@
 import numpy as np
 from yroots.IntervalChecks import constant_term_check, full_quad_check, full_cubic_check, curvature_check, \
+<<<<<<< HEAD
 linear_check, quadratic_check
+=======
+linear_check, quadratic_check1, quadratic_check2, quadratic_check3
+>>>>>>> c602cd666c5787ea64e4fa9f6a00e66fe7c45758
 from yroots.polynomial import MultiCheb,MultiPower
 
 def test_zero_check2D():
