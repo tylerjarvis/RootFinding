@@ -32,14 +32,22 @@ def solve(funcs, a, b, plot = False, plot_intervals = False, polish = False):
         The lower bound on the interval.
     b : numpy array
         The upper bound on the interval.
+    plot : bool
+        If True plots the zeros-loci of the functions along with the computed roots
+    plot_intervals : bool
+        If True, plot is True, and the functions are 2 dimensional, plots what check/method solved
+        each part of the interval.
+    polish : bool
+        If True resolves for each root on a smaller interval with a finer approximation to give a
+        more accurate answer.
 
     If finding roots of a univariate function, `funcs` does not need to be a list,
     and `a` and `b` can be floats instead of arrays.
 
     returns
     -------
-    roots : numpy array
-        The common roots of the polynomials. Each row is a root.
+    zeros : numpy array
+        The common zeros of the polynomials. Each row is a root.
     '''
     interval_data = IntervalData(a,b)
 
@@ -110,12 +118,12 @@ def chebyshev_block_copy(values_block):
 
     Parameters
     ----------
-    block_values : numpy array
+    values_block : numpy array
       block of values from function evaluation
 
     Returns
     -------
-    cheb_values : numpy array
+    values_cheb : numpy array
       chebyshev interpolation values
     """
     dim = values_block.ndim
@@ -172,13 +180,13 @@ def interval_approximate_nd(f,a,b,degs,return_bools=False):
     deg : numpy array
         The degree of the interpolation in each dimension.
     return_bools: bool
-        whether to return bools which indicate if a funtion changes sign or not
+        whether to return bools which indicate if the funtion changes sign or not
 
     Returns
     -------
     coeffs : numpy array
         The coefficient of the chebyshev interpolating polynomial.
-    change_sign: numpy array
+    change_sign: numpy array (Optional)
         list of which subintervals change sign
     """
     if len(a)!=len(b):
@@ -256,6 +264,19 @@ def get_subintervals(a,b,dimensions,interval_data,polys,change_sign,approx_tol,c
         The upper bound on the interval.
     dimensions : numpy array
         The dimensions we want to cut in half.
+    interval_data : IntervalData
+        A class to run the subinterval checks and keep track of the solve progress
+    polys : list
+        A list of MultiCheb polynomials representing the function approximations on the
+        interval to subdivide. Used in the subinterval checks.
+    change_sign : list
+        A list of bools of whether we know the functions can change sign on the subintervals.
+        Used in the subinterval checks.
+    approx_tol: float
+        The bound of the sup norm error of the chebyshev approximation. Because trim_coeff
+        introduces this much error again, 2*approx_tol is passed into the subintervals checks.
+    check_subintervals : bool
+        If True runs the subinterval checks to through out intervals where the functions are never 0.
 
     Returns
     -------
@@ -276,8 +297,9 @@ def get_subintervals(a,b,dimensions,interval_data,polys,change_sign,approx_tol,c
         subintervals.append((aTemp,bTemp))
 
     if check_subintervals:
-        scaled_subintervals = get_subintervals(-np.ones_like(a),np.ones_like(a),dimensions,None,None,None,approx_tol,False)
-        return interval_data.check_subintervals(subintervals, scaled_subintervals, polys, change_sign, approx_tol)
+        scaled_subintervals = get_subintervals(-np.ones_like(a),np.ones_like(a),dimensions,None,None,None,approx_tol)
+        #Uses 2*approx_tol because this much error can be added in the approximation and the trim_coeff
+        return interval_data.check_subintervals(subintervals, scaled_subintervals, polys, change_sign, 2*approx_tol)
     else:
         return subintervals
 
@@ -298,6 +320,8 @@ def full_cheb_approximate(f,a,b,deg,tol=1.e-8,good_degs=None):
         The degree to approximate with.
     tol : float
         How small the high degree terms must be to consider the approximation accurate.
+    good_degs : numpy array
+        Interpoation degrees that are guaranteed to give an approximation valid to within approx_tol.
 
     Returns
     -------
@@ -332,11 +356,14 @@ def good_zeros_nd(zeros, imag_tol = 1.e-5, real_tol = 1.e-5):
         The zeros to be checked.
     imag_tol : float
         How large the imaginary part can be to still have it be considered real.
+    real_tol : float
+        How far the real part can be outside the interval [-1,1] and still be
+        considered valid.
 
     Returns
     -------
     good_zeros : numpy array
-        The real zero in [-1,1] of the input zeros.
+        The real zeros in [-1,1] of the input zeros.
     """
     good_zeros = zeros[np.all(np.abs(zeros.imag) < imag_tol,axis = 1)]
     good_zeros = good_zeros[np.all(np.abs(good_zeros) <= 1 + real_tol,axis = 1)]
@@ -355,11 +382,22 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
         The upper bound on the interval.
     deg : int
         The degree to approximate with in the chebyshev approximation.
+    interval_data : IntervalData
+        A class to run the subinterval checks and keep track of the solve progress
+    approx_tol: float
+        The bound of the sup norm error of the chebyshev approximation.
+    solve_tol : float
+        The tolerance to pass into division solve.
+    polish : bool
+        If True resolves for each root on a smaller interval with a finer approximation to give a
+        more accurate answer.
+    good_degs : numpy array
+        Interpoation degrees that are guaranteed to give an approximation valid to within approx_tol.
 
     Returns
     -------
-    good_zeros : numpy array
-        The real zero in [-1,1] of the input zeros.
+    zeros : numpy array
+        The real zeros of the functions in the interval [a,b]
     """
     cheb_approx_list = []
     try:
@@ -374,7 +412,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
             
             #Subdivides if a bad approximation
             if coeff is None:
-                intervals = get_subintervals(a,b,np.arange(dim),None,None,None,approx_tol,None)
+                intervals = get_subintervals(a,b,np.arange(dim),None,None,None,approx_tol)
                 return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_data,\
                                                        approx_tol,solve_tol,polish) for interval in intervals])
             else:
@@ -389,7 +427,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
                 cheb_approx_list.append(coeff)
         
         #Make the system stable to solve
-        coeffs, divisor_var = trim_coeffs(cheb_approx_list, approx_tol = approx_tol)
+        coeffs, divisor_var = trim_coeffs(cheb_approx_list, approx_tol, solve_tol)
         
         #Check if everything is linear
         if np.all(np.array([coeff.shape[0] for coeff in coeffs]) == 2):
@@ -412,14 +450,13 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
             interval_data.track_interval("Base Case", [a,b])
             if polish:
                 polish_tol = (b[0]-a[0])/100
-                return polish_zeros(transform(good_zeros_nd(zero.reshape([1,dim])),a,b), funcs,\
-                                    interval_data,tol=polish_tol)
+                return polish_zeros(transform(good_zeros_nd(zero.reshape([1,dim])),a,b), funcs, polish_tol)
             else:
                 return transform(good_zeros_nd(zero.reshape([1,dim])),a,b)
         elif np.any(np.array([coeff.shape[0] for coeff in coeffs]) == 2):
             #Subdivide but run some checks on the intervals first
             intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,\
-                                                 approx_tol,check_subintervals=True)
+                                                 approx_tol,True)
             if len(intervals) == 0:
                 return np.zeros([0,dim])
             else:
@@ -432,7 +469,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
         if divisor_var < 0:
             #Subdivide but run some checks on the intervals first
             intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,\
-                                                 change_sign,approx_tol,check_subintervals=True)
+                                                 change_sign,approx_tol,True)
             if len(intervals) == 0:
                 return np.zeros([0,dim])
             else:
@@ -447,7 +484,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
             return np.zeros([0,dim])
         if polish:
             polish_tol = (b[0]-a[0])/100
-            return polish_zeros(transform(good_zeros_nd(zeros),a,b), funcs, interval_data, polish_tol)
+            return polish_zeros(transform(good_zeros_nd(zeros),a,b), funcs, polish_tol)
         else:
             return transform(good_zeros_nd(zeros),a,b)
 
@@ -455,7 +492,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
         #Try in other directions
         divisor_var += 1
         while divisor_var < dim:
-            if not good_direc(coeffs,divisor_var): #TEMP
+            if not good_direc(coeffs,divisor_var,solve_tol*100):
                 break
             try:
                 zeros = np.array(division(polys, divisor_var, solve_tol))
@@ -464,7 +501,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
                     return np.zeros([0,dim])
                 if polish:
                     polish_tol = (b[0]-a[0])/100
-                    return polish_zeros(transform(good_zeros_nd(zeros),a,b),funcs,interval_data,polish_tol)
+                    return polish_zeros(transform(good_zeros_nd(zeros),a,b),funcs,polish_tol)
                 else:
                     return transform(good_zeros_nd(zeros),a,b)
             except np.linalg.LinAlgError as e:
@@ -480,6 +517,22 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
                                                    approx_tol,solve_tol,polish,good_degs) for interval in intervals])
 
 def good_direc(coeffs, dim, tol=1e-6):
+    """Determines if this is a good direction to try solving with division.
+
+    Parameters
+    ----------
+    coeffs : list
+        The coefficient matrices of the polynomials to solve.
+    dim : int
+        The direction to divide by in division.
+    tol : float
+        How small spots that will be in the Macaulay diagonal are allowed to get before we determine it is unstable.
+
+    Returns
+    -------
+    good_direc : bool
+        If True running division should be stable. If False, probably not.
+    """    
     slices = []
     for i in range(coeffs[0].ndim):
         if i == dim:
@@ -501,7 +554,25 @@ def good_direc(coeffs, dim, tol=1e-6):
         return False
     return True    
 
-def polish_zeros(zeros, funcs, interval_data, tol=1.e-2):
+def polish_zeros(zeros, funcs, tol=1.e-2):
+    """Polishes the given zeros of the functions to a better accuracy.
+
+    Resolves with finer tolerances in a box around the zeros.
+
+    Parameters
+    ----------
+    zeros : numpy array
+        The given zeros.
+    funcs : list
+        The functions to find the zeros of.
+    tol : float
+        How big of a box around the found zeros to solve on.
+
+    Returns
+    -------
+    polish_zeros : numpy
+        The polished zeros.
+    """    
     if len(zeros) == 0:
         return zeros
     dim = zeros.shape[1]
@@ -517,13 +588,17 @@ def polish_zeros(zeros, funcs, interval_data, tol=1.e-2):
         polished_zeros.append(polished_zero)
     return np.vstack(polished_zeros)
 
-def trim_coeffs(coeffs, approx_tol):
+def trim_coeffs(coeffs, approx_tol, solve_tol):
     """Trim the coefficient matrices so they are stable and choose a direction to divide in.
 
     Parameters
     ----------
     coeffs : list
         The coefficient matrices of the Chebyshev polynomials we are solving.
+    approx_tol: float
+        The bound of the sup norm error of the chebyshev approximation.
+    solve_tol : float
+        The tolerance to pass into division solve.
 
     Returns
     -------
@@ -574,7 +649,7 @@ def trim_coeffs(coeffs, approx_tol):
         return coeffs, -1
     else:
         for divisor_var in range(coeffs[0].ndim):
-            if good_direc(coeffs,divisor_var):
+            if good_direc(coeffs,divisor_var,solve_tol*100):
                 return coeffs, divisor_var
         return coeffs, -1
 
@@ -646,8 +721,10 @@ def subdivision_solve_1d(f,a,b,cheb_approx_tol=1.e-3,max_degree=128):
         The lower bound on the interval.
     b : numpy array
         The upper bound on the interval.
-    deg : int
-        The degree of the interpolation.
+    cheb_approx_tol : float
+        The bound of the sup norm error of the chebyshev approximation.
+    max_degree : int
+        The degree of the interpolation before subdividing.
 
     Returns
     -------

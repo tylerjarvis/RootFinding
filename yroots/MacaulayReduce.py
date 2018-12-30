@@ -46,7 +46,8 @@ def find_degree(poly_list, verbose=False):
     --------
     poly_list: list
         The polynomials used to construct the matrix.
-
+    verbose : bool
+        If True prints the degree
     Returns
     -----------
     find_degree : int
@@ -78,6 +79,8 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     cuts : tuple
         When the matrix is reduced it is split into 3 parts with restricted pivoting. These numbers indicate
         where those cuts happen.
+    accuracy : float
+        Throws an error if the condition number of the backsolve is more than 1/accuracy.
     Returns
     -------
     matrix : numpy array
@@ -115,7 +118,6 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     matrix[np.isclose(matrix, 0)] = 0
     
     D = np.linalg.svd(matrix[:,:matrix.shape[0]], compute_uv=False)
-#     print(D[0]/D[-1], 1/accuracy, accuracy)
     if D[0]/D[-1] > 1/accuracy:
         raise MacaulayError("BAD SINGULAR VALUES")
         
