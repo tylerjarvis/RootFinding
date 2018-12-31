@@ -119,7 +119,7 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     
     D = np.linalg.svd(matrix[:,:matrix.shape[0]], compute_uv=False)
     if D[0]/D[-1] > 1/accuracy:
-        raise MacaulayError("BAD SINGULAR VALUES")
+        return -1, -1
         
     return matrix, matrix_terms
 
