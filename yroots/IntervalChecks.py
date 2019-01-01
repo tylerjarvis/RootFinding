@@ -77,7 +77,24 @@ class IntervalData:
         self.polishing = False
         self.tick = 0
     
-    def check_intervals(self, coeff, approx_tol, a, b):
+    def check_interval(self, coeff, approx_tol, a, b):
+        ''' Runs the interval checks on the interval [a,b]
+
+        Parameters
+        ----------
+        coeff : numpy array.
+            The coefficient matrix of the Chebyshev approximation to check.
+        approx_tol: float
+            The sup norm bound on the approximation error.
+        a: numpy array
+            The lower bounds of the interval to check.
+        b: numpy array
+            The upper bounds of the interval to check.
+        Returns
+        -------
+        check_interval : bool
+            True if we can throw out the interval. Otherwise False.
+        '''
         for check in self.interval_checks:
             if not check(coeff, approx_tol):
                 self.track_interval(check.__name__, [a,b])
@@ -85,6 +102,25 @@ class IntervalData:
         return False
     
     def check_subintervals(self, subintervals, scaled_subintervals, polys, change_sign, approx_tol):
+        ''' Runs the subinterval checks on the given intervals
+
+        Parameters
+        ----------
+        subintervals : list
+            A list of the intervals to check.
+        scaled_subintervals: list
+            A list of the intervals to check, scaled to the unit box that the approxiations are valid on.
+        polys: list
+            The MultiCheb polynomials that approximate the functions on these intervals.
+        change_sign: list
+            A list of bools of whether we know the functions can change sign on the subintervals.
+        approx_tol: float
+            The sup norm bound on the approximation error.
+        Returns
+        -------
+        check_interval : bool
+            True if we can throw out the interval. Otherwise False.
+        '''
         for check in self.subinterval_checks:
             for poly in polys:
                 mask = check(poly, scaled_subintervals, change_sign, approx_tol)
@@ -101,11 +137,23 @@ class IntervalData:
         return subintervals
     
     def track_interval(self, name, interval):
+        ''' Stores what happened to a given interval
+
+        Parameters
+        ----------
+        name : string
+            The name of the check or process (Division, Base Case) that solved this interval
+        interval: list
+            [a,b] where a and b are the lower and upper bound of the interval to track.
+        '''
         if not self.polishing:
             self.interval_results[name].append(interval)
             self.current_area += np.prod(interval[1] - interval[0])
         
     def print_progress(self):
+        ''' Prints the progress of subdivision solve. Only prints every 100th time this function is
+            called to save time.
+        '''
         if not self.polishing:
             if self.tick == 100:
                 self.tick = 0
@@ -113,6 +161,9 @@ class IntervalData:
             self.tick += 1
         
     def print_results(self):
+        ''' Prints the results of subdivision solve, how many intervals there were and what percent were
+            solve by each check/method.
+        '''
         results_numbers = np.array([len(self.interval_results[name]) for name in self.interval_results])
         total_intervals = sum(results_numbers)
         checkers = [name for name in self.interval_results]
@@ -121,6 +172,17 @@ class IntervalData:
         print("The percent solved by each was {}".format((100*results_numbers / total_intervals).round(2)))
         
     def plot_results(self, funcs, zeros, plot_intervals):
+        ''' Prints the results of subdivision solve. Only works if the funcitons are two dimensional.
+
+        Parameters
+        ----------
+        funcs : list
+            A list of the functions the were solved
+        zeros: numpy array
+            Each row is a zero of the funcitons
+        plot_intervals: bool
+            If true, shows on the plot which areas were solved by which check/method.
+        '''
         #colors: use alpha = .5, dark green, black, orange roots. Change colors of check info plots
         #3D plot with small alpha, matplotlib interactive, animation
         #make logo
@@ -176,7 +238,23 @@ class IntervalData:
         plt.show()
 
 def extreme_val3(test_coeff, maxx = True):
-    """Absolute value of max or min of |a + bx + c(2x^2 - 1)| on -1 to 1, used by quad_check"""
+    ''' Finds the extreme value of test_coeff on -1 to 1, used by quad_check
+
+    test_coeff is [a,b,c] and represents the funciton a + bx + c(2x^2 - 1).
+    Basic calc can be used to find the extreme values.
+    
+    Parameters
+    ----------
+    test_coeff : numpy array
+        Array representing [a,b,c]
+    maxx: bool
+        If true returns the absolute value of the max of the funciton, otherwise returns
+        the absolute value of the min of the function.
+    Returns
+    -------
+    extreme_val3 : float
+        The extreme value (max or min) of the absolute value of a + bx + c(2x^2 - 1).
+    '''
     a,b,c = test_coeff
     if np.abs(c) < 1.e-10:
         if maxx:
@@ -200,7 +278,23 @@ def extreme_val3(test_coeff, maxx = True):
                 return min(np.abs(vals))
 
 def extreme_val4(test_coeff, maxx = True):
-    """Absolute value of max or min of a + bx + c(2x^2 - 1) + d*(4x^3 - 3x) on -1 to 1"""
+    ''' Finds the extreme value of test_coeff on -1 to 1, used by cubic_check
+
+    test_coeff is [a,b,c,d] and represents the funciton a + bx + c(2x^2 - 1) + d*(4x^3 - 3x).
+    Basic calc can be used to find the extreme values.
+    
+    Parameters
+    ----------
+    test_coeff : numpy array
+        Array representing [a,b,c,d]
+    maxx: bool
+        If true returns the absolute value of the max of the funciton, otherwise returns
+        the absolute value of the min of the function.
+    Returns
+    -------
+    extreme_val4 : float
+        The extreme value (max or min) of the absolute value of a + bx + c(2x^2 - 1) + d*(4x^3 - 3x).
+    '''
     a,b,c,d = test_coeff
     if np.abs(d) < 1.e-10:
         return extreme_val3([a,b,c], maxx = maxx)
@@ -225,40 +319,48 @@ def extreme_val4(test_coeff, maxx = True):
                 return min(np.abs(vals))
 
 def constant_term_check(test_coeff, tol):
-    """Quick check of zeros in the unit box.
+    """One of interval_checks
 
     Checks if the constant term is bigger than all the other terms combined, using the fact that
     each Chebyshev monomial is bounded by 1.
 
     Parameters
     ----------
-    coeff : numpy array
+    test_coeff : numpy array
         The coefficient matrix of the polynomial to check
+    tol: float
+        The bound of the sup norm error of the chebyshev approximation.
 
     Returns
     -------
-    check1 : bool
-        False if there are no zeros in the unit box, True otherwise
+    constant_term_check : bool
+        False if the function is guarenteed to never be zero in the unit box, True otherwise
     """
     test_sum = np.sum(np.abs(test_coeff))
-    if np.abs(test_coeff.flatten()[0]) * 2 > test_sum + tol:
+    if np.abs(test_coeff[tuple([0]*test_coeff.ndim)]) * 2 > test_sum + tol:
         return False
     else:
         return True
 
 def quad_check(test_coeff, tol):
-    """Quick check of zeros in the unit box.
+    """One of interval_checks
+
+    Like the constant term check, but splits the coefficient matrix into a one dimensional
+    quadratics and uses the extreme values of those to get a better bound.
 
     Parameters
     ----------
     test_coeff : numpy array
         The coefficient matrix of the polynomial to check
+    tol: float
+        The bound of the sup norm error of the chebyshev approximation.
 
     Returns
     -------
     quad_check : bool
-        False if there are no zeros in the unit box, True otherwise
+        False if the function is guarenteed to never be zero in the unit box, True otherwise
     """
+    #The check fails if the test_coeff isn't at least quadratic
     if np.any(np.array(test_coeff.shape) < 3):
         return True
     dim = test_coeff.ndim
@@ -268,9 +370,11 @@ def quad_check(test_coeff, tol):
     for i in range(dim-1):
         slices.append(0)
 
+    #Get the min of the quadratic including the constant term
     start = extreme_val3(test_coeff[tuple(slices)], maxx = False)
     rest = 0
 
+    #Get the max's of the other quadratics
     shape = list(test_coeff.shape)
     shape[slice_direc] = 1
     for spots in itertools.product(*[np.arange(i) for i in shape]):
@@ -279,6 +383,7 @@ def quad_check(test_coeff, tol):
                 slices[i] = spots[i]
             rest += extreme_val3(test_coeff[tuple(slices)])
 
+    #Tries the one-dimensional slices in other directions
     while slice_direc < dim - 1:
         slice_direc += 1
         slices[slice_direc] = slice(0,3)
@@ -302,18 +407,24 @@ def quad_check(test_coeff, tol):
         return True
 
 def cubic_check(test_coeff, tol):
-    """Quick check of zeros in the unit box.
+    """One of interval_checks
+
+    Like the constant_term, but splits the coefficient matrix into a one dimensional
+    cubics and uses the extreme values of those to get a better bound.
 
     Parameters
     ----------
     test_coeff : numpy array
         The coefficient matrix of the polynomial to check
+    tol: float
+        The bound of the sup norm error of the chebyshev approximation.
 
     Returns
     -------
     cubic_check : bool
-        False if there are no zeros in the unit box, True otherwise
+        False if the function is guarenteed to never be zero in the unit box, True otherwise
     """
+    #The check fails if the test_coeff isn't at least cubic
     if np.any(np.array(test_coeff.shape) < 4):
         return True
     dim = test_coeff.ndim
@@ -323,9 +434,11 @@ def cubic_check(test_coeff, tol):
     for i in range(dim-1):
         slices.append(0)
 
+    #Get the min of the cubic including the constant term
     start = extreme_val4(test_coeff[tuple(slices)], maxx = False)
     rest = 0
 
+    #Get the max's of the other cubics
     shape = list(test_coeff.shape)
     shape[slice_direc] = 1
     for spots in itertools.product(*[np.arange(i) for i in shape]):
@@ -334,6 +447,7 @@ def cubic_check(test_coeff, tol):
                 slices[i] = spots[i]
             rest += extreme_val4(test_coeff[tuple(slices)])
 
+    #Tries the one-dimensional slices in other directions
     while slice_direc < dim - 1:
         slice_direc += 1
         slices[slice_direc] = slice(0,4)
@@ -357,17 +471,21 @@ def cubic_check(test_coeff, tol):
         return True
 
 def full_quad_check(test_coeff, tol):
-    """Quick check of zeros in the unit box.
+    """One of interval_checks
+
+    Runs the quad_check in each possible direction to get as much out of it as possible.
 
     Parameters
     ----------
     test_coeff : numpy array
         The coefficient matrix of the polynomial to check
+    tol: float
+        The bound of the sup norm error of the chebyshev approximation.
 
     Returns
     -------
     full_quad_check : bool
-        False if there are no zeros in the unit box, True otherwise
+        False if the function is guarenteed to never be zero in the unit box, True otherwise
     """
     for perm in itertools.permutations(np.arange(test_coeff.ndim)):
         if not quad_check(test_coeff.transpose(perm), tol):
@@ -375,17 +493,21 @@ def full_quad_check(test_coeff, tol):
     return True
 
 def full_cubic_check(test_coeff, tol):
-    """Quick check of zeros in the unit box.
+    """One of interval_checks
+
+    Runs the cubic_check in each possible direction to get as much out of it as possible.
 
     Parameters
     ----------
     test_coeff : numpy array
         The coefficient matrix of the polynomial to check
+    tol: float
+        The bound of the sup norm error of the chebyshev approximation.
 
     Returns
     -------
-    full_quad_check : bool
-        False if there are no zeros in the unit box, True otherwise
+    full_cubic_check : bool
+        False if the function is guarenteed to never be zero in the unit box, True otherwise
     """
     for perm in itertools.permutations(np.arange(test_coeff.ndim)):
         if not cubic_check(test_coeff.transpose(perm), tol):
@@ -393,19 +515,26 @@ def full_cubic_check(test_coeff, tol):
     return True
 
 def linear_check(test_coeff_in, intervals, change_sign, tol):
-    """Quick check of zeros in intervals.
+    """One of subinterval_checks
+
+    Checks the max of the linear part of the approximation and compares to the sum of the other terms.
 
     Parameters
     ----------
     test_coeff_in : numpy array
         The coefficient matrix of the polynomial to check
     intervals : list
-        A list of the intervals we want to check before subdividing them
+        A list of the intervals to check.
+    change_sign: list
+        A list of bools of whether we know the functions can change sign on the subintervals.
+    tol: float
+        The bound of the sup norm error of the chebyshev approximation.
 
     Returns
     -------
     mask : list
-        Masks out the intervals we know there are no roots in
+        A list of the results of each interval. False if the function is guarenteed to never be zero
+        in the unit box, True otherwise
     """
     dim = test_coeff_in.ndim
     coeff_abs_sum = np.sum(np.abs(test_coeff_in))
@@ -448,275 +577,29 @@ def linear_check(test_coeff_in, intervals, change_sign, tol):
 
     return mask
 
-def quadratic_check1(test_coeff, intervals, change_sign, tol):
-    """Quick check of zeros in intervals using the x^2 terms.
+def quadratic_check(test_coeff, intervals,change_sign,tol):
+    """One of subinterval_checks
+
+    Finds the min of the absolute value of the quadratic part, and compares to the sum of the
+    rest of the terms. quadratic_check_2D and quadratic_check_3D are faster so runs those if it can,
+    otherwise it runs the genereic n-dimensional version.
 
     Parameters
     ----------
-    test_coeff : numpy array
+    test_coeff_in : numpy array
         The coefficient matrix of the polynomial to check
     intervals : list
-        A list of the intervals we want to check before subdividing them
+        A list of the intervals to check.
+    change_sign: list
+        A list of bools of whether we know the functions can change sign on the subintervals.
+    tol: float
+        The bound of the sup norm error of the chebyshev approximation.
 
     Returns
     -------
     mask : list
-        Masks out the intervals we know there aren't roots in
-    """
-    if test_coeff.ndim > 2:
-        return [True]*len(intervals)
-    padding = [(0,max(0,3-i)) for i in test_coeff.shape]
-    test_coeff = np.pad(test_coeff.copy(), padding, mode='constant')
-    #check using |b0 + b1x + b2y +b3T_2(x)| = |(b0 - b3) + b1x + b2y + 2 b3x^2| = |c0 + c1x + c2y + c3x^2|
-    constant = test_coeff[0,0] - test_coeff[2,0]
-    c1 = test_coeff[1,0]
-    c2 = test_coeff[0,1]
-    c3 = 2*test_coeff[2,0]
-
-    #if c3 != 0, same as a linear check
-    if np.isclose(c3, 0, atol=tol) or np.isclose(c2, 0, atol=tol):
-        return [True]*len(intervals)
-    mask = []
-    for i, interval in enumerate(intervals):
-        #if it changes sign, there's a root there
-        if change_sign[i]:
-            mask.append(True)
-            continue
-
-        def quadratic_formula_check(y):
-            """given a fixed value of y, uses the quadratic formula
-                to see if constant + c1x + c2y +c3T_2(x) = 0
-                for some x in [a0, b0]"""
-            discriminant = c1**2 - 4*(c2*y+constant)*c3
-            if np.isclose(discriminant, 0,atol=tol) and interval[0][0] < -c1/2/c3 < interval[1][0]:
-                 return True
-            elif discriminant > 0 and \
-                  (interval[0][0] < (-c1+np.sqrt(discriminant))/2/c3 < interval[1][0] or \
-                   interval[0][0] < (-c1-np.sqrt(discriminant))/2/c3 < interval[1][0]):
-                return True
-            else:
-                return False
-         #If constant + c1x + c2y +c3x^2 = 0 in the region, useless check.
-        if np.isclose(c2, 0,atol=tol) and quadratic_formula_check(0):
-            mask.append(True) #could be a root there
-            continue
-        else:
-            y = lambda x: (-c3 *x**2 - c1 * x - constant)/c2
-            if interval[0][1] < y(interval[0][0]) < interval[1][1] or interval[0][1] < y(interval[1][0]) < interval[1][1]:
-                mask.append(True)
-                continue
-            elif quadratic_formula_check(interval[0][0]) or quadratic_formula_check(interval[1][0]):
-                mask.append(True)
-                continue
-
-         #function for evaluating |constant + c1x + c2y +c3x^2|
-        eval = lambda xy: abs(constant + c1*xy[:,0] + c2*xy[:,1] + c3 * xy[:,0]**2)
-         #In this case, extrema only occur on the edges since there are no critical points
-        #edges 1&2: x = a0, b0 --> potential extrema at corners
-        #edges 3&4: y = a1, b1 --> potential extrema at x0 = -c1/2c3, if that's in [a0, b0]
-        if interval[0][0] < -c1/2/c3 < interval[1][0]:
-            potential_minimizers = np.array([[interval[0][0],interval[0][1]],
-                                             [interval[0][0],interval[1][1]],
-                                             [interval[1][0],interval[0][1]],
-                                             [interval[1][0],interval[1][1]],
-                                             [-c1/2/c3,interval[0][1]],
-                                             [-c1/2/c3,interval[1][1]]])
-        else:
-            potential_minimizers = np.array([[interval[0][0],interval[0][1]],
-                                             [interval[0][0],interval[1][1]],
-                                             [interval[1][0],interval[0][1]],
-                                             [interval[1][0],interval[1][1]]])
-         #if min{|constant + c1x + c2y +c3x^2|} > sum of other terms in test_coeff, no roots in the region
-        if min(eval(potential_minimizers))-tol > np.sum(np.abs(test_coeff)) - abs(constant) - abs(c1) - abs(c2) - abs(c3):
-            mask.append(False)
-        else:
-            mask.append(True)
-    return mask
-
-def quadratic_check2(test_coeff, intervals, change_sign, tol):
-    """Quick check of zeros in the unit box using the y^2 terms
-
-     Parameters
-     ----------
-     test_coeff : numpy array
-         The coefficient matrix of the polynomial to check
-     intervals : list
-         A list of the intervals we want to check before subdividing them
-
-     Returns
-     -------
-     mask : list
-         Masks out the intervals we don't want
-    """
-    if test_coeff.ndim > 2:
-        return [True]*len(intervals)
-    padding = [(0,max(0,3-i)) for i in test_coeff.shape]
-    test_coeff = np.pad(test_coeff.copy(), padding, mode='constant')
-    #very similar to quadratic_check_1, but switch x and y
-    #check using |b0 + b1x + b2y +b3T_2(y)| = |b0 - b3 + b1x + b2y + 2 b3y^2| = |c0 + c1x + c2y + c3y^2|
-    constant = test_coeff[0,0] - test_coeff[0,2]
-    c1 = test_coeff[1,0]
-    c2 = test_coeff[0,1]
-    c3 = 2*test_coeff[0,2]
-
-    #if c3 != 0, same as a linear check
-    if np.isclose(c3, 0, atol=tol) or np.isclose(c1, 0, atol=tol):
-        return[True]*len(intervals)
-    mask = []
-    for i, interval in enumerate(intervals):
-        if change_sign[i]:
-            mask.append(True)
-            continue
-        def quadratic_formula_check(x):
-            """given a fixed value of x, uses the quadratic formula
-                to see if constant + c1x + c2y +c3y^2 = 0
-                for some y in [a1, b1]"""
-            discriminant = c2**2 - 4*(c1*x+constant)*c3
-            if np.isclose(discriminant, 0,atol=tol) and interval[0][1] < -c2/2/c3 < interval[1][1]:
-                 return True
-            elif discriminant > 0 and \
-                  (interval[0][1] < (-c2+np.sqrt(discriminant))/2/c3 < interval[1][1] or \
-                   interval[0][1] < (-c2-np.sqrt(discriminant))/2/c3 < interval[1][1]):
-                return True
-            else:
-                return False
-         #If constant + c1x + c2y +c3y^2 = 0 in the region, useless
-        if np.isclose(c1, 0) and quadratic_formula_check(0):
-            mask.append(True)
-            continue
-        else:
-            x = lambda y: (-c3 *y**2 - c2 * y - constant)/c1
-            if interval[0][0] < x(interval[0][1]) < interval[1][0] or interval[0][0] < x(interval[1][1]) < interval[1][0]:
-                mask.append(True)
-                continue
-            elif quadratic_formula_check(interval[0][1]) or quadratic_formula_check(interval[1][1]):
-                mask.append(True)
-                continue
-
-        #function to evaluate |constant + c1x + c2y +c3y^2|
-        eval = lambda xy: abs(constant + c1*xy[:,0] + c2*xy[:,1] + c3 * xy[:,1]**2)
-        #In this case, extrema only occur on the edges since there are no critical points
-        #edges 1&2: x = a0, b0 --> potential extrema at y0 = -c2/2c3, if that's in [a1, b1]
-        #edges 3&4: y = a1, b1 --> potential extrema at corners
-        if interval[0][1] < -c2/2/c3 < interval[1][1]:
-            potential_minimizers = np.array([[interval[0][0],interval[0][1]],
-                                             [interval[0][0],interval[1][1]],
-                                             [interval[1][0],interval[0][1]],
-                                             [interval[1][0],interval[1][1]],
-                                             [interval[0][0],-c2/2/c3],
-                                             [interval[1][0],-c2/2/c3]])
-        else:
-            potential_minimizers = np.array([[interval[0][0],interval[0][1]],
-                                             [interval[0][0],interval[1][1]],
-                                             [interval[1][0],interval[0][1]],
-                                             [interval[1][0],interval[1][1]]])
-         #if min{|constant + c1x + c2y +c3y^2|} > sum of other terms in test_coeff, no roots in the region
-        if min(eval(potential_minimizers))-tol > np.sum(np.abs(test_coeff)) - abs(constant) - abs(c1) - abs(c2) - abs(c3):
-            mask.append(False)
-        else:
-            mask.append(True)
-    return mask
-
-def quadratic_check3(test_coeff, intervals,change_sign,tol):
-    """Quick check of zeros in the unit box using the xy terms
-
-     Parameters
-     ----------
-     test_coeff : numpy array
-         The coefficient matrix of the polynomial to check
-     intervals : list
-         A list of the intervals we want to check before subdividing them
-
-     Returns
-     -------
-     mask : list
-         Masks out the intervals we don't want
-    """    
-    if test_coeff.ndim > 2:
-        return [True]*len(intervals)
-    padding = [(0,max(0,3-i)) for i in test_coeff.shape]
-    test_coeff = np.pad(test_coeff.copy(), padding, mode='constant')
-    #check using |constant + c1x + c2y +c3xy|
-    constant = test_coeff[0,0]
-    c1 = test_coeff[1,0]
-    c2 = test_coeff[0,1]
-    c3 = test_coeff[1,1]
-
-    ##if c3 == 0, same as a linear check
-    if np.isclose(c3, 0,atol=tol):
-        return [True]*len(intervals)
-
-    mask = []
-    for i, interval in enumerate(intervals):
-        if change_sign[i]:
-            mask.append(True)
-            continue
-        ##If constant + c1x + c2y +c3xy = 0 in the region, useless
-
-        #testing the vertical sides of the interval
-        vert_asymptote = -c2/c3
-        x = lambda y: (-constant + c2*y)/(c1 + c3*y)
-        if np.isclose(interval[0][1], vert_asymptote):
-            if interval[0][0] < x(interval[1][1]) < interval[1][0]:
-                mask.append(True)
-                continue
-        elif np.isclose(interval[1][1], vert_asymptote):
-            if interval[0][0] < x(interval[0][1]) < interval[1][0]:
-                mask.append(True)
-                continue
-        elif interval[0][0] < x(interval[0][1]) < interval[1][0] or interval[0][0] < x(interval[1][1]) < interval[1][0]:
-            mask.append(True)
-            continue
-
-        #testing the horizontal sides of the interval
-        horiz_asymptote = -c1/c3
-        y = lambda x: (-constant + c1*x)/(c2 + c3*x)
-        if np.isclose(interval[0][0], horiz_asymptote):
-            if interval[0][1] < y(interval[1][0]) < interval[1][1]:
-                mask.append(True)
-                continue
-        elif np.isclose(interval[1][0], horiz_asymptote):
-            if interval[0][1] < y(interval[0][0]) < interval[1][1]:
-                mask.append(True)
-                continue
-        elif interval[0][1] < y(interval[0][0]) < interval[1][1] or interval[0][1] < y(interval[1][0]) < interval[1][1]:
-            mask.append(True)
-            continue
-
-        ##Find the minimum
-
-        #function for evaluating |constant + c1x + c2y +c3xy|
-        eval = lambda xy: abs(constant + c1*xy[:,0] + c2*xy[:,1] + c3*xy[:,0]*xy[:,1])
-
-        #In this case, only critical point is saddle point, so all minima occur on the edges
-        #On all the edges it becomes linear, so extrema always ocur at the corners
-        potential_minimizers = np.array([[interval[0][0],interval[0][1]],
-                                         [interval[0][0],interval[1][1]],
-                                         [interval[1][0],interval[0][1]],
-                                         [interval[1][0],interval[1][1]]])
-
-        ##if min{|constant + c1x + c2y +c3xy|} > sum of other terms in test_coeff, no roots in the region
-        if min(eval(potential_minimizers))-tol > np.sum(np.abs(test_coeff)) - np.sum(np.abs(test_coeff[:2,:2])):
-            mask.append(False)
-        else:
-            mask.append(True)
-
-    return mask
-
-def quadratic_check(test_coeff, intervals,change_sign,tol):
-    """Quick check of zeros in the unit box using the xy terms
-
-     Parameters
-     ----------
-     test_coeff : numpy array
-         The coefficient matrix of the polynomial to check
-     intervals : list
-         A list of the intervals we want to check before subdividing them
-
-     Returns
-     -------
-     mask : list
-         Masks out the intervals we don't want
+        A list of the results of each interval. False if the function is guarenteed to never be zero
+        in the unit box, True otherwise
     """
     if test_coeff.ndim == 2:
         return quadratic_check_2D(test_coeff, intervals,change_sign,tol)
@@ -726,19 +609,27 @@ def quadratic_check(test_coeff, intervals,change_sign,tol):
         return quadratic_check_nd(test_coeff, intervals,change_sign,tol)
 
 def quadratic_check_2D(test_coeff, intervals,change_sign,tol):
-    """Quick check of zeros in the unit box using the xy terms
+    """One of subinterval_checks
 
-     Parameters
-     ----------
-     test_coeff : numpy array
-         The coefficient matrix of the polynomial to check
-     intervals : list
-         A list of the intervals we want to check before subdividing them
+    Finds the min of the absolute value of the quadratic part, and compares to the sum of the
+    rest of the terms.
 
-     Returns
-     -------
-     mask : list
-         Masks out the intervals we don't want
+    Parameters
+    ----------
+    test_coeff_in : numpy array
+        The coefficient matrix of the polynomial to check
+    intervals : list
+        A list of the intervals to check.
+    change_sign: list
+        A list of bools of whether we know the functions can change sign on the subintervals.
+    tol: float
+        The bound of the sup norm error of the chebyshev approximation.
+
+    Returns
+    -------
+    mask : list
+        A list of the results of each interval. False if the function is guarenteed to never be zero
+        in the unit box, True otherwise
     """
     if test_coeff.ndim != 2:
         return [True]*len(intervals)
@@ -836,19 +727,27 @@ def quadratic_check_2D(test_coeff, intervals,change_sign,tol):
     return mask
 
 def quadratic_check_3D(test_coeff, intervals,change_sign,tol):
-    """Quick check of zeros in the unit box using the xy terms
+    """One of subinterval_checks
 
-     Parameters
-     ----------
-     test_coeff : numpy array
-         The coefficient matrix of the polynomial to check
-     intervals : list
-         A list of the intervals we want to check before subdividing them
+    Finds the min of the absolute value of the quadratic part, and compares to the sum of the
+    rest of the terms.
 
-     Returns
-     -------
-     mask : list
-         Masks out the intervals we don't want
+    Parameters
+    ----------
+    test_coeff_in : numpy array
+        The coefficient matrix of the polynomial to check
+    intervals : list
+        A list of the intervals to check.
+    change_sign: list
+        A list of bools of whether we know the functions can change sign on the subintervals.
+    tol: float
+        The bound of the sup norm error of the chebyshev approximation.
+
+    Returns
+    -------
+    mask : list
+        A list of the results of each interval. False if the function is guarenteed to never be zero
+        in the unit box, True otherwise
     """
     if test_coeff.ndim != 3:
         return [True]*len(intervals)
@@ -992,19 +891,27 @@ def quadratic_check_3D(test_coeff, intervals,change_sign,tol):
     return mask
 
 def quadratic_check_nd(test_coeff, intervals,change_sign,tol):
-    """Quick check of zeros in the unit box using the xy terms
+    """One of subinterval_checks
 
-     Parameters
-     ----------
-     test_coeff : numpy array
-         The coefficient matrix of the polynomial to check
-     intervals : list
-         A list of the intervals we want to check before subdividing them
+    Finds the min of the absolute value of the quadratic part, and compares to the sum of the
+    rest of the terms.
 
-     Returns
-     -------
-     mask : list
-         Masks out the intervals we don't want
+    Parameters
+    ----------
+    test_coeff_in : numpy array
+        The coefficient matrix of the polynomial to check
+    intervals : list
+        A list of the intervals to check.
+    change_sign: list
+        A list of bools of whether we know the functions can change sign on the subintervals.
+    tol: float
+        The bound of the sup norm error of the chebyshev approximation.
+
+    Returns
+    -------
+    mask : list
+        A list of the results of each interval. False if the function is guarenteed to never be zero
+        in the unit box, True otherwise
     """
     if change_sign is None:
         return -1
@@ -1091,84 +998,6 @@ def quadratic_check_nd(test_coeff, intervals,change_sign,tol):
             mask.append(True)
 
     return mask
-
-def quadratic_check_int(test_coeff, tol):
-    """Quick check of zeros in the unit box using the xy terms
-
-     Parameters
-     ----------
-     test_coeff : numpy array
-         The coefficient matrix of the polynomial to check
-
-     Returns
-     -------
-    quadratic_check_int : bool
-        False if there are no zeros in the unit box, True otherwise
-    """
-    if test_coeff.ndim > 2:
-        return True
-    padding = [(0,max(0,3-i)) for i in test_coeff.shape]
-    test_coeff = np.pad(test_coeff.copy(), padding, mode='constant')
-    c0 = test_coeff[0,0]
-    c1 = test_coeff[1,0]
-    c2 = test_coeff[0,1]
-    c3 = test_coeff[2,0]
-    c4 = test_coeff[1,1]
-    c5 = test_coeff[0,2]
-    #The sum of the absolute values of everything else
-    other_sum = np.sum(np.abs(test_coeff)) - np.sum(np.abs([c0,c1,c2,c3,c4,c5]))
-    
-    #function for evaluating c0 + c1x + c2y +c3x^2 + c4xy + c5y^2 (note these are chebyshev monomials)
-    eval_func = lambda x,y: c0 + c1*x + c2*y + c3*(2*x**2-1) + c4*x*y + c5*(2*y**2-1)
-    
-    mask = []
-        
-    extreme_points = []
-    #Add all the corners
-    extreme_points.append(eval_func(-1., -1.))
-    extreme_points.append(eval_func(-1., 1.))
-    extreme_points.append(eval_func(1., -1.))
-    extreme_points.append(eval_func(1., 1.))
-
-    #Add the x constant boundaries
-    x = -1.
-    y = -(c2 + c4*x)/(4*c5)
-    if -1. < y < 1.:
-        extreme_points.append(eval_func(x,y))
-    x = 1.
-    y = -(c2 + c4*x)/(4*c5)
-    if -1. < y < 1.:
-        extreme_points.append(eval_func(x,y))
-
-    #Add the y constant boundaries
-    y = -1.
-    x = -(c1 + c4*y)/(4*c3)
-    if -1. < x < 1.:
-        extreme_points.append(eval_func(x,y))
-    y = 1.
-    x = -(c1 + c4*y)/(4*c3)
-    if -1. < x < 1.:
-        extreme_points.append(eval_func(x,y))
-
-    #Add the interior value
-    x = (c2*c4 - 4*c1*c5)/(16*c3*c5 - c4**2)
-    y = (c1*c4 - 4*c2*c3)/(16*c3*c5 - c4**2)
-    if -1. < x < 1.:
-        if -1. < y < 1.:
-            extreme_points.append(eval_func(x,y))
-
-    extreme_points = np.array(extreme_points)
-
-    #If sign change, True
-    if not np.all(extreme_points > 0) and not np.all(extreme_points < 0):
-        return True
-
-    if np.min(np.abs(extreme_points)) - tol > other_sum:
-        return False
-    else:
-        return True
-
-
 
 #This is all for Tyler's new function
 from mpmath import iv
@@ -1281,7 +1110,6 @@ def can_eliminate(poly, a, b, tol):
     x = np.array(x)
 
     max_curve = abs(chebvalnd(x, poly).iv_lambda)
-#     print(max_curve * n * h**2/8)
     return min_corner > max_curve * n * h**2/8 + tol
 
 def curvature_check(coeff, tol):
