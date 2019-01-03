@@ -650,7 +650,7 @@ def trim_coeffs(coeffs, approx_tol, solve_tol):
         else:
             coeff[slices] = 0
             deg = coeff.shape[0]-1
-            while True:
+            while deg > 1:
                 mons = mon_combos_limited_wrap(deg, dim, coeff.shape)
                 slices = [] #becomes the indices of the terms of degree deg
                 mons = np.array(mons).T
