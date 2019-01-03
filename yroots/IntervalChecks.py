@@ -20,7 +20,7 @@ class IntervalData:
     Attributes
     ----------
     interval_checks: list
-        A list of functions. Each function accepts a coefficient matrix and a tolerance, 
+        A list of functions. Each function accepts a coefficient matrix and a tolerance,
         and returns whether the Chebyshev Polynomial represented by that matrix, and
         accurate to within that tolerance, can ever be zero on the n dimensional interval [-1,1].
     subinterval_checks:list
@@ -52,7 +52,7 @@ class IntervalData:
     check_subintervals
         Checks if a polynomial can be zero on an list of intervals.
     track_interval
-        Tracks what happened to a given interval. 
+        Tracks what happened to a given interval.
     print_progress
         Prints what percentage of the domain has been searched
     print_results
@@ -76,7 +76,7 @@ class IntervalData:
         self.current_area = 0.
         self.polishing = False
         self.tick = 0
-    
+
     def check_interval(self, coeff, approx_tol, a, b):
         ''' Runs the interval checks on the interval [a,b]
 
@@ -100,7 +100,7 @@ class IntervalData:
                 self.track_interval(check.__name__, [a,b])
                 return True
         return False
-    
+
     def check_subintervals(self, subintervals, scaled_subintervals, polys, change_sign, approx_tol):
         ''' Runs the subinterval checks on the given intervals
 
@@ -135,7 +135,7 @@ class IntervalData:
                 scaled_subintervals = new_scaled_subintervals
                 subintervals = new_subintervals
         return subintervals
-    
+
     def track_interval(self, name, interval):
         ''' Stores what happened to a given interval
 
@@ -149,7 +149,7 @@ class IntervalData:
         if not self.polishing:
             self.interval_results[name].append(interval)
             self.current_area += np.prod(interval[1] - interval[0])
-        
+
     def print_progress(self):
         ''' Prints the progress of subdivision solve. Only prints every 100th time this function is
             called to save time.
@@ -159,7 +159,7 @@ class IntervalData:
                 self.tick = 0
                 print("\rPercent Finished: {}%       ".format(round(100*self.current_area/self.total_area,2)), end='')
             self.tick += 1
-        
+
     def print_results(self):
         ''' Prints the results of subdivision solve, how many intervals there were and what percent were
             solve by each check/method.
@@ -170,7 +170,7 @@ class IntervalData:
         print("Total intervals checked was {}".format(total_intervals))
         print("Methods used were {}".format(checkers))
         print("The percent solved by each was {}".format((100*results_numbers / total_intervals).round(2)))
-        
+
     def plot_results(self, funcs, zeros, plot_intervals):
         ''' Prints the results of subdivision solve. Only works if the funcitons are two dimensional.
 
@@ -197,11 +197,11 @@ class IntervalData:
         plt.title('Zero-Loci and Roots')
 
         dim = 2
-        
+
         #print the contours
         contour_colors = ['#003cff','k'] #royal blue and black
-        x = np.linspace(self.a[0],self.b[0],100)
-        y = np.linspace(self.a[1],self.b[1],100)
+        x = np.linspace(self.a[0],self.b[0],1000)
+        y = np.linspace(self.a[1],self.b[1],1000)
         X,Y = np.meshgrid(x,y)
         for i in range(dim):
             if isinstance(funcs[i], Polynomial):
@@ -242,7 +242,7 @@ def extreme_val3(test_coeff, maxx = True):
 
     test_coeff is [a,b,c] and represents the funciton a + bx + c(2x^2 - 1).
     Basic calc can be used to find the extreme values.
-    
+
     Parameters
     ----------
     test_coeff : numpy array
@@ -282,7 +282,7 @@ def extreme_val4(test_coeff, maxx = True):
 
     test_coeff is [a,b,c,d] and represents the funciton a + bx + c(2x^2 - 1) + d*(4x^3 - 3x).
     Basic calc can be used to find the extreme values.
-    
+
     Parameters
     ----------
     test_coeff : numpy array
@@ -633,7 +633,7 @@ def quadratic_check_2D(test_coeff, intervals,change_sign,tol):
     """
     if test_coeff.ndim != 2:
         return [True]*len(intervals)
-    
+
     #Padding is slow, so check the shape instead.
     shape = test_coeff.shape
     c0 = test_coeff[0,0]
@@ -657,13 +657,13 @@ def quadratic_check_2D(test_coeff, intervals,change_sign,tol):
         c5 = test_coeff[0,2]
     else:
         c5 = 0
-    
+
     #The sum of the absolute values of everything else
     other_sum = np.sum(np.abs(test_coeff)) - np.sum(np.abs([c0,c1,c2,c3,c4,c5]))
-    
+
     #function for evaluating c0 + c1x + c2y +c3x^2 + c4xy + c5y^2 (note these are chebyshev monomials)
     eval_func = lambda x,y: c0 + c1*x + c2*y + c3*(2*x**2-1) + c4*x*y + c5*(2*y**2-1)
-    
+
     #The interior min
     det = 16*c3*c5 - c4**2
     if det != 0:
@@ -672,20 +672,20 @@ def quadratic_check_2D(test_coeff, intervals,change_sign,tol):
     else:#Something outside the unit box
         int_x = 100
         int_y = 100
-    
+
     mask = []
     for i, interval in enumerate(intervals):
         if change_sign[i]:
             mask.append(True)
             continue
-        
+
         extreme_points = []
         #Add all the corners
         extreme_points.append(eval_func(interval[0][0], interval[0][1]))
         extreme_points.append(eval_func(interval[1][0], interval[0][1]))
         extreme_points.append(eval_func(interval[0][0], interval[1][1]))
         extreme_points.append(eval_func(interval[1][0], interval[1][1]))
-                
+
         #Add the x constant boundaries
         if c5 != 0:
             x = interval[0][0]
@@ -696,7 +696,7 @@ def quadratic_check_2D(test_coeff, intervals,change_sign,tol):
             y = -(c2 + c4*x)/(4*c5)
             if interval[0][1] < y < interval[1][1]:
                 extreme_points.append(eval_func(x,y))
-            
+
         #Add the y constant boundaries
         if c3 != 0:
             y = interval[0][1]
@@ -707,18 +707,18 @@ def quadratic_check_2D(test_coeff, intervals,change_sign,tol):
             x = -(c1 + c4*y)/(4*c3)
             if interval[0][0] < x < interval[1][0]:
                 extreme_points.append(eval_func(x,y))
-            
+
         #Add the interior value
         if interval[0][0] < int_x < interval[1][0] and interval[0][1] < int_y < interval[1][1]:
             extreme_points.append(eval_func(int_x,int_y))
-        
+
         extreme_points = np.array(extreme_points)
-        
+
         #If sign change, True
         if not np.all(extreme_points > 0) and not np.all(extreme_points < 0):
             mask.append(True)
             continue
-        
+
         if np.min(np.abs(extreme_points)) - tol > other_sum:
             mask.append(False)
         else:
@@ -751,7 +751,7 @@ def quadratic_check_3D(test_coeff, intervals,change_sign,tol):
     """
     if test_coeff.ndim != 3:
         return [True]*len(intervals)
-    
+
     #Padding is slow, so check the shape instead.
     shape = test_coeff.shape
     c0 = test_coeff[0,0,0]
@@ -791,15 +791,15 @@ def quadratic_check_3D(test_coeff, intervals,change_sign,tol):
         c9 = test_coeff[0,0,2]
     else:
         c9 = 0
-    
+
     #function for evaluating c0 + c1x + c2y +c3z + c4xy + c5xz + c6yz + c7x^2 + c8y^2 + c9z^2
     #(note these are chebyshev monomials)
     eval_func = lambda x,y,z: c0 + c1*x + c2*y + c3*z + c4*x*y + c5*x*z + c6*y*z +\
                                     c7*(2*x**2-1) + c8*(2*y**2-1) + c9*(2*z**2-1)
-        
+
     #The sum of the absolute values of everything else
     other_sum = np.sum(np.abs(test_coeff)) - np.sum(np.abs([c0,c1,c2,c3,c4,c5,c6,c7,c8,c9]))
-    
+
     #The interior min
     det = 4*c7*(16*c8*c9-c6**2) - c4*(4*c9*c4-c6*c5) + c5*(c6*c4-4*c8*c5)
     if det != 0:
@@ -810,13 +810,13 @@ def quadratic_check_3D(test_coeff, intervals,change_sign,tol):
         int_x = 100
         int_y = 100
         int_z = 100
-    
+
     mask = []
     for interval_num, interval in enumerate(intervals):
         if change_sign[interval_num]:
             mask.append(True)
             continue
-                
+
         extreme_points = []
         #Add all the corners
         extreme_points.append(eval_func(interval[0][0], interval[0][1], interval[0][2]))
@@ -827,7 +827,7 @@ def quadratic_check_3D(test_coeff, intervals,change_sign,tol):
         extreme_points.append(eval_func(interval[1][0], interval[0][1], interval[1][2]))
         extreme_points.append(eval_func(interval[0][0], interval[1][1], interval[1][2]))
         extreme_points.append(eval_func(interval[1][0], interval[1][1], interval[1][2]))
-        
+
         #Add the x constant boundaries
         det = 16*c8*c9-c6**2
         if det != 0:
@@ -841,7 +841,7 @@ def quadratic_check_3D(test_coeff, intervals,change_sign,tol):
             z = (c6*(-c2-c4*x)+4*c9*(-c3-c5*x))/det
             if interval[0][1] < y < interval[1][1] and interval[0][2] < z < interval[1][2]:
                 extreme_points.append(eval_func(x,y,z))
-        
+
         #Add the y constant boundaries
         det = 16*c7*c9-c5**2
         if det != 0:
@@ -855,7 +855,7 @@ def quadratic_check_3D(test_coeff, intervals,change_sign,tol):
             z = (c5*(-c1-c4*y)+4*c9*(-c3-c6*y))/det
             if interval[0][0] < x < interval[1][0] and interval[0][2] < x < interval[1][2]:
                 extreme_points.append(eval_func(x,y,z))
-        
+
         #Add the z constant boundaries
         A = np.array([[4*c7,c4],[c4,4*c8]])
         det = 16*c7*c8-c4**2
@@ -870,19 +870,19 @@ def quadratic_check_3D(test_coeff, intervals,change_sign,tol):
             y = (c4*(-c1-c5*z)+4*c8*(-c2-c6*z))/det
             if interval[0][0] < x < interval[1][0] and interval[0][1] < y < interval[1][1]:
                 extreme_points.append(eval_func(x,y,z))
-        
+
         #Add the interior value
         if interval[0][0] < int_x < interval[1][0] and interval[0][1] < int_y < interval[1][1] and\
                 interval[0][2] < int_z < interval[1][2]:
             extreme_points.append(eval_func(int_x,int_y,int_z))
-            
+
         extreme_points = np.array(extreme_points)
-        
+
         #If sign change, True
         if not np.all(extreme_points > 0) and not np.all(extreme_points < 0):
             mask.append(True)
             continue
-        
+
         if np.min(np.abs(extreme_points)) - tol > other_sum:
             mask.append(False)
         else:
@@ -915,11 +915,11 @@ def quadratic_check_nd(test_coeff, intervals,change_sign,tol):
     """
     if change_sign is None:
         return -1
-    
+
     dim = test_coeff.ndim
     padding = [(0,max(0,3-i)) for i in test_coeff.shape]
     test_coeff = np.pad(test_coeff.copy(), padding, mode='constant')
-    
+
     quad_coeff = np.zeros([3]*dim)
     C = np.zeros([dim,dim])
     C1 = np.zeros(dim)
@@ -934,27 +934,27 @@ def quadratic_check_nd(test_coeff, intervals,change_sign,tol):
                 C2[np.where([spot_array == 2])[1][0]] = test_coeff[spot]
             elif np.any(spot_array == 1):
                 C1[np.where([spot_array == 1])[1][0]] = test_coeff[spot]
-            
+
             quad_coeff[spot] = test_coeff[spot]
             test_coeff[spot] = 0
-        
+
     quad_poly = MultiCheb(quad_coeff)
-    
+
     #The sum of the absolute values of everything else
     other_sum = np.sum(np.abs(test_coeff))
-        
+
     mask = []
     for interval_num, interval in enumerate(intervals):
         if change_sign[interval_num]:
             mask.append(True)
             continue
         ##If constant + c1x + c2y +c3xy = 0 in the region, useless
-                
+
         extreme_points = []
         #Add all the corners
         for corner in itertools.product([0,1],repeat=dim):
             extreme_points.append(quad_poly([interval[j][i] for i,j in enumerate(corner)]))
-        
+
         for var in range(dim):
             #Add the x_i constant boundaries
             A = np.vstack([np.delete(C[var],var,0)]*(dim-1))
@@ -976,7 +976,7 @@ def quadratic_check_nd(test_coeff, intervals,change_sign,tol):
                         np.all(np.delete(interval[1],var,0) > ext_spot):
                 ext_spot = np.insert(ext_spot,var,x_var)
                 extreme_points.append(quad_poly(ext_spot))
-                            
+
         #Add the interior value
         A = C.copy()
         A += 4*np.diag(C2)
@@ -984,14 +984,14 @@ def quadratic_check_nd(test_coeff, intervals,change_sign,tol):
         ext_spot = np.linalg.solve(A,B)
         if np.all(interval[0] < ext_spot) and np.all(interval[1] > ext_spot):
             extreme_points.append(quad_poly(ext_spot))
-        
+
         extreme_points = np.array(extreme_points)
-        
+
         #If sign change, True
         if not np.all(extreme_points > 0) and not np.all(extreme_points < 0):
             mask.append(True)
             continue
-        
+
         if np.min(np.abs(extreme_points)) - tol > other_sum:
             mask.append(False)
         else:

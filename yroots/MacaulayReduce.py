@@ -91,36 +91,44 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     #RRQR reduces A and D without pivoting sticking the result in it's place.
     Q1,matrix[:,:cuts[0]] = qr(matrix[:,:cuts[0]])
 
-    #Multiplying the rest of the matrix by Q.T
+    #Multiplying BCEF by Q.T
     matrix[:,cuts[0]:] = Q1.T@matrix[:,cuts[0]:]
-    Q1 = 0 #Get rid of Q1 for memory purposes.    
+    del Q1 #Get rid of Q1 for memory purposes.
 
     #RRQR reduces E sticking the result in it's place.
     Q,matrix[cuts[0]:,cuts[0]:cuts[1]],P = qr(matrix[cuts[0]:,cuts[0]:cuts[1]], pivoting = True)
 
     #Multiplies F by Q.T.
     matrix[cuts[0]:,cuts[1]:] = Q.T@matrix[cuts[0]:,cuts[1]:]
-    Q = 0 #Get rid of Q for memory purposes.
+    del Q #Get rid of Q for memory purposes.
 
-    #Shifts the columns of B
+    #Permute the columns of B
     matrix[:cuts[0],cuts[0]:cuts[1]] = matrix[:cuts[0],cuts[0]:cuts[1]][:,P]
+
     #Resorts the matrix_terms.
     matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
-        
-    #eliminates rows we don't care about-- those at the bottom of the matrix
+
+    #eliminate zero rows from the bottom of the matrix.
+    matrix = row_swap_matrix(matrix)
     for row in matrix[::-1]:
-        if np.allclose(row, 0):
+        if np.allclose(row, 0,atol=accuracy):
             matrix = matrix[:-1]
         else:
             break
 
     #set very small values in the matrix to zero before backsolving
-    matrix[np.isclose(matrix, 0)] = 0
-    
+    matrix[np.isclose(matrix, 0, atol=accuracy)] = 0
+
+    #SVD conditioning check
     D = np.linalg.svd(matrix[:,:matrix.shape[0]], compute_uv=False)
     if D[0]/D[-1] > 1/accuracy:
         return -1, -1
-        
+
+    #backsolve
+    height = matrix.shape[0]
+    matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
+    matrix[:,:height] = np.eye(height)
+
     return matrix, matrix_terms
 
 def rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
@@ -151,269 +159,58 @@ def rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     matrix_terms: numpy array
         The resorted matrix_terms.
     '''
-    #print("Starting matrix.shape:\n", matrix.shape)
-    #RRQR reduces A and D without pivoting sticking the result in it's place.
-    C1,matrix[:cuts[0],:cuts[0]] = qr_multiply(matrix[:,:cuts[0]], matrix[:,cuts[0]:].T, mode = 'right')
-    matrix[:cuts[0],cuts[0]:] = C1.T
-    C1 = 0
+    #RRQR reduces A and multiplies BC.T by Q
+    product1,matrix[:cuts[0],:cuts[0]] = qr_multiply(matrix[:,:cuts[0]], matrix[:,cuts[0]:].T, mode = 'right')
+    #BC is now Q.T @ BC
+    matrix[:cuts[0],cuts[0]:] = product1.T
+    del product1 #remove ]for memory purposes
 
     #check if there are zeros along the diagonal of R1
     if any(np.isclose(np.diag(matrix[:,:cuts[0]]),0, atol=accuracy)):
         raise MacaulayError("R1 IS NOT FULL RANK")
 
-    #if abs(matrix[:,:cuts[0]].diagonal()[-1]) < accuracy:
-    #    raise MacaulayError("HIGHEST NOT FULL RANK")
-
     #set small values to zero before backsolving
     matrix[np.isclose(matrix, 0, atol=accuracy)] = 0
+    #backsolve top of matrix (solve triangular on B and C)
     matrix[:cuts[0],cuts[0]:] = solve_triangular(matrix[:cuts[0],:cuts[0]],matrix[:cuts[0],cuts[0]:])
-    matrix[:cuts[0],:cuts[0]] = np.eye(cuts[0])
+    matrix[:cuts[0],:cuts[0]] = np.eye(cuts[0]) #A is now the identity after backsolving
+    #E and F                            D                           BC
     matrix[cuts[0]:,cuts[0]:] -= (matrix[cuts[0]:,:cuts[0]])@matrix[:cuts[0],cuts[0]:] #?
 
-    C,R,P = qr_multiply(matrix[cuts[0]:,cuts[0]:cuts[1]], matrix[cuts[0]:,cuts[1]:].T, mode = 'right', pivoting = True)
-
+    #QRP on E, multiply that onto F
+    product2,R,P = qr_multiply(matrix[cuts[0]:,cuts[0]:cuts[1]], matrix[cuts[0]:,cuts[1]:].T, mode = 'right', pivoting = True)
+    #get rid of zero rows
     matrix = matrix[:R.shape[0]+cuts[0]]
-    #matrix[cuts[0]:,:cuts[0]] = np.zeros_like(matrix[cuts[0]:,:cuts[0]])
+    #set D to zero
+    matrix[cuts[0]:,:cuts[0]] = np.zeros_like(matrix[cuts[0]:,:cuts[0]])
+    #fill E in with R
     matrix[cuts[0]:,cuts[0]:cuts[0]+R.shape[1]] = R
-    matrix[cuts[0]:,cuts[0]+R.shape[1]:] = C.T
-    C,R = 0,0
+    #fill F in with product2.T
+    matrix[cuts[0]:,cuts[0]+R.shape[1]:] = product2.T
+    del product2,R
 
-    #Shifts the columns of B.
+    #raise error if E is not full rank
+    if any(np.isclose(np.diag(matrix),0, atol=accuracy)):
+        raise MacaulayError("FULL MATRIX IS NOT FULL RANK")
+
+    #Permute the columns of B, since E already got permuted implicitly
     matrix[:cuts[0],cuts[0]:cuts[1]] = matrix[:cuts[0],cuts[0]:cuts[1]][:,P]
     matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
-    P = 0
+    del P
 
     #set small values in the matrix to zero now, after the QR reduction
     matrix[np.isclose(matrix, 0, atol=accuracy)] = 0
-    #eliminate zero rows from the bottom of the matrix. Zero rows above
-    #nonzero elements are not eliminated. This saves time since Macaulay matrices
-    #we deal with are only zero at the very bottom
+    #eliminate zero rows from the bottom of the matrix.
     matrix = row_swap_matrix(matrix)
     for row in matrix[::-1]:
-        if np.allclose(row, 0):
+        if np.allclose(row, 0,atol=accuracy):
             matrix = matrix[:-1]
         else:
             break
 
+    #backsolve
+    height = matrix.shape[0]
+    matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
+    matrix[:,:height] = np.eye(height)
+
     return matrix, matrix_terms
-
-def rrqr_reduceMacaulayFullRank(matrix, matrix_terms, cuts, accuracy = 1.e-10):
-    ''' Reduces a Macaulay matrix, BYU style.
-
-    This function does the same thing as rrqr_reduceMacaulay2 but only works if the matrix is full rank AND if
-    the top left corner (the square of side length cut[0]) is invertible.
-    In this case it is faster.
-
-    Parameters
-    ----------
-    matrix : numpy array.
-        The Macaulay matrix, sorted in BYU style.
-    matrix_terms: numpy array
-        Each row of the array contains a term in the matrix. The i'th row corresponds to
-        the i'th column in the matrix.
-    cuts : tuple
-        When the matrix is reduced it is split into 3 parts with restricted pivoting. These numbers indicate
-        where those cuts happen.
-    accuracy : float
-        What is determined to be 0.
-    Returns
-    -------
-    matrix : numpy array
-        The reduced matrix.
-    matrix_terms: numpy array
-        The resorted matrix_terms.
-    '''
-    C1,matrix[:cuts[0],:cuts[0]] = qr_multiply(matrix[:cuts[0],:cuts[0]],\
-                                                  matrix[:cuts[0],cuts[0]:].T, mode = 'right')
-    matrix[:cuts[0],cuts[0]:] = C1.T
-    C1 = 0
-
-    #check if there are zeros along the diagonal of R1
-    if any(np.isclose(np.diag(matrix[:,:cuts[0]]),0, atol=accuracy)):
-        raise MacaulayError("R1 IS NOT FULL RANK")
-
-    #if abs(matrix[:,:cuts[0]].diagonal()[-1]) < accuracy:
-    #    raise MacaulayError("HIGHEST NOT FULL RANK")
-
-    C,matrix[cuts[0]:,cuts[0]:cuts[1]],P = qr_multiply(matrix[cuts[0]:,cuts[0]:cuts[1]],\
-                                                       matrix[cuts[0]:,cuts[1]:].T, mode = 'right', pivoting = True)
-
-    matrix[cuts[0]:,cuts[1]:] = C.T
-    C = 0
-
-    #Shifts the columns of B.
-    matrix[:cuts[0],cuts[0]:cuts[1]] = matrix[:cuts[0],cuts[0]:cuts[1]][:,P]
-    matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
-    P = 0
-    return matrix, matrix_terms
-
-def checkEqual(lst):
-    '''Helper function for createMatrixFast. Checks if each element in a list is the same.
-
-    Parameters
-    ----------
-    lst : list
-        The list of interest.
-    Returns
-    -------
-    checkEqual : bool
-        True if each element in the list is the same. False otherwise.
-    '''
-    return lst.count(lst[0]) == len(lst)
-
-def get_ranges(nums):
-    '''Helper function for createMatrixFast. Finds where to slice the different parts of the matrix into.
-
-    This is in an effort to avoid row_swap_matrix which can be slow. Instead, as we are buiding the part of the
-    matrix corresponding to each polynomial seperately, this tells us where each part should go in the whole matrix.
-
-    Parameters
-    ----------
-    nums : list
-        The Macualay matrix degree minus the polynomial degrees for for each polynomial.
-    Returns
-    -------
-    ranges : list
-        The rows in the Macaulay Matrix that the given polynomail will be sliced into.
-    '''
-    ranges = []
-    for i in nums:
-        ranges.append(np.array([],dtype=int))
-    start = 0
-    count = 0
-    n = len(nums)
-    for num in nums:
-        spot = count
-        for r in ranges[count:]:
-            r = np.hstack((r,np.arange(start,start+(n-count)*(num-len(r)),n-count)))
-            ranges[spot] = r
-            start+=1
-            spot += 1
-        start = ranges[-1][-1]+1
-        count+=1
-    return ranges
-
-def createMatrixFast(polys, degree, dim):
-    ''' Builds a Macaulay matrix using fast construction.
-
-    Parameters
-    ----------
-    poly_coeffs : list.
-        Contains numpy arrays that hold the coefficients of the polynomials to be put in the matrix.
-    degree : int
-        The degree of the Macaulay Matrix
-    dim : int
-        The dimension of the polynomials going into the matrix.
-    Returns
-    -------
-    matrix : 2D numpy array
-        The Macaulay matrix.
-    matrix_terms : numpy array
-        The ith row is the term represented by the ith column of the matrix.
-    cuts : tuple
-        When the matrix is reduced it is split into 3 parts with restricted pivoting. These numbers indicate
-        where those cuts happen.
-    '''
-    bigShape = [degree+1]*dim
-
-    matrix_terms, cuts = sorted_matrix_terms(degree, dim)
-    columns = len(matrix_terms)
-
-    range_split = [num_mons_full(degree-poly.degree,dim) for poly in polys]
-    rows = np.sum(range_split)
-    ranges = get_ranges(range_split)    #How to slice the poly into the matrix rows.
-    matrix = np.zeros((rows,columns))
-    curr = 0
-
-    #Get the slices needed to pull the matrix_terms from the coeff matrix.
-    matrix_term_indexes = list()
-    for row in matrix_terms.T:
-        matrix_term_indexes.append(row)
-
-    permutations = None
-    currentDegree = 2
-    #Adds the poly_coeffs to flat_polys, using added_zeros to make sure every term is in there.
-    added_zeros = np.zeros(bigShape)
-
-    for poly,matrix_range in zip(polys,ranges):
-        slices = slice_top(poly.coeff)
-        added_zeros[slices] = poly.coeff
-        array = added_zeros[matrix_term_indexes]
-        added_zeros[slices] = np.zeros_like(poly.coeff)
-
-        permutations = memoized_all_permutations(degree - poly.degree, dim, degree, permutations, currentDegree)
-        currentDegree = degree - poly.degree
-        permList = list(permutations.values())
-
-        temp = array[np.reshape(permList, (len(permList), columns))[::-1]]
-        matrix[matrix_range] = temp
-
-    if matrix_shape_stuff[0] > matrix.shape[0]: #The matrix isn't tall enough, these can't all be pivot columns.
-        raise MacaulayError("HIGHEST NOT FULL RANK. TRY HIGHER DEGREE")
-    #Sorts the rows of the matrix so it is close to upper triangular.
-    if not checkEqual([poly.degree for poly in polys]): #Will need some switching possibly if some degrees are different.
-        matrix = row_swap_matrix(matrix)
-    return matrix, matrix_terms, cuts
-
-def construction(polys, degree, dim):
-    ''' Builds a Macaulay matrix using fast construction in the Chebyshev basis.
-
-    Parameters
-    ----------
-    polys : list.
-        Contains numpy arrays that hold the coefficients of the polynomials to be put in the matrix.
-    degree : int
-        The degree of the Macaulay Matrix
-    dim : int
-        The dimension of the polynomials going into the matrix.
-    Returns
-    -------
-    matrix : 2D numpy array
-        The Macaulay matrix.
-    matrix_terms : numpy array
-        The ith row is the term represented by the ith column of the matrix.
-    cuts : tuple
-        When the matrix is reduced it is split into 3 parts with restricted pivoting. These numbers indicate
-        where those cuts happen.
-    '''
-    bigShape = [degree+1]*dim
-    matrix_terms, cuts = sorted_matrix_terms(degree, dim)
-    #print(matrix_shape_stuff)
-    matrix_term_indexes = list()
-    for row in matrix_terms.T:
-        matrix_term_indexes.append(row)
-
-    permutations = all_permutations_cheb(degree - np.min([poly.degree for poly in polys]), dim, degree)
-    #print(permutations)
-    added_zeros = np.zeros(bigShape)
-    flat_polys = list()
-    i = 0;
-    for poly in polys:
-        slices = slice_top(poly.coeff)
-        added_zeros[slices] = poly.coeff
-        array = added_zeros[matrix_term_indexes]
-        added_zeros[slices] = np.zeros_like(poly.coeff)
-        #print(array)
-
-        #flat_polys.append(array[np.vstack(permutations.values())])
-        degreeNeeded = degree - poly.degree
-        mons = mons_ordered(dim,degreeNeeded)
-        mons = np.pad(mons, (0,1), 'constant', constant_values = i)
-        i += 1
-        flat_polys.append(array)
-        for mon in mons[1:-1]:
-            result = np.copy(array)
-            for i in range(dim):
-                if mon[i] != 0:
-
-                    mult = [0]*dim
-                    mult[i] = mon[i]
-                    result = np.sum(result[permutations[tuple(mult)]], axis = 0)
-            flat_polys.append(result)
-    #print(flat_polys)
-    matrix = np.vstack(flat_polys)
-    if matrix_shape_stuff[0] > matrix.shape[0]: #The matrix isn't tall enough, these can't all be pivot columns.
-        raise MacaulayError("HIGHEST NOT FULL RANK. TRY HIGHER DEGREE")
-    matrix = row_swap_matrix(matrix)
-    #print(matrix)
-    return matrix, matrix_terms, cuts

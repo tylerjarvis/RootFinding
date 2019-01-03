@@ -49,15 +49,12 @@ def solve(funcs, a, b, plot = False, plot_intervals = False, polish = False):
     zeros : numpy array
         The common zeros of the polynomials. Each row is a root.
     '''
-    interval_data = IntervalData(a,b)
-
     if not isinstance(funcs,list):
         funcs = [funcs]
         dim = 1
-    elif not isinstance(a, np.ndarray) or not isinstance(b, np.ndarray):
-        dim = 1
     else:
-        dim = len(a)
+        dim = len(funcs)
+
     if dim == 1:
         #one dimensional case
         zeros = subdivision_solve_1d(funcs[0],a,b)
@@ -74,6 +71,9 @@ def solve(funcs, a, b, plot = False, plot_intervals = False, polish = False):
         #make a and b the right type
         a = np.float64(a)
         b = np.float64(b)
+
+        interval_data = IntervalData(a,b)
+
         #choose an appropriate max degree for the given dimension
         deg_dim = {2:9, 3:5, 4:3}
         if dim > 4:
@@ -83,7 +83,7 @@ def solve(funcs, a, b, plot = False, plot_intervals = False, polish = False):
 
         #Output the interval percentages
         zeros = subdivision_solve_nd(funcs,a,b,deg,interval_data,polish=polish)
-        
+
         print("\rPercent Finished: 100%       ")
         interval_data.print_results()
         #Plot what happened
@@ -203,7 +203,7 @@ def get_cheb_grid(deg, dim, has_eval_grid):
         cheb_grids = np.meshgrid(*([cheb_values]*dim), indexing='ij')
         flatten = lambda x: x.flatten()
         return np.column_stack(map(flatten, cheb_grids))
-    
+
 def interval_approximate_nd(f,a,b,deg,return_bools=False):
     """Finds the chebyshev approximation of an n-dimensional function on an interval.
 
@@ -244,7 +244,7 @@ def interval_approximate_nd(f,a,b,deg,return_bools=False):
     if return_bools:
         change_sign = np.zeros(2**dim, dtype=bool)
         #Checks are fast enough that this isn't worth it
-        
+
 #         change_sign = np.ones(2**dim, dtype=bool)
 
 #         split = 0.027860780181747646 #from RAND below
@@ -429,7 +429,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
     cheb_approx_list = []
     interval_data.print_progress()
     dim = len(a)
-    
+
     if good_degs is None:
         good_degs = [None]*len(funcs)
 
@@ -523,7 +523,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
             if isinstance(zeros, int):
                 divisor_var += 1
                 continue
-            
+
             zeros = np.array(zeros)
             interval_data.track_interval("Division", [a,b])
             if len(zeros) == 0:
@@ -542,7 +542,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
             good_degs = [poly.coeff.shape[0] - 1 for poly in polys]
             return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_data,\
                                                    approx_tol,solve_tol,polish,good_degs) for interval in intervals])
-            
+
 def good_direc(coeffs, dim, tol=1e-6):
     """Determines if this is a good direction to try solving with division.
 
@@ -559,7 +559,7 @@ def good_direc(coeffs, dim, tol=1e-6):
     -------
     good_direc : bool
         If True running division should be stable. If False, probably not.
-    """    
+    """
     slices = []
     for i in range(coeffs[0].ndim):
         if i == dim:
@@ -568,7 +568,7 @@ def good_direc(coeffs, dim, tol=1e-6):
             slices.append(slice(None))
     vals = [coeff[slices] for coeff in coeffs]
     degs = [val.shape[0] for val in vals]
-    
+
     min_vals = np.zeros([len(vals),*vals[np.argmax(degs)].shape])
 
     for num, val in enumerate(vals):
@@ -579,7 +579,7 @@ def good_direc(coeffs, dim, tol=1e-6):
     min_vals[min_vals==0] = 1
     if np.any(np.min(np.abs(min_vals),axis=0) < tol):
         return False
-    return True    
+    return True
 
 def polish_zeros(zeros, funcs, tol=1.e-2):
     """Polishes the given zeros of the functions to a better accuracy.
@@ -599,14 +599,14 @@ def polish_zeros(zeros, funcs, tol=1.e-2):
     -------
     polish_zeros : numpy
         The polished zeros.
-    """    
+    """
     if len(zeros) == 0:
         return zeros
     dim = zeros.shape[1]
     polished_zeros = []
     interval_data = IntervalData(np.array([0]),np.array([0]))
     interval_data.polishing = True
-    
+
     for zero in zeros:
         a = np.array(zero) - tol
         b = np.array(zero) + 1.1*tol #Keep the root away from 0
@@ -671,7 +671,7 @@ def trim_coeffs(coeffs, approx_tol, solve_tol):
                         coeff = coeff[slices]
                         break
         coeffs[num] = coeff
-    
+
     if not all_triangular:
         return coeffs, -1
     else:
@@ -699,7 +699,7 @@ def mon_combos_limited_wrap(deg, dim, shape):
         A list of all the monomials.
     '''
     return mon_combos_limited([0]*dim,deg,shape)
-    
+
 def mon_combos_limited(mon, remaining_degrees, shape, cur_dim = 0):
     '''Finds all the monomials of a given degree that fits in a given shape and returns them. Works recursively.
 

@@ -7,7 +7,7 @@ from yroots.utils import get_var_list, slice_top, row_swap_matrix, \
                               mon_combos, newton_polish, MacaulayError
 import warnings
 
-def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False):
+def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, return_all_roots=True):
     '''Calculates the common zeros of polynomials using a division matrix.
 
     Parameters
@@ -28,11 +28,12 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False):
     zeros : numpy array
         The common roots of the polynomials. Each row is a root.
     '''
+    warnings.warn('return all roots not implemented')
     #This first section creates the Macaulay Matrix with the monomials that don't have
     #the divisor variable in the first columns.
     power = is_power(polys)
     dim = polys[0].dim
-    
+
     matrix_degree = np.sum(poly.degree for poly in polys) - len(polys) + 1
 
     poly_coeff_list = []
@@ -52,14 +53,14 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False):
         matrix, matrix_terms = rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy=tol)
     else:
         matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy=tol)
-    
+
     if isinstance(matrix, int):
         return -1
-    
+
     rows,columns = matrix.shape
 
     VB = matrix_terms[matrix.shape[0]:]
-    
+
     matrix = np.hstack((np.eye(rows),solve_triangular(matrix[:,:rows],matrix[:,rows:])))
 
     if verbose:
@@ -155,7 +156,7 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False):
     vals, vecs = eig(division_matrix,left=True,right=False)
     #conjugate because scipy gives the conjugate eigenvector
     vecs = vecs.conj()
-    
+
     vals2, vecs2 = eig(vecs)
     sorted_vals2 = np.sort(np.abs(vals2))
     if sorted_vals2[0] < 1.e-15:
@@ -169,10 +170,10 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False):
     if not power:
         if np.max(np.abs(vals)) > 1.e6:
             return -1
-    
+
     #Calculates the zeros, the x values from the eigenvalues and the y values from the eigenvectors.
     zeros = list()
-    
+
     for i in range(len(vals)):
         if power and abs(vecs[-1][i]) < 1.e-3:
             #This root has magnitude greater than 1, will possibly generate a false root due to instability
@@ -195,9 +196,7 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False):
 
         zeros.append(root)
 
-    zeros = np.array(zeros)
-
-    return zeros
+    return np.array(zeros)
 
 def get_matrix_terms(poly_coeffs, dim, divisor_var):
     '''Finds the terms in the Macaulay matrix.
@@ -333,8 +332,7 @@ def create_matrix(poly_coeffs, degree, dim, divisor_var):
         added_zeros[slices] = coeff
         flat_polys.append(added_zeros[tuple(matrix_term_indexes)])
         added_zeros[slices] = np.zeros_like(coeff)
-        coeff = 0
-    poly_coeffs = 0
+    del poly_coeffs
 
     #Make the matrix. Reshape is faster than stacking.
     matrix = np.reshape(flat_polys, (len(flat_polys),len(matrix_terms)))
