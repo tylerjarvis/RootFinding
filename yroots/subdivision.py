@@ -49,8 +49,6 @@ def solve(funcs, a, b, plot = False, plot_intervals = False, polish = False):
     zeros : numpy array
         The common zeros of the polynomials. Each row is a root.
     '''
-    interval_data = IntervalData(a,b)
-
     if not isinstance(funcs,list):
         funcs = [funcs]
         dim = 1
@@ -73,6 +71,9 @@ def solve(funcs, a, b, plot = False, plot_intervals = False, polish = False):
         #make a and b the right type
         a = np.float64(a)
         b = np.float64(b)
+
+        interval_data = IntervalData(a,b)
+
         #choose an appropriate max degree for the given dimension
         deg_dim = {2:9, 3:5, 4:3}
         if dim > 4:

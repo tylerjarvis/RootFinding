@@ -164,14 +164,6 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, retu
     if sorted_vals2[0]/sorted_vals2[-1] < tol:
         return -1
 
-    #check conditioning of eigenvector
-    vals2, vecs2 = eig(vecs)
-    sorted_vals2 = np.sort(np.abs(vals2))
-    if sorted_vals2[0] < 1.e-15:
-        raise MacaulayError("The Division Matrix was ill-conditioned")
-    if sorted_vals2[-1]/sorted_vals2[0] > 1.e8:
-        raise MacaulayError("The Division Matrix was ill-conditioned")
-
     if verbose:
         print("\nDivision Matrix\n", np.round(division_matrix[::-1,::-1], 2))
         print("\nLeft Eigenvectors (as rows)\n", vecs.T)
