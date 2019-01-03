@@ -1,11 +1,11 @@
 import numpy as np
-from yroots.subdivision import constant_term_check, full_quad_check, full_cubic_check, curvature_check, \
-linear_check, quadratic_check1, quadratic_check2, quadratic_check3
+from yroots.IntervalChecks import constant_term_check, full_quad_check, full_cubic_check, curvature_check, \
+linear_check, quadratic_check
 from yroots.polynomial import MultiCheb,MultiPower
 
 def test_zero_check2D():
-    interval_checks = [constant_term_check,full_quad_check, curvature_check] #full_cubic_check
-    subinterval_checks = [linear_check,quadratic_check1,quadratic_check2,quadratic_check3]
+    interval_checks = [constant_term_check,full_quad_check, curvature_check, full_cubic_check]
+    subinterval_checks = [linear_check,quadratic_check]
     a = -np.ones(2)
     b = np.ones(2)
     tol = 1.e-4

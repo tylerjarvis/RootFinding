@@ -6,6 +6,7 @@ from yroots.utils import row_swap_matrix, MacaulayError, slice_top, mon_combos, 
                               num_mons_full, memoized_all_permutations, mons_ordered, \
                               all_permutations_cheb
 from matplotlib import pyplot as plt
+from scipy.linalg import svd
 
 def add_polys(degree, poly, poly_coeff_list):
     """Adds polynomials to a Macaulay Matrix.
@@ -45,7 +46,8 @@ def find_degree(poly_list, verbose=False):
     --------
     poly_list: list
         The polynomials used to construct the matrix.
-
+    verbose : bool
+        If True prints the degree
     Returns
     -----------
     find_degree : int
@@ -77,6 +79,8 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     cuts : tuple
         When the matrix is reduced it is split into 3 parts with restricted pivoting. These numbers indicate
         where those cuts happen.
+    accuracy : float
+        Throws an error if the condition number of the backsolve is more than 1/accuracy.
     Returns
     -------
     matrix : numpy array
@@ -86,10 +90,6 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     '''
     #RRQR reduces A and D without pivoting sticking the result in it's place.
     Q1,matrix[:,:cuts[0]] = qr(matrix[:,:cuts[0]])
-
-    #check if there are zeros along the diagonal of R1
-    if any(np.isclose(np.diag(matrix[:,:cuts[0]]),0, atol=accuracy)):
-        raise MacaulayError("R1 IS NOT FULL RANK")
 
     #Multiplying BCEF by Q.T
     matrix[:,cuts[0]:] = Q1.T@matrix[:,cuts[0]:]
@@ -105,23 +105,8 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     #Permute the columns of B
     matrix[:cuts[0],cuts[0]:cuts[1]] = matrix[:cuts[0],cuts[0]:cuts[1]][:,P]
 
-    #eliminate zeros rows at the bottom of the matrix
-    matrix = row_swap_matrix(matrix)
-    for row in matrix[::-1]:
-        if np.allclose(row, 0, atol=accuracy):
-            matrix = matrix[:-1]
-        else:
-            break
-
-    #set very small values in the matrix to zero before backsolving
-    matrix[np.isclose(matrix, 0, atol=accuracy)] = 0
-
     #Resorts the matrix_terms.
     matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
-
-    #raise error if E is not full rank
-    if any(np.isclose(np.diag(matrix),0, atol=accuracy)):
-        raise MacaulayError("FULL MATRIX IS NOT FULL RANK")
 
     #eliminate zero rows from the bottom of the matrix.
     matrix = row_swap_matrix(matrix)
@@ -130,6 +115,14 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
             matrix = matrix[:-1]
         else:
             break
+
+    #set very small values in the matrix to zero before backsolving
+    matrix[np.isclose(matrix, 0, atol=accuracy)] = 0
+
+    #SVD conditioning check
+    D = np.linalg.svd(matrix[:,:matrix.shape[0]], compute_uv=False)
+    if D[0]/D[-1] > 1/accuracy:
+        return -1, -1
 
     #backsolve
     height = matrix.shape[0]
