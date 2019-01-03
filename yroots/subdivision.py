@@ -43,7 +43,7 @@ def solve(funcs, a, b, plot = False, plot_intervals = False):
     roots : numpy array
         The common roots of the polynomials. Each row is a root.
     '''
-    interval_checks = [constant_term_check, full_quad_check, full_cubic_check]
+    interval_checks = [constant_term_check, full_quad_check], #full_cubic_check]
     subinterval_checks = [linear_check, quadratic_check1, quadratic_check2]
     interval_results = []
     for i in range(len(interval_checks) + len(subinterval_checks) + 2):
@@ -99,10 +99,7 @@ def solve(funcs, a, b, plot = False, plot_intervals = False):
             X,Y = np.meshgrid(x,y)
             for i in range(dim):
                 if isinstance(funcs[i], Polynomial):
-                    Z = np.zeros_like(X)
-                    for spot,num in np.ndenumerate(X):
-                        Z[spot] = funcs[i]([X[spot],Y[spot]])
-                    plt.contour(X,Y,Z,levels=[0],colors=contour_colors[i])
+                    plt.contour(X,Y,funcs[i](np.array(list(zip(X,Y)))),levels=[0],colors=contour_colors[i])
                 else:
                     plt.contour(X,Y,funcs[i](X,Y),levels=[0],colors=contour_colors[i])
 
@@ -495,24 +492,36 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],sub
                 cheb_approx_list.append(coeff)
 
         #Make the system stable to solve
-        polys, divisor_var = trim_coeffs(cheb_approx_list, approx_tol = approx_tol, tol=cutoff_tol)
+        polys, divisor_var = trim_coeffs(cheb_approx_list, approx_tol=approx_tol, cutoff_tol=cutoff_tol, solve_tol=solve_tol)
 
         #Check if everything is linear
         if np.all(np.array([poly.degree for poly in polys]) == 1):
-            A = np.zeros([dim,dim])
-            B = np.zeros(dim)
+            A = np.zeros([dim,dim])#linear terms
+            B = np.zeros(dim)#constant terms
+            #set up matrix to solve
             for row in range(dim):
                 coeff = polys[row].coeff
                 spot = tuple([0]*dim)
                 B[row] = coeff[spot]
                 var_list = get_var_list(dim)
+                #kth dimension linear coeff could be zero
                 for col in range(dim):
-                    A[row,col] = coeff[var_list[col]]
-
+                    if coeff.shape[col] ==1:
+                        A[row,col] = 0
+                    else:
+                        A[row,col] = coeff[var_list[col]]
+            #if singular matrix, no roots in the region
+            if np.rank(A) < dim:
+                return np.zeros([0,dim])
+            #solve for the root otherwise
             zero = np.linalg.solve(A,-B)
             interval_results[-1].append([a,b])
-            # print('Interval',a,b,'zeros',transform(good_zeros_nd(zero.reshape([1,dim])),a,b),sep='\n')
+
             return transform(good_zeros_nd(zero.reshape([1,dim])),a,b)
+
+        #if only one is linear, raise an error. Eventually, project down a dimension
+        elif np.any(np.array([poly.degree for poly in polys]) == 1):
+            raise MacaulayError('At least one polynomial is linear')
 
         if divisor_var < 0:
             #Subdivide but run some checks on the intervals first
@@ -526,7 +535,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],sub
                               for interval in intervals])
         zeros = np.array(division(polys,divisor_var = divisor_var, tol = solve_tol))
         interval_results[-2].append([a,b])
-        print('Interval',a,b)
+        # print('Interval',a,b)
         if len(zeros) == 0:
             return np.zeros([0,dim])
         return transform(good_zeros_nd(zeros),a,b)
@@ -542,7 +551,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_results,interval_checks = [],sub
                                                ,interval_checks,subinterval_checks,approx_tol=approx_tol)
                           for interval in intervals])
 
-def trim_coeffs(coeffs, approx_tol, tol):
+def trim_coeffs(coeffs, approx_tol, cutoff_tol, solve_tol):
     """Trim the coefficient matrices so they are stable and choose a direction to divide in.
 
     Parameters
@@ -557,11 +566,14 @@ def trim_coeffs(coeffs, approx_tol, tol):
     divisor_var : int
         What direction to do the division in to be stable. -1 means we should subdivide.
     """
+    #inital cleaning
+    for coeff in coeffs:
+        clean_zeros_from_matrix(coeff,solve_tol)
+
     dim = coeffs[0].ndim
     error = [0.]*len(coeffs)
     degrees = [np.sum(coeffs[0].shape)-dim]*dim
     first_time = True
-
     while True:
         changed = False
         for num, coeff in enumerate(coeffs):
@@ -591,7 +603,7 @@ def trim_coeffs(coeffs, approx_tol, tol):
             for coeff in coeffs:
                 polys.append(MultiCheb(coeff))
             return polys, -1
-        d = pick_stable_dim(coeffs, tol=tol)
+        d = pick_stable_dim(coeffs, tol=cutoff_tol)
         if d >= 0:
             polys = []
             for coeff in coeffs:

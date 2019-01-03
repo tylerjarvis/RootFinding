@@ -74,7 +74,7 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True):
         return roots.T
     else:
         # only return roots in the unit complex hyperbox
-        return roots[np.all(np.abs(roots) <= 1,axis = 1)].T
+        return roots.T[np.all(np.abs(roots) <= 1,axis = 0)]
 
 def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0):
     '''

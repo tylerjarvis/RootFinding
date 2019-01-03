@@ -1,6 +1,6 @@
-# yroots
+# YRoots
 
-YRoots is a Python module for numerical and algebraic rootfinding. See the DemoNotebook for a demonstration of the code's capabilities.
+YRoots is a Python package for numerical root finding. See  DemoNotebook.ipynb for a JupyterNotebook demonstration of the code's capabilities.
 
 <!-- [![Build Status](https://travis-ci.com/tylerjarvis/RootFinding.svg?branch=master)](https://travis-ci.com/tylerjarvis/RootFinding) -->
 <!-- [![codecov](https://codecov.io/gh/mtmoncur/tylerjarvis/branch/master/graphs/badge.svg)](https://codecov.io/gh/tylerjarvis/RootFinding) -->
@@ -22,20 +22,23 @@ The package can then by imported using `import yroots`.
 ## Usage
 
 ```python
-#conda imports
+#imports
 import numpy as np
+import yroots as yr
 
-#local imports
-from yroots.polynomial import MultiCheb, MultiPower
-from yroots.polyroots import solve
+#define the functions -- must be smooth on the domain and vectorized
+f = lambda x,y : np.sin(x*y) + x*np.log(y+3) - x**2 + 1/(y-4)
+g = lambda x,y : np.cos(3*x*y) + np.exp(3*y/(x-2)) - x - 6
 
-A = MultiCheb(np.array([[1,2,3,1],[2,3,1,0],[2,3,0,0],[1,0,0,0]]))
-B = MultiCheb(np.array([[1,0,0,1],[1,0,1,0],[0,0,0,0],[1,0,0,0]]))
-solve([A,B])
-#insert user code here
+#define a search domain
+a = np.array([-1,-2]) #lower bounds on x and y
+b = np.array([0,1]) #upper bounds on x and y
+
+#solve
+yr.solve([f,g],a,b)
 ```
 
-<!-- For a demonstration notebook with examples, see CHEBYSHEV/DEMO.ipynb. -->
+If the system includes polynomials, there are specialized `Polynomial` objects which may be allow for faster solving. See the DemoNotebook.ipynb for examples of this
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.

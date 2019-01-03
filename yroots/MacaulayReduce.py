@@ -123,6 +123,14 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     if any(np.isclose(np.diag(matrix),0, atol=accuracy)):
         raise MacaulayError("FULL MATRIX IS NOT FULL RANK")
 
+    #eliminate zero rows from the bottom of the matrix.
+    matrix = row_swap_matrix(matrix)
+    for row in matrix[::-1]:
+        if np.allclose(row, 0,atol=accuracy):
+            matrix = matrix[:-1]
+        else:
+            break
+
     #backsolve
     height = matrix.shape[0]
     matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
@@ -202,7 +210,7 @@ def rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     #eliminate zero rows from the bottom of the matrix.
     matrix = row_swap_matrix(matrix)
     for row in matrix[::-1]:
-        if np.allclose(row, 0):
+        if np.allclose(row, 0,atol=accuracy):
             matrix = matrix[:-1]
         else:
             break
