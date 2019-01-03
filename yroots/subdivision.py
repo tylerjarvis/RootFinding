@@ -43,7 +43,7 @@ def solve(funcs, a, b, plot = False, plot_intervals = False):
     roots : numpy array
         The common roots of the polynomials. Each row is a root.
     '''
-    interval_checks = [constant_term_check, full_quad_check], #full_cubic_check]
+    interval_checks = [constant_term_check, full_quad_check]#, full_cubic_check]
     subinterval_checks = [linear_check, quadratic_check1, quadratic_check2]
     interval_results = []
     for i in range(len(interval_checks) + len(subinterval_checks) + 2):
