@@ -88,22 +88,32 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     matrix_terms: numpy array
         The resorted matrix_terms.
     '''
+    #controller variables for each part of the matrix
+    AD = matrix[:,:cuts[0]]
+    BCEF = matrix[:,cuts[0]:]
+    # A = matrix[:cuts[0],:cuts[0]]
+    B = matrix[:cuts[0],cuts[0]:cuts[1]]
+    # C = matrix[:cuts[0],cuts[1]:]
+    # D = matrix[cuts[0]:,:cuts[0]]
+    E = matrix[cuts[0]:,cuts[0]:cuts[1]]
+    F = matrix[cuts[0]:,cuts[1]:]
+
     #RRQR reduces A and D without pivoting sticking the result in it's place.
-    Q1,matrix[:,:cuts[0]] = qr(matrix[:,:cuts[0]])
+    Q1,matrix[:,:cuts[0]] = qr(AD)
 
     #Multiplying BCEF by Q.T
-    matrix[:,cuts[0]:] = Q1.T@matrix[:,cuts[0]:]
+    matrix[:,cuts[0]:] = Q1.T @ BCEF
     del Q1 #Get rid of Q1 for memory purposes.
 
     #RRQR reduces E sticking the result in it's place.
-    Q,matrix[cuts[0]:,cuts[0]:cuts[1]],P = qr(matrix[cuts[0]:,cuts[0]:cuts[1]], pivoting = True)
+    Q,matrix[cuts[0]:,cuts[0]:cuts[1]],P = qr(E, pivoting = True)
 
     #Multiplies F by Q.T.
-    matrix[cuts[0]:,cuts[1]:] = Q.T@matrix[cuts[0]:,cuts[1]:]
+    matrix[cuts[0]:,cuts[1]:] = Q.T @ F
     del Q #Get rid of Q for memory purposes.
 
     #Permute the columns of B
-    matrix[:cuts[0],cuts[0]:cuts[1]] = matrix[:cuts[0],cuts[0]:cuts[1]][:,P]
+    matrix[:cuts[0],cuts[0]:cuts[1]] = B[:,P]
 
     #Resorts the matrix_terms.
     matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
@@ -120,8 +130,8 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     matrix[np.isclose(matrix, 0, atol=accuracy)] = 0
 
     #SVD conditioning check
-    D = np.linalg.svd(matrix[:,:matrix.shape[0]], compute_uv=False)
-    if D[0]/D[-1] > 1/accuracy:
+    S = np.linalg.svd(matrix[:,:matrix.shape[0]], compute_uv=False)
+    if S[0]/S[-1] > 1/accuracy:
         return -1, -1
 
     #backsolve
@@ -159,54 +169,64 @@ def rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     matrix_terms: numpy array
         The resorted matrix_terms.
     '''
+    #controller variables for each part of the matrix
+    AD = matrix[:,:cuts[0]]
+    BCEF = matrix[:,cuts[0]:]
+    BC = matrix[:cuts[0],cuts[0]:]
+    A = matrix[:cuts[0],:cuts[0]]
+    B = matrix[:cuts[0],cuts[0]:cuts[1]]
+    # C = matrix[:cuts[0],cuts[1]:]
+    D = matrix[cuts[0]:,:cuts[0]]
+    E = matrix[cuts[0]:,cuts[0]:cuts[1]]
+    F = matrix[cuts[0]:,cuts[1]:]
+
     #RRQR reduces A and multiplies BC.T by Q
-    product1,matrix[:cuts[0],:cuts[0]] = qr_multiply(matrix[:,:cuts[0]], matrix[:,cuts[0]:].T, mode = 'right')
+    product1, matrix[:cuts[0],:cuts[0]] = qr_multiply(AD, BCEF.T, mode = 'right')
     #BC is now Q.T @ BC
     matrix[:cuts[0],cuts[0]:] = product1.T
-    del product1 #remove ]for memory purposes
-
-    #check if there are zeros along the diagonal of R1
-    if any(np.isclose(np.diag(matrix[:,:cuts[0]]),0, atol=accuracy)):
-        raise MacaulayError("R1 IS NOT FULL RANK")
+    del product1 #remove for memory purposes
 
     #set small values to zero before backsolving
     matrix[np.isclose(matrix, 0, atol=accuracy)] = 0
     #backsolve top of matrix (solve triangular on B and C)
-    matrix[:cuts[0],cuts[0]:] = solve_triangular(matrix[:cuts[0],:cuts[0]],matrix[:cuts[0],cuts[0]:])
+    matrix[:cuts[0],cuts[0]:] = solve_triangular(A,BC)
     matrix[:cuts[0],:cuts[0]] = np.eye(cuts[0]) #A is now the identity after backsolving
-    #E and F                            D                           BC
-    matrix[cuts[0]:,cuts[0]:] -= (matrix[cuts[0]:,:cuts[0]])@matrix[:cuts[0],cuts[0]:] #?
+    #Adjust E and F: subtract off D times BC
+    matrix[cuts[0]:,cuts[0]:] -= D @ BC
 
     #QRP on E, multiply that onto F
-    product2,R,P = qr_multiply(matrix[cuts[0]:,cuts[0]:cuts[1]], matrix[cuts[0]:,cuts[1]:].T, mode = 'right', pivoting = True)
+    product2,R,P = qr_multiply(E, F.T, mode = 'right', pivoting = True)
     #get rid of zero rows
     matrix = matrix[:R.shape[0]+cuts[0]]
     #set D to zero
-    matrix[cuts[0]:,:cuts[0]] = np.zeros_like(matrix[cuts[0]:,:cuts[0]])
+    matrix[cuts[0]:,:cuts[0]] = np.zeros_like(D)
     #fill E in with R
     matrix[cuts[0]:,cuts[0]:cuts[0]+R.shape[1]] = R
     #fill F in with product2.T
     matrix[cuts[0]:,cuts[0]+R.shape[1]:] = product2.T
     del product2,R
 
-    #raise error if E is not full rank
-    if any(np.isclose(np.diag(matrix),0, atol=accuracy)):
-        raise MacaulayError("FULL MATRIX IS NOT FULL RANK")
-
     #Permute the columns of B, since E already got permuted implicitly
-    matrix[:cuts[0],cuts[0]:cuts[1]] = matrix[:cuts[0],cuts[0]:cuts[1]][:,P]
+    matrix[:cuts[0],cuts[0]:cuts[1]] = B[:,P]
     matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
     del P
 
     #set small values in the matrix to zero now, after the QR reduction
     matrix[np.isclose(matrix, 0, atol=accuracy)] = 0
+
     #eliminate zero rows from the bottom of the matrix.
+    print('matrix shape',matrix.shape)
     matrix = row_swap_matrix(matrix)
     for row in matrix[::-1]:
         if np.allclose(row, 0,atol=accuracy):
             matrix = matrix[:-1]
         else:
             break
+
+    #SVD conditioning check
+    S = np.linalg.svd(matrix[:,:matrix.shape[0]], compute_uv=False)
+    if S[0]/S[-1] > 1/accuracy:
+        return -1, -1
 
     #backsolve
     height = matrix.shape[0]
