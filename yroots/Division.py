@@ -5,7 +5,6 @@ from yroots.polynomial import MultiCheb, MultiPower, is_power
 from yroots.MacaulayReduce import add_polys, rrqr_reduceMacaulay, rrqr_reduceMacaulay2
 from yroots.utils import get_var_list, slice_top, row_swap_matrix, \
                               mon_combos, newton_polish, MacaulayError
-import warnings
 
 def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, return_all_roots=True):
     '''Calculates the common zeros of polynomials using a division matrix.
@@ -28,7 +27,6 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, retu
     zeros : numpy array
         The common roots of the polynomials. Each row is a root.
     '''
-    warnings.warn('return all roots not implemented')
     #This first section creates the Macaulay Matrix with the monomials that don't have
     #the divisor variable in the first columns.
     power = is_power(polys)
@@ -196,7 +194,12 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, retu
 
         zeros.append(root)
 
-    return np.array(zeros)
+    if return_all_roots:
+        return np.array(zeros)
+    else:
+        # only return roots in the unit complex hyperbox
+        zeros = np.array(zeros)
+        return zeros[np.all(np.abs(zeros) <= 1,axis = 0)]
 
 def get_matrix_terms(poly_coeffs, dim, divisor_var):
     '''Finds the terms in the Macaulay matrix.

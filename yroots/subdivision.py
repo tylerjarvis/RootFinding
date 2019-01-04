@@ -566,7 +566,7 @@ def good_direc(coeffs, dim, tol=1e-6):
             slices.append(0)
         else:
             slices.append(slice(None))
-    vals = [coeff[slices] for coeff in coeffs]
+    vals = [coeff[tuple(slices)] for coeff in coeffs]
     degs = [val.shape[0] for val in vals]
 
     min_vals = np.zeros([len(vals),*vals[np.argmax(degs)].shape])
@@ -574,7 +574,7 @@ def good_direc(coeffs, dim, tol=1e-6):
     for num, val in enumerate(vals):
         deg = degs[num]
         slices = [num]+[slice(0,deg) for i in range(val.ndim)]
-        min_vals[slices] = val
+        min_vals[tuple(slices)] = val
 
     min_vals[min_vals==0] = 1
     if np.any(np.min(np.abs(min_vals),axis=0) < tol):
@@ -644,32 +644,33 @@ def trim_coeffs(coeffs, approx_tol, solve_tol):
             initial_mons += mon_combos_limited_wrap(deg0, dim, coeff.shape)
         mons = np.array(initial_mons).T
         slices = [mons[i] for i in range(dim)]
-        slice_error = np.sum(np.abs(coeff[slices]))
+        slice_error = np.sum(np.abs(coeff[tuple(slices)]))
         if slice_error + error > approx_tol:
             all_triangular = False
         else:
-            coeff[slices] = 0
+            coeff[tuple(slices)] = 0
             deg = coeff.shape[0]-1
-            while True:
-                mons = mon_combos_limited_wrap(deg, dim, coeff.shape)
-                slices = [] #becomes the indices of the terms of degree deg
-                mons = np.array(mons).T
-                for i in range(dim):
-                    slices.append(mons[i])
-                slice_error = np.sum(np.abs(coeff[slices]))
-                if slice_error + error > approx_tol:
-                    if deg < coeff.shape[0]-1:
-                        slices = [slice(0,deg+1)]*dim
-                        coeff = coeff[slices]
-                    break
-                else:
-                    error += slice_error
-                    coeff[slices] = 0
-                    deg-=1
-                    if deg == 1:
-                        slices = [slice(0,2)]*dim
-                        coeff = coeff[slices]
+            if deg > 1:
+                while True:
+                    mons = mon_combos_limited_wrap(deg, dim, coeff.shape)
+                    slices = [] #becomes the indices of the terms of degree deg
+                    mons = np.array(mons).T
+                    for i in range(dim):
+                        slices.append(mons[i])
+                    slice_error = np.sum(np.abs(coeff[tuple(slices)]))
+                    if slice_error + error > approx_tol:
+                        if deg < coeff.shape[0]-1:
+                            slices = [slice(0,deg+1)]*dim
+                            coeff = coeff[tuple(slices)]
                         break
+                    else:
+                        error += slice_error
+                        coeff[tuple(slices)] = 0
+                        deg-=1
+                        if deg == 1:
+                            slices = [slice(0,2)]*dim
+                            coeff = coeff[tuple(slices)]
+                            break
         coeffs[num] = coeff
 
     if not all_triangular:
