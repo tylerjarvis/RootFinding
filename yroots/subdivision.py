@@ -15,8 +15,10 @@ from yroots.polynomial import MultiCheb
 from yroots.IntervalChecks import IntervalData
 from itertools import product
 from matplotlib import pyplot as plt
+from scipy.linalg import lu
 import itertools
 import time
+import warnings
 
 def solve(funcs, a, b, plot = False, plot_intervals = False, polish = False):
     '''
@@ -469,10 +471,29 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
                     A[row,col] = 0
                 else:
                     A[row,col] = coeff[var_list[col]]
-        if np.linalg.matrix_rank(A) < dim:
-            #FIX THIS
-            raise ValueError("I have no idea what to do here")
-        zero = np.linalg.solve(A,-B)
+
+        #solve the system
+        try:
+            zero = np.linalg.solve(A,-B)
+        except np.linalg.LinAlgError as e:
+            if str(e) == 'Singular matrix':
+                #if the system is dependent, then there are infinitely many roots
+                #if the system is inconsistent, there are no roots
+                #TODO: this should be more airtight than raising a warning
+
+                #if the rightmost column of U from LU decomposition
+                # is a pivot column, system is inconsistent
+                # otherwise, it's dependent
+                U = lu(np.hstack((A,B.reshape(-1,1))))[2]
+                pivot_columns = [np.flatnonzero(U[i, :])[0] for i in range(U.shape[0]) if np.flatnonzero(U[i, :]).shape[0]>0]
+                if U.shape[1]-1 in pivot_columns:
+                    #dependent
+                    return np.zeros([0,dim])
+                else:
+                    #independent
+                    warnings.warn('System potentially has infinitely many roots')
+                    return np.zeros([0,dim])
+
         interval_data.track_interval("Base Case", [a,b])
         if polish:
             polish_tol = (b[0]-a[0])/100
