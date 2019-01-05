@@ -15,8 +15,10 @@ from yroots.polynomial import MultiCheb
 from yroots.IntervalChecks import IntervalData
 from itertools import product
 from matplotlib import pyplot as plt
+from scipy.linalg import lu
 import itertools
 import time
+import warnings
 
 def solve(funcs, a, b, plot = False, plot_intervals = False, polish = False):
     '''
@@ -469,10 +471,29 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
                     A[row,col] = 0
                 else:
                     A[row,col] = coeff[var_list[col]]
-        if np.linalg.matrix_rank(A) < dim:
-            #FIX THIS
-            raise ValueError("I have no idea what to do here")
-        zero = np.linalg.solve(A,-B)
+
+        #solve the system
+        try:
+            zero = np.linalg.solve(A,-B)
+        except np.linalg.LinAlgError as e:
+            if str(e) == 'Singular matrix':
+                #if the system is dependent, then there are infinitely many roots
+                #if the system is inconsistent, there are no roots
+                #TODO: this should be more airtight than raising a warning
+
+                #if the rightmost column of U from LU decomposition
+                # is a pivot column, system is inconsistent
+                # otherwise, it's dependent
+                U = lu(np.hstack((A,B.reshape(-1,1))))[2]
+                pivot_columns = [np.flatnonzero(U[i, :])[0] for i in range(U.shape[0]) if np.flatnonzero(U[i, :]).shape[0]>0]
+                if U.shape[1]-1 in pivot_columns:
+                    #dependent
+                    return np.zeros([0,dim])
+                else:
+                    #independent
+                    warnings.warn('System potentially has infinitely many roots')
+                    return np.zeros([0,dim])
+
         interval_data.track_interval("Base Case", [a,b])
         if polish:
             polish_tol = (b[0]-a[0])/100
@@ -566,7 +587,7 @@ def good_direc(coeffs, dim, tol=1e-6):
             slices.append(0)
         else:
             slices.append(slice(None))
-    vals = [coeff[slices] for coeff in coeffs]
+    vals = [coeff[tuple(slices)] for coeff in coeffs]
     degs = [val.shape[0] for val in vals]
 
     min_vals = np.zeros([len(vals),*vals[np.argmax(degs)].shape])
@@ -574,7 +595,7 @@ def good_direc(coeffs, dim, tol=1e-6):
     for num, val in enumerate(vals):
         deg = degs[num]
         slices = [num]+[slice(0,deg) for i in range(val.ndim)]
-        min_vals[slices] = val
+        min_vals[tuple(slices)] = val
 
     min_vals[min_vals==0] = 1
     if np.any(np.min(np.abs(min_vals),axis=0) < tol):
@@ -644,32 +665,33 @@ def trim_coeffs(coeffs, approx_tol, solve_tol):
             initial_mons += mon_combos_limited_wrap(deg0, dim, coeff.shape)
         mons = np.array(initial_mons).T
         slices = [mons[i] for i in range(dim)]
-        slice_error = np.sum(np.abs(coeff[slices]))
+        slice_error = np.sum(np.abs(coeff[tuple(slices)]))
         if slice_error + error > approx_tol:
             all_triangular = False
         else:
-            coeff[slices] = 0
+            coeff[tuple(slices)] = 0
             deg = coeff.shape[0]-1
-            while True:
-                mons = mon_combos_limited_wrap(deg, dim, coeff.shape)
-                slices = [] #becomes the indices of the terms of degree deg
-                mons = np.array(mons).T
-                for i in range(dim):
-                    slices.append(mons[i])
-                slice_error = np.sum(np.abs(coeff[slices]))
-                if slice_error + error > approx_tol:
-                    if deg < coeff.shape[0]-1:
-                        slices = [slice(0,deg+1)]*dim
-                        coeff = coeff[slices]
-                    break
-                else:
-                    error += slice_error
-                    coeff[slices] = 0
-                    deg-=1
-                    if deg == 1:
-                        slices = [slice(0,2)]*dim
-                        coeff = coeff[slices]
+            if deg > 1:
+                while True:
+                    mons = mon_combos_limited_wrap(deg, dim, coeff.shape)
+                    slices = [] #becomes the indices of the terms of degree deg
+                    mons = np.array(mons).T
+                    for i in range(dim):
+                        slices.append(mons[i])
+                    slice_error = np.sum(np.abs(coeff[tuple(slices)]))
+                    if slice_error + error > approx_tol:
+                        if deg < coeff.shape[0]-1:
+                            slices = [slice(0,deg+1)]*dim
+                            coeff = coeff[tuple(slices)]
                         break
+                    else:
+                        error += slice_error
+                        coeff[tuple(slices)] = 0
+                        deg-=1
+                        if deg == 1:
+                            slices = [slice(0,2)]*dim
+                            coeff = coeff[tuple(slices)]
+                            break
         coeffs[num] = coeff
 
     if not all_triangular:
