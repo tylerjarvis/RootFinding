@@ -189,35 +189,39 @@ class IntervalData:
         #make easier to input lower/upper bounds as a list
         plt.figure(dpi=1200)
         fig,ax = plt.subplots(1)
-        fig.set_size_inches(10, 10)
+        fig.set_size_inches(5,3)
         plt.xlim(self.a[0],self.b[0])
         plt.xlabel('$x$')
         plt.ylim(self.a[1],self.b[1])
         plt.ylabel('$y$')
-        plt.title('Zero-Loci and Roots')
+        # plt.title('Zero-Loci and Roots')
 
         dim = 2
 
         #print the contours
-        contour_colors = ['#003cff','k'] #royal blue and black
+        # contour_colors = ['#003cff','k'] #royal blue and black
+        contour_colors = ['#00cc00','#cc33ff']
         x = np.linspace(self.a[0],self.b[0],1000)
         y = np.linspace(self.a[1],self.b[1],1000)
         X,Y = np.meshgrid(x,y)
+        lines = []
         for i in range(dim):
             if isinstance(funcs[i], Polynomial):
                 Z = np.zeros_like(X)
                 for spot,num in np.ndenumerate(X):
                     Z[spot] = funcs[i]([X[spot],Y[spot]])
-                plt.contour(X,Y,Z,levels=[0],colors=contour_colors[i])
+                lines.append(plt.contour(X,Y,Z,levels=[0],colors=contour_colors[i]))
             else:
-                plt.contour(X,Y,funcs[i](X,Y),levels=[0],colors=contour_colors[i])
+                lines.append(plt.contour(X,Y,funcs[i](X,Y),levels=[0],colors=contour_colors[i]))
 
         #Plot the zeros
-        plt.plot(np.real(zeros[:,0]), np.real(zeros[:,1]),'o',color='none',markeredgecolor='r',markersize=10)
-        colors = ['w','#d3d3d3', '#708090', '#c5af7d', '#897A57', '#D6C7A4','#73e600','#ccff99']
+        plt.plot(np.real(zeros[:,0]), np.real(zeros[:,1]),'.',color='k',markersize=5,label='Roots')
+        # plt.plot(np.real(zeros[:,0]), np.real(zeros[:,1]),'o',color='none',markeredgecolor='r',markersize=10)
+        # colors = ['w','#d3d3d3', '#708090', '#c5af7d', '#897A57', '#D6C7A4','#73e600','#ccff99']
+        colors = ['w','#d3d3d3','#708090','#ffd480']
 
         if plot_intervals:
-            plt.title('What happened to the intervals')
+            # plt.title('What happened to the intervals')
             #plot results
             i = -1
             for check in self.interval_results:
@@ -234,7 +238,12 @@ class IntervalData:
                         rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.05,\
                                                  edgecolor='k',facecolor=colors[i])
                     ax.add_patch(rect)
-            plt.legend()
+            lgd = plt.legend(loc='upper right', prop={'size': 6})#, bbox_to_anchor=(1, 0.5))
+        # plt.plot(-0.02440308,  0.21061243, '.', color='r',markersize=15)
+        title = 'eg3'
+        plt.tight_layout()
+        plt.savefig(title + '_1200.png',dpi=1200, bbox_inches='tight')#, bbox_extra_artists=(lgd,)
+        plt.savefig(title + '_300.png',dpi=300, bbox_inches='tight')#, bbox_extra_artists=(lgd,)
         plt.show()
 
 def extreme_val3(test_coeff, maxx = True):
