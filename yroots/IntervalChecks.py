@@ -241,7 +241,7 @@ def extreme_val3(test_coeff, maxx = True):
     ''' Finds the extreme value of test_coeff on -1 to 1, used by quad_check
 
     test_coeff is [a,b,c] and represents the funciton a + bx + c(2x^2 - 1).
-    Basic calc can be used to find the extreme values.
+    Basic calculus can be used to find the extreme values.
 
     Parameters
     ----------
@@ -281,7 +281,7 @@ def extreme_val4(test_coeff, maxx = True):
     ''' Finds the extreme value of test_coeff on -1 to 1, used by cubic_check
 
     test_coeff is [a,b,c,d] and represents the funciton a + bx + c(2x^2 - 1) + d*(4x^3 - 3x).
-    Basic calc can be used to find the extreme values.
+    Basic calculus can be used to find the extreme values.
 
     Parameters
     ----------
@@ -960,6 +960,8 @@ def quadratic_check_nd(test_coeff, intervals,change_sign,tol):
             A = np.vstack([np.delete(C[var],var,0)]*(dim-1))
             np.fill_diagonal(A, 0)
             A += 4*np.diag(np.delete(C2,var,0))
+            if np.linalg.matrix_rank(A) < dim:
+                continue
             #First Boundary
             x_var = interval[0][var]
             B = -np.delete(C[var],var,0)*x_var-np.delete(C1,var,0)
@@ -981,9 +983,10 @@ def quadratic_check_nd(test_coeff, intervals,change_sign,tol):
         A = C.copy()
         A += 4*np.diag(C2)
         B = -C1.copy()
-        ext_spot = np.linalg.solve(A,B)
-        if np.all(interval[0] < ext_spot) and np.all(interval[1] > ext_spot):
-            extreme_points.append(quad_poly(ext_spot))
+        if np.linalg.matrix_rank(A) == dim:
+            ext_spot = np.linalg.solve(A,B)
+            if np.all(interval[0] < ext_spot) and np.all(interval[1] > ext_spot):
+                extreme_points.append(quad_poly(ext_spot))
 
         extreme_points = np.array(extreme_points)
 
