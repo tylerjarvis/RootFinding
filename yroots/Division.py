@@ -5,7 +5,6 @@ from yroots.polynomial import MultiCheb, MultiPower, is_power
 from yroots.MacaulayReduce import add_polys, rrqr_reduceMacaulay, rrqr_reduceMacaulay2
 from yroots.utils import get_var_list, slice_top, row_swap_matrix, \
                               mon_combos, newton_polish, MacaulayError
-import warnings
 
 def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, return_all_roots=True):
     '''Calculates the common zeros of polynomials using a division matrix.
@@ -28,7 +27,6 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, retu
     zeros : numpy array
         The common roots of the polynomials. Each row is a root.
     '''
-    warnings.warn('return all roots not implemented')
     #This first section creates the Macaulay Matrix with the monomials that don't have
     #the divisor variable in the first columns.
     power = is_power(polys)
@@ -152,21 +150,22 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, retu
     vals, vecs = eig(division_matrix,left=True,right=False)
     #conjugate because scipy gives the conjugate eigenvector
     vecs = vecs.conj()
+    
+    if len(vals) > len(np.unique(np.round(vals, 10))):
+        return -1
 
     vals2, vecs2 = eig(vecs)
-    sorted_vals2 = np.sort(np.abs(vals2))
-    if sorted_vals2[0] < 1.e-15:
+    sorted_vals2 = np.sort(np.abs(vals2)) #Sorted smallest to biggest
+    if sorted_vals2[0] < sorted_vals2[-1]*tol:
         return -1
-    if sorted_vals2[0]/sorted_vals2[-1] < tol:
-        return -1
-
+#     print(sorted_vals2[0]/sorted_vals2[-1])
     if verbose:
         print("\nDivision Matrix\n", np.round(division_matrix[::-1,::-1], 2))
         print("\nLeft Eigenvectors (as rows)\n", vecs.T)
     if not power:
         if np.max(np.abs(vals)) > 1.e6:
-            return -1
-
+            return -1            
+    
     #Calculates the zeros, the x values from the eigenvalues and the y values from the eigenvectors.
     zeros = list()
 
@@ -174,7 +173,11 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, retu
         if power and abs(vecs[-1][i]) < 1.e-3:
             #This root has magnitude greater than 1, will possibly generate a false root due to instability
             continue
+        if  np.abs(vals[i]) < 1.e-3:
+            continue
         root = np.zeros(dim, dtype=complex)
+        if vecs[-1][i] == 0:
+            print(vals,vecs[-1],sorted_vals2)
         for spot in range(0,divisor_var):
             root[spot] = vecs[-(2+spot)][i]/vecs[-1][i]
         for spot in range(divisor_var+1,dim):
@@ -192,7 +195,12 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, retu
 
         zeros.append(root)
 
-    return np.array(zeros)
+    if return_all_roots:
+        return np.array(zeros)
+    else:
+        # only return roots in the unit complex hyperbox
+        zeros = np.array(zeros)
+        return zeros[np.all(np.abs(zeros) <= 1,axis = 0)]
 
 def get_matrix_terms(poly_coeffs, dim, divisor_var):
     '''Finds the terms in the Macaulay matrix.

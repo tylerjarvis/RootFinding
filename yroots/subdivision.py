@@ -15,8 +15,10 @@ from yroots.polynomial import MultiCheb
 from yroots.IntervalChecks import IntervalData
 from itertools import product
 from matplotlib import pyplot as plt
+from scipy.linalg import lu
 import itertools
 import time
+import warnings
 
 def solve(funcs, a, b, plot = False, plot_intervals = False, polish = False):
     '''
@@ -85,9 +87,9 @@ def solve(funcs, a, b, plot = False, plot_intervals = False, polish = False):
         zeros = subdivision_solve_nd(funcs,a,b,deg,interval_data,polish=polish)
         
         print("\rPercent Finished: 100%       ")
-        interval_data.print_results()
         #Plot what happened
         if plot and dim == 2:
+            interval_data.print_results()
             interval_data.plot_results(funcs, zeros, plot_intervals)
         return zeros
 
@@ -374,7 +376,7 @@ def full_cheb_approximate(f,a,b,deg,tol=1.e-8,good_deg=None):
     else:
         return coeff, bools
 
-def good_zeros_nd(zeros, imag_tol = 0, real_tol = 0):
+def good_zeros_nd(zeros, imag_tol = 1.e-5, real_tol = 1.e-5):
     """Get the real zeros in the -1 to 1 interval in each dimension.
 
     Parameters
@@ -396,7 +398,7 @@ def good_zeros_nd(zeros, imag_tol = 0, real_tol = 0):
     good_zeros = good_zeros[np.all(np.abs(good_zeros) <= 1 + real_tol,axis = 1)]
     return good_zeros.real
 
-def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=1.e-8, polish=False, good_degs=None):
+def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=1.e-6, polish=False, good_degs=None):
     """Finds the common zeros of the given functions.
 
     Parameters
@@ -429,7 +431,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
     cheb_approx_list = []
     interval_data.print_progress()
     dim = len(a)
-
+    good_degs = None
     if good_degs is None:
         good_degs = [None]*len(funcs)
 
@@ -457,8 +459,8 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
 
     #Check if everything is linear
     if np.all(np.array([coeff.shape[0] for coeff in coeffs]) == 2):
-        if approx_tol > 1.e-8:
-            return subdivision_solve_nd(funcs,a,b,deg,interval_data,1.e-8,1.e-8, polish)
+        if approx_tol > 1.e-6:
+            return subdivision_solve_nd(funcs,a,b,deg,interval_data,1.e-6,1.e-8,polish)
         A = np.zeros([dim,dim])
         B = np.zeros(dim)
         for row in range(dim):
@@ -471,19 +473,32 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
                     A[row,col] = 0
                 else:
                     A[row,col] = coeff[var_list[col]]
-        if np.linalg.matrix_rank(A) < dim:
-            P,L,U = np.linalg.lu(np.hstack([A,B]))
-            print(U[-1])
-            raise ValueError("I have no idea what to do here")
-        B.shape = tuple([dim,1])
-        from scipy.linalg import lu
-        P,L,U = lu(np.hstack([A,B]))
-        print(U[-1])
+        #solve the system
+        try:
+            zero = np.linalg.solve(A,-B)
+        except np.linalg.LinAlgError as e:
+            if str(e) == 'Singular matrix':
+#                 print("OH NO")
+                #if the system is dependent, then there are infinitely many roots
+                #if the system is inconsistent, there are no roots
+                #TODO: this should be more airtight than raising a warning
 
-        zero = np.linalg.solve(A,-B)
+                #if the rightmost column of U from LU decomposition
+                # is a pivot column, system is inconsistent
+                # otherwise, it's dependent
+                U = lu(np.hstack((A,B.reshape(-1,1))))[2]
+                pivot_columns = [np.flatnonzero(U[i, :])[0] for i in range(U.shape[0]) if np.flatnonzero(U[i, :]).shape[0]>0]
+                if U.shape[1]-1 in pivot_columns:
+                    #dependent
+                    return np.zeros([0,dim])
+                else:
+                    #independent
+                    warnings.warn('System potentially has infinitely many roots')
+                    return np.zeros([0,dim])
+
         interval_data.track_interval("Base Case", [a,b])
         if polish:
-            polish_tol = (b[0]-a[0])/100
+            polish_tol = (b[0]-a[0])/10
             return polish_zeros(transform(good_zeros_nd(zero.reshape([1,dim])),a,b), funcs, polish_tol)
         else:
             return transform(good_zeros_nd(zero.reshape([1,dim])),a,b)
@@ -524,7 +539,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
     else:
         divisor_var += 1
         while divisor_var < dim:
-            if not good_direc(coeffs,divisor_var,solve_tol*100):
+            if not good_direc(coeffs,divisor_var,solve_tol):
                 divisor_var += 1
                 continue
             zeros = division(polys, divisor_var, solve_tol)
@@ -550,7 +565,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
             return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_data,\
                                                    approx_tol,solve_tol,polish,good_degs) for interval in intervals])
             
-def good_direc(coeffs, dim, tol=1e-6):
+def good_direc(coeffs, dim, solve_tol):
     """Determines if this is a good direction to try solving with division.
 
     Parameters
@@ -559,22 +574,22 @@ def good_direc(coeffs, dim, tol=1e-6):
         The coefficient matrices of the polynomials to solve.
     dim : int
         The direction to divide by in division.
-    tol : float
+    solve_tol : float
         How small spots that will be in the Macaulay diagonal are allowed to get before we determine it is unstable.
 
     Returns
     -------
     good_direc : bool
         If True running division should be stable. If False, probably not.
-    """    
+    """
+    tol = solve_tol*1000
     slices = []
     for i in range(coeffs[0].ndim):
         if i == dim:
             slices.append(0)
         else:
             slices.append(slice(None))
-    slices = tuple(slices)
-    vals = [coeff[slices] for coeff in coeffs]
+    vals = [coeff[tuple(slices)] for coeff in coeffs]
     degs = [val.shape[0] for val in vals]
 
     min_vals = np.zeros([len(vals),*vals[np.argmax(degs)].shape])
@@ -585,7 +600,7 @@ def good_direc(coeffs, dim, tol=1e-6):
         min_vals[slices] = val
 
     min_vals[min_vals==0] = 1
-    if np.any(np.min(np.abs(min_vals),axis=0) < tol):
+    if np.any(np.max(np.abs(min_vals),axis=0) < tol):
         return False
     return True
 
@@ -651,12 +666,13 @@ def trim_coeffs(coeffs, approx_tol, solve_tol):
         for deg0 in range(coeff.shape[0], deg+1):
             initial_mons += mon_combos_limited_wrap(deg0, dim, coeff.shape)
         mons = np.array(initial_mons).T
-        slices = tuple([mons[i] for i in range(dim)])
-        slice_error = np.sum(np.abs(coeff[slices]))
+        slices = [mons[i] for i in range(dim)]
+        slice_error = np.sum(np.abs(coeff[tuple(slices)]))
+
         if slice_error + error > approx_tol:
             all_triangular = False
         else:
-            coeff[slices] = 0
+            coeff[tuple(slices)] = 0
             deg = coeff.shape[0]-1
             while deg > 1:
                 mons = mon_combos_limited_wrap(deg, dim, coeff.shape)
@@ -685,7 +701,7 @@ def trim_coeffs(coeffs, approx_tol, solve_tol):
         return coeffs, -1
     else:
         for divisor_var in range(coeffs[0].ndim):
-            if good_direc(coeffs,divisor_var,solve_tol*100):
+            if good_direc(coeffs,divisor_var,solve_tol):
                 return coeffs, divisor_var
         return coeffs, -1
 
