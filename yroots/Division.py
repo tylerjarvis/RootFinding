@@ -150,7 +150,7 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, retu
     vals, vecs = eig(division_matrix,left=True,right=False)
     #conjugate because scipy gives the conjugate eigenvector
     vecs = vecs.conj()
-    
+
     if len(vals) > len(np.unique(np.round(vals, 10))):
         return -1
 
@@ -158,14 +158,13 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, retu
     sorted_vals2 = np.sort(np.abs(vals2)) #Sorted smallest to biggest
     if sorted_vals2[0] < sorted_vals2[-1]*tol:
         return -1
-#     print(sorted_vals2[0]/sorted_vals2[-1])
     if verbose:
         print("\nDivision Matrix\n", np.round(division_matrix[::-1,::-1], 2))
         print("\nLeft Eigenvectors (as rows)\n", vecs.T)
     if not power:
         if np.max(np.abs(vals)) > 1.e6:
-            return -1            
-    
+            return -1
+
     #Calculates the zeros, the x values from the eigenvalues and the y values from the eigenvectors.
     zeros = list()
 

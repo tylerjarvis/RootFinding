@@ -85,7 +85,7 @@ def solve(funcs, a, b, plot = False, plot_intervals = False, polish = False):
 
         #Output the interval percentages
         zeros = subdivision_solve_nd(funcs,a,b,deg,interval_data,polish=polish)
-        
+
         print("\rPercent Finished: 100%       ")
         #Plot what happened
         if plot and dim == 2:
@@ -478,7 +478,6 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
             zero = np.linalg.solve(A,-B)
         except np.linalg.LinAlgError as e:
             if str(e) == 'Singular matrix':
-#                 print("OH NO")
                 #if the system is dependent, then there are infinitely many roots
                 #if the system is inconsistent, there are no roots
                 #TODO: this should be more airtight than raising a warning
@@ -564,7 +563,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
             good_degs = [poly.coeff.shape[0] - 1 for poly in polys]
             return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_data,\
                                                    approx_tol,solve_tol,polish,good_degs) for interval in intervals])
-            
+
 def good_direc(coeffs, dim, solve_tol):
     """Determines if this is a good direction to try solving with division.
 
@@ -622,7 +621,7 @@ def polish_zeros(zeros, funcs, tol=1.e-2):
     -------
     polish_zeros : numpy
         The polished zeros.
-    """    
+    """
     if len(zeros) == 0:
         return zeros
     dim = zeros.shape[1]

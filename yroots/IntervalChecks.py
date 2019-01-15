@@ -199,7 +199,7 @@ class IntervalData:
         dim = 2
 
         #print the contours
-        contour_colors = ['#003cff','k'] #royal blue and black
+        contour_colors = ['#00cc00','#cc33ff']
         x = np.linspace(self.a[0],self.b[0],1000)
         y = np.linspace(self.a[1],self.b[1],1000)
         X,Y = np.meshgrid(x,y)
@@ -213,8 +213,8 @@ class IntervalData:
                 plt.contour(X,Y,funcs[i](X,Y),levels=[0],colors=contour_colors[i])
 
         #Plot the zeros
-        plt.plot(np.real(zeros[:,0]), np.real(zeros[:,1]),'o',color='none',markeredgecolor='r',markersize=10)
-        colors = ['w','#d3d3d3', '#708090', '#c5af7d', '#897A57', '#D6C7A4','#73e600','#ccff99']
+        plt.plot(np.real(zeros[:,0]), np.real(zeros[:,1]),'.',color='k',markersize=10,label='Roots')
+        colors = ['w','#d3d3d3','#708090','#ffd480']
 
         if plot_intervals:
             plt.title('What happened to the intervals')
