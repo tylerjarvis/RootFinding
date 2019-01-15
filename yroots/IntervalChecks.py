@@ -214,7 +214,7 @@ class IntervalData:
 
         #Plot the zeros
         plt.plot(np.real(zeros[:,0]), np.real(zeros[:,1]),'.',color='k',markersize=10,label='Roots')
-        colors = ['w','#d3d3d3', '#708090', '#c5af7d', '#897A57', '#D6C7A4','#73e600','#ccff99']
+        colors = ['w','#d3d3d3','#708090','#ffd480']
 
         if plot_intervals:
             plt.title('What happened to the intervals')
