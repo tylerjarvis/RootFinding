@@ -3,8 +3,8 @@ Code for determining if a system of polynomials has a root at infinity
 August 17, 2018
 """
 import numpy as np
-from numalgsolve.polynomial import MultiPower
-from numalgsolve.OneDimension import solve
+from yroots.polynomial import MultiPower
+from yroots.OneDimension import solve
 
 def common_root_at_inf(polys, return_root=False):
     '''
