@@ -3,7 +3,7 @@ import itertools
 from numpy.polynomial import chebyshev as cheb
 from numpy.polynomial import polynomial as poly
 from scipy.signal import fftconvolve, convolve
-from numalgsolve.utils import Term, makePolyCoeffMatrix, match_size, slice_top, slice_bottom
+from yroots.utils import Term, makePolyCoeffMatrix, match_size, slice_top, slice_bottom
 import time
 
 from numba import jit
@@ -392,7 +392,7 @@ class MultiCheb(Polynomial):
         indexer2[fdim] = slice_1
 
         #makes first slice in sol equal to the slice we fold around in solution_matrix
-        sol[indexer1] = solution_matrix[indexer2]
+        sol[tuple(indexer1)] = solution_matrix[tuple(indexer2)]
 
         #Loop adds the slices above and below the slice we rotate around and inserts solutions in sol.
         for n in range(size_in_fdim):
@@ -410,12 +410,12 @@ class MultiCheb(Polynomial):
                 if fold_idx+n+2 > size_in_fdim:
                     break
                 else:
-                    sol[indexer1] = solution_matrix[indexer2]
+                    sol[tuple(indexer1)] = solution_matrix[tuple(indexer2)]
             else:
                 if fold_idx+n+2 > size_in_fdim:
-                    sol[indexer1] = solution_matrix[indexer3]
+                    sol[tuple(indexer1)] = solution_matrix[tuple(indexer3)]
                 else:
-                    sol[indexer1] = solution_matrix[indexer3] + solution_matrix[indexer2]
+                    sol[tuple(indexer1)] = solution_matrix[tuple(indexer3)] + solution_matrix[tuple(indexer2)]
 
         return sol
 
@@ -542,7 +542,6 @@ class MultiCheb(Polynomial):
         xyz = super(MultiCheb, self).__call__(xyz)
 
         c = self.coeff
-        n = c.ndim
         for i in range(xyz.shape[1]):
             c = chebval2(xyz[:,i] ,c)
 
@@ -804,7 +803,6 @@ class MultiPower(Polynomial):
         xyz = super(MultiPower, self).__call__(xyz)
 
         c = self.coeff
-        n = c.ndim
         for i in range(xyz.shape[1]):
             c = polyval2(xyz[:,i] ,c)
 
@@ -966,7 +964,7 @@ def is_power(poly_list, return_string = False):
         else:
             return 'MultiCheb'
     else:
-        print([type(p) == MultiPower for p in initial_poly_list])
+        print([type(p) == MultiPower for p in poly_list])
         raise ValueError('Bad polynomials in list')
 
 ############################################################################
@@ -1021,10 +1019,6 @@ def polyvalnd(x,c):
 
 ############################################################################
 
-#### CHEBYSHEV APPROXIMATOR ################################################
-def cheb_approx(data):
-    pass
-
 #polynomial generator
 def solve(poly1, poly2):
     """
@@ -1058,71 +1052,3 @@ def solve(poly1, poly2):
 
     #print('\n', poly1, poly2, poly_coeffs[::-1])
     return tuple(poly_coeffs[::-1])
-
-
-def solve_poly(mylist):
-    """give it the list of tuples to solve
-
-        returns:
-        tuple of solved polynomial
-    """
-    if len(mylist) == 1:
-        return mylist[0]
-
-    tuples = []
-    size = len(mylist)
-    if size % 2 == 0: #even number of roots
-        for i in range(size//2):
-            tuples.append(solve(mylist[i], mylist[-(i+1)]))
-    else: #odd number of roots
-        size -= 1
-        extra = mylist[size//2]
-        for i in range(size//2):
-            tuples.append(solve(mylist[i], mylist[-(i+1)]))
-        tuples.append(extra)
-    return solve_poly(tuples)
-
-
-def gen_poly(degree, variables=1):
-    """
-    generate degree number of random numbers in [-1,1]
-    p=(x-n)(x-n)... for n in random numbers
-    return n for n in numbers (roots), and the polynomial p
-
-    (x-2)(x-3)(x-4)(x-5)
-
-    |      1  -2 |
-    |  1   1  -2 | = 1 -5 6 => x^2 -5x +6
-    | -3  -3   6 |
-
-    T_m*T_n=.5(T_(m+n)+T_(m-n))
-
-    returns roots - list of roots
-            solve_poly[::-1] - tuple with coefficients of resultant polynomial in ascending degree order
-    """
-    #generate <degree> random numbers
-    deg = []
-    for i in range(degree):
-        #append tuples of form (1,-x) where x is a root
-        deg.append((1,np.random.uniform(-1,1)))
-
-    roots = []
-    for i in range(degree):
-        roots.append(-1*list(deg[i])[1])
-    return roots, np.array(solve_poly(deg))[::-1]
-
-def gen_poly2(rootList = [], variables=1):
-    """
-    generate degree number of random numbers from a list of roots
-
-    returns roots - list of roots
-            solve_poly - tuple with coefficients of resultant polynomial in ascending degree order
-    """
-    if rootList is None:
-        return [], []
-
-    deg = np.zeros((len(rootList),2))
-    for i,v in enumerate(rootList):
-        #append tuples of form (1,-x) where x is a root
-        deg[i] = (1,-1*v)
-    return rootList, np.array(solve_poly(deg))[::-1]

@@ -8,11 +8,6 @@ from setuptools import setup, find_packages
 with open('README.md') as readme_file:
     readme = readme_file.read()
 
-#with open('HISTORY.rst') as history_file:
-#    history = history_file.read()
-
-#requirements = ['Click>=6.0', ]
-
 setup_requirements = ['pytest-runner', ]
 
 test_requirements = ['pytest', ]
@@ -28,14 +23,14 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
     ],
-    description="A package for faster root finding.",
+    description="A package for numerical root finding.",
     #install_requires=requirements,
     license="MIT license",
     long_description=readme + '\n\n',# + history,
     include_package_data=True,
     keywords='RootFinding',
     name='RootFinding',
-    packages=find_packages(include=['numalgsolve', 'CHEBYSHEV/TVB_Method']),
+    packages=find_packages(include=['yroots']),
     setup_requires=setup_requirements,
     test_suite='tests',
     tests_require=test_requirements,
