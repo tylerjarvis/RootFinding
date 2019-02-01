@@ -131,6 +131,7 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
 
     #SVD conditioning check
     S = np.linalg.svd(matrix[:,:matrix.shape[0]], compute_uv=False)
+#     print(S, accuracy)
     if S[0] * accuracy > S[-1]:
         return -1, -1
     #backsolve
