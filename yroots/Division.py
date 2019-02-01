@@ -27,12 +27,37 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, retu
     zeros : numpy array
         The common roots of the polynomials. Each row is a root.
     '''
+#     from matplotlib import pyplot as plt
+#     plt.figure(dpi=120)
+#     fig,ax = plt.subplots(1)
+#     fig.set_size_inches(10, 10)
+#     plt.xlim(-1, 1)
+#     plt.xlabel('$x$')
+#     plt.ylim(-1, 1)
+#     plt.ylabel('$y$')
+#     plt.title('Zero-Loci and Roots')
+#     dim = 2
+
+#     #print the contours
+#     contour_colors = ['#003cff','k'] #royal blue and black
+#     x = np.linspace(-1, 1, 100)
+#     y = np.linspace(-1, 1, 100)
+#     X,Y = np.meshgrid(x,y)
+#     for i in range(dim):
+#         Z = np.zeros_like(X)
+#         for spot,num in np.ndenumerate(X):
+#             Z[spot] = polys[i]([X[spot],Y[spot]])
+#         plt.contour(X,Y,Z,levels=[0],colors=contour_colors[i])
+#     plt.show()
+    
+    
+    
     #This first section creates the Macaulay Matrix with the monomials that don't have
     #the divisor variable in the first columns.
     power = is_power(polys)
     dim = polys[0].dim
 
-    matrix_degree = np.sum(poly.degree for poly in polys) - len(polys) + 1
+    matrix_degree = np.sum([poly.degree for poly in polys]) - len(polys) + 1
 
     poly_coeff_list = []
     for poly in polys:
@@ -55,11 +80,7 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, retu
     if isinstance(matrix, int):
         return -1
 
-    rows,columns = matrix.shape
-
     VB = matrix_terms[matrix.shape[0]:]
-
-    matrix = np.hstack((np.eye(rows),solve_triangular(matrix[:,:rows],matrix[:,rows:])))
 
     if verbose:
         np.set_printoptions(suppress=True, linewidth=200)
@@ -154,27 +175,31 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, retu
     vals, vecs = eig(division_matrix,left=True,right=False)
     #conjugate because scipy gives the conjugate eigenvector
     vecs = vecs.conj()
+    
+    if len(vals) > len(np.unique(np.round(vals, 10))):
+        return -1
 
     vals2, vecs2 = eig(vecs)
-    sorted_vals2 = np.sort(np.abs(vals2))
-    if sorted_vals2[0] < 1.e-15:
+    sorted_vals2 = np.sort(np.abs(vals2)) #Sorted smallest to biggest
+    if sorted_vals2[0] < sorted_vals2[-1]*tol:
         return -1
-    if sorted_vals2[0]/sorted_vals2[-1] < tol:
-        return -1
+#     print(sorted_vals2[0]/sorted_vals2[-1])
 
     if verbose:
         print("\nDivision Matrix\n", np.round(division_matrix[::-1,::-1], 2))
         print("\nLeft Eigenvectors (as rows)\n", vecs.T)
     if not power:
         if np.max(np.abs(vals)) > 1.e6:
-            return -1
+            return -1            
 
     #Calculates the zeros, the x values from the eigenvalues and the y values from the eigenvectors.
     zeros = list()
-
+    
     for i in range(len(vals)):
         if power and abs(vecs[-1][i]) < 1.e-3:
             #This root has magnitude greater than 1, will possibly generate a false root due to instability
+            continue
+        if  np.abs(vals[i]) < 1.e-5:
             continue
         root = np.zeros(dim, dtype=complex)
         for spot in range(0,divisor_var):
@@ -182,6 +207,7 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, retu
         for spot in range(divisor_var+1,dim):
             root[spot] = vecs[-(1+spot)][i]/vecs[-1][i]
 
+#         print(1/vals[i], vecs[-2,i]/vecs[-1,i])
         root[divisor_var] = 1/vals[i]
 
         if polish:
@@ -193,7 +219,7 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, retu
                 continue
 
         zeros.append(root)
-
+        
     if return_all_roots:
         return np.array(zeros)
     else:

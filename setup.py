@@ -30,7 +30,11 @@ setup(
     include_package_data=True,
     keywords='RootFinding',
     name='RootFinding',
+<<<<<<< HEAD
     packages=find_packages(include=['yroots']),
+=======
+    packages=find_packages(include=['yroots', 'CHEBYSHEV/TVB_Method']),
+>>>>>>> public_code
     setup_requires=setup_requirements,
     test_suite='tests',
     tests_require=test_requirements,
