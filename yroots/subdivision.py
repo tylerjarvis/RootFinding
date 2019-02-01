@@ -90,6 +90,7 @@ def solve(funcs, a, b, plot = False, plot_intervals = False, polish = False):
         interval_data.print_results()
         #Plot what happened
         if plot and dim == 2:
+#             interval_data.print_results()
             interval_data.plot_results(funcs, zeros, plot_intervals)
         return zeros
 
@@ -163,6 +164,17 @@ def interval_approximate_1d(f,a,b,deg):
     """
     extrema = transform(np.cos((np.pi*np.arange(2*deg))/deg),a,b)
     values = f(extrema)
+
+    multiplier = None
+    if multiplier is None:
+        if np.max(np.abs(values)) < 1.e-50:
+            multiplier = 1.e50
+        else:
+            multiplier = 1./np.max(np.abs(values))
+    multiplier = max(1, multiplier)
+    values *= multiplier
+    print(values)
+
     coeffs = np.real(np.fft.fft(values/deg))
     coeffs[0]/=2
     coeffs[deg]/=2
@@ -206,7 +218,7 @@ def get_cheb_grid(deg, dim, has_eval_grid):
         flatten = lambda x: x.flatten()
         return np.column_stack(map(flatten, cheb_grids))
 
-def interval_approximate_nd(f,a,b,deg,return_bools=False):
+def interval_approximate_nd(f,a,b,deg,return_bools=False,multiplier=None):
     """Finds the chebyshev approximation of an n-dimensional function on an interval.
 
     Parameters
@@ -264,6 +276,15 @@ def interval_approximate_nd(f,a,b,deg,return_bools=False):
 #                 change_sign[k] = False
 
     values = chebyshev_block_copy(values_block)
+
+    if multiplier is None:
+        if np.max(np.abs(values)) < 1.e-50:
+            multiplier = 1.e50
+        else:
+            multiplier = 1./np.max(np.abs(values))
+    multiplier = max(1, multiplier)
+    values *= multiplier
+
     coeffs = np.real(fftn(values/deg**dim))
 
     for i in range(dim):
@@ -280,9 +301,9 @@ def interval_approximate_nd(f,a,b,deg,return_bools=False):
 
     slices = [slice(0,deg+1)]*dim
     if return_bools:
-        return coeffs[tuple(slices)], change_sign
+        return coeffs[tuple(slices)], change_sign, multiplier
     else:
-        return coeffs[tuple(slices)]
+        return coeffs[tuple(slices)], multiplier
 
 def get_subintervals(a,b,dimensions,interval_data,polys,change_sign,approx_tol,check_subintervals=False):
     """Gets the subintervals to divide a search interval into.
@@ -334,7 +355,7 @@ def get_subintervals(a,b,dimensions,interval_data,polys,change_sign,approx_tol,c
     else:
         return subintervals
 
-def full_cheb_approximate(f,a,b,deg,tol=1.e-8,good_deg=None):
+def full_cheb_approximate(f,a,b,deg,tol,good_deg=None):
     """Gives the full chebyshev approximation and checks if it's good enough.
 
     Called recursively.
@@ -363,16 +384,25 @@ def full_cheb_approximate(f,a,b,deg,tol=1.e-8,good_deg=None):
     """
     #We know what degree we want
     if good_deg is not None:
-        coeff, bools = interval_approximate_nd(f,a,b,good_deg,return_bools=True)
-        clean_zeros_from_matrix(coeff,1.e-16)
+        coeff, bools, multiplier = interval_approximate_nd(f,a,b,good_deg,return_bools=True)
         return coeff, bools
     #Try degree deg and see if it's good enough
-    coeff = interval_approximate_nd(f,a,b,deg)
-    coeff2, bools = interval_approximate_nd(f,a,b,deg*2,return_bools=True)
+    coeff, multiplier = interval_approximate_nd(f,a,b,deg)
+    coeff2, bools, multiplier = interval_approximate_nd(f,a,b,deg*2,return_bools=True, multiplier=multiplier)
     coeff2[slice_top(coeff)] -= coeff
-    clean_zeros_from_matrix(coeff2,1.e-16)
     if np.sum(np.abs(coeff2)) > tol:
-        return None, None
+        #Find the directions to subdivide
+        dim = len(a)
+        div_dimensions = []
+        slices = [slice(0,None,None)]*dim
+        for d in range(dim):
+            slices[d] = slice(deg+1,None,None)
+            if np.sum(np.abs(coeff2[tuple(slices)])) > tol/dim:
+                div_dimensions.append(d)
+            slices[d] = slice(0,None,None)
+        if len(div_dimensions) == 0:
+            div_dimensions.append(0)
+        return None, np.array(div_dimensions)
     else:
         return coeff, bools
 
@@ -394,7 +424,7 @@ def good_zeros_nd(zeros, imag_tol = 1.e-5, real_tol = 1.e-5):
     good_zeros : numpy array
         The real zeros in [-1,1] of the input zeros.
     """
-    good_zeros = zeros[np.all(np.abs(zeros.imag) < imag_tol,axis = 1)]
+    good_zeros = zeros[np.all(np.abs(zeros.imag) <= imag_tol,axis = 1)]
     good_zeros = good_zeros[np.all(np.abs(good_zeros) <= 1 + real_tol,axis = 1)]
     return good_zeros.real
 
@@ -431,7 +461,6 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
     cheb_approx_list = []
     interval_data.print_progress()
     dim = len(a)
-
     if good_degs is None:
         good_degs = [None]*len(funcs)
 
@@ -440,7 +469,8 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
 
         #Subdivides if a bad approximation
         if coeff is None:
-            intervals = get_subintervals(a,b,np.arange(dim),None,None,None,approx_tol)
+#             change_sign = np.arange(dim)
+            intervals = get_subintervals(a,b,change_sign,None,None,None,approx_tol)
             return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_data,\
                                                    approx_tol,solve_tol,polish) for interval in intervals])
         else:
@@ -459,6 +489,9 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
 
     #Check if everything is linear
     if np.all(np.array([coeff.shape[0] for coeff in coeffs]) == 2):
+#         new_tol = 1.e-8
+#         if approx_tol > new_tol:
+#             return subdivision_solve_nd(funcs,a,b,deg,interval_data,new_tol,1.e-8,polish)
         A = np.zeros([dim,dim])
         B = np.zeros(dim)
         for row in range(dim):
@@ -496,10 +529,11 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
 
         interval_data.track_interval("Base Case", [a,b])
         if polish:
-            polish_tol = (b[0]-a[0])/100
+            polish_tol = (b[0]-a[0])/10
             return polish_zeros(transform(good_zeros_nd(zero.reshape([1,dim])),a,b), funcs, polish_tol)
         else:
             return transform(good_zeros_nd(zero.reshape([1,dim])),a,b)
+    #Check if anything is linear
     elif np.any(np.array([coeff.shape[0] for coeff in coeffs]) == 2):
         #Subdivide but run some checks on the intervals first
         intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,\
@@ -510,7 +544,9 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
             good_degs = [coeff.shape[0] - 1 for coeff in coeffs]
             return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_data,\
                                                    approx_tol,solve_tol,polish,good_degs) for interval in intervals])
-
+    
+    if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > 5):
+        divisor_var = -1
     if divisor_var < 0:
         #Subdivide but run some checks on the intervals first
         intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,\
@@ -537,14 +573,13 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
     else:
         divisor_var += 1
         while divisor_var < dim:
-            if not good_direc(coeffs,divisor_var,solve_tol*100):
+            if not good_direc(coeffs,divisor_var,solve_tol):
                 divisor_var += 1
                 continue
             zeros = division(polys, divisor_var, solve_tol)
             if isinstance(zeros, int):
                 divisor_var += 1
                 continue
-
             zeros = np.array(zeros)
             interval_data.track_interval("Division", [a,b])
             if len(zeros) == 0:
@@ -564,7 +599,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
             return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_data,\
                                                    approx_tol,solve_tol,polish,good_degs) for interval in intervals])
 
-def good_direc(coeffs, dim, tol=1e-6):
+def good_direc(coeffs, dim, solve_tol):
     """Determines if this is a good direction to try solving with division.
 
     Parameters
@@ -573,7 +608,7 @@ def good_direc(coeffs, dim, tol=1e-6):
         The coefficient matrices of the polynomials to solve.
     dim : int
         The direction to divide by in division.
-    tol : float
+    solve_tol : float
         How small spots that will be in the Macaulay diagonal are allowed to get before we determine it is unstable.
 
     Returns
@@ -581,6 +616,7 @@ def good_direc(coeffs, dim, tol=1e-6):
     good_direc : bool
         If True running division should be stable. If False, probably not.
     """
+    tol = solve_tol*100
     slices = []
     for i in range(coeffs[0].ndim):
         if i == dim:
@@ -620,7 +656,7 @@ def polish_zeros(zeros, funcs, tol=1.e-2):
     -------
     polish_zeros : numpy
         The polished zeros.
-    """
+    """    
     if len(zeros) == 0:
         return zeros
     dim = zeros.shape[1]
@@ -671,34 +707,34 @@ def trim_coeffs(coeffs, approx_tol, solve_tol):
         else:
             coeff[tuple(slices)] = 0
             deg = coeff.shape[0]-1
-            if deg > 1:
-                while True:
-                    mons = mon_combos_limited_wrap(deg, dim, coeff.shape)
-                    slices = [] #becomes the indices of the terms of degree deg
-                    mons = np.array(mons).T
-                    for i in range(dim):
-                        slices.append(mons[i])
-                    slice_error = np.sum(np.abs(coeff[tuple(slices)]))
-                    if slice_error + error > approx_tol:
-                        if deg < coeff.shape[0]-1:
-                            slices = [slice(0,deg+1)]*dim
-                            coeff = coeff[tuple(slices)]
+            while deg > 1:
+                mons = mon_combos_limited_wrap(deg, dim, coeff.shape)
+                slices = [] #becomes the indices of the terms of degree deg
+                mons = np.array(mons).T
+                for i in range(dim):
+                    slices.append(mons[i])
+                slices = tuple(slices)
+                slice_error = np.sum(np.abs(coeff[slices]))
+                if slice_error + error > approx_tol:
+                    if deg < coeff.shape[0]-1:
+                        slices = tuple([slice(0,deg+1)]*dim)
+                        coeff = coeff[slices]
+                    break
+                else:
+                    error += slice_error
+                    coeff[slices] = 0
+                    deg-=1
+                    if deg == 1:
+                        slices = tuple([slice(0,2)]*dim)
+                        coeff = coeff[slices]
                         break
-                    else:
-                        error += slice_error
-                        coeff[tuple(slices)] = 0
-                        deg-=1
-                        if deg == 1:
-                            slices = [slice(0,2)]*dim
-                            coeff = coeff[tuple(slices)]
-                            break
         coeffs[num] = coeff
 
     if not all_triangular:
         return coeffs, -1
     else:
         for divisor_var in range(coeffs[0].ndim):
-            if good_direc(coeffs,divisor_var,solve_tol*100):
+            if good_direc(coeffs,divisor_var,solve_tol):
                 return coeffs, divisor_var
         return coeffs, -1
 
