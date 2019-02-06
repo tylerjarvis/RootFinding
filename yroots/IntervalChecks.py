@@ -14,7 +14,7 @@ from matplotlib import patches
 
 class IntervalData:
     '''
-    Class to handle all the things realted to intervals. It holds and runs the interval checks
+    Class to handle all the things related to intervals. It holds and runs the interval checks
     and also tracks what happened to each interval, and how much progress has been made.
 
     Attributes
