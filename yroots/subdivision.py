@@ -544,7 +544,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
             good_degs = [coeff.shape[0] - 1 for coeff in coeffs]
             return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_data,\
                                                    approx_tol,solve_tol,polish,good_degs) for interval in intervals])
-    
+
     if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > 5):
         divisor_var = -1
     if divisor_var < 0:
@@ -656,7 +656,7 @@ def polish_zeros(zeros, funcs, tol=1.e-2):
     -------
     polish_zeros : numpy
         The polished zeros.
-    """    
+    """
     if len(zeros) == 0:
         return zeros
     dim = zeros.shape[1]

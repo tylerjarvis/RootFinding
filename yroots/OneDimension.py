@@ -22,8 +22,8 @@ def solve(poly, MSmatrix=0, eigvals=True, verbose=False):
     one_dimensional_solve : numpy array
         An array of the zeros.
     """
-    if MSmatrix not in [-1, 0, 1]:
-        raise ValueError('MSmatrix must be -1 (inverse companion), 0 (rotated companion), or 1 (standard companion)')
+    if MSmatrix not in [-1, 0]:
+        raise ValueError('MSmatrix must be -1 (inverse companion), or 0 (rotated companion)')
 
     if type(poly) == MultiPower:
         size = len(poly.coeff)

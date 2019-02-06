@@ -2,13 +2,58 @@ from itertools import product
 
 import numpy as np
 from numpy.fft.fftpack import fftn
-from numalgsolve.utils import get_var_list
-from numalgsolve.polynomial import MultiCheb, MultiPower, Polynomial
-from numalgsolve.subdivision import interval_approximate_nd, trim_coeff,\
-                                    chebyshev_block_copy
+from yroots.utils import get_var_list
+from yroots.polynomial import Polynomial, MultiCheb
 from scipy.linalg import qr
 
-def project_down(polys, linear):
+def remove_linear(polys, approx_tol, solve_tol, transform_in=None):
+    """This function recursively removes linear polynomials from a list by
+    applying the project_down function once for each linear polynomial.
+    This function assumes these polynomials had the zeros removed already, so that
+    it can rely on dimensions to detect linear polynomials.
+
+    Parameters
+    ----------
+    polys : list of polynomial objects
+        Polynomials to find the common roots of.
+    approx_tol: float
+        A tolerance to pass into the trim_coeff.
+    solve_tol : float
+        A tolerance to pass into the trim_coeff.
+    transform_in : function
+        only intended for use in recursion
+
+    Returns
+    -------
+    polys : list of polynomial objects
+        Polynomials to find the common roots of.
+    transform : function
+        A function mapping the roots of the output system to the roots of the
+        original system.
+    projected : bool
+        True is projection was performed, False if no projection
+    """
+    assert len(polys) > 0
+    transform_in = transform_in or (lambda x:x)
+    if len(polys) == 1:
+        if polys[0].shape[0] <= 2:
+            raise ValueError("All of the polynomials were linear.")
+        else:
+            return polys, transform_in
+    for poly in polys:
+        max_deg = max(poly.shape) - 1
+        if max_deg < 2:
+            polys_copy = polys[:]
+            polys_copy.remove(poly)
+            new_polys, transform2 = project_down(polys_copy, poly.coeff, approx_tol, solve_tol)
+            new_polys = list(map(MultiCheb, new_polys))
+            transform3 = lambda x: transform_in(transform2(x))
+            ret_polys, transform4, _ = remove_linear(new_polys, approx_tol, solve_tol, transform3)
+            return ret_polys, lambda x: transform4(x), True
+    else:
+        return polys, transform_in, False
+
+def project_down(polys, linear, approx_tol, solve_tol):
     """This function reduces the dimension of a polynomial system when one of
     functions is linear. For polynomials in n variables, it uses an affine
     transformation that maps the (n-1) dimensional hyper-square to cover the
@@ -50,10 +95,13 @@ def project_down(polys, linear):
     for p in polys:
         proj_poly_coeff.append(proj_approximate_nd(p, T))
 
-    return proj_poly_coeff, T
+    if len(polys) > 1:
+        from yroots.subdivision import trim_coeffs
+        return trim_coeffs(proj_poly_coeff, approx_tol, solve_tol)[0], T
+    else:
+        return proj_poly_coeff, T
 
-
-def proj_approximate_nd(f,transform):
+def proj_approximate_nd(f, transform):
     """Finds the chebyshev approximation of an n-dimensional function on the
     affine transformation of hypercube.
 
@@ -69,6 +117,7 @@ def proj_approximate_nd(f,transform):
     coeffs : numpy array
         The coefficient of the chebyshev interpolating polynomial.
     """
+    from yroots.subdivision import chebyshev_block_copy
     dim = f.dim
     proj_dim = dim-1
     deg = f.degree
@@ -102,7 +151,7 @@ def proj_approximate_nd(f,transform):
     for i in range(proj_dim):
         slices.append(slice(0,degs[i]+1))
 
-    return trim_coeff(coeffs[tuple(slices)])
+    return coeffs[tuple(slices)]
 
 def bounding_parallelepiped(linear):
     """
@@ -116,7 +165,7 @@ def bounding_parallelepiped(linear):
 
     Second Note: This first attempt is very simple, and can be greatly improved
     by creating a parallelepiped that much more closely surrounds the points.
-    Currently, it just makes a rectangle.
+    Currently, it just makes an nd-rectangle.
 
     Parameters
     ----------
@@ -145,20 +194,19 @@ def bounding_parallelepiped(linear):
     upper = np.ones(dim)
     vert = []
     for i in range(dim):
-        for pt in product(*coord):
-            val = -const
-            skipped = 0
-            for j,c in enumerate(coeff):
-                if i==j:
-                    skipped = 1
-                    continue
-                val -= c*pt[j-skipped]
-            one_point = list(pt)
-            if not np.isclose(coeff[i], 0):
-                one_point.insert(i,val/coeff[i])
-            one_point = np.array(one_point)
-            if np.all(lower <= one_point) and np.all(one_point <= upper):
-                vert.append(one_point)
+        pts = np.array([(pt[:i]+ (0,) + pt[i:]) for pt in product(*coord)])
+        val = -const
+        for j,c in enumerate(coeff):
+            if i==j:
+                continue
+            val = val - c*pts[:,j]
+        if not np.isclose(coeff[i], 0):
+            pts[:,i] = val/coeff[i]
+        else:
+            pts[:,i] = np.nan
+        mask = np.all(lower <= pts, axis=1) & np.all(pts <= upper, axis=1)
+        if np.any(mask):
+            vert.append(pts[mask])
 
     # what to do if no intersections
     if len(vert) == 0:
@@ -166,10 +214,9 @@ def bounding_parallelepiped(linear):
         Q, R = np.linalg.qr(np.column_stack([coeff, np.eye(dim)[:,:dim-1]]))
         edges = Q[:,1:]
         return p0, edges
-        # raise Exception("What do I do!?")
 
     # do the thing
-    vert = np.unique(np.array(vert), axis=0)
+    vert = np.unique(np.vstack(vert), axis=0)
     v0 = vert[0]
     vert_shift = vert - v0
     Q, vert_flat, _ = qr(vert_shift.T, pivoting=True)

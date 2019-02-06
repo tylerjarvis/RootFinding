@@ -1,6 +1,7 @@
 import numpy as np
 import itertools
 from scipy.linalg import solve_triangular, eig
+from yroots import LinearProjection
 from yroots.polynomial import MultiCheb, MultiPower, is_power
 from yroots.MacaulayReduce import rrqr_reduceMacaulay2, rrqr_reduceMacaulay, find_degree, add_polys
 from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list, \
@@ -27,6 +28,10 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True):
     roots : numpy array
         The common roots of the polynomials. Each row is a root.
     '''
+    polys, transform, is_projected = LinearProjection.remove_linear(polys, 1e-4, 1e-8)
+    if len(polys) == 1:
+        from yroots.OneDimension import solve
+        return transform(solve(polys[0], MSmatrix=0))
     poly_type = is_power(polys, return_string = True)
     dim = polys[0].dim
 
@@ -65,7 +70,7 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True):
         print('\nConstant Term Spot in the Vector\n',zeros_spot)
         print('\nEigeinvecs at the Constant Term\n',vecs[zeros_spot])
 
-    roots = vecs[var_spots]/vecs[zeros_spot]
+    roots = transform(vecs[var_spots]/vecs[zeros_spot])
 
     #Check if too many roots
     assert roots.shape[1] <= max_number_of_roots,"Found too many roots"

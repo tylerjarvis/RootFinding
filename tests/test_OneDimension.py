@@ -43,19 +43,16 @@ def test_OneD_power_eigenvalues():
 
     #Case 1 - MultiPower degree 10
     poly = getPoly(10,True)
-    correctZeros(poly, 1)
     correctZeros(poly, 0)
     correctZeros(poly, -1)
 
     #Case 2 - MultiPower degree 50
     poly = getPoly(50,True)
-    correctZeros(poly, 1)
     correctZeros(poly, 0)
     correctZeros(poly, -1)
 
     #Case 3 - MultiPower degree 100
     poly = getPoly(100,True)
-    correctZeros(poly, 1)
     correctZeros(poly, 0)
     correctZeros(poly, -1)
 
@@ -69,19 +66,16 @@ def test_OneD_power_eigenvectors():
 
     #Case 1 - MultiPower degree 10
     poly = getPoly(10,True)
-    correctZeros(poly, 1, eigvals=False)
     correctZeros(poly, 0, eigvals=False)
     correctZeros(poly, -1, eigvals=False)
 
     #Case 2 - MultiPower degree 50
     poly = getPoly(50,True)
-    correctZeros(poly, 1, eigvals=False)
     correctZeros(poly, 0, eigvals=False)
     correctZeros(poly, -1, eigvals=False)
 
     #Case 3 - MultiPower degree 100
     poly = getPoly(100,True)
-    correctZeros(poly, 1, eigvals=False)
     correctZeros(poly, 0, eigvals=False)
     correctZeros(poly, -1, eigvals=False)
 
@@ -95,19 +89,16 @@ def test_OneD_cheb_eigenvalues():
 
     #Case 1 - MultiCheb degree 10
     poly = getPoly(10,False)
-    correctZeros(poly, 1)
     correctZeros(poly, 0)
     correctZeros(poly, -1)
 
     #Case 2 - MultiCheb degree 50
     poly = getPoly(50,False)
-    correctZeros(poly, 1)
     correctZeros(poly, 0)
     correctZeros(poly, -1)
 
     #Case 3 - MultiCheb degree 100
     poly = getPoly(100,False)
-    correctZeros(poly, 1)
     correctZeros(poly, 0)
     correctZeros(poly, -1)
 
@@ -121,18 +112,15 @@ def test_OneD_cheb_eigenvectors():
 
     #Case 1 - MultiCheb degree 10
     poly = getPoly(10,False)
-    correctZeros(poly, 1, eigvals=False)
     correctZeros(poly, 0, eigvals=False)
     correctZeros(poly, -1, eigvals=False)
 
     #Case 2 - MultiCheb degree 50
     poly = getPoly(50,False)
-    correctZeros(poly, 1, eigvals=False)
     correctZeros(poly, 0, eigvals=False)
     correctZeros(poly, -1, eigvals=False)
 
     #Case 3 - MultiCheb degree 100
     poly = getPoly(100,False)
-    correctZeros(poly, 1, eigvals=False)
     correctZeros(poly, 0, eigvals=False)
     correctZeros(poly, -1, eigvals=False)
