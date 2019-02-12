@@ -1,10 +1,10 @@
 import numpy as np
-from numalgsolve.polynomial import MultiCheb, MultiPower
-from numalgsolve.OneDimension import multPowerR, multChebR, multPower, multCheb, divPower, divCheb
-from numalgsolve.TVBMethod import solve as TVBsolve
-from numalgsolve.polyroots import solve
-from numalgsolve.Division import division
-from numalgsolve.Multiplication import multiplication
+from yroots.polynomial import MultiCheb, MultiPower
+from yroots.OneDimension import multPower, multCheb, divPower, divCheb
+#from yroots.TVBMethod import solve as TVBsolve
+from yroots.polyroots import solve
+from yroots.Division import division
+from yroots.Multiplication import multiplication
 from numpy.polynomial.polynomial import polyfromroots, polyroots
 from numpy.polynomial.chebyshev import chebfromroots, chebroots
 from matplotlib import pyplot as plt
@@ -36,12 +36,10 @@ class OneDSolver(Solver):
         else:
             return self.solver(poly.coeff)
 
-multPowerR_s = OneDSolver(multPowerR, "Rotated Mult Power", 'power', True)
 multPower_s = OneDSolver(multPower, "Mult Power", 'power', True)
 divPower_s = OneDSolver(divPower, "Div Power", 'power', True)
 numpy_s = OneDSolver(polyroots, "Numpy Power", 'power', False)
 
-multChebR_s = OneDSolver(multChebR, "Rotated Mult Cheb", 'cheb', True)
 multCheb_s = OneDSolver(multCheb, "Mult Cheb", 'cheb', True)
 divCheb_s = OneDSolver(divCheb, "Div Cheb", 'cheb', True)
 numpyCheb_s = OneDSolver(chebroots, "Numpy Cheb", 'cheb', False)
@@ -49,11 +47,10 @@ numpyCheb_s = OneDSolver(chebroots, "Numpy Cheb", 'cheb', False)
 multiplication_s = Solver(multiplication, "Multiplication", "both", True, defaults_kwargs={'MSmatrix':1})
 multrand_s = Solver(multiplication, "Multiplication Random", "both", True, defaults_kwargs={'MSmatrix':0})
 division_s = Solver(division, "Division", "both", True)
-TVB_s = Solver(TVBsolve, "TVB", "power", False)
 
-all_solvers = [multPowerR_s, multPower_s, divPower_s, numpy_s,
-               multChebR_s, multCheb_s, divCheb_s, numpyCheb_s,
-               multiplication_s, multrand_s, division_s, TVB_s]
+all_solvers = [multPower_s, divPower_s, numpy_s,
+               multCheb_s, divCheb_s, numpyCheb_s,
+               multiplication_s, multrand_s, division_s]
 
 def create_roots_graph(args, results):
     nrows = len(results)

@@ -123,9 +123,6 @@ def proj_approximate_nd(f, transform):
     deg = f.degree
     degs = np.array([deg]*proj_dim)
 
-    # assert hasattr(f,"evaluate_grid")
-    # dang, we don't get to use evaluate_grid here
-
     cheb_values = np.cos(np.arange(deg+1)*np.pi/deg)
     cheb_grids = np.meshgrid(*([cheb_values]*proj_dim), indexing='ij')
 

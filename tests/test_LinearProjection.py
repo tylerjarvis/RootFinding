@@ -45,7 +45,6 @@ def test_bounding_parallelepiped():
 
     A = getPoly(1, 3, True)
     p0,edges = bounding_parallelepiped(A.coeff)
-    print(p0, edges)
     rand = np.random.rand(edges.shape[1], num_test_cases)
     pts = np.dot(edges, rand).T + p0
     assert np.allclose(A(pts), 0)
@@ -91,10 +90,9 @@ def test_project_down():
 
 def test_remove_linear():
     linear = getPoly(1, 3, False)
-    A = getPoly(7, 3, False)
-    B = getPoly(7, 3, False)
+    A = getPoly(4, 3, False)
+    B = getPoly(4, 3, False)
     (A_prj, B_prj), T, is_projected = remove_linear([A, B, linear], 1e-4, 1e-8)
-    print(A_prj.coeff)
     assert is_projected == True
     correctZeros([A, B], [A_prj, B_prj], T, 0)
 
