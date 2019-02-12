@@ -1,9 +1,13 @@
 import numpy as np
-from numalgsolve.OneDimension import multPowerR, multChebR
-from numalgsolve.polynomial import MultiCheb, MultiPower, getPoly
-from numalgsolve.polyroots import solve as prsolve
-from numalgsolve.subdivision import solve as subsolve
-from numalgsolve.TVBMethod import solve as TVBsolve
+from yroots.OneDimension import multPower, multCheb, divCheb, divPower
+from yroots.polynomial import MultiCheb, MultiPower, getPoly
+from yroots.polyroots import solve as prsolve
+from yroots.subdivision import solve as subsolve
+try:
+    from yroots.TVBMethod import solve as TVBsolve
+    TVB_avail = True
+except:
+    TVB_avail = False
 import matplotlib.pyplot as plt
 import argparse
 import cProfile, pstats, io
@@ -11,12 +15,6 @@ import time
 import os
 import pickle
 import warnings
-
-def _multPowerR(poly):
-    multPowerR(poly[0].coeff)
-
-def _multChebR(poly):
-    multChebR(poly[0].coeff)
 
 def _div(poly):
     prsolve(poly, MSmatrix=-1)
@@ -30,8 +28,9 @@ def _nproots(poly):
 def _npcheb(poly):
     np.polynomial.chebyshev.chebroots(poly[0].coeff)
 
-def _TVB(poly):
-    TVBsolve(poly)
+if TVB_avail:
+    def _TVB(poly):
+        TVBsolve(poly)
 
 def bertini(polys):
     def mononmial_from_exp(exponents, var_chars):
@@ -81,11 +80,9 @@ def bertini(polys):
         f.write(header+body+footer)
 
     from subprocess import call
-    # call(['./bertini/bertini.exe'])
+    call(['./bertini/bertini.exe'])
     # call(['./bertini/bertini-serial'])
-    call(['./bertini/bertini-run-parallel'])
-
-    # print(coeff_to_str(poly.coeff))
+    # call(['./bertini/bertini-run-parallel'])
 
 # One Dimension
 def timer(solver, dim, power):
@@ -106,25 +103,16 @@ def timer(solver, dim, power):
         list of average times for the solver based on degree
     """
     times = []
-    # max_degree = {1:250, 2:20, 3:7, 4:4, 5:3}[dim] #keys by dimensions
-    # interval = {1:30, 2:3, 3:1, 4:1, 5:1}[dim]
-    # min_degree = {1:10, 2:2, 3:2, 4:2, 5:2}[dim]
-    # if solver.__name__ == 'bertini':
-    #     max_degree = {1:60,2:6,3:5,4:4,5:4}[dim]
-    #     interval = {1:10,2:1,3:1,4:1,5:1}[dim]
-    # degrees = list(range(min_degree,max_degree+1,interval))
-    degrees_dct = {2: [7,13,19,25,31,37,43,49],#,55,61],
+    degrees = {2: [7,13,19,25,31,37,43,49],#,55,61],
                    3: [3,5,7,9,11,13],
                    4: [2,3,4],
                    5: [2,3]
-                  }
-    degrees = degrees_dct[dim]
+                  }[dim]
     if solver.__name__ == 'bertini':
        degrees = [i for i in degrees if i < 19]
     for deg in degrees:
         np.random.seed(121*deg)
         tot_time = 0
-        #print(deg)
         for _ in range(args.trials):
             polys = [getPoly(deg, dim=dim, power=power) for _ in range(dim)]
             start = time.time()
@@ -159,15 +147,17 @@ def run_timer(args):
     results['Multiplication power'] = times
     print('Finished trials for multiplication power')
 
-    degrees, times = timer(_TVB, args.dim, power=True)
-    results['TVB power'] = times
-    print('Finished trials for TVB power')
+    if TVB_avail:
+        degrees, times = timer(_TVB, args.dim, power=True)
+        results['TVB power'] = times
+        print('Finished trials for TVB power')
 
     if args.bertini:
         degrees, times = timer(bertini, args.dim, power=True)
         results['bert_degrees'] = degrees
         results['bertini'] = times
         print('Finished trials for multiplication power')
+
     degrees, times = timer(_div, args.dim, power=False)
     results['div cheb'] = times
     print('Finished trials for division chebyshev')
@@ -176,19 +166,12 @@ def run_timer(args):
     results['mult cheb'] = times
     print('Finished trials for multiplication chebyshev')
 
-    degrees, times = timer(_TVB, args.dim, power=False)
-    results['TVB cheb'] = times
-    print('Finished trials for TVB cheb')
+    if TVB_avail:
+        degrees, times = timer(_TVB, args.dim, power=False)
+        results['TVB cheb'] = times
+        print('Finished trials for TVB cheb')
 
     if args.dim == 1:
-        degrees, times = timer(_multPowerR, args.dim, power=True)
-        results['MultiplicationRotate power'] = times
-        print('Finished trials for rotated multiplication power')
-
-        degrees, times = timer(_multChebR, args.dim, power=True)
-        results['multR cheb'] = times
-        print('Finished trials for rotated multiplication chebyshev')
-
         degrees, times = timer(_nproots, args.dim, power=True)
         results['numpy power'] = times
         print('Finished trials for numpy power')
@@ -202,7 +185,6 @@ def run_timer(args):
 def create_graph(results, args):
     degrees = results['degrees']
     xmax = int(1.05*max(degrees))
-
     ymax = 1.05*max([max(v) for k,v in results.items() if ('degrees' not in k)])
     ymax = max(ymax, 0.1)
     plt.figure(figsize=(11,5))
