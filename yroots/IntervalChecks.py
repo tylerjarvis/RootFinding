@@ -608,7 +608,7 @@ def quadratic_check(test_coeff, intervals,change_sign,tol):
     else:
         return quadratic_check_nd(test_coeff, intervals,change_sign,tol)
 
-def quadratic_check_2D(test_coeff, intervals,change_sign,tol):
+def quadratic_check_2D(test_coeff, intervals, change_sign, tol):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
@@ -657,7 +657,7 @@ def quadratic_check_2D(test_coeff, intervals,change_sign,tol):
         c5 = test_coeff[0,2]
     else:
         c5 = 0
-
+    
     #The sum of the absolute values of everything else
     other_sum = np.sum(np.abs(test_coeff)) - np.sum(np.abs([c0,c1,c2,c3,c4,c5]))
 
@@ -665,6 +665,9 @@ def quadratic_check_2D(test_coeff, intervals,change_sign,tol):
     eval_func = lambda x,y: c0 + c1*x + c2*y + c3*(2*x**2-1) + c4*x*y + c5*(2*y**2-1)
 
     #The interior min
+    #Comes from solving dx, dy = 0
+    #Dx: 4c3x +  c4y = -c1    Matrix inverse is  [4c5  -c4]
+    #Dy:  c4x + 4c5y = -c2                       [-c4  4c3]
     det = 16*c3*c5 - c4**2
     if det != 0:
         int_x = (c2*c4 - 4*c1*c5)/det
@@ -687,6 +690,8 @@ def quadratic_check_2D(test_coeff, intervals,change_sign,tol):
         extreme_points.append(eval_func(interval[1][0], interval[1][1]))
 
         #Add the x constant boundaries
+        #The partial with respect to y is zero
+        #Dy:  c4x + 4c5y = -c2 =>   y = (-c2-c4x)/(4c5)
         if c5 != 0:
             x = interval[0][0]
             y = -(c2 + c4*x)/(4*c5)
@@ -698,6 +703,8 @@ def quadratic_check_2D(test_coeff, intervals,change_sign,tol):
                 extreme_points.append(eval_func(x,y))
 
         #Add the y constant boundaries
+        #The partial with respect to x is zero
+        #Dx: 4c3x +  c4y = -c1  =>  x = (-c1-c4y)/(4c3)
         if c3 != 0:
             y = interval[0][1]
             x = -(c1 + c4*y)/(4*c3)
@@ -726,7 +733,7 @@ def quadratic_check_2D(test_coeff, intervals,change_sign,tol):
 
     return mask
 
-def quadratic_check_3D(test_coeff, intervals,change_sign,tol):
+def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
@@ -799,13 +806,17 @@ def quadratic_check_3D(test_coeff, intervals,change_sign,tol):
 
     #The sum of the absolute values of everything else
     other_sum = np.sum(np.abs(test_coeff)) - np.sum(np.abs([c0,c1,c2,c3,c4,c5,c6,c7,c8,c9]))
-
+    
     #The interior min
-    det = 4*c7*(16*c8*c9-c6**2) - c4*(4*c9*c4-c6*c5) + c5*(c6*c4-4*c8*c5)
+    #Comes from solving dx, dy, dz = 0
+    #Dx: 4c7x +  c4y +  c5z = -c1    Matrix inverse is  [(16c8c9-c6^2) -(4c4c9-c5c6)  (c4c6-4c5c8)]
+    #Dy:  c4x + 4c8y +  c6z = -c2                       [-(4c4c9-c5c6) (16c7c9-c5^2) -(4c6c7-c4c5)]
+    #Dz:  c5x +  c6y + 4c9z = -c3                       [(c4c6-4c5c8)  -(4c6c7-c4c5) (16c7c8-c4^2)]
+    det = 4*c7*(16*c8*c9-c6**2) - c4*(4*c4*c9-c5*c6) + c5*(c4*c6-4*c5*c8)
     if det != 0:
-        int_x = (c1*(c6**2-16*c9*c8) + c2*(4*c9*c4-c6*c5) + c3*(4*c8*c5-c6*c4))/det
-        int_y = (c1*(4*c9*c4-c6*c5) + c2*(c5**2-16*c9*c7) + c3*(4*c6*c7-c4*c5))/det
-        int_z = (c1*(4*c8*c5-c6*c4) + c2*(4*c6*c7-c4*c5) + c3*(c4**2-16*c7*c8))/det
+        int_x = (c1*(c6**2-16*c8*c9) + c2*(4*c4*c9-c5*c6)  + c3*(4*c5*c8-c4*c6))/det
+        int_y = (c1*(4*c4*c9-c5*c6)  + c2*(c5**2-16*c7*c9) + c3*(4*c6*c7-c4*c5))/det
+        int_z = (c1*(4*c5*c8-c4*c6)  + c2*(4*c6*c7-c4*c5)  + c3*(c4**2-16*c7*c8))/det
     else:#Something outside the unit box
         int_x = 100
         int_y = 100
@@ -816,7 +827,7 @@ def quadratic_check_3D(test_coeff, intervals,change_sign,tol):
         if change_sign[interval_num]:
             mask.append(True)
             continue
-
+        
         extreme_points = []
         #Add all the corners
         extreme_points.append(eval_func(interval[0][0], interval[0][1], interval[0][2]))
@@ -828,49 +839,132 @@ def quadratic_check_3D(test_coeff, intervals,change_sign,tol):
         extreme_points.append(eval_func(interval[0][0], interval[1][1], interval[1][2]))
         extreme_points.append(eval_func(interval[1][0], interval[1][1], interval[1][2]))
 
+        #Adds the x and y constant boundaries
+        #The partial with respect to z is zero
+        #Dz:  c5x +  c6y + 4c9z = -c3   => z=(-c3-c5x-c6y)/(4c9)
+        if c9 != 0:
+            x = interval[0][0]
+            y = interval[0][1]
+            z = -(c3+c5*x+c6*y)/(4*c9)
+            if interval[0][2] < z < interval[1][2]:
+                extreme_points.append(eval_func(x,y,z))
+            x = interval[1][0]
+            y = interval[0][1]
+            z = -(c3+c5*x+c6*y)/(4*c9)
+            if interval[0][2] < z < interval[1][2]:
+                extreme_points.append(eval_func(x,y,z))
+            x = interval[0][0]
+            y = interval[1][1]
+            z = -(c3+c5*x+c6*y)/(4*c9)
+            if interval[0][2] < z < interval[1][2]:
+                extreme_points.append(eval_func(x,y,z))
+            x = interval[1][0]
+            y = interval[1][1]
+            z = -(c3+c5*x+c6*y)/(4*c9)
+            if interval[0][2] < z < interval[1][2]:
+                extreme_points.append(eval_func(x,y,z))
+        
+        #Adds the x and z constant boundaries
+        #The partial with respect to y is zero
+        #Dy:  c4x + 4c8y + c6z = -c2   => y=(-c2-c4x-c6z)/(4c8)
+        if c8 != 0:
+            x = interval[0][0]
+            z = interval[0][2]
+            y = -(c2+c4*x+c6*z)/(4*c8)
+            if interval[0][1] < y < interval[1][1]:
+                extreme_points.append(eval_func(x,y,z))
+            x = interval[1][0]
+            z = interval[0][2]
+            y = -(c2+c4*x+c6*z)/(4*c8)
+            if interval[0][1] < y < interval[1][1]:
+                extreme_points.append(eval_func(x,y,z))
+            x = interval[0][0]
+            z = interval[1][2]
+            y = -(c2+c4*x+c6*z)/(4*c8)
+            if interval[0][1] < y < interval[1][1]:
+                extreme_points.append(eval_func(x,y,z))
+            x = interval[1][0]
+            z = interval[1][2]
+            y = -(c2+c4*x+c6*z)/(4*c8)
+            if interval[0][1] < y < interval[1][1]:
+                extreme_points.append(eval_func(x,y,z))
+                    
+        #Adds the y and z constant boundaries
+        #The partial with respect to x is zero
+        #Dx: 4c7x +  c4y +  c5z = -c1   => x=(-c1-c4y-c5z)/(4c7)
+        if c7 != 0:
+            y = interval[0][1]
+            z = interval[0][2]
+            x = -(c1+c4*y+c5*z)/(4*c7)
+            if interval[0][0] < x < interval[1][0]:
+                extreme_points.append(eval_func(x,y,z))
+            y = interval[1][1]
+            z = interval[0][2]
+            x = -(c1+c4*y+c5*z)/(4*c7)
+            if interval[0][0] < x < interval[1][0]:
+                extreme_points.append(eval_func(x,y,z))
+            y = interval[0][1]
+            z = interval[1][2]
+            x = -(c1+c4*y+c5*z)/(4*c7)
+            if interval[0][0] < x < interval[1][0]:
+                extreme_points.append(eval_func(x,y,z))
+            y = interval[1][1]
+            z = interval[1][2]
+            x = -(c1+c4*y+c5*z)/(4*c7)
+            if interval[0][0] < x < interval[1][0]:
+                extreme_points.append(eval_func(x,y,z))
+        
         #Add the x constant boundaries
+        #The partials with respect to y and z are zero
+        #Dy:  4c8y +  c6z = -c2 - c4x    Matrix inverse is [4c9  -c6]
+        #Dz:   c6y + 4c9z = -c3 - c5x                      [-c6  4c8]
         det = 16*c8*c9-c6**2
         if det != 0:
             x = interval[0][0]
-            y = (4*c8*(-c2-c4*x)+c6*(-c3-c5*x))/det
-            z = (c6*(-c2-c4*x)+4*c9*(-c3-c5*x))/det
+            y = (-4*c9*(c2+c4*x) +   c6*(c3+c5*x))/det
+            z = (c6*(c2+c4*x)    - 4*c8*(c3+c5*x))/det
             if interval[0][1] < y < interval[1][1] and interval[0][2] < z < interval[1][2]:
                 extreme_points.append(eval_func(x,y,z))
             x = interval[1][0]
-            y = (4*c8*(-c2-c4*x)+c6*(-c3-c5*x))/det
-            z = (c6*(-c2-c4*x)+4*c9*(-c3-c5*x))/det
+            y = (-4*c9*(c2+c4*x) +   c6*(c3+c5*x))/det
+            z = (c6*(c2+c4*x)    - 4*c8*(c3+c5*x))/det
             if interval[0][1] < y < interval[1][1] and interval[0][2] < z < interval[1][2]:
                 extreme_points.append(eval_func(x,y,z))
 
         #Add the y constant boundaries
+        #The partials with respect to x and z are zero
+        #Dx: 4c7x +  c5z = -c1 - c4y    Matrix inverse is [4c9  -c5]
+        #Dz:  c5x + 4c9z = -c3 - c6y                      [-c5  4c7]
         det = 16*c7*c9-c5**2
         if det != 0:
             y = interval[0][1]
-            x = (4*c7*(-c1-c4*y)+c5*(-c3-c6*y))/det
-            z = (c5*(-c1-c4*y)+4*c9*(-c3-c6*y))/det
+            x = (-4*c9*(c1+c4*y) +   c5*(c3+c6*y))/det
+            z = (c5*(c1+c4*y)    - 4*c7*(c3+c6*y))/det
             if interval[0][0] < x < interval[1][0] and interval[0][2] < x < interval[1][2]:
                 extreme_points.append(eval_func(x,y,z))
             y = interval[1][1]
-            x = (4*c7*(-c1-c4*y)+c5*(-c3-c6*y))/det
-            z = (c5*(-c1-c4*y)+4*c9*(-c3-c6*y))/det
+            x = (-4*c9*(c1+c4*y) +   c5*(c3+c6*y))/det
+            z = (c5*(c1+c4*y)    - 4*c7*(c3+c6*y))/det
             if interval[0][0] < x < interval[1][0] and interval[0][2] < x < interval[1][2]:
                 extreme_points.append(eval_func(x,y,z))
 
         #Add the z constant boundaries
-        A = np.array([[4*c7,c4],[c4,4*c8]])
+        #The partials with respect to x and y are zero
+        #Dx: 4c7x +  c4y  = -c1 - c5z    Matrix inverse is [4c8  -c4]
+        #Dy:  c4x + 4c8y  = -c2 - c6z                      [-c4  4c7]
         det = 16*c7*c8-c4**2
         if det != 0:
             z = interval[0][2]
-            x = (4*c7*(-c1-c5*z)+c4*(-c2-c6*z))/det
-            y = (c4*(-c1-c5*z)+4*c8*(-c2-c6*z))/det
+            x = (-4*c8*(c1+c5*z) +   c4*(c2+c6*z))/det
+            y = (c4*(c1+c5*z)    - 4*c7*(c2+c6*z))/det
             if interval[0][0] < x < interval[1][0] and interval[0][1] < y < interval[1][1]:
                 extreme_points.append(eval_func(x,y,z))
             z = interval[1][2]
-            x = (4*c7*(-c1-c5*z)+c4*(-c2-c6*z))/det
-            y = (c4*(-c1-c5*z)+4*c8*(-c2-c6*z))/det
+            x = (-4*c8*(c1+c5*z) +   c4*(c2+c6*z))/det
+            y = (c4*(c1+c5*z)    - 4*c7*(c2+c6*z))/det
             if interval[0][0] < x < interval[1][0] and interval[0][1] < y < interval[1][1]:
                 extreme_points.append(eval_func(x,y,z))
-
+        
         #Add the interior value
         if interval[0][0] < int_x < interval[1][0] and interval[0][1] < int_y < interval[1][1] and\
                 interval[0][2] < int_z < interval[1][2]:

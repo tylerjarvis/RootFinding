@@ -66,6 +66,8 @@ def multPower(coeff, eigvals=True, verbose=False):
     bot[...] = 1
     matrix[:, -1] -= coeff[:-1]/coeff[-1]
     matrix = np.rot90(matrix,2)
+    matrix = np.array(matrix, dtype=float)
+#     print(matrix)
     if verbose:
         print('180 Rotated Companion Matrix\n', matrix)
     if eigvals:
