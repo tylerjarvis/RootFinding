@@ -173,7 +173,6 @@ def interval_approximate_1d(f,a,b,deg):
             multiplier = 1./np.max(np.abs(values))
     multiplier = max(1, multiplier)
     values *= multiplier
-    print(values)
 
     coeffs = np.real(np.fft.fft(values/deg))
     coeffs[0]/=2
