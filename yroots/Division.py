@@ -1,6 +1,7 @@
 import numpy as np
 import itertools
 from scipy.linalg import solve_triangular, eig, qr
+from yroots import LinearProjection
 from yroots.polynomial import MultiCheb, MultiPower, is_power
 from yroots.MacaulayReduce import add_polys, rrqr_reduceMacaulay, rrqr_reduceMacaulay2
 from yroots.utils import get_var_list, slice_top, row_swap_matrix, \
@@ -49,11 +50,15 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, retu
 #             Z[spot] = polys[i]([X[spot],Y[spot]])
 #         plt.contour(X,Y,Z,levels=[0],colors=contour_colors[i])
 #     plt.show()
-    
-    
-    
+
+
+
     #This first section creates the Macaulay Matrix with the monomials that don't have
     #the divisor variable in the first columns.
+    polys, transform, is_projected = LinearProjection.remove_linear(polys, 1e-4, 1e-8)
+    if len(polys) == 1:
+        from yroots.OneDimension import solve
+        return transform(solve(polys[0], MSmatrix=0))
     power = is_power(polys)
     dim = polys[0].dim
 
@@ -175,7 +180,7 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, retu
     vals, vecs = eig(division_matrix,left=True,right=False)
     #conjugate because scipy gives the conjugate eigenvector
     vecs = vecs.conj()
-    
+
     if len(vals) > len(np.unique(np.round(vals, 10))):
         return -1
 
@@ -190,11 +195,11 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, retu
         print("\nLeft Eigenvectors (as rows)\n", vecs.T)
     if not power:
         if np.max(np.abs(vals)) > 1.e6:
-            return -1            
+            return -1
 
     #Calculates the zeros, the x values from the eigenvalues and the y values from the eigenvectors.
     zeros = list()
-    
+
     for i in range(len(vals)):
         if power and abs(vecs[-1][i]) < 1.e-3:
             #This root has magnitude greater than 1, will possibly generate a false root due to instability
@@ -219,12 +224,12 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, retu
                 continue
 
         zeros.append(root)
-        
+
     if return_all_roots:
-        return np.array(zeros)
+        return transform(np.array(zeros))
     else:
         # only return roots in the unit complex hyperbox
-        zeros = np.array(zeros)
+        zeros = transform(np.array(zeros))
         return zeros[np.all(np.abs(zeros) <= 1,axis = 0)]
 
 def get_matrix_terms(poly_coeffs, dim, divisor_var):
