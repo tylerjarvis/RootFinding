@@ -28,31 +28,6 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, retu
     zeros : numpy array
         The common roots of the polynomials. Each row is a root.
     '''
-#     from matplotlib import pyplot as plt
-#     plt.figure(dpi=120)
-#     fig,ax = plt.subplots(1)
-#     fig.set_size_inches(10, 10)
-#     plt.xlim(-1, 1)
-#     plt.xlabel('$x$')
-#     plt.ylim(-1, 1)
-#     plt.ylabel('$y$')
-#     plt.title('Zero-Loci and Roots')
-#     dim = 2
-
-#     #print the contours
-#     contour_colors = ['#003cff','k'] #royal blue and black
-#     x = np.linspace(-1, 1, 100)
-#     y = np.linspace(-1, 1, 100)
-#     X,Y = np.meshgrid(x,y)
-#     for i in range(dim):
-#         Z = np.zeros_like(X)
-#         for spot,num in np.ndenumerate(X):
-#             Z[spot] = polys[i]([X[spot],Y[spot]])
-#         plt.contour(X,Y,Z,levels=[0],colors=contour_colors[i])
-#     plt.show()
-
-
-
     #This first section creates the Macaulay Matrix with the monomials that don't have
     #the divisor variable in the first columns.
     polys, transform, is_projected = LinearProjection.remove_linear(polys, 1e-4, 1e-8)
@@ -136,6 +111,9 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, retu
 
         #Reduces the inv_matrix to solve for the y^k/x terms in the vector basis.
         Q,R = qr(inv_matrix)
+    
+        if np.linalg.cond(R[:,:R.shape[0]])*tol > 1:
+            return -1
 
         inv_solutions = np.hstack((np.eye(R.shape[0]),solve_triangular(R[:,:R.shape[0]], R[:,R.shape[0]:])))
 
@@ -188,7 +166,6 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, retu
     sorted_vals2 = np.sort(np.abs(vals2)) #Sorted smallest to biggest
     if sorted_vals2[0] < sorted_vals2[-1]*tol:
         return -1
-#     print(sorted_vals2[0]/sorted_vals2[-1])
 
     if verbose:
         print("\nDivision Matrix\n", np.round(division_matrix[::-1,::-1], 2))
@@ -212,7 +189,6 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, retu
         for spot in range(divisor_var+1,dim):
             root[spot] = vecs[-(1+spot)][i]/vecs[-1][i]
 
-#         print(1/vals[i], vecs[-2,i]/vecs[-1,i])
         root[divisor_var] = 1/vals[i]
 
         if polish:

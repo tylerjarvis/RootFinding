@@ -968,7 +968,6 @@ def cheb_perturbation3(mult_mon, mons, mon_dict, var):
     --------
     cheb_pertubation3 : list
         list of indexes for the 3rd case of cheb mon mult
-
     """
     perturb = [0]*len(mon_dict)
     #print(mons)
