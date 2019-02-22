@@ -165,15 +165,14 @@ def interval_approximate_1d(f,a,b,deg):
     extrema = transform(np.cos((np.pi*np.arange(2*deg))/deg),a,b)
     values = f(extrema)
 
-    multiplier = None
-    if multiplier is None:
-        if np.max(np.abs(values)) < 1.e-50:
-            multiplier = 1.e50
-        else:
-            multiplier = 1./np.max(np.abs(values))
-    multiplier = max(1, multiplier)
+#     multiplier = None
+#     if multiplier is None:
+#         if np.max(np.abs(values)) < 1.e-50:
+#             multiplier = 1.e50
+#         else:
+#             multiplier = 1./np.max(np.abs(values))
+    multiplier = 1.#max(1, multiplier)
     values *= multiplier
-    print(values)
 
     coeffs = np.real(np.fft.fft(values/deg))
     coeffs[0]/=2
@@ -278,8 +277,8 @@ def interval_approximate_nd(f,a,b,deg,return_bools=False,multiplier=None):
     values = chebyshev_block_copy(values_block)
 
     if multiplier is None:
-        if np.max(np.abs(values)) < 1.e-50:
-            multiplier = 1.e50
+        if np.max(np.abs(values)) < 1.e-5:
+            multiplier = 1.e5
         else:
             multiplier = 1./np.max(np.abs(values))
     multiplier = max(1, multiplier)
@@ -466,10 +465,9 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
 
     for func, good_deg in zip(funcs, good_degs):
         coeff, change_sign = full_cheb_approximate(func,a,b,deg,approx_tol,good_deg)
-
+        
         #Subdivides if a bad approximation
         if coeff is None:
-#             change_sign = np.arange(dim)
             intervals = get_subintervals(a,b,change_sign,None,None,None,approx_tol)
             return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_data,\
                                                    approx_tol,solve_tol,polish) for interval in intervals])
@@ -483,15 +481,14 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
                 return np.zeros([0,dim])
 
             cheb_approx_list.append(coeff)
-
+    
     #Make the system stable to solve
     coeffs, divisor_var = trim_coeffs(cheb_approx_list, approx_tol, solve_tol)
 
     #Check if everything is linear
     if np.all(np.array([coeff.shape[0] for coeff in coeffs]) == 2):
-#         new_tol = 1.e-8
-#         if approx_tol > new_tol:
-#             return subdivision_solve_nd(funcs,a,b,deg,interval_data,new_tol,1.e-8,polish)
+#         if approx_tol > 1.e-8:
+#             return subdivision_solve_nd(funcs,a,b,deg,interval_data,1.e-8,1.e-8,polish)
         A = np.zeros([dim,dim])
         B = np.zeros(dim)
         for row in range(dim):
@@ -566,7 +563,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
         if len(zeros) == 0:
             return np.zeros([0,dim])
         if polish:
-            polish_tol = (b[0]-a[0])/100
+            polish_tol = (b[0]-a[0])
             return polish_zeros(transform(good_zeros_nd(zeros),a,b), funcs, polish_tol)
         else:
             return transform(good_zeros_nd(zeros),a,b)
@@ -585,7 +582,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
             if len(zeros) == 0:
                 return np.zeros([0,dim])
             if polish:
-                polish_tol = (b[0]-a[0])/100
+                polish_tol = (b[0]-a[0])
                 return polish_zeros(transform(good_zeros_nd(zeros),a,b),funcs,polish_tol)
             else:
                 return transform(good_zeros_nd(zeros),a,b)
@@ -638,7 +635,7 @@ def good_direc(coeffs, dim, solve_tol):
         return False
     return True
 
-def polish_zeros(zeros, funcs, tol=1.e-2):
+def polish_zeros(zeros, funcs, tol=1.e-1):
     """Polishes the given zeros of the functions to a better accuracy.
 
     Resolves with finer tolerances in a box around the zeros.
@@ -661,13 +658,13 @@ def polish_zeros(zeros, funcs, tol=1.e-2):
         return zeros
     dim = zeros.shape[1]
     polished_zeros = []
-    interval_data = IntervalData(np.array([0]),np.array([0]))
-    interval_data.polishing = True
 
     for zero in zeros:
         a = np.array(zero) - tol
         b = np.array(zero) + 1.1*tol #Keep the root away from 0
-        polished_zero = subdivision_solve_nd(funcs,a,b,5,interval_data,approx_tol=1.e-7,\
+        interval_data = IntervalData(a,b)
+        interval_data.polishing = True
+        polished_zero = subdivision_solve_nd(funcs,a,b,5,interval_data,approx_tol=1.e-8,\
                                                  solve_tol=1.e-8,polish=False)
         polished_zeros.append(polished_zero)
     return np.vstack(polished_zeros)

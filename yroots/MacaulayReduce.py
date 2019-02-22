@@ -125,11 +125,11 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
             matrix = matrix[:-1]
         else:
             break
-
-    #SVD conditioning check
-    S = np.linalg.svd(matrix[:,:matrix.shape[0]], compute_uv=False)
-    if S[0] * accuracy > S[-1]:
-        return -1, -1
+            
+    #Conditioning check
+    if np.linalg.cond(matrix[:,:matrix.shape[0]])*accuracy > 1:
+        return -1, -1    
+    
     #backsolve
     height = matrix.shape[0]
     matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
@@ -215,10 +215,9 @@ def rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
         else:
             break
 
-    #SVD conditioning check
-    S = np.linalg.svd(matrix[:,:matrix.shape[0]], compute_uv=False)
-    if S[0] * accuracy > S[-1]:
-        return -1, -1
+    #Conditioning check
+    if np.linalg.cond(matrix[:,:matrix.shape[0]])*accuracy > 1:
+        return -1, -1    
 
     #backsolve
     height = matrix.shape[0]
