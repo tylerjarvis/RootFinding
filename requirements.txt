@@ -1,4 +1,5 @@
 numpy==1.14.2
 scipy==1.0.1
 numba==0.37.0
-matplotlib=2.2.2
+matplotlib==2.2.2
+mpmath==1.1.0
