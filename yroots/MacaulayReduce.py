@@ -193,14 +193,15 @@ def rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
 
     #QRP on E, multiply that onto F
     product2,R,P = qr_multiply(E, F.T, mode = 'right', pivoting = True)
-    #get rid of zero rows
+    #get rid of zero rows, which may resize DEF
     matrix = matrix[:R.shape[0]+cuts[0]]
+    D = matrix[cuts[0]:,:cuts[0]]
+    EF = matrix[cuts[0]:,cuts[0]:]
     #set D to zero
     D[...] = np.zeros_like(D)
-    #fill E in with R
-    matrix[cuts[0]:,cuts[0]:cuts[0]+R.shape[1]] = R
-    #fill F in with product2.T
-    matrix[cuts[0]:,cuts[0]+R.shape[1]:] = product2.T
+    #fill EF in with R and product2.T
+    EF[:,:R.shape[1]] = R
+    EF[:,R.shape[1]:] = product2.T
     del product2,R
 
     #Permute the columns of B, since E already got permuted implicitly
