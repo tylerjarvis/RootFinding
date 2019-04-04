@@ -95,6 +95,8 @@ def test_remove_linear():
     (A_prj, B_prj), T, is_projected = remove_linear([A, B, linear], 1e-4, 1e-8)
     assert is_projected == True
     correctZeros([A, B], [A_prj, B_prj], T, 0)
+    correctZeros([A, B], [A_prj, B_prj], T, -1)
+
 
 if __name__ == "__main__":
     # test_bounding_parallelepiped()

@@ -127,7 +127,7 @@ def proj_approximate_nd(f, transform):
     cheb_grids = np.meshgrid(*([cheb_values]*proj_dim), indexing='ij')
 
     flatten = lambda x: x.flatten()
-    cheb_points = transform(np.column_stack(map(flatten, cheb_grids)))
+    cheb_points = transform(np.column_stack(tuple(map(flatten, cheb_grids))))
     values_block = f(cheb_points).reshape(*([deg+1]*proj_dim))
     values = chebyshev_block_copy(values_block)
     coeffs = np.real(fftn(values/np.product(degs)))

@@ -218,7 +218,7 @@ def get_cheb_grid(deg, dim, has_eval_grid):
         cheb_values = np.cos(np.arange(deg+1)*np.pi/deg)
         cheb_grids = np.meshgrid(*([cheb_values]*dim), indexing='ij')
         flatten = lambda x: x.flatten()
-        return np.column_stack(map(flatten, cheb_grids))
+        return np.column_stack(tuple(map(flatten, cheb_grids)))
 
 def interval_approximate_nd(f,a,b,deg,return_bools=False,multiplier=None):
     """Finds the chebyshev approximation of an n-dimensional function on an interval.
@@ -468,7 +468,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
 
     for func, good_deg in zip(funcs, good_degs):
         coeff, change_sign = full_cheb_approximate(func,a,b,deg,approx_tol,good_deg)
-        
+
         #Subdivides if a bad approximation
         if coeff is None:
             intervals = get_subintervals(a,b,change_sign,None,None,None,approx_tol)
@@ -484,7 +484,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
                 return np.zeros([0,dim])
 
             cheb_approx_list.append(coeff)
-    
+
     #Make the system stable to solve
     coeffs, divisor_var = trim_coeffs(cheb_approx_list, approx_tol, solve_tol)
 
