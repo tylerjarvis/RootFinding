@@ -43,19 +43,15 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, tol=
     max_number_of_roots = np.prod(degrees)
 
     m_f, var_dict = MSMultMatrix(polys, poly_type, verbose=verbose, MSmatrix=MSmatrix, tol=tol)
-
-    print(m_f)
-#     return m_f
+    
+    if isinstance(m_f, int):
+        return -1
     
     vals_left, vec_left = eig(m_f,left=True,right=False)
     vals_right, vec_right = eig(m_f,left=False,right=True)
     for x,y in zip(vec_left.T, vec_right.T):
         c = np.linalg.norm(x)*np.linalg.norm(y) / np.abs(x@y)
-        print(c)
-    
-    if isinstance(m_f, int):
-        return -1
-    
+        
     if verbose:
         print("\nM_f:\n", m_f[::-1,::-1])
 
