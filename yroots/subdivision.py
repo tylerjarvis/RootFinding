@@ -59,13 +59,16 @@ def solve(funcs, a, b, plot = False, plot_intervals = False, polish = False):
 
     if dim == 1:
         #one dimensional case
-        zeros = subdivision_solve_1d(funcs[0],a,b)
+        interval_data = IntervalData(a,b)
+        zeros = subdivision_solve_1d(funcs[0],a,b,interval_data)
         if plot:
             x = np.linspace(a,b,1000)
             for f in funcs:
                 plt.plot(x,f(x),color='k')
             plt.plot(np.real(zeros),np.zeros(len(zeros)),'o',color = 'none',markeredgecolor='r')
             plt.show()
+        print("\rPercent Finished: 100%       ")
+        interval_data.print_results()
         return zeros
     else:
         #multidimensional case
@@ -215,7 +218,7 @@ def get_cheb_grid(deg, dim, has_eval_grid):
         cheb_values = np.cos(np.arange(deg+1)*np.pi/deg)
         cheb_grids = np.meshgrid(*([cheb_values]*dim), indexing='ij')
         flatten = lambda x: x.flatten()
-        return np.column_stack(map(flatten, cheb_grids))
+        return np.column_stack(tuple(map(flatten, cheb_grids)))
 
 def interval_approximate_nd(f,a,b,deg,return_bools=False,multiplier=None):
     """Finds the chebyshev approximation of an n-dimensional function on an interval.
@@ -465,7 +468,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
 
     for func, good_deg in zip(funcs, good_degs):
         coeff, change_sign = full_cheb_approximate(func,a,b,deg,approx_tol,good_deg)
-        
+
         #Subdivides if a bad approximation
         if coeff is None:
             intervals = get_subintervals(a,b,change_sign,None,None,None,approx_tol)
@@ -481,7 +484,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
                 return np.zeros([0,dim])
 
             cheb_approx_list.append(coeff)
-    
+
     #Make the system stable to solve
     coeffs, divisor_var = trim_coeffs(cheb_approx_list, approx_tol, solve_tol)
 
@@ -812,7 +815,7 @@ def good_zeros_1d(zeros, imag_tol = 1.e-10):
     zeros = zeros[np.where(np.abs(zeros.imag) < imag_tol)]
     return zeros
 
-def subdivision_solve_1d(f,a,b,cheb_approx_tol=1.e-3,max_degree=128):
+def subdivision_solve_1d(f,a,b,interval_data,cheb_approx_tol=1.e-5,max_degree=128):
     """Finds the roots of a one-dimensional function using subdivision and chebyshev approximation.
 
     Parameters
@@ -834,6 +837,7 @@ def subdivision_solve_1d(f,a,b,cheb_approx_tol=1.e-3,max_degree=128):
         The coefficient of the chebyshev interpolating polynomial.
     """
     cur_deg = 2
+    interval_data.print_progress()
     initial_approx = interval_approximate_1d(f,a,b,deg = cur_deg)
     while cur_deg<=max_degree:
         coeffsN = np.zeros(2*cur_deg+1)
@@ -841,16 +845,21 @@ def subdivision_solve_1d(f,a,b,cheb_approx_tol=1.e-3,max_degree=128):
         coeffs2N = interval_approximate_1d(f,a,b,deg = 2*cur_deg)
         #Check if the approximation is good enough
         # if np.sum(np.abs(coeffs2N - coeffsN)) < cheb_approx_tol:
-        if np.sum(np.abs(coeffs2N[cur_deg+1:])) < cheb_approx_tol:
+        if np.sum(np.abs(coeffs2N[cur_deg+1:])) < np.sum(np.abs(coeffs2N[:cur_deg+1]))*cheb_approx_tol:
             coeffs = coeffsN[:cur_deg+1]
+            #const interval check
+            if interval_data.check_interval(coeffs, cheb_approx_tol, a, b):
+                return np.zeros([0])
             #Division is faster after degree 75
             if cur_deg > 75:
+                interval_data.track_interval('Division', [a,b])
                 return transform(good_zeros_1d(divCheb(coeffs)),a,b)
             else:
+                interval_data.track_interval('Division', [a,b])
                 return transform(good_zeros_1d(multCheb(np.trim_zeros(coeffs.copy(),trim='b'))),a,b)
         initial_approx = coeffs2N
         cur_deg*=2
     #Subdivide the interval and recursively call the function.
     div_length = (b-a)/2
-    return np.hstack([subdivision_solve_1d(f,a,b-div_length,max_degree=max_degree),\
-                      subdivision_solve_1d(f,a+div_length,b,max_degree=max_degree)])
+    return np.hstack([subdivision_solve_1d(f,a,b-div_length,interval_data,max_degree=max_degree),\
+                      subdivision_solve_1d(f,a+div_length,b,interval_data,max_degree=max_degree)])
