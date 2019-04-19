@@ -58,7 +58,7 @@ def find_degree(poly_list, verbose=False):
         print('Degree of Macaulay Matrix:', sum(poly.degree for poly in poly_list) - len(poly_list) + 1)
     return sum(poly.degree for poly in poly_list) - len(poly_list) + 1
 
-def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
+def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10, return_perm=False):
     ''' Reduces a Macaulay matrix, BYU style.
 
     The matrix is split into the shape
@@ -90,6 +90,9 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     '''
     #controller variables for each part of the matrix
     AD = matrix[:,:cuts[0]]
+    
+#     print(AD)
+    
     BCEF = matrix[:,cuts[0]:]
     # A = matrix[:cuts[0],:cuts[0]]
     B = matrix[:cuts[0],cuts[0]:cuts[1]]
@@ -100,6 +103,8 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
 
     #RRQR reduces A and D without pivoting sticking the result in it's place.
     Q1,matrix[:,:cuts[0]] = qr(AD)
+    
+#     print(matrix[:,:cuts[0]].diagonal())
 
     #Multiplying BCEF by Q.T
     matrix[:,cuts[0]:] = Q1.T @ BCEF
@@ -107,34 +112,52 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
 
     #RRQR reduces E sticking the result in it's place.
     Q,matrix[cuts[0]:,cuts[0]:cuts[1]],P = qr(E, pivoting = True)
-
+    
     #Multiplies F by Q.T.
     matrix[cuts[0]:,cuts[1]:] = Q.T @ F
     del Q #Get rid of Q for memory purposes.
 
     #Permute the columns of B
     matrix[:cuts[0],cuts[0]:cuts[1]] = B[:,P]
+    
+    print(P)
 
     #Resorts the matrix_terms.
     matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
 
     #eliminate zero rows from the bottom of the matrix.
-    matrix = row_swap_matrix(matrix)
-    for row in matrix[::-1]:
-        if np.allclose(row, 0,atol=accuracy):
-            matrix = matrix[:-1]
-        else:
-            break
-            
-    #Conditioning check
-    if np.linalg.cond(matrix[:,:matrix.shape[0]])*accuracy > 1:
-        return -1, -1    
+#     matrix = row_swap_matrix(matrix)
+#     for row in matrix[::-1]:
+#         if np.allclose(row, 0,atol=accuracy):
+#             matrix = matrix[:-1]
+#         else:
+#             break
     
+#     print(matrix.diagonal())
+    
+    #Conditioning check
+    print("Macaulay Cond: ", np.linalg.cond(matrix[:,:matrix.shape[0]]))
+    if np.linalg.cond(matrix[:,:matrix.shape[0]])*accuracy > 1:
+#         print('FAIL')
+        if return_perm:
+            return -1, -1, -1
+        return -1, -1    
+        
     #backsolve
     height = matrix.shape[0]
     matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
     matrix[:,:height] = np.eye(height)
-
+    
+#     print(matrix_terms)
+#     print(matrix)
+    
+#     print(matrix.shape)
+    
+    if return_perm:
+        perm = np.arange(matrix.shape[1])
+        perm[cuts[0]:cuts[1]] = perm[cuts[0]:cuts[1]][P]
+        return matrix, matrix_terms, perm
+        
     return matrix, matrix_terms
 
 def rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy = 1.e-10):

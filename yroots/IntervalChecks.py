@@ -171,7 +171,7 @@ class IntervalData:
         checkers = [name for name in self.interval_results]
         print("Total intervals checked was {}".format(total_intervals))
         print("Methods used were {}".format(checkers))
-        print("The percent solved by each was {}".format((100*results_numbers / total_intervals).round(2)))
+        print("The percent solved by each was {}".format((100*results_numbers / total_intervals).round(4)))
 
     def plot_results(self, funcs, zeros, plot_intervals):
         ''' Prints the results of subdivision solve. Only works if the funcitons are two dimensional.
