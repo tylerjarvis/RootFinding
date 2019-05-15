@@ -33,7 +33,7 @@ sys.path.insert(0, os.path.abspath('../..'))
 extensions = ['sphinx.ext.autodoc',
     'sphinx.ext.todo',
     'sphinx.ext.coverage',
-    'sphinx.ext.mathjax']
+    'sphinx.ext.mathjax', 'sphinx.ext.napoleon']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -48,8 +48,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'RootFinding'
-copyright = u'2017, BYU Math'
+project = u'YRoots'
+copyright = u'2019, BYU Math'
 author = u'Tyler Jarvis et al'
 
 # The version info for the project you're documenting, acts as replacement for
