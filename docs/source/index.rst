@@ -22,14 +22,12 @@ find the roots of a polynomial system in one, two, and three dimensions.
 The YRoots package aims to extend the scope of Rootfinding algorithms by applying the
 methods to systems of equations that are not necessarily polynomials. YRoots also aims to
 solve higher-dimensional problems. It accomplishes this by approximating the given functions
-as polynomials, subdividing search regions to narrow in on a root, and applying a spectral algorithm
-to find the root.
-
-Fast and computationally stable methods for finding roots of polynomial systems.
+as Chebyshev polynomials, subdividing search regions to narrow in on a root, and applying a 
+spectral algorithm to find the root.
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Contents:
 
    Home <self>

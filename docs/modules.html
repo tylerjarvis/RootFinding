@@ -236,6 +236,7 @@ on an interval.</p>
 <li><p><strong>b</strong> (<em>numpy array</em>) – The upper bound on the interval.</p></li>
 <li><p><strong>deg</strong> (<em>numpy array</em>) – The degree of the interpolation in each dimension.</p></li>
 <li><p><strong>return_bools</strong> (<em>bool</em>) – Whether to return bools that indicate if the funtion changes sign.</p></li>
+<li><p><strong>multiplier</strong> (<em>float</em>) – The multiplier used to scale an interval during approximation.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -329,7 +330,7 @@ approximation to give a more accurate answer.</p></li>
 </dd>
 </dl>
 <p class="rubric">Examples</p>
-<p>This can be used to solve a system of one-dimensional equations.</p>
+<p>This can be used to solve a system of two dimensional equations.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">yroots</span> <span class="k">as</span> <span class="nn">yr</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">f</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
@@ -354,7 +355,9 @@ we have a 3 dimensional system.</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">roots</span> <span class="o">=</span> <span class="n">yr</span><span class="o">.</span><span class="n">solve</span><span class="p">([</span><span class="n">f</span><span class="p">,</span><span class="n">g</span><span class="p">,</span><span class="n">h</span><span class="p">],</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">polish</span><span class="o">=</span><span class="kc">True</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># Show the number of roots and maximal residuals</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">roots</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">f</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">roots</span><span class="p">[:,</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]))),</span>    <span class="o">...</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">g</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">roots</span><span class="p">[:,</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]))),</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span>    <span class="o">...</span> <span class="n">h</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">roots</span><span class="p">[:,</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)])))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">roots</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">f</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">roots</span><span class="p">[:,</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]))),</span>
+<span class="gp">... </span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">g</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">roots</span><span class="p">[:,</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]))),</span><span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span>
+<span class="gp">... </span><span class="n">h</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">roots</span><span class="p">[:,</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)])))</span>
 <span class="go">(6, 3.216245299353273e-16, 4.948322275872661e-15, 1.8096635301390052e-14)</span>
 </pre></div>
 </div>
@@ -441,7 +444,7 @@ numpy array if multi-dimensional.</p></li>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="mi">3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">b</span> <span class="o">=</span> <span class="mi">5</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">array</span><span class="p">([</span><span class="mf">3.</span><span class="p">,</span> <span class="mf">4.</span><span class="p">,</span> <span class="mf">5.</span><span class="p">])</span>
+<span class="go">array([3., 4., 5.])</span>
 </pre></div>
 </div>
 <p>Example 2 - Multidimensional points</p>
@@ -449,9 +452,9 @@ numpy array if multi-dimensional.</p></li>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">a</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">transform</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">array</span><span class="p">([[</span><span class="mf">1.75</span> <span class="p">,</span> <span class="mf">3.</span>   <span class="p">],</span>
-<span class="gp">... </span>       <span class="p">[</span><span class="mf">1.625</span><span class="p">,</span> <span class="mf">2.665</span><span class="p">],</span>
-<span class="gp">... </span>       <span class="p">[</span><span class="mf">1.</span>   <span class="p">,</span> <span class="mf">2.3</span>  <span class="p">]]</span>
+<span class="go">array([[1.75 , 3.   ],</span>
+<span class="go">       [1.625, 2.665],</span>
+<span class="go">       [1.   , 2.3  ]]</span>
 </pre></div>
 </div>
 </dd></dl>
@@ -482,6 +485,7 @@ numpy array if multi-dimensional.</p></li>
 <hr class="docutils" />
 <div class="section" id="module-yroots.OneDimension">
 <span id="one-dimension"></span><h2>One Dimension<a class="headerlink" href="#module-yroots.OneDimension" title="Permalink to this headline">¶</a></h2>
+<p>Contains all the funcitons necessary for solving one-dimensional systems.</p>
 <dl class="function">
 <dt id="yroots.OneDimension.divCheb">
 <code class="descclassname">yroots.OneDimension.</code><code class="descname">divCheb</code><span class="sig-paren">(</span><em>coeff</em>, <em>eigvals=True</em>, <em>verbose=False</em><span class="sig-paren">)</span><a class="headerlink" href="#yroots.OneDimension.divCheb" title="Permalink to this definition">¶</a></dt>
@@ -606,9 +610,13 @@ For a univariate polynomial, the options are:</p>
 <hr class="docutils" />
 <div class="section" id="module-yroots.Multiplication">
 <span id="multiplication"></span><h2>Multiplication<a class="headerlink" href="#module-yroots.Multiplication" title="Permalink to this headline">¶</a></h2>
+<p>Multiplication contains the functions necessary to solve for the roots of a system
+using a Macaulay matrix that represents a multiplcation by x operator. This includes
+reducing the Macaulay matrix, finding a good choice of basis, and solving the system
+for the roots.</p>
 <dl class="function">
 <dt id="yroots.Multiplication.MSMultMatrix">
-<code class="descclassname">yroots.Multiplication.</code><code class="descname">MSMultMatrix</code><span class="sig-paren">(</span><em>polys</em>, <em>poly_type</em>, <em>verbose=False</em>, <em>MSmatrix=0</em><span class="sig-paren">)</span><a class="headerlink" href="#yroots.Multiplication.MSMultMatrix" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">yroots.Multiplication.</code><code class="descname">MSMultMatrix</code><span class="sig-paren">(</span><em>polys</em>, <em>poly_type</em>, <em>verbose=False</em>, <em>MSmatrix=0</em>, <em>tol=1e-10</em><span class="sig-paren">)</span><a class="headerlink" href="#yroots.Multiplication.MSMultMatrix" title="Permalink to this definition">¶</a></dt>
 <dd><p>Finds the multiplication matrix using the reduced Macaulay matrix.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -636,13 +644,13 @@ Some positive integer i &lt; dimension – The Moller-Stetter matrix of x_i</p>
 
 <dl class="function">
 <dt id="yroots.Multiplication.MacaulayReduction">
-<code class="descclassname">yroots.Multiplication.</code><code class="descname">MacaulayReduction</code><span class="sig-paren">(</span><em>initial_poly_list</em>, <em>accuracy=1e-10</em>, <em>verbose=False</em><span class="sig-paren">)</span><a class="headerlink" href="#yroots.Multiplication.MacaulayReduction" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">yroots.Multiplication.</code><code class="descname">MacaulayReduction</code><span class="sig-paren">(</span><em>initial_poly_list</em>, <em>tol=0</em>, <em>verbose=False</em><span class="sig-paren">)</span><a class="headerlink" href="#yroots.Multiplication.MacaulayReduction" title="Permalink to this definition">¶</a></dt>
 <dd><p>Reduces the Macaulay matrix to find a vector basis for the system of polynomials.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>initial_poly_list</strong> (<em>list</em>) – The polynomials in the system we are solving.</p></li>
-<li><p><strong>accuracy</strong> (<em>float</em>) – How small we want a number to be before assuming it is zero.</p></li>
+<li><p><strong>tol</strong> (<em>float</em>) – How small we want a number to be before assuming it is zero.</p></li>
 <li><p><strong>verbose</strong> (<em>bool</em>) – If True, prints out the process of reducing the Macaulay Matrix.</p></li>
 </ul>
 </dd>
@@ -712,7 +720,7 @@ numpy arrays that represent the terms reduction into the Vector Basis.</p>
 
 <dl class="function">
 <dt id="yroots.Multiplication.multiplication">
-<code class="descclassname">yroots.Multiplication.</code><code class="descname">multiplication</code><span class="sig-paren">(</span><em>polys</em>, <em>verbose=False</em>, <em>MSmatrix=0</em>, <em>return_all_roots=True</em><span class="sig-paren">)</span><a class="headerlink" href="#yroots.Multiplication.multiplication" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">yroots.Multiplication.</code><code class="descname">multiplication</code><span class="sig-paren">(</span><em>polys</em>, <em>verbose=False</em>, <em>MSmatrix=0</em>, <em>return_all_roots=True</em>, <em>tol=1e-10</em><span class="sig-paren">)</span><a class="headerlink" href="#yroots.Multiplication.multiplication" title="Permalink to this definition">¶</a></dt>
 <dd><p>Finds the roots of the given list of multidimensional polynomials using
 a multiplication matrix.</p>
 <dl class="field-list simple">
@@ -720,12 +728,14 @@ a multiplication matrix.</p>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>polys</strong> (<em>list of polynomial objects</em>) – Polynomials to find the common roots of.</p></li>
 <li><p><strong>MSmatrix</strong> (<em>int</em>) – <dl class="simple">
-<dt>Controls which Moller-Stetter matrix is constructed. The options are:</dt><dd><p>0 (default) – The Moller-Stetter matrix of a random polynomial
-Some positive integer i &lt; dimension – The Moller-Stetter matrix of x_i</p>
+<dt>Controls which Moller-Stetter matrix is constructed. The options are:</dt><dd><p>0 (default):The Moller-Stetter matrix of a random polynomial
+Some positive integer i &lt; dimension: The Moller-Stetter matrix of x_i</p>
 </dd>
 </dl>
 </p></li>
 <li><p><strong>verbose</strong> (<em>bool</em>) – If True, prints information about how the roots are computed.</p></li>
+<li><p><strong>tol</strong> (<em>float</em>) – Tolerance of the function - how small a number has to be before
+it’s considered to be 0.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -1292,6 +1302,8 @@ in the unit box, True otherwise</p>
 <hr class="docutils" id="macaulayreduce" />
 <div class="section" id="module-yroots.MacaulayReduce">
 <span id="macaulay-reduce"></span><h2>Macaulay Reduce<a class="headerlink" href="#module-yroots.MacaulayReduce" title="Permalink to this headline">¶</a></h2>
+<p>Macaulay Reduce contains functions that are helpful when reducing the Macaulay
+matrix when solving a system of polynomials.</p>
 <dl class="function">
 <dt id="yroots.MacaulayReduce.add_polys">
 <code class="descclassname">yroots.MacaulayReduce.</code><code class="descname">add_polys</code><span class="sig-paren">(</span><em>degree</em>, <em>poly</em>, <em>poly_coeff_list</em><span class="sig-paren">)</span><a class="headerlink" href="#yroots.MacaulayReduce.add_polys" title="Permalink to this definition">¶</a></dt>
@@ -1340,7 +1352,7 @@ multiplications of poly added.</p>
 
 <dl class="function">
 <dt id="yroots.MacaulayReduce.rrqr_reduceMacaulay">
-<code class="descclassname">yroots.MacaulayReduce.</code><code class="descname">rrqr_reduceMacaulay</code><span class="sig-paren">(</span><em>matrix</em>, <em>matrix_terms</em>, <em>cuts</em>, <em>accuracy=1e-10</em><span class="sig-paren">)</span><a class="headerlink" href="#yroots.MacaulayReduce.rrqr_reduceMacaulay" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">yroots.MacaulayReduce.</code><code class="descname">rrqr_reduceMacaulay</code><span class="sig-paren">(</span><em>matrix</em>, <em>matrix_terms</em>, <em>cuts</em>, <em>accuracy=1e-10</em>, <em>return_perm=False</em><span class="sig-paren">)</span><a class="headerlink" href="#yroots.MacaulayReduce.rrqr_reduceMacaulay" title="Permalink to this definition">¶</a></dt>
 <dd><p>Reduces a Macaulay matrix, BYU style.</p>
 <p>The matrix is split into the shape
 A B C
@@ -1366,7 +1378,8 @@ pivoting. These numbers indicate where those cuts happen.</p></li>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p><ul class="simple">
 <li><p><strong>matrix</strong> (<em>numpy array</em>) – The reduced matrix.</p></li>
-<li><p><strong>matrix_terms</strong> (<em>numpy array</em>) – The resorted matrix_terms.</p></li>
+<li><p><strong>matrix_terms</strong> (<em>numpy array</em>) – The resorted matrix_terms.
+If something goes wrong, returns -1, -1</p></li>
 </ul>
 </p>
 </dd>
@@ -1395,7 +1408,8 @@ where those cuts happen.</p></li>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p><ul class="simple">
 <li><p><strong>matrix</strong> (<em>numpy array</em>) – The reduced matrix.</p></li>
-<li><p><strong>matrix_terms</strong> (<em>numpy array</em>) – The resorted matrix_terms.</p></li>
+<li><p><strong>matrix_terms</strong> (<em>numpy array</em>) – The resorted matrix_terms.
+If something goes wrong, returns -1, -1</p></li>
 </ul>
 </p>
 </dd>
@@ -2175,10 +2189,10 @@ e.g. if A is a tall matrix, returns [A|0]</p>
 <dd class="field-odd"><p><strong>(</strong><strong>np.array</strong><strong>)</strong> (<em>matrix</em>) – </p>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p></p>
+<dd class="field-even"><p><strong>square matrix</strong> – square matrix with zeros in it (np.array)</p>
 </dd>
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>square matrix with zeros in it (np.array)</p>
+<dd class="field-odd"><p>np array</p>
 </dd>
 </dl>
 </dd></dl>
@@ -2186,16 +2200,18 @@ e.g. if A is a tall matrix, returns [A|0]</p>
 <dl class="function">
 <dt id="yroots.ProjectiveSpace.roots_at_inf">
 <code class="descclassname">yroots.ProjectiveSpace.</code><code class="descname">roots_at_inf</code><span class="sig-paren">(</span><em>f</em><span class="sig-paren">)</span><a class="headerlink" href="#yroots.ProjectiveSpace.roots_at_inf" title="Permalink to this definition">¶</a></dt>
-<dd><p>Finds the roots at infinity of a homogenous, bivarite power-basis polynomial.</p>
+<dd><p>Finds the roots at infinity of a homogenous, bivarite power-basis
+polynomial.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>poly</strong> (<em>a bivariate power-basis polynomial</em>) – </p>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p></p>
+<dd class="field-even"><p><strong>inf_roots_f_d</strong> – The roots at infinity of the polynomial (list of tuples). In the form
+(x,y). Since at infinity, z = 0</p>
 </dd>
 <dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>the roots at infinity of the polynomial (list of tuples) In the form (x,y) Since at infinity, z = 0</p>
+<dd class="field-odd"><p>list of tuples</p>
 </dd>
 </dl>
 </dd></dl>
@@ -2204,6 +2220,13 @@ e.g. if A is a tall matrix, returns [A|0]</p>
 <hr class="docutils" />
 <div class="section" id="module-yroots.Division">
 <span id="division"></span><h2>Division<a class="headerlink" href="#module-yroots.Division" title="Permalink to this headline">¶</a></h2>
+<p>Division contains the functions necessary to solve for the roots of a system
+using a Macaulay matrix that represents a division by x_i operator. This
+includes reducing the Macaulay matrix, finding a good choice of basis, and
+solving the system for the roots. This method is similar to multiplication,
+but is an experimental method for solving a specific class of problems quickly
+and efficiently. Currently, it’s very comprable to Mutliplication, so more
+research needs to be done.</p>
 <dl class="function">
 <dt id="yroots.Division.build_division_matrix">
 <code class="descclassname">yroots.Division.</code><code class="descname">build_division_matrix</code><span class="sig-paren">(</span><em>VB</em>, <em>VB_spot_dict</em>, <em>diag_reduction_dict</em>, <em>inv_reduction_dict</em>, <em>divisor_terms_dict</em><span class="sig-paren">)</span><a class="headerlink" href="#yroots.Division.build_division_matrix" title="Permalink to this definition">¶</a></dt>
@@ -2225,6 +2248,18 @@ e.g. if A is a tall matrix, returns [A|0]</p>
 <dd class="field-odd"><p>numpy array</p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="yroots.Division.condeig">
+<code class="descclassname">yroots.Division.</code><code class="descname">condeig</code><span class="sig-paren">(</span><em>A</em><span class="sig-paren">)</span><a class="headerlink" href="#yroots.Division.condeig" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculates the condition numbers of the eigenvalues of A</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="yroots.Division.condeigv">
+<code class="descclassname">yroots.Division.</code><code class="descname">condeigv</code><span class="sig-paren">(</span><em>A</em><span class="sig-paren">)</span><a class="headerlink" href="#yroots.Division.condeigv" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculates the condition numbers of the eigenvectors of A</p>
 </dd></dl>
 
 <dl class="function">
@@ -2305,7 +2340,7 @@ divided by x.</p></li>
 
 <dl class="function">
 <dt id="yroots.Division.division">
-<code class="descclassname">yroots.Division.</code><code class="descname">division</code><span class="sig-paren">(</span><em>polys</em>, <em>divisor_var=0</em>, <em>tol=1e-12</em>, <em>verbose=False</em>, <em>polish=False</em>, <em>return_all_roots=True</em><span class="sig-paren">)</span><a class="headerlink" href="#yroots.Division.division" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">yroots.Division.</code><code class="descname">division</code><span class="sig-paren">(</span><em>polys</em>, <em>divisor_var=0</em>, <em>tol=1e-10</em>, <em>verbose=False</em>, <em>polish=False</em>, <em>return_all_roots=True</em><span class="sig-paren">)</span><a class="headerlink" href="#yroots.Division.division" title="Permalink to this definition">¶</a></dt>
 <dd><p>Calculates the common zeros of polynomials using a division matrix.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -2318,7 +2353,8 @@ divided by x.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p><strong>zeros</strong> – The common roots of the polynomials. Each row is a root.</p>
+<dd class="field-even"><p><strong>zeros</strong> – The common roots of the polynomials. Each row is a root.
+Returns -1 if something goes wrong (see instances for details)</p>
 </dd>
 <dt class="field-odd">Return type</dt>
 <dd class="field-odd"><p>numpy array</p>
@@ -2402,6 +2438,7 @@ reduction into the Vector Basis.</p>
 <hr class="docutils" />
 <div class="section" id="module-yroots.utils">
 <span id="utils"></span><h2>Utils<a class="headerlink" href="#module-yroots.utils" title="Permalink to this headline">¶</a></h2>
+<p>A collection of functions used in the F4 Macaulay and TVB solvers</p>
 <dl class="exception">
 <dt id="yroots.utils.InstabilityWarning">
 <em class="property">exception </em><code class="descclassname">yroots.utils.</code><code class="descname">InstabilityWarning</code><a class="headerlink" href="#yroots.utils.InstabilityWarning" title="Permalink to this definition">¶</a></dt>
@@ -2602,8 +2639,8 @@ no proof of it, but it seems to work real good.</p>
 <dl class="function">
 <dt id="yroots.utils.first_x">
 <code class="descclassname">yroots.utils.</code><code class="descname">first_x</code><span class="sig-paren">(</span><em>string</em><span class="sig-paren">)</span><a class="headerlink" href="#yroots.utils.first_x" title="Permalink to this definition">¶</a></dt>
-<dd><p>Finds the first position of an ‘x’ in a string. If there is not x it returns the length
-of the string.</p>
+<dd><p>Finds the first position of an ‘x’ in a string. If there is not x it
+returns the length of the string.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>string</strong> (<em>str</em>) – The string of interest.</p>
@@ -2652,15 +2689,16 @@ positions.</p>
 <dl class="function">
 <dt id="yroots.utils.is_number">
 <code class="descclassname">yroots.utils.</code><code class="descname">is_number</code><span class="sig-paren">(</span><em>string</em><span class="sig-paren">)</span><a class="headerlink" href="#yroots.utils.is_number" title="Permalink to this definition">¶</a></dt>
-<dd><p>Checks is a string can be converted to a number.
-:param string: The string of interest.
-:type string: str</p>
+<dd><p>Checks is a string can be converted to a number.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
-<dd class="field-odd"><p><strong>value</strong> – Whether or not the string is a valid number.</p>
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>string</strong> (<em>str</em>) – The string of interest.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p>bool</p>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>value</strong> – Whether or not the string is a valid number.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>bool</p>
 </dd>
 </dl>
 </dd></dl>
