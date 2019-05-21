@@ -388,7 +388,7 @@ we have a 3 dimensional system.</p>
 
 <dl class="function">
 <dt id="yroots.subdivision.subdivision_solve_nd">
-<code class="descclassname">yroots.subdivision.</code><code class="descname">subdivision_solve_nd</code><span class="sig-paren">(</span><em>funcs</em>, <em>a</em>, <em>b</em>, <em>deg</em>, <em>interval_data</em>, <em>approx_tol=0.0001</em>, <em>solve_tol=1e-08</em>, <em>polish=False</em>, <em>good_degs=None</em><span class="sig-paren">)</span><a class="headerlink" href="#yroots.subdivision.subdivision_solve_nd" title="Permalink to this definition">¶</a></dt>
+<code class="descclassname">yroots.subdivision.</code><code class="descname">subdivision_solve_nd</code><span class="sig-paren">(</span><em>funcs</em>, <em>a</em>, <em>b</em>, <em>deg</em>, <em>interval_data</em>, <em>approx_tol=0.0001</em>, <em>solve_tol=1e-08</em>, <em>polish=False</em>, <em>good_degs=None</em>, <em>level=0</em>, <em>max_level=20</em><span class="sig-paren">)</span><a class="headerlink" href="#yroots.subdivision.subdivision_solve_nd" title="Permalink to this definition">¶</a></dt>
 <dd><p>Finds the common zeros of the given functions for multidimensional
 systems.
 # TODO Long Function</p>
@@ -406,6 +406,8 @@ systems.
 approximation to give a more accurate answer.</p></li>
 <li><p><strong>good_degs</strong> (<em>numpy array</em>) – Interpoation degrees that are guaranteed to give an approximation valid
 to within approx_tol.</p></li>
+<li><p><strong>level</strong> (<em>int</em>) – Current level of recursion.</p></li>
+<li><p><strong>max_level</strong> (<em>int</em>) – Maximum level of recursion before exiting.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
