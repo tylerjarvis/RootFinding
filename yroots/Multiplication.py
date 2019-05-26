@@ -347,7 +347,7 @@ def _random_poly(_type, dim):
     random_poly_coeff = np.zeros(tuple(random_poly_shape), dtype=int)
     np.random.seed(42)
     coeffs = np.random.randn(dim)
-    coeffs /= norm(coeffs)
+    coeffs /= np.linalg.norm(coeffs)
     for i,var in enumerate(_vars):
         random_poly_coeff[var] = coeffs[i]
 
