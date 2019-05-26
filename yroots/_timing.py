@@ -80,9 +80,12 @@ def bertini(polys):
         f.write(header+body+footer)
 
     from subprocess import call
-    call(['./bertini/bertini.exe'])
-    # call(['./bertini/bertini-serial'])
-    # call(['./bertini/bertini-run-parallel'])
+    # call(['./bertini/bertini.exe'])
+#     call(['./bertini/bertini-serial'])
+#    call(['./bertini/bertini'])
+     call(['./bertini/bertini-parallel'])
+
+    # print(coeff_to_str(poly.coeff))
 
 # One Dimension
 def timer(solver, dim, power):
