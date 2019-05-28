@@ -399,16 +399,17 @@ def full_cheb_approximate(f,a,b,deg,tol,good_deg=None):
     if np.sum(np.abs(coeff2)) > tol:
         #Find the directions to subdivide
         dim = len(a)
-        div_dimensions = []
-        slices = [slice(0,None,None)]*dim
-        for d in range(dim):
-            slices[d] = slice(deg+1,None,None)
-            if np.sum(np.abs(coeff2[tuple(slices)])) > tol/dim:
-                div_dimensions.append(d)
-            slices[d] = slice(0,None,None)
-        if len(div_dimensions) == 0:
-            div_dimensions.append(0)
-        return None, np.array(div_dimensions)
+#         div_dimensions = []
+#         slices = [slice(0,None,None)]*dim
+#         for d in range(dim):
+#             slices[d] = slice(deg+1,None,None)
+#             if np.sum(np.abs(coeff2[tuple(slices)])) > tol/dim:
+#                 div_dimensions.append(d)
+#             slices[d] = slice(0,None,None)
+#         if len(div_dimensions) == 0:
+#             div_dimensions.append(0)
+#         return None, np.array(div_dimensions)
+        return None, np.arange(dim)
     else:
         return coeff, bools
 
@@ -434,7 +435,7 @@ def good_zeros_nd(zeros, imag_tol = 1.e-5, real_tol = 1.e-5):
     good_zeros = good_zeros[np.all(np.abs(good_zeros) <= 1 + real_tol,axis = 1)]
     return good_zeros.real
 
-def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=1.e-8, polish=False, good_degs=None):
+def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=1.e-8, polish=False, good_degs=None, level=0, max_level=20):
     """Finds the common zeros of the given functions.
 
     Parameters
@@ -464,6 +465,11 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
     zeros : numpy array
         The real zeros of the functions in the interval [a,b]
     """
+    if level > max_level:
+        interval_data.track_interval("Too Deep", [a, b])
+        return np.zeros([0,len(a)])
+#     print("Enter Function level:{}".format(level))
+#     print(a,b)
     cheb_approx_list = []
     interval_data.print_progress()
     dim = len(a)
@@ -472,12 +478,14 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
 
     for func, good_deg in zip(funcs, good_degs):
         coeff, change_sign = full_cheb_approximate(func,a,b,deg,approx_tol,good_deg)
-
+#         print(change_sign)
         #Subdivides if a bad approximation
         if coeff is None:
+#             print("Bad Approx")
             intervals = get_subintervals(a,b,change_sign,None,None,None,approx_tol)
+#             print(intervals, good_degs)
             return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_data,\
-                                                   approx_tol,solve_tol,polish) for interval in intervals])
+                                                   approx_tol,solve_tol,polish,level=level+1) for interval in intervals])
         else:
             #if the function changes sign on at least one subinterval, skip the checks
             if np.any(change_sign):
@@ -489,13 +497,16 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
 
             cheb_approx_list.append(coeff)
 
+#     print("Valid Approx")
     #Make the system stable to solve
     coeffs, divisor_var = trim_coeffs(cheb_approx_list, approx_tol, solve_tol)
 
     #Check if everything is linear
+#     print([coeff.shape[0] for coeff in coeffs])
     if np.all(np.array([coeff.shape[0] for coeff in coeffs]) == 2):
-        if approx_tol > 1.e-8:
-            return subdivision_solve_nd(funcs,a,b,deg,interval_data,1.e-8,1.e-8,polish)
+#         print("Linear")
+        if approx_tol > 1.e-6:
+            return subdivision_solve_nd(funcs,a,b,deg,interval_data,1.e-8,1.e-8,polish,level=level)
         A = np.zeros([dim,dim])
         B = np.zeros(dim)
         for row in range(dim):
@@ -547,7 +558,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
         else:
             good_degs = [coeff.shape[0] - 1 for coeff in coeffs]
             return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_data,\
-                                                   approx_tol,solve_tol,polish,good_degs) for interval in intervals])
+                                                   approx_tol,solve_tol,polish,good_degs,level=level+1) for interval in intervals])
 
     if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > 5):
         divisor_var = -1
@@ -560,7 +571,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
         else:
             good_degs = [coeff.shape[0] - 1 for coeff in coeffs]
             return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_data,\
-                                                   approx_tol,solve_tol,polish,good_degs) for interval in intervals])
+                                                   approx_tol,solve_tol,polish,good_degs,level=level+1) for interval in intervals])
 
     polys = [MultiCheb(coeff, lead_term = [coeff.shape[0]-1], clean_zeros = False) for coeff in coeffs]
     
@@ -569,7 +580,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
     
     if not isinstance(zeros, int):
         zeros = np.array(zeros)
-        interval_data.track_interval("Division", [a,b])
+        interval_data.track_interval("Multiplication", [a,b])
         if len(zeros) == 0:
             return np.zeros([0,dim])
         if polish:
@@ -606,7 +617,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
         else:
             good_degs = [poly.coeff.shape[0] - 1 for poly in polys]
             return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_data,\
-                                                   approx_tol,solve_tol,polish,good_degs) for interval in intervals])
+                                                   approx_tol,solve_tol,polish,good_degs,level=level+1) for interval in intervals])
 
 def good_direc(coeffs, dim, solve_tol):
     """Determines if this is a good direction to try solving with division.
@@ -869,10 +880,10 @@ def subdivision_solve_1d(f,a,b,interval_data,cheb_approx_tol=1.e-5,max_degree=12
                 return np.zeros([0])
             #Division is faster after degree 75
             if cur_deg > 75:
-                interval_data.track_interval('Division', [a,b])
+                interval_data.track_interval('Multiplication', [a,b])
                 return transform(good_zeros_1d(divCheb(coeffs)),a,b)
             else:
-                interval_data.track_interval('Division', [a,b])
+                interval_data.track_interval('Multiplication', [a,b])
                 return transform(good_zeros_1d(multCheb(np.trim_zeros(coeffs.copy(),trim='b'))),a,b)
         initial_approx = coeffs2N
         cur_deg*=2
