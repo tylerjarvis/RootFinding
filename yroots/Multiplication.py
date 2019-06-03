@@ -358,9 +358,17 @@ def _random_poly(_type, dim):
 
     random_poly_shape = [2 for i in range(dim)]
 
-    random_poly_coeff = np.zeros(tuple(random_poly_shape), dtype=int)
-    for var in _vars:
-        random_poly_coeff[var] = np.random.randint(1000)
+    # random_poly_coeff = np.zeros(tuple(random_poly_shape), dtype=int)
+    # for var in _vars:
+    #     random_poly_coeff[var] = np.random.randint(1000)
+
+    random_poly_coeff = np.zeros(tuple(random_poly_shape), dtype=float)
+    #np.random.seed(42)
+
+    coeffs = np.random.rand(dim)
+    coeffs /= np.linalg.norm(coeffs)
+    for i,var in enumerate(_vars):
+        random_poly_coeff[var] = coeffs[i]
 
     if _type == 'MultiCheb':
         return MultiCheb(random_poly_coeff), _vars
