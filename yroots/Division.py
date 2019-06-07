@@ -7,7 +7,42 @@ from yroots.MacaulayReduce import add_polys, rrqr_reduceMacaulay, rrqr_reduceMac
 from yroots.utils import get_var_list, slice_top, row_swap_matrix, \
                               mon_combos, newton_polish, MacaulayError
 
-def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, return_all_roots=True):
+import numpy as np
+import scipy.linalg as la
+def condeig(A):
+    """Calculates the condition numbers of the eigenvalues of A"""
+    n = A.shape[0]
+    w, vl, vr = la.eig(A,left=True)
+    vl, vr = vl/la.norm(vl,axis=0), vr/la.norm(vr,axis=0)
+    out = np.empty(n)
+    for i in range(n):
+        out[i] = 1/np.abs(np.dot(vl[:,i],vr[:,i]))
+    return out
+
+def condeigv(A):
+    """Calculates the condition numbers of the eigenvectors of A"""
+    n = A.shape[0]
+    w, vr = la.eig(A)
+    out = np.empty(n)
+    for i in range(n):
+        #compute Householder vector u
+        x = vr[:,i]
+        u = x
+        u[0] += np.exp(np.angle(x[0]))*la.norm(x)
+
+        #form Householder matrix
+        Q = np.eye(n) - (2/la.norm(u)**2)*np.outer(u.conj(),u)
+
+        #compute minimum singular value of B-w[i]I
+        s = la.svd((Q.T.conj()@A@Q)[1:,1:]-w[i]*np.eye(n-1),compute_uv=False)[-1]
+        if s == 0:
+            out[i] = np.inf
+        else:
+            out[i] = 1/s
+    return out
+
+
+def division(polys, divisor_var=0, tol=1.e-10, verbose=False, polish=False, return_all_roots=True):
     '''Calculates the common zeros of polynomials using a division matrix.
 
     Parameters
@@ -53,7 +88,7 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, retu
 
     #If bottom left is zero only does the first QR reduction on top part of matrix (for speed). Otherwise does it on the whole thing
     if np.allclose(matrix[cuts[0]:,:cuts[0]], 0):
-        matrix, matrix_terms = rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy=tol)
+        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy=tol)
     else:
         matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy=tol)
 
@@ -155,34 +190,34 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, retu
                 division_matrix[:,i] -= basisDict[term]
         #<----------end Power
 
+
     vals, vecs = eig(division_matrix,left=True,right=False)
     #conjugate because scipy gives the conjugate eigenvector
     vecs = vecs.conj()
 
-    if len(vals) > len(np.unique(np.round(vals, 10))):
-        return -1
+#     if len(vals) > len(np.unique(np.round(vals, 10))):
+#         return -1
 
-    vals2, vecs2 = eig(vecs)
-    sorted_vals2 = np.sort(np.abs(vals2)) #Sorted smallest to biggest
-    if sorted_vals2[0] < sorted_vals2[-1]*tol:
-        return -1
+#     eigenvalue_cond = np.linalg.cond(vecs)
+#     if eigenvalue_cond*tol > 1:
+#         return -1
 
-    if verbose:
-        print("\nDivision Matrix\n", np.round(division_matrix[::-1,::-1], 2))
-        print("\nLeft Eigenvectors (as rows)\n", vecs.T)
-    if not power:
-        if np.max(np.abs(vals)) > 1.e6:
-            return -1
+#     if verbose:
+#         print("\nDivision Matrix\n", np.round(division_matrix[::-1,::-1], 2))
+#         print("\nLeft Eigenvectors (as rows)\n", vecs.T)
+#     if not power:
+#         if np.max(np.abs(vals)) > 1.e6:
+#             return -1
 
     #Calculates the zeros, the x values from the eigenvalues and the y values from the eigenvectors.
     zeros = list()
 
     for i in range(len(vals)):
-        if power and abs(vecs[-1][i]) < 1.e-3:
-            #This root has magnitude greater than 1, will possibly generate a false root due to instability
-            continue
-        if  np.abs(vals[i]) < 1.e-5:
-            continue
+#         if power and abs(vecs[-1][i]) < 1.e-3:
+#             #This root has magnitude greater than 1, will possibly generate a false root due to instability
+#             continue
+#         if  np.abs(vals[i]) < 1.e-5:
+#             continue
         root = np.zeros(dim, dtype=complex)
         for spot in range(0,divisor_var):
             root[spot] = vecs[-(2+spot)][i]/vecs[-1][i]
@@ -191,6 +226,10 @@ def division(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, retu
 
         root[divisor_var] = 1/vals[i]
 
+#         conditions = condeigv(division_matrix.T)
+#         if np.abs(vals[i]) > 1:
+#             print(root, conditions[i])
+                
         if polish:
             root = newton_polish(polys,root,tol = tol)
 

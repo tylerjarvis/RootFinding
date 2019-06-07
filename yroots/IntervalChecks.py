@@ -73,7 +73,8 @@ class IntervalData:
         for check in self.subinterval_checks:
             self.interval_results[check.__name__] = []
         self.interval_results["Base Case"] = []
-        self.interval_results["Division"] = []
+        self.interval_results["Multiplication"] = []
+        self.interval_results["Too Deep"] = []
         self.total_area = np.prod(self.b-self.a)
         self.current_area = 0.
         self.polishing = False
@@ -171,7 +172,7 @@ class IntervalData:
         checkers = [name for name in self.interval_results]
         print("Total intervals checked was {}".format(total_intervals))
         print("Methods used were {}".format(checkers))
-        print("The percent solved by each was {}".format((100*results_numbers / total_intervals).round(2)))
+        print("The percent solved by each was {}".format((100*results_numbers / total_intervals).round(4)))
 
     def plot_results(self, funcs, zeros, plot_intervals):
         ''' Prints the results of subdivision solve. Only works if the funcitons are two dimensional.

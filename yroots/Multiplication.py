@@ -9,7 +9,7 @@ from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list
                               deg_d_polys, all_permutations_cheb
 import warnings
 
-def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True):
+def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, tol=1.e-10):
     '''
     Finds the roots of the given list of multidimensional polynomials using a multiplication matrix.
 
@@ -42,7 +42,15 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True):
     degrees = [poly.degree for poly in polys]
     max_number_of_roots = np.prod(degrees)
 
-    m_f, var_dict = MSMultMatrix(polys, poly_type, verbose=verbose, MSmatrix=MSmatrix)
+    m_f, var_dict = MSMultMatrix(polys, poly_type, verbose=verbose, MSmatrix=MSmatrix, tol=tol)
+
+    if isinstance(m_f, int):
+        return -1
+
+    vals_left, vec_left = eig(m_f,left=True,right=False)
+    vals_right, vec_right = eig(m_f,left=False,right=True)
+    for x,y in zip(vec_left.T, vec_right.T):
+        c = np.linalg.norm(x)*np.linalg.norm(y) / np.abs(x@y)
 
     if verbose:
         print("\nM_f:\n", m_f[::-1,::-1])
@@ -63,7 +71,7 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True):
     zeros_spot = var_dict[tuple(0 for i in range(dim))]
 
     #throw out roots that were calculated unstably
-    vecs = vecs[:,np.abs(vecs[zeros_spot]) > 1.e-10]
+#     vecs = vecs[:,np.abs(vecs[zeros_spot]) > 1.e-10]
     if verbose:
         print('\nVariable Spots in the Vector\n',var_spots)
         print('\nEigeinvecs at the Variable Spots:\n',vecs[var_spots])
@@ -81,7 +89,7 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True):
         # only return roots in the unit complex hyperbox
         return roots.T[np.all(np.abs(roots) <= 1,axis = 0)]
 
-def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0):
+def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0, tol=1.e-10):
     '''
     Finds the multiplication matrix using the reduced Macaulay matrix.
 
@@ -105,7 +113,10 @@ def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0):
     var_dict : dictionary
         Maps each variable to its position in the vector space basis
     '''
-    basisDict, VB = MacaulayReduction(polys, verbose=verbose)
+    basisDict, VB = MacaulayReduction(polys, tol=1.e-10, verbose=verbose)
+
+    if isinstance(basisDict, int):
+        return -1, -1
 
     dim = max(f.dim for f in polys)
 
@@ -153,14 +164,14 @@ def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0):
 
     return mMatrix, var_dict
 
-def MacaulayReduction(initial_poly_list, accuracy = 1.e-10, verbose=False):
+def MacaulayReduction(initial_poly_list, tol = 0, verbose=False):
     """Reduces the Macaulay matrix to find a vector basis for the system of polynomials.
 
     Parameters
     --------
     initial_poly_list: list
         The polynomials in the system we are solving.
-    accuracy: float
+    tol: float
         How small we want a number to be before assuming it is zero.
 
     Returns
@@ -189,9 +200,12 @@ def MacaulayReduction(initial_poly_list, accuracy = 1.e-10, verbose=False):
 
     #Should be combined into one function
     if np.allclose(matrix[cuts[0]:,:cuts[0]], 0):
-        matrix, matrix_terms = rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy = accuracy)
+        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = tol)
     else:
-        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = accuracy)
+        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = tol)
+
+    if isinstance(matrix, int):
+        return -1, -1
 
     if verbose:
         np.set_printoptions(suppress=True, linewidth=200)
@@ -344,10 +358,15 @@ def _random_poly(_type, dim):
 
     random_poly_shape = [2 for i in range(dim)]
 
-    random_poly_coeff = np.zeros(tuple(random_poly_shape), dtype=int)
-    np.random.seed(42)
-    coeffs = np.random.randn(dim)
-    coeffs /= norm(coeffs)
+    # random_poly_coeff = np.zeros(tuple(random_poly_shape), dtype=int)
+    # for var in _vars:
+    #     random_poly_coeff[var] = np.random.randint(1000)
+
+    random_poly_coeff = np.zeros(tuple(random_poly_shape), dtype=float)
+    #np.random.seed(42)
+
+    coeffs = np.random.rand(dim)
+    coeffs /= np.linalg.norm(coeffs)
     for i,var in enumerate(_vars):
         random_poly_coeff[var] = coeffs[i]
 
