@@ -433,7 +433,7 @@ def good_zeros_nd(zeros, imag_tol = 1.e-5, real_tol = 1.e-5):
     good_zeros = good_zeros[np.all(np.abs(good_zeros) <= 1 + real_tol,axis = 1)]
     return good_zeros.real
 
-def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=1.e-8, polish=False, good_degs=None):
+def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=1.e-8, polish=False, good_degs=None, level=0, max_level=20):
     """Finds the common zeros of the given functions.
 
     Parameters
@@ -463,6 +463,10 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
     zeros : numpy array
         The real zeros of the functions in the interval [a,b]
     """
+    if level > max_level:
+        interval_data.track_interval("Too Deep", [a, b])
+        return np.zeros([0,len(a)])
+
     cheb_approx_list = []
     interval_data.print_progress()
     dim = len(a)
@@ -476,7 +480,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
         if coeff is None:
             intervals = get_subintervals(a,b,change_sign,None,None,None,approx_tol)
             return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_data,\
-                                                   approx_tol,solve_tol,polish) for interval in intervals])
+                                                   approx_tol,solve_tol,polish,level=level+1) for interval in intervals])
         else:
             #if the function changes sign on at least one subinterval, skip the checks
             if np.any(change_sign):
@@ -546,7 +550,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
         else:
             good_degs = [coeff.shape[0] - 1 for coeff in coeffs]
             return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_data,\
-                                                   approx_tol,solve_tol,polish,good_degs) for interval in intervals])
+                                                   approx_tol,solve_tol,polish,good_degs,level=level+1) for interval in intervals])
 
     if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > 5):
         divisor_var = -1
@@ -559,7 +563,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
         else:
             good_degs = [coeff.shape[0] - 1 for coeff in coeffs]
             return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_data,\
-                                                   approx_tol,solve_tol,polish,good_degs) for interval in intervals])
+                                                   approx_tol,solve_tol,polish,good_degs,level=level+1) for interval in intervals])
 
     polys = [MultiCheb(coeff, lead_term = [coeff.shape[0]-1], clean_zeros = False) for coeff in coeffs]
     # zeros = division(polys,divisor_var,solve_tol)
@@ -601,7 +605,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
         else:
             good_degs = [poly.coeff.shape[0] - 1 for poly in polys]
             return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_data,\
-                                                   approx_tol,solve_tol,polish,good_degs) for interval in intervals])
+                                                   approx_tol,solve_tol,polish,good_degs,level=level+1) for interval in intervals])
 
 def good_direc(coeffs, dim, solve_tol):
     """Determines if this is a good direction to try solving with division.
@@ -856,10 +860,10 @@ def subdivision_solve_1d(f,a,b,interval_data,cheb_approx_tol=1.e-5,max_degree=12
                 return np.zeros([0])
             #Division is faster after degree 75
             if cur_deg > 75:
-                interval_data.track_interval('Division', [a,b])
+                interval_data.track_interval('Macaulay', [a,b])
                 return transform(good_zeros_1d(divCheb(coeffs)),a,b)
             else:
-                interval_data.track_interval('Division', [a,b])
+                interval_data.track_interval('Macaulay', [a,b])
                 return transform(good_zeros_1d(multCheb(np.trim_zeros(coeffs.copy(),trim='b'))),a,b)
         initial_approx = coeffs2N
         cur_deg*=2
