@@ -44,6 +44,9 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True):
 
     m_f, var_dict = MSMultMatrix(polys, poly_type, verbose=verbose, MSmatrix=MSmatrix)
 
+    if isinstance(m_f, int):
+        return -1
+
     if verbose:
         print("\nM_f:\n", m_f[::-1,::-1])
 
@@ -106,6 +109,9 @@ def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0):
         Maps each variable to its position in the vector space basis
     '''
     basisDict, VB = MacaulayReduction(polys, verbose=verbose)
+
+    if isinstance(basisDict, int):
+        return -1, -1
 
     dim = max(f.dim for f in polys)
 
@@ -187,11 +193,16 @@ def MacaulayReduction(initial_poly_list, accuracy = 1.e-10, verbose=False):
         print('\nColumns in Macaulay Matrix\nFirst element in tuple is degree of x, Second element is degree of y\n', matrix_terms)
         print('\nLocation of Cuts in the Macaulay Matrix into [ Mb | M1* | M2* ]\n', cuts)
 
-    #Should be combined into one function
-    if np.allclose(matrix[cuts[0]:,:cuts[0]], 0):
-        matrix, matrix_terms = rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy = accuracy)
-    else:
-        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = accuracy)
+    matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = accuracy)
+
+    # TODO: rrqr_reduceMacaulay2 is not working when expected.
+    # if np.allclose(matrix[cuts[0]:,:cuts[0]], 0):
+    #     matrix, matrix_terms = rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy = accuracy)
+    # else:
+    #     matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = accuracy)
+
+    if isinstance(matrix, int):
+        return -1, -1
 
     if verbose:
         np.set_printoptions(suppress=True, linewidth=200)
