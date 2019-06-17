@@ -9,7 +9,7 @@ from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list
                               deg_d_polys, all_permutations_cheb
 import warnings
 
-def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True):
+def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, approx_tol = 1.e-4, solve_tol=1.e-12):
     '''
     Finds the roots of the given list of multidimensional polynomials using a multiplication matrix.
 
@@ -28,7 +28,7 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True):
     roots : numpy array
         The common roots of the polynomials. Each row is a root.
     '''
-    polys, transform, is_projected = LinearProjection.remove_linear(polys, 1e-4, 1e-8)
+    polys, transform, is_projected = LinearProjection.remove_linear(polys, approx_tol, solve_tol)
     if len(polys) == 1:
         from yroots.OneDimension import solve
         return transform(solve(polys[0], MSmatrix=0))

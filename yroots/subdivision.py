@@ -567,7 +567,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
 
     polys = [MultiCheb(coeff, lead_term = [coeff.shape[0]-1], clean_zeros = False) for coeff in coeffs]
     # zeros = division(polys,divisor_var,solve_tol)
-    zeros = multiplication(polys)
+    zeros = multiplication(polys, approx_tol=approx_tol, solve_tol=solve_tol)
     if not isinstance(zeros, int):
         zeros = np.array(zeros)
         interval_data.track_interval("Macaulay", [a,b])
@@ -579,6 +579,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
         else:
             return transform(good_zeros_nd(zeros),a,b)
     else:
+        # COMMENT OUT IF NOT USING DIVISION
         # divisor_var += 1
         # while divisor_var < dim:
         #     if not good_direc(coeffs,divisor_var,solve_tol):
@@ -597,6 +598,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-4,solve_tol=
         #         return polish_zeros(transform(good_zeros_nd(zeros),a,b),funcs,polish_tol)
         #     else:
         #         return transform(good_zeros_nd(zeros),a,)b
+        # END COMMENT OUT FOR DIVISION
         #Subdivide but run some checks on the intervals first
         intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,\
                                              approx_tol,check_subintervals=True)
