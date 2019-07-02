@@ -108,7 +108,7 @@ def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0, tol=1.e-10):
     var_dict : dictionary
         Maps each variable to its position in the vector space basis
     '''
-    basisDict, VB = MacaulayReduction(polys, tol=1.e-10, verbose=verbose)
+    basisDict, VB = MacaulayReduction(polys, accuracy=tol, verbose=verbose)
 
     if isinstance(basisDict, int):
         return -1, -1
@@ -159,14 +159,14 @@ def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0, tol=1.e-10):
 
     return mMatrix, var_dict
 
-def MacaulayReduction(initial_poly_list, tol = 0, verbose=False):
+def MacaulayReduction(initial_poly_list, accuracy = 0, verbose=False):
     """Reduces the Macaulay matrix to find a vector basis for the system of polynomials.
 
     Parameters
     --------
     initial_poly_list: list
         The polynomials in the system we are solving.
-    tol: float
+    accuracy: float
         How small we want a number to be before assuming it is zero.
 
     Returns
