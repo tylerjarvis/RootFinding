@@ -66,15 +66,15 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, appr
     zeros_spot = var_dict[tuple(0 for i in range(dim))]
 
     #throw out roots that were calculated unstably
-    vecs = vecs[:,np.abs(vecs[zeros_spot]) > 1.e-10]
+#     vecs = vecs[:,np.abs(vecs[zeros_spot]) > 1.e-10]
     if verbose:
         print('\nVariable Spots in the Vector\n',var_spots)
         print('\nEigeinvecs at the Variable Spots:\n',vecs[var_spots])
         print('\nConstant Term Spot in the Vector\n',zeros_spot)
         print('\nEigeinvecs at the Constant Term\n',vecs[zeros_spot])
-
+    
     roots = transform(vecs[var_spots]/vecs[zeros_spot])
-
+    
     #Check if too many roots
     assert roots.shape[1] <= max_number_of_roots,"Found too many roots"
 
@@ -84,7 +84,7 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, appr
         # only return roots in the unit complex hyperbox
         return roots.T[np.all(np.abs(roots) <= 1,axis = 0)]
 
-def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0):
+def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0, tol=1.e-10):
     '''
     Finds the multiplication matrix using the reduced Macaulay matrix.
 
@@ -108,11 +108,11 @@ def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0):
     var_dict : dictionary
         Maps each variable to its position in the vector space basis
     '''
-    basisDict, VB = MacaulayReduction(polys, verbose=verbose)
+    basisDict, VB = MacaulayReduction(polys, tol=1.e-10, verbose=verbose)
 
     if isinstance(basisDict, int):
         return -1, -1
-
+    
     dim = max(f.dim for f in polys)
 
     # Get the polynomial to make the MS matrix of
@@ -159,14 +159,14 @@ def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0):
 
     return mMatrix, var_dict
 
-def MacaulayReduction(initial_poly_list, accuracy = 1.e-10, verbose=False):
+def MacaulayReduction(initial_poly_list, tol = 0, verbose=False):
     """Reduces the Macaulay matrix to find a vector basis for the system of polynomials.
 
     Parameters
     --------
     initial_poly_list: list
         The polynomials in the system we are solving.
-    accuracy: float
+    tol: float
         How small we want a number to be before assuming it is zero.
 
     Returns
@@ -193,6 +193,7 @@ def MacaulayReduction(initial_poly_list, accuracy = 1.e-10, verbose=False):
         print('\nColumns in Macaulay Matrix\nFirst element in tuple is degree of x, Second element is degree of y\n', matrix_terms)
         print('\nLocation of Cuts in the Macaulay Matrix into [ Mb | M1* | M2* ]\n', cuts)
 
+
     matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = accuracy)
 
     # TODO: rrqr_reduceMacaulay2 is not working when expected.
@@ -203,7 +204,7 @@ def MacaulayReduction(initial_poly_list, accuracy = 1.e-10, verbose=False):
 
     if isinstance(matrix, int):
         return -1, -1
-
+        
     if verbose:
         np.set_printoptions(suppress=True, linewidth=200)
         print("\nFinal Macaulay Matrix\n", matrix)
@@ -358,6 +359,7 @@ def _random_poly(_type, dim):
     # random_poly_coeff = np.zeros(tuple(random_poly_shape), dtype=int)
     # for var in _vars:
     #     random_poly_coeff[var] = np.random.randint(1000)
+
     random_poly_coeff = np.zeros(tuple(random_poly_shape), dtype=float)
     #np.random.seed(42)
 
