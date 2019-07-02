@@ -201,7 +201,7 @@ def run_n_dimension(args, radius, eigvals):
     chebpolys = []
     if by_coeffs:
         for i in range(dim):
-            from numalgsolve.polynomial import getPoly
+            from yroots.polynomial import getPoly
             powerpolys.append(getPoly(num_points, dim, power=True))
             chebpolys.append(getPoly(num_points, dim, power=False))
     else:

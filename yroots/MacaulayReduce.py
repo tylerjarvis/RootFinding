@@ -58,7 +58,7 @@ def find_degree(poly_list, verbose=False):
         print('Degree of Macaulay Matrix:', sum(poly.degree for poly in poly_list) - len(poly_list) + 1)
     return sum(poly.degree for poly in poly_list) - len(poly_list) + 1
 
-def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
+def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10, return_perm=False):
     ''' Reduces a Macaulay matrix, BYU style.
 
     The matrix is split into the shape
@@ -90,6 +90,7 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     '''
     #controller variables for each part of the matrix
     AD = matrix[:,:cuts[0]]
+    
     BCEF = matrix[:,cuts[0]:]
     # A = matrix[:cuts[0],:cuts[0]]
     B = matrix[:cuts[0],cuts[0]:cuts[1]]
@@ -128,13 +129,20 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
 
     #Conditioning check
     if np.linalg.cond(matrix[:,:matrix.shape[0]])*accuracy > 1:
-        return -1, -1
+        if return_perm:
+            return -1, -1, -1
+        return -1, -1    
 
     #backsolve
     height = matrix.shape[0]
     matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
     matrix[:,:height] = np.eye(height)
-
+    
+    if return_perm:
+        perm = np.arange(matrix.shape[1])
+        perm[cuts[0]:cuts[1]] = perm[cuts[0]:cuts[1]][P]
+        return matrix, matrix_terms, perm
+        
     return matrix, matrix_terms
 
 def rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
