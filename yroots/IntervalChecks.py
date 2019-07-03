@@ -73,7 +73,7 @@ class IntervalData:
         for check in self.subinterval_checks:
             self.interval_results[check.__name__] = []
         self.interval_results["Base Case"] = []
-        self.interval_results["Multiplication"] = []
+        self.interval_results["Macaulay"] = []
         self.interval_results["Too Deep"] = []
         self.total_area = np.prod(self.b-self.a)
         self.current_area = 0.
@@ -145,7 +145,7 @@ class IntervalData:
         Parameters
         ----------
         name : string
-            The name of the check or process (Division, Base Case) that solved this interval
+            The name of the check or process (Macaulay, Base Case, Too Deep) that solved this interval
         interval: list
             [a,b] where a and b are the lower and upper bound of the interval to track.
         '''
