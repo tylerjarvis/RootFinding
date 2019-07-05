@@ -9,7 +9,7 @@ from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list
                               deg_d_polys, all_permutations_cheb
 import warnings
 
-def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, tol=1.e-10):
+def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, approx_tol = 1.e-4, solve_tol=1.e-8):
     '''
     Finds the roots of the given list of multidimensional polynomials using a multiplication matrix.
 
@@ -28,7 +28,7 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, tol=
     roots : numpy array
         The common roots of the polynomials. Each row is a root.
     '''
-    polys, transform, is_projected = LinearProjection.remove_linear(polys, 1e-4, 1e-8)
+    polys, transform, is_projected = LinearProjection.remove_linear(polys, approx_tol, solve_tol)
     if len(polys) == 1:
         from yroots.OneDimension import solve
         return transform(solve(polys[0], MSmatrix=0))
@@ -42,15 +42,10 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, tol=
     degrees = [poly.degree for poly in polys]
     max_number_of_roots = np.prod(degrees)
 
-    m_f, var_dict = MSMultMatrix(polys, poly_type, verbose=verbose, MSmatrix=MSmatrix, tol=tol)
+    m_f, var_dict = MSMultMatrix(polys, poly_type, verbose=verbose, MSmatrix=MSmatrix)
 
     if isinstance(m_f, int):
         return -1
-
-    vals_left, vec_left = eig(m_f,left=True,right=False)
-    vals_right, vec_right = eig(m_f,left=False,right=True)
-    for x,y in zip(vec_left.T, vec_right.T):
-        c = np.linalg.norm(x)*np.linalg.norm(y) / np.abs(x@y)
 
     if verbose:
         print("\nM_f:\n", m_f[::-1,::-1])
@@ -113,7 +108,7 @@ def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0, tol=1.e-10):
     var_dict : dictionary
         Maps each variable to its position in the vector space basis
     '''
-    basisDict, VB = MacaulayReduction(polys, tol=1.e-10, verbose=verbose)
+    basisDict, VB = MacaulayReduction(polys, accuracy=tol, verbose=verbose)
 
     if isinstance(basisDict, int):
         return -1, -1
@@ -164,14 +159,14 @@ def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0, tol=1.e-10):
 
     return mMatrix, var_dict
 
-def MacaulayReduction(initial_poly_list, tol = 0, verbose=False):
+def MacaulayReduction(initial_poly_list, accuracy = 0, verbose=False):
     """Reduces the Macaulay matrix to find a vector basis for the system of polynomials.
 
     Parameters
     --------
     initial_poly_list: list
         The polynomials in the system we are solving.
-    tol: float
+    accuracy: float
         How small we want a number to be before assuming it is zero.
 
     Returns
@@ -198,11 +193,14 @@ def MacaulayReduction(initial_poly_list, tol = 0, verbose=False):
         print('\nColumns in Macaulay Matrix\nFirst element in tuple is degree of x, Second element is degree of y\n', matrix_terms)
         print('\nLocation of Cuts in the Macaulay Matrix into [ Mb | M1* | M2* ]\n', cuts)
 
-    #Should be combined into one function
-    if np.allclose(matrix[cuts[0]:,:cuts[0]], 0):
-        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = tol)
-    else:
-        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = tol)
+
+    matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = accuracy)
+
+    # TODO: rrqr_reduceMacaulay2 is not working when expected.
+    # if np.allclose(matrix[cuts[0]:,:cuts[0]], 0):
+    #     matrix, matrix_terms = rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy = accuracy)
+    # else:
+    #     matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = accuracy)
 
     if isinstance(matrix, int):
         return -1, -1
