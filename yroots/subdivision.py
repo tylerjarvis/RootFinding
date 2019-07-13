@@ -587,7 +587,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-5,solve_tol=
     zeros = multiplication(polys, approx_tol=approx_tol, solve_tol=solve_tol)
     if not isinstance(zeros, int):
         zeros = np.array(zeros)
-        interval_data.track_interval("Macaulay", [a,b])
+        interval_data.track_interval("Spectral", [a,b])
         if len(zeros) == 0:
             return np.zeros([0,dim])
         if polish:
