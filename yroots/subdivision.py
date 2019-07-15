@@ -567,9 +567,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-5,solve_tol=
             return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_data,\
                                                    approx_tol,solve_tol,polish,good_degs,level=level+1) for interval in intervals])
 
-    if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > 5):
-        divisor_var = -1
-    if divisor_var < 0:
+    if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > 5) or divisor_var < 0:
         #Subdivide but run some checks on the intervals first
         intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,\
                                              change_sign,approx_tol,True)
