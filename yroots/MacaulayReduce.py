@@ -58,7 +58,7 @@ def find_degree(poly_list, verbose=False):
         print('Degree of Macaulay Matrix:', sum(poly.degree for poly in poly_list) - len(poly_list) + 1)
     return sum(poly.degree for poly in poly_list) - len(poly_list) + 1
 
-def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
+def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10, return_perm=False):
     ''' Reduces a Macaulay matrix, BYU style.
 
     The matrix is split into the shape
@@ -90,6 +90,7 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     '''
     #controller variables for each part of the matrix
     AD = matrix[:,:cuts[0]]
+    
     BCEF = matrix[:,cuts[0]:]
     # A = matrix[:cuts[0],:cuts[0]]
     B = matrix[:cuts[0],cuts[0]:cuts[1]]
@@ -102,42 +103,46 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     Q1,matrix[:,:cuts[0]] = qr(AD)
 
     #Multiplying BCEF by Q.T
-    matrix[:,cuts[0]:] = Q1.T @ BCEF
+    BCEF[...] = Q1.T @ BCEF
     del Q1 #Get rid of Q1 for memory purposes.
 
     #RRQR reduces E sticking the result in it's place.
-    Q,matrix[cuts[0]:,cuts[0]:cuts[1]],P = qr(E, pivoting = True)
+    Q,E[...],P = qr(E, pivoting = True)
 
     #Multiplies F by Q.T.
-    matrix[cuts[0]:,cuts[1]:] = Q.T @ F
+    F[...] = Q.T @ F
     del Q #Get rid of Q for memory purposes.
 
     #Permute the columns of B
-    matrix[:cuts[0],cuts[0]:cuts[1]] = B[:,P]
+    B[...] = B[:,P]
 
     #Resorts the matrix_terms.
     matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
 
     #eliminate zero rows from the bottom of the matrix.
-#     matrix = row_swap_matrix(matrix)
+    matrix = row_swap_matrix(matrix)
     for row in matrix[::-1]:
         if np.allclose(row, 0,atol=accuracy):
             matrix = matrix[:-1]
         else:
             break
 
-    #set very small values in the matrix to zero before backsolving
-#     matrix[np.isclose(matrix, 0, atol=accuracy)] = 0
+    #Conditioning check
+    if np.linalg.cond(matrix[:,:matrix.shape[0]])*accuracy > 1:
+        if return_perm:
+            return -1, -1, -1
+        return -1, -1    
 
-    #SVD conditioning check
-    S = np.linalg.svd(matrix[:,:matrix.shape[0]], compute_uv=False)
-    if S[0] * accuracy > S[-1]:
-        return -1, -1
     #backsolve
     height = matrix.shape[0]
     matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
     matrix[:,:height] = np.eye(height)
-
+    
+    if return_perm:
+        perm = np.arange(matrix.shape[1])
+        perm[cuts[0]:cuts[1]] = perm[cuts[0]:cuts[1]][P]
+        return matrix, matrix_terms, perm
+        
     return matrix, matrix_terms
 
 def rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
@@ -176,42 +181,41 @@ def rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
     B = matrix[:cuts[0],cuts[0]:cuts[1]]
     # C = matrix[:cuts[0],cuts[1]:]
     D = matrix[cuts[0]:,:cuts[0]]
+    EF = matrix[cuts[0]:,cuts[0]:]
     E = matrix[cuts[0]:,cuts[0]:cuts[1]]
     F = matrix[cuts[0]:,cuts[1]:]
 
     #RRQR reduces A and multiplies BC.T by Q
-    product1, matrix[:cuts[0],:cuts[0]] = qr_multiply(AD, BCEF.T, mode = 'right')
+    product1, A[...] = qr_multiply(AD, BCEF.T, mode = 'right')
     #BC is now Q.T @ BC
-    matrix[:cuts[0],cuts[0]:] = product1.T
+    BC[...] = product1.T
     del product1 #remove for memory purposes
 
     #set small values to zero before backsolving
     matrix[np.isclose(matrix, 0, atol=accuracy)] = 0
     #backsolve top of matrix (solve triangular on B and C)
-    matrix[:cuts[0],cuts[0]:] = solve_triangular(A,BC)
-    matrix[:cuts[0],:cuts[0]] = np.eye(cuts[0]) #A is now the identity after backsolving
+    BC[...] = solve_triangular(A,BC)
+    A[...] = np.eye(cuts[0]) #A is now the identity after backsolving
     #Adjust E and F: subtract off D times BC
-    matrix[cuts[0]:,cuts[0]:] -= D @ BC
+    EF[...] -= D @ BC
 
     #QRP on E, multiply that onto F
     product2,R,P = qr_multiply(E, F.T, mode = 'right', pivoting = True)
-    #get rid of zero rows
+    #get rid of zero rows, which may resize DEF
     matrix = matrix[:R.shape[0]+cuts[0]]
+    D = matrix[cuts[0]:,:cuts[0]]
+    EF = matrix[cuts[0]:,cuts[0]:]
     #set D to zero
-    matrix[cuts[0]:,:cuts[0]] = np.zeros_like(D)
-    #fill E in with R
-    matrix[cuts[0]:,cuts[0]:cuts[0]+R.shape[1]] = R
-    #fill F in with product2.T
-    matrix[cuts[0]:,cuts[0]+R.shape[1]:] = product2.T
+    D[...] = np.zeros_like(D)
+    #fill EF in with R and product2.T
+    EF[:,:R.shape[1]] = R
+    EF[:,R.shape[1]:] = product2.T
     del product2,R
 
     #Permute the columns of B, since E already got permuted implicitly
-    matrix[:cuts[0],cuts[0]:cuts[1]] = B[:,P]
+    B[...] = B[:,P]
     matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
     del P
-
-    #set small values in the matrix to zero now, after the QR reduction
-    matrix[np.isclose(matrix, 0, atol=accuracy)] = 0
 
     #eliminate zero rows from the bottom of the matrix.
     matrix = row_swap_matrix(matrix)
@@ -221,9 +225,8 @@ def rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
         else:
             break
 
-    #SVD conditioning check
-    S = np.linalg.svd(matrix[:,:matrix.shape[0]], compute_uv=False)
-    if S[0] * accuracy > S[-1]:
+    #Conditioning check
+    if np.linalg.cond(matrix[:,:matrix.shape[0]])*accuracy > 1:
         return -1, -1
 
     #backsolve

@@ -14,7 +14,7 @@ from matplotlib import patches
 
 class IntervalData:
     '''
-    Class to handle all the things realted to intervals. It holds and runs the interval checks
+    Class to handle all the things related to intervals. It holds and runs the interval checks
     and also tracks what happened to each interval, and how much progress has been made.
 
     Attributes
@@ -63,6 +63,8 @@ class IntervalData:
     def __init__(self,a,b):
         self.interval_checks = [constant_term_check]
         self.subinterval_checks = [quadratic_check]
+#         self.subinterval_checks = [linear_check]
+#         self.subinterval_checks = []
         self.a = a
         self.b = b
         self.interval_results = dict()
@@ -71,7 +73,8 @@ class IntervalData:
         for check in self.subinterval_checks:
             self.interval_results[check.__name__] = []
         self.interval_results["Base Case"] = []
-        self.interval_results["Division"] = []
+        self.interval_results["Spectral"] = []
+        self.interval_results["Too Deep"] = []
         self.total_area = np.prod(self.b-self.a)
         self.current_area = 0.
         self.polishing = False
@@ -142,7 +145,7 @@ class IntervalData:
         Parameters
         ----------
         name : string
-            The name of the check or process (Division, Base Case) that solved this interval
+            The name of the check or process (Spectral, Base Case, Too Deep) that solved this interval
         interval: list
             [a,b] where a and b are the lower and upper bound of the interval to track.
         '''
@@ -169,10 +172,10 @@ class IntervalData:
         checkers = [name for name in self.interval_results]
         print("Total intervals checked was {}".format(total_intervals))
         print("Methods used were {}".format(checkers))
-        print("The percent solved by each was {}".format((100*results_numbers / total_intervals).round(2)))
+        print("The percent solved by each was {}".format((100*results_numbers / total_intervals).round(4)))
 
-    def plot_results(self, funcs, zeros, plot_intervals):
-        ''' Prints the results of subdivision solve. Only works if the funcitons are two dimensional.
+    def plot_results(self, funcs, zeros, plot_intervals, print_plot=True):
+        ''' Prints the results of subdivision solve. Only works if the functions are two dimensional.
 
         Parameters
         ----------
@@ -187,9 +190,9 @@ class IntervalData:
         #3D plot with small alpha, matplotlib interactive, animation
         #make logo
         #make easier to input lower/upper bounds as a list
-        plt.figure(dpi=1200)
+        plt.figure(dpi=600)
         fig,ax = plt.subplots(1)
-        fig.set_size_inches(10, 10)
+        fig.set_size_inches(6.5, 3)
         plt.xlim(self.a[0],self.b[0])
         plt.xlabel('$x$')
         plt.ylim(self.a[1],self.b[1])
@@ -199,7 +202,7 @@ class IntervalData:
         dim = 2
 
         #print the contours
-        contour_colors = ['#00cc00','#cc33ff']
+        contour_colors = ['#003cff','#50c878'] #royal blue and emerald green
         x = np.linspace(self.a[0],self.b[0],1000)
         y = np.linspace(self.a[1],self.b[1],1000)
         X,Y = np.meshgrid(x,y)
@@ -212,12 +215,12 @@ class IntervalData:
             else:
                 plt.contour(X,Y,funcs[i](X,Y),levels=[0],colors=contour_colors[i])
 
-        #Plot the zeros
-        plt.plot(np.real(zeros[:,0]), np.real(zeros[:,1]),'.',color='k',markersize=10,label='Roots')
-        colors = ['w','#d3d3d3','#708090','#ffd480']
+        colors = ['w','#c3c3c3', 'C8', '#708090', '#897A57', '#D6C7A4','#73e600','#ccff99']
+        #colors = ['w','#d3d3d3', '#708090', '#c5af7d', '#897A57', '#D6C7A4','#73e600','#ccff99']
 
         if plot_intervals:
-            plt.title('What happened to the intervals')
+            plt.title('')
+            #plt.title('What happened to the intervals')
             #plot results
             i = -1
             for check in self.interval_results:
@@ -228,13 +231,20 @@ class IntervalData:
                     a0,b0 = data
                     if first:
                         first = False
-                        rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.05,\
-                                                 edgecolor='k',facecolor=colors[i], label=check)
+                        rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.01,\
+                                                 edgecolor='#a6a6a6',facecolor=colors[i], label=check)
                     else:
-                        rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.05,\
-                                                 edgecolor='k',facecolor=colors[i])
+                        rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.01,\
+                                                 edgecolor='#a6a6a6',facecolor=colors[i])
                     ax.add_patch(rect)
             plt.legend()
+
+        #Plot the zeros
+        plt.plot(np.real(zeros[:,0]), np.real(zeros[:,1]),'o',color='#ffff00',markeredgecolor='#ffff00',markersize=3,
+                 zorder=22)
+
+        if print_plot:
+            plt.savefig('intervals.pdf', bbox_inches='tight')
         plt.show()
 
 def extreme_val3(test_coeff, maxx = True):
@@ -514,14 +524,14 @@ def full_cubic_check(test_coeff, tol):
             return False
     return True
 
-def linear_check(test_coeff_in, intervals, change_sign, tol):
+def linear_check(test_coeff, intervals, change_sign, tol):
     """One of subinterval_checks
 
     Checks the max of the linear part of the approximation and compares to the sum of the other terms.
 
     Parameters
     ----------
-    test_coeff_in : numpy array
+    test_coeff : numpy array
         The coefficient matrix of the polynomial to check
     intervals : list
         A list of the intervals to check.
@@ -536,40 +546,40 @@ def linear_check(test_coeff_in, intervals, change_sign, tol):
         A list of the results of each interval. False if the function is guarenteed to never be zero
         in the unit box, True otherwise
     """
-    dim = test_coeff_in.ndim
-    coeff_abs_sum = np.sum(np.abs(test_coeff_in))
+    dim = test_coeff.ndim
+    coeff_abs_sum = np.sum(np.abs(test_coeff))
+
+    #Get the linear and constant terms
+    idx = [0]*dim
+    const = test_coeff[tuple(idx)]
+    lin_coeff = np.zeros(dim)
+    for cur_dim in range(dim):
+        if test_coeff.shape[cur_dim] < 2:
+            continue
+        idx[cur_dim] = 1
+        lin_coeff[cur_dim] = test_coeff[tuple(idx)]
+        idx[cur_dim] = 0
+
+    coeff_abs_sum -= np.sum(np.abs(lin_coeff))
     mask = []
+
     for i, interval in enumerate(intervals):
         if change_sign[i]:
             mask.append(True)
             continue
 
-        test_coeff = test_coeff_in.copy()
-
-        a,b = interval
-
-        idx = [0]*dim
-        const = test_coeff_in[idx]
-        lin_coeff = np.zeros(dim)
-        for cur_dim in range(dim):
-            if test_coeff_in.shape[cur_dim] < 2:
-                continue
-            idx[cur_dim] = 1
-            lin_coeff[cur_dim] = test_coeff_in[tuple(idx)]
-            idx[cur_dim] = 0
-
         corner_vals = []
-        for corner_pt in product(*zip(a,b)):
-            corner_vals.append(const + np.sum(np.array(corner_pt)*lin_coeff))
+        for ints in product(interval, repeat = dim):
+            corner_vals.append(const + np.array([ints[i][i] for i in range(dim)])@lin_coeff)
         corner_vals = np.array(corner_vals)
 
         # check if corners have mixed signs
-        if not (corner_vals.min() < 0 < corner_vals.max()):
+        if (corner_vals.min() < 0 < corner_vals.max()):
             mask.append(True)
             continue
 
         abs_smallest_corner = np.min(np.abs(corner_vals))
-        if 2*abs_smallest_corner > coeff_abs_sum + tol:
+        if abs_smallest_corner > coeff_abs_sum + tol:
             # case: corner is far enough from 0
             mask.append(False)
         else:
@@ -602,13 +612,13 @@ def quadratic_check(test_coeff, intervals,change_sign,tol):
         in the unit box, True otherwise
     """
     if test_coeff.ndim == 2:
-        return quadratic_check_2D(test_coeff, intervals,change_sign,tol)
+        return quadratic_check_2D(test_coeff, intervals, change_sign, tol)
     elif test_coeff.ndim == 3:
-        return quadratic_check_3D(test_coeff, intervals,change_sign,tol)
+        return quadratic_check_3D(test_coeff, intervals, change_sign, tol)
     else:
-        return quadratic_check_nd(test_coeff, intervals,change_sign,tol)
+        return quadratic_check_nd(test_coeff, intervals, change_sign, tol)
 
-def quadratic_check_2D(test_coeff, intervals,change_sign,tol):
+def quadratic_check_2D(test_coeff, intervals, change_sign, tol):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
@@ -665,6 +675,9 @@ def quadratic_check_2D(test_coeff, intervals,change_sign,tol):
     eval_func = lambda x,y: c0 + c1*x + c2*y + c3*(2*x**2-1) + c4*x*y + c5*(2*y**2-1)
 
     #The interior min
+    #Comes from solving dx, dy = 0
+    #Dx: 4c3x +  c4y = -c1    Matrix inverse is  [4c5  -c4]
+    #Dy:  c4x + 4c5y = -c2                       [-c4  4c3]
     det = 16*c3*c5 - c4**2
     if det != 0:
         int_x = (c2*c4 - 4*c1*c5)/det
@@ -687,6 +700,8 @@ def quadratic_check_2D(test_coeff, intervals,change_sign,tol):
         extreme_points.append(eval_func(interval[1][0], interval[1][1]))
 
         #Add the x constant boundaries
+        #The partial with respect to y is zero
+        #Dy:  c4x + 4c5y = -c2 =>   y = (-c2-c4x)/(4c5)
         if c5 != 0:
             x = interval[0][0]
             y = -(c2 + c4*x)/(4*c5)
@@ -698,6 +713,8 @@ def quadratic_check_2D(test_coeff, intervals,change_sign,tol):
                 extreme_points.append(eval_func(x,y))
 
         #Add the y constant boundaries
+        #The partial with respect to x is zero
+        #Dx: 4c3x +  c4y = -c1  =>  x = (-c1-c4y)/(4c3)
         if c3 != 0:
             y = interval[0][1]
             x = -(c1 + c4*y)/(4*c3)
@@ -726,7 +743,7 @@ def quadratic_check_2D(test_coeff, intervals,change_sign,tol):
 
     return mask
 
-def quadratic_check_3D(test_coeff, intervals,change_sign,tol):
+def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
@@ -801,11 +818,15 @@ def quadratic_check_3D(test_coeff, intervals,change_sign,tol):
     other_sum = np.sum(np.abs(test_coeff)) - np.sum(np.abs([c0,c1,c2,c3,c4,c5,c6,c7,c8,c9]))
 
     #The interior min
-    det = 4*c7*(16*c8*c9-c6**2) - c4*(4*c9*c4-c6*c5) + c5*(c6*c4-4*c8*c5)
+    #Comes from solving dx, dy, dz = 0
+    #Dx: 4c7x +  c4y +  c5z = -c1    Matrix inverse is  [(16c8c9-c6^2) -(4c4c9-c5c6)  (c4c6-4c5c8)]
+    #Dy:  c4x + 4c8y +  c6z = -c2                       [-(4c4c9-c5c6) (16c7c9-c5^2) -(4c6c7-c4c5)]
+    #Dz:  c5x +  c6y + 4c9z = -c3                       [(c4c6-4c5c8)  -(4c6c7-c4c5) (16c7c8-c4^2)]
+    det = 4*c7*(16*c8*c9-c6**2) - c4*(4*c4*c9-c5*c6) + c5*(c4*c6-4*c5*c8)
     if det != 0:
-        int_x = (c1*(c6**2-16*c9*c8) + c2*(4*c9*c4-c6*c5) + c3*(4*c8*c5-c6*c4))/det
-        int_y = (c1*(4*c9*c4-c6*c5) + c2*(c5**2-16*c9*c7) + c3*(4*c6*c7-c4*c5))/det
-        int_z = (c1*(4*c8*c5-c6*c4) + c2*(4*c6*c7-c4*c5) + c3*(c4**2-16*c7*c8))/det
+        int_x = (c1*(c6**2-16*c8*c9) + c2*(4*c4*c9-c5*c6)  + c3*(4*c5*c8-c4*c6))/det
+        int_y = (c1*(4*c4*c9-c5*c6)  + c2*(c5**2-16*c7*c9) + c3*(4*c6*c7-c4*c5))/det
+        int_z = (c1*(4*c5*c8-c4*c6)  + c2*(4*c6*c7-c4*c5)  + c3*(c4**2-16*c7*c8))/det
     else:#Something outside the unit box
         int_x = 100
         int_y = 100
@@ -828,46 +849,129 @@ def quadratic_check_3D(test_coeff, intervals,change_sign,tol):
         extreme_points.append(eval_func(interval[0][0], interval[1][1], interval[1][2]))
         extreme_points.append(eval_func(interval[1][0], interval[1][1], interval[1][2]))
 
+        #Adds the x and y constant boundaries
+        #The partial with respect to z is zero
+        #Dz:  c5x +  c6y + 4c9z = -c3   => z=(-c3-c5x-c6y)/(4c9)
+        if c9 != 0:
+            x = interval[0][0]
+            y = interval[0][1]
+            z = -(c3+c5*x+c6*y)/(4*c9)
+            if interval[0][2] < z < interval[1][2]:
+                extreme_points.append(eval_func(x,y,z))
+            x = interval[1][0]
+            y = interval[0][1]
+            z = -(c3+c5*x+c6*y)/(4*c9)
+            if interval[0][2] < z < interval[1][2]:
+                extreme_points.append(eval_func(x,y,z))
+            x = interval[0][0]
+            y = interval[1][1]
+            z = -(c3+c5*x+c6*y)/(4*c9)
+            if interval[0][2] < z < interval[1][2]:
+                extreme_points.append(eval_func(x,y,z))
+            x = interval[1][0]
+            y = interval[1][1]
+            z = -(c3+c5*x+c6*y)/(4*c9)
+            if interval[0][2] < z < interval[1][2]:
+                extreme_points.append(eval_func(x,y,z))
+
+        #Adds the x and z constant boundaries
+        #The partial with respect to y is zero
+        #Dy:  c4x + 4c8y + c6z = -c2   => y=(-c2-c4x-c6z)/(4c8)
+        if c8 != 0:
+            x = interval[0][0]
+            z = interval[0][2]
+            y = -(c2+c4*x+c6*z)/(4*c8)
+            if interval[0][1] < y < interval[1][1]:
+                extreme_points.append(eval_func(x,y,z))
+            x = interval[1][0]
+            z = interval[0][2]
+            y = -(c2+c4*x+c6*z)/(4*c8)
+            if interval[0][1] < y < interval[1][1]:
+                extreme_points.append(eval_func(x,y,z))
+            x = interval[0][0]
+            z = interval[1][2]
+            y = -(c2+c4*x+c6*z)/(4*c8)
+            if interval[0][1] < y < interval[1][1]:
+                extreme_points.append(eval_func(x,y,z))
+            x = interval[1][0]
+            z = interval[1][2]
+            y = -(c2+c4*x+c6*z)/(4*c8)
+            if interval[0][1] < y < interval[1][1]:
+                extreme_points.append(eval_func(x,y,z))
+
+        #Adds the y and z constant boundaries
+        #The partial with respect to x is zero
+        #Dx: 4c7x +  c4y +  c5z = -c1   => x=(-c1-c4y-c5z)/(4c7)
+        if c7 != 0:
+            y = interval[0][1]
+            z = interval[0][2]
+            x = -(c1+c4*y+c5*z)/(4*c7)
+            if interval[0][0] < x < interval[1][0]:
+                extreme_points.append(eval_func(x,y,z))
+            y = interval[1][1]
+            z = interval[0][2]
+            x = -(c1+c4*y+c5*z)/(4*c7)
+            if interval[0][0] < x < interval[1][0]:
+                extreme_points.append(eval_func(x,y,z))
+            y = interval[0][1]
+            z = interval[1][2]
+            x = -(c1+c4*y+c5*z)/(4*c7)
+            if interval[0][0] < x < interval[1][0]:
+                extreme_points.append(eval_func(x,y,z))
+            y = interval[1][1]
+            z = interval[1][2]
+            x = -(c1+c4*y+c5*z)/(4*c7)
+            if interval[0][0] < x < interval[1][0]:
+                extreme_points.append(eval_func(x,y,z))
+
         #Add the x constant boundaries
+        #The partials with respect to y and z are zero
+        #Dy:  4c8y +  c6z = -c2 - c4x    Matrix inverse is [4c9  -c6]
+        #Dz:   c6y + 4c9z = -c3 - c5x                      [-c6  4c8]
         det = 16*c8*c9-c6**2
         if det != 0:
             x = interval[0][0]
-            y = (4*c8*(-c2-c4*x)+c6*(-c3-c5*x))/det
-            z = (c6*(-c2-c4*x)+4*c9*(-c3-c5*x))/det
+            y = (-4*c9*(c2+c4*x) +   c6*(c3+c5*x))/det
+            z = (c6*(c2+c4*x)    - 4*c8*(c3+c5*x))/det
             if interval[0][1] < y < interval[1][1] and interval[0][2] < z < interval[1][2]:
                 extreme_points.append(eval_func(x,y,z))
             x = interval[1][0]
-            y = (4*c8*(-c2-c4*x)+c6*(-c3-c5*x))/det
-            z = (c6*(-c2-c4*x)+4*c9*(-c3-c5*x))/det
+            y = (-4*c9*(c2+c4*x) +   c6*(c3+c5*x))/det
+            z = (c6*(c2+c4*x)    - 4*c8*(c3+c5*x))/det
             if interval[0][1] < y < interval[1][1] and interval[0][2] < z < interval[1][2]:
                 extreme_points.append(eval_func(x,y,z))
 
         #Add the y constant boundaries
+        #The partials with respect to x and z are zero
+        #Dx: 4c7x +  c5z = -c1 - c4y    Matrix inverse is [4c9  -c5]
+        #Dz:  c5x + 4c9z = -c3 - c6y                      [-c5  4c7]
         det = 16*c7*c9-c5**2
         if det != 0:
             y = interval[0][1]
-            x = (4*c7*(-c1-c4*y)+c5*(-c3-c6*y))/det
-            z = (c5*(-c1-c4*y)+4*c9*(-c3-c6*y))/det
-            if interval[0][0] < x < interval[1][0] and interval[0][2] < x < interval[1][2]:
+            x = (-4*c9*(c1+c4*y) +   c5*(c3+c6*y))/det
+            z = (c5*(c1+c4*y)    - 4*c7*(c3+c6*y))/det
+            if interval[0][0] < x < interval[1][0] and interval[0][2] < z < interval[1][2]:
                 extreme_points.append(eval_func(x,y,z))
             y = interval[1][1]
-            x = (4*c7*(-c1-c4*y)+c5*(-c3-c6*y))/det
-            z = (c5*(-c1-c4*y)+4*c9*(-c3-c6*y))/det
-            if interval[0][0] < x < interval[1][0] and interval[0][2] < x < interval[1][2]:
+            x = (-4*c9*(c1+c4*y) +   c5*(c3+c6*y))/det
+            z = (c5*(c1+c4*y)    - 4*c7*(c3+c6*y))/det
+            if interval[0][0] < x < interval[1][0] and interval[0][2] < z < interval[1][2]:
                 extreme_points.append(eval_func(x,y,z))
 
         #Add the z constant boundaries
-        A = np.array([[4*c7,c4],[c4,4*c8]])
+        #The partials with respect to x and y are zero
+        #Dx: 4c7x +  c4y  = -c1 - c5z    Matrix inverse is [4c8  -c4]
+        #Dy:  c4x + 4c8y  = -c2 - c6z                      [-c4  4c7]
         det = 16*c7*c8-c4**2
         if det != 0:
             z = interval[0][2]
-            x = (4*c7*(-c1-c5*z)+c4*(-c2-c6*z))/det
-            y = (c4*(-c1-c5*z)+4*c8*(-c2-c6*z))/det
+            x = (-4*c8*(c1+c5*z) +   c4*(c2+c6*z))/det
+            y = (c4*(c1+c5*z)    - 4*c7*(c2+c6*z))/det
             if interval[0][0] < x < interval[1][0] and interval[0][1] < y < interval[1][1]:
                 extreme_points.append(eval_func(x,y,z))
             z = interval[1][2]
-            x = (4*c7*(-c1-c5*z)+c4*(-c2-c6*z))/det
-            y = (c4*(-c1-c5*z)+4*c8*(-c2-c6*z))/det
+            x = (-4*c8*(c1+c5*z) +   c4*(c2+c6*z))/det
+            y = (c4*(c1+c5*z)    - 4*c7*(c2+c6*z))/det
             if interval[0][0] < x < interval[1][0] and interval[0][1] < y < interval[1][1]:
                 extreme_points.append(eval_func(x,y,z))
 
@@ -890,7 +994,7 @@ def quadratic_check_3D(test_coeff, intervals,change_sign,tol):
 
     return mask
 
-def quadratic_check_nd(test_coeff, intervals,change_sign,tol):
+def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
@@ -913,28 +1017,26 @@ def quadratic_check_nd(test_coeff, intervals,change_sign,tol):
         A list of the results of each interval. False if the function is guarenteed to never be zero
         in the unit box, True otherwise
     """
-    if change_sign is None:
-        return -1
-
     dim = test_coeff.ndim
     padding = [(0,max(0,3-i)) for i in test_coeff.shape]
     test_coeff = np.pad(test_coeff.copy(), padding, mode='constant')
 
+    A = np.zeros([dim,dim])
+    B = np.zeros(dim)
     quad_coeff = np.zeros([3]*dim)
-    C = np.zeros([dim,dim])
-    C1 = np.zeros(dim)
-    C2 = np.zeros(dim)
     for spot in itertools.product(np.arange(3),repeat=dim):
         if np.sum(spot) < 3:
             spot_array = np.array(spot)
             if np.sum(spot_array != 0) == 2:
-                C[tuple(np.where([spot_array != 0])[1])] = test_coeff[spot]
-                C[tuple(np.where([spot_array != 0])[1][::-1])] = test_coeff[spot]
+                i,j = np.where(spot_array != 0)[0]
+                A[i,j] = test_coeff[spot].copy()
+                A[j,i] = test_coeff[spot].copy()
             elif np.any(spot_array == 2):
-                C2[np.where([spot_array == 2])[1][0]] = test_coeff[spot]
+                i = np.where(spot_array != 0)[0][0]
+                A[i,i] = 4*test_coeff[spot].copy()
             elif np.any(spot_array == 1):
-                C1[np.where([spot_array == 1])[1][0]] = test_coeff[spot]
-
+                i = np.where(spot_array != 0)[0][0]
+                B[i] = test_coeff[spot].copy()
             quad_coeff[spot] = test_coeff[spot]
             test_coeff[spot] = 0
 
@@ -948,45 +1050,42 @@ def quadratic_check_nd(test_coeff, intervals,change_sign,tol):
         if change_sign[interval_num]:
             mask.append(True)
             continue
-        ##If constant + c1x + c2y +c3xy = 0 in the region, useless
+
+        def powerset(iterable):
+            "powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
+            s = list(iterable)
+            return itertools.chain.from_iterable(itertools.combinations(s, r)\
+                                                 for r in range(len(s)+1))
 
         extreme_points = []
-        #Add all the corners
-        for corner in itertools.product([0,1],repeat=dim):
-            extreme_points.append(quad_poly([interval[j][i] for i,j in enumerate(corner)]))
+        for fixed in powerset(np.arange(dim)):
+            fixed = np.array(fixed)
+            if len(fixed) == 0:
+                others = np.arange(dim)
+                if np.linalg.matrix_rank(A) < A.shape[0]:
+                    continue
+                X = np.linalg.solve(A, -B)
+                if np.all([interval[0][i] <= X[i] <= interval[1][0] for i in range(dim)]):
+                    extreme_points.append(quad_poly(X))
+            elif len(fixed) == dim:
+                for corner in itertools.product([0,1],repeat=dim):
+                    extreme_points.append(quad_poly([interval[j][i] for i,j in enumerate(corner)]))
+            else:
+                others = np.delete(np.arange(dim), fixed)
+                A_ = A[others][:,others]
+                if np.linalg.matrix_rank(A_) < A_.shape[0]:
+                    continue
+                fixed_A = A[others][:,fixed]
+                B_ = B[others]
 
-        for var in range(dim):
-            #Add the x_i constant boundaries
-            A = np.vstack([np.delete(C[var],var,0)]*(dim-1))
-            np.fill_diagonal(A, 0)
-            A += 4*np.diag(np.delete(C2,var,0))
-            if np.linalg.matrix_rank(A) < dim:
-                continue
-            #First Boundary
-            x_var = interval[0][var]
-            B = -np.delete(C[var],var,0)*x_var-np.delete(C1,var,0)
-            ext_spot = np.linalg.solve(A,B)
-            if np.all(np.delete(interval[0],var,0) < ext_spot) and\
-                        np.all(np.delete(interval[1],var,0) > ext_spot):
-                ext_spot = np.insert(ext_spot,var,x_var)
-                extreme_points.append(quad_poly(ext_spot))
-            #Second Boundary
-            x_var = interval[1][var]
-            B = -np.delete(C[var],var,0)*x_var-np.delete(C1,var,0)
-            ext_spot = np.linalg.solve(A,B)
-            if np.all(np.delete(interval[0],var,0) < ext_spot) and\
-                        np.all(np.delete(interval[1],var,0) > ext_spot):
-                ext_spot = np.insert(ext_spot,var,x_var)
-                extreme_points.append(quad_poly(ext_spot))
-
-        #Add the interior value
-        A = C.copy()
-        A += 4*np.diag(C2)
-        B = -C1.copy()
-        if np.linalg.matrix_rank(A) == dim:
-            ext_spot = np.linalg.solve(A,B)
-            if np.all(interval[0] < ext_spot) and np.all(interval[1] > ext_spot):
-                extreme_points.append(quad_poly(ext_spot))
+                for corner in itertools.product([0,1],repeat=len(fixed)):
+                    X0 = np.array([interval[j][i] for i,j in enumerate(corner)])
+                    X_ = np.linalg.solve(A_, -B_-fixed_A@X0)
+                    X = np.zeros(dim)
+                    X[fixed] = X0
+                    X[others] = X_
+                    if np.all([interval[0][i] <= X[i] <= interval[1][0] for i in range(dim)]):
+                        extreme_points.append(quad_poly(X))
 
         extreme_points = np.array(extreme_points)
 
