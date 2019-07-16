@@ -888,10 +888,10 @@ def subdivision_solve_1d(f,a,b,interval_data,cheb_approx_tol=1.e-5,max_degree=12
                 return np.zeros([0])
             #Division is faster after degree 75
             if cur_deg > 75:
-                interval_data.track_interval('Macaulay', [a,b])
+                interval_data.track_interval('Spectral', [a,b])
                 return transform(good_zeros_1d(divCheb(coeffs)),a,b)
             else:
-                interval_data.track_interval('Macaulay', [a,b])
+                interval_data.track_interval('Spectral', [a,b])
                 return transform(good_zeros_1d(multCheb(np.trim_zeros(coeffs.copy(),trim='b'))),a,b)
         initial_approx = coeffs2N
         cur_deg*=2
