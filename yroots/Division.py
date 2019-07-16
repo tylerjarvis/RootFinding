@@ -146,7 +146,7 @@ def division(polys, divisor_var=0, tol=1.e-10, verbose=False, polish=False, retu
 
         #Reduces the inv_matrix to solve for the y^k/x terms in the vector basis.
         Q,R = qr(inv_matrix)
-    
+
         if np.linalg.cond(R[:,:R.shape[0]])*tol > 1:
             return -1
 
@@ -229,7 +229,7 @@ def division(polys, divisor_var=0, tol=1.e-10, verbose=False, polish=False, retu
 #         conditions = condeigv(division_matrix.T)
 #         if np.abs(vals[i]) > 1:
 #             print(root, conditions[i])
-                
+
         if polish:
             root = newton_polish(polys,root,tol = tol)
 

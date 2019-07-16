@@ -548,7 +548,7 @@ def linear_check(test_coeff, intervals, change_sign, tol):
     """
     dim = test_coeff.ndim
     coeff_abs_sum = np.sum(np.abs(test_coeff))
-    
+
     #Get the linear and constant terms
     idx = [0]*dim
     const = test_coeff[tuple(idx)]
@@ -559,20 +559,20 @@ def linear_check(test_coeff, intervals, change_sign, tol):
         idx[cur_dim] = 1
         lin_coeff[cur_dim] = test_coeff[tuple(idx)]
         idx[cur_dim] = 0
-    
+
     coeff_abs_sum -= np.sum(np.abs(lin_coeff))
     mask = []
-    
+
     for i, interval in enumerate(intervals):
         if change_sign[i]:
             mask.append(True)
             continue
-                
+
         corner_vals = []
         for ints in product(interval, repeat = dim):
             corner_vals.append(const + np.array([ints[i][i] for i in range(dim)])@lin_coeff)
         corner_vals = np.array(corner_vals)
-        
+
         # check if corners have mixed signs
         if (corner_vals.min() < 0 < corner_vals.max()):
             mask.append(True)
@@ -584,7 +584,7 @@ def linear_check(test_coeff, intervals, change_sign, tol):
             mask.append(False)
         else:
             mask.append(True)
-    
+
     return mask
 
 def quadratic_check(test_coeff, intervals,change_sign,tol):
@@ -667,7 +667,7 @@ def quadratic_check_2D(test_coeff, intervals, change_sign, tol):
         c5 = test_coeff[0,2]
     else:
         c5 = 0
-    
+
     #The sum of the absolute values of everything else
     other_sum = np.sum(np.abs(test_coeff)) - np.sum(np.abs([c0,c1,c2,c3,c4,c5]))
 
@@ -816,7 +816,7 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
 
     #The sum of the absolute values of everything else
     other_sum = np.sum(np.abs(test_coeff)) - np.sum(np.abs([c0,c1,c2,c3,c4,c5,c6,c7,c8,c9]))
-    
+
     #The interior min
     #Comes from solving dx, dy, dz = 0
     #Dx: 4c7x +  c4y +  c5z = -c1    Matrix inverse is  [(16c8c9-c6^2) -(4c4c9-c5c6)  (c4c6-4c5c8)]
@@ -837,7 +837,7 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
         if change_sign[interval_num]:
             mask.append(True)
             continue
-        
+
         extreme_points = []
         #Add all the corners
         extreme_points.append(eval_func(interval[0][0], interval[0][1], interval[0][2]))
@@ -873,7 +873,7 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
             z = -(c3+c5*x+c6*y)/(4*c9)
             if interval[0][2] < z < interval[1][2]:
                 extreme_points.append(eval_func(x,y,z))
-        
+
         #Adds the x and z constant boundaries
         #The partial with respect to y is zero
         #Dy:  c4x + 4c8y + c6z = -c2   => y=(-c2-c4x-c6z)/(4c8)
@@ -898,7 +898,7 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
             y = -(c2+c4*x+c6*z)/(4*c8)
             if interval[0][1] < y < interval[1][1]:
                 extreme_points.append(eval_func(x,y,z))
-                    
+
         #Adds the y and z constant boundaries
         #The partial with respect to x is zero
         #Dx: 4c7x +  c4y +  c5z = -c1   => x=(-c1-c4y-c5z)/(4c7)
@@ -923,7 +923,7 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
             x = -(c1+c4*y+c5*z)/(4*c7)
             if interval[0][0] < x < interval[1][0]:
                 extreme_points.append(eval_func(x,y,z))
-        
+
         #Add the x constant boundaries
         #The partials with respect to y and z are zero
         #Dy:  4c8y +  c6z = -c2 - c4x    Matrix inverse is [4c9  -c6]
@@ -974,7 +974,7 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
             y = (c4*(c1+c5*z)    - 4*c7*(c2+c6*z))/det
             if interval[0][0] < x < interval[1][0] and interval[0][1] < y < interval[1][1]:
                 extreme_points.append(eval_func(x,y,z))
-        
+
         #Add the interior value
         if interval[0][0] < int_x < interval[1][0] and interval[0][1] < int_y < interval[1][1] and\
                 interval[0][2] < int_z < interval[1][2]:
@@ -1041,7 +1041,7 @@ def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
             test_coeff[spot] = 0
 
     quad_poly = MultiCheb(quad_coeff)
-    
+
     #The sum of the absolute values of everything else
     other_sum = np.sum(np.abs(test_coeff))
 
@@ -1050,7 +1050,7 @@ def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
         if change_sign[interval_num]:
             mask.append(True)
             continue
-            
+
         def powerset(iterable):
             "powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
             s = list(iterable)
@@ -1086,7 +1086,7 @@ def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
                     X[others] = X_
                     if np.all([interval[0][i] <= X[i] <= interval[1][0] for i in range(dim)]):
                         extreme_points.append(quad_poly(X))
-        
+
         extreme_points = np.array(extreme_points)
 
         #If sign change, True

@@ -580,7 +580,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-5,solve_tol=
                                                    for interval in intervals])
 
     polys = [MultiCheb(coeff, lead_term = [coeff.shape[0]-1], clean_zeros = False) for coeff in coeffs]
-    
+
     # zeros = division(polys,divisor_var,solve_tol)
     zeros = multiplication(polys, approx_tol=approx_tol, solve_tol=solve_tol)
     if not isinstance(zeros, int):
@@ -686,7 +686,7 @@ def polish_zeros(zeros, funcs, tol=1.e-1):
     """
     import warnings
     warnings.warn("Polishing may return duplicate zeros.")
-    
+
     if len(zeros) == 0:
         return zeros
     dim = zeros.shape[1]
@@ -727,7 +727,7 @@ def trim_coeffs(coeffs, approx_tol, solve_tol):
         spot = np.abs(coeff) < 1.e-10*np.max(np.abs(coeff))
         error = np.sum(np.abs(coeff[spot]))
         coeff[spot] = 0
-        
+
         dim = coeff.ndim
         deg = np.sum(coeff.shape) - dim
         initial_mons = []
