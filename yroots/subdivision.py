@@ -685,7 +685,7 @@ def polish_zeros(zeros, funcs, tol=1.e-1):
         The polished zeros.
     """
     import warnings
-    warnings.warn("Polishing may return duplicate zeros. Tell Erik to not be lazy and fix this.")
+    warnings.warn("Polishing may return duplicate zeros.")
     
     if len(zeros) == 0:
         return zeros
