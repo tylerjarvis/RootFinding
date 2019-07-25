@@ -333,7 +333,7 @@ def get_subintervals(a,b,dimensions,interval_data,polys,change_sign,approx_tol,c
         The bound of the sup norm error of the chebyshev approximation. Because trim_coeff
         introduces this much error again, 2*approx_tol is passed into the subintervals checks.
     check_subintervals : bool
-        If True runs the subinterval checks to through out intervals where the functions are never 0.
+        If True runs the subinterval checks to throw out intervals where the functions are never 0.
 
     Returns
     -------
@@ -559,7 +559,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-5,solve_tol=
     elif np.any(np.array([coeff.shape[0] for coeff in coeffs]) == 2):
         #Subdivide but run some checks on the intervals first
         intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,\
-                                             approx_tol,True)
+                                             approx_tol,check_subintervals=True)
         if len(intervals) == 0:
             return np.zeros([0,dim])
         else:
@@ -570,7 +570,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-5,solve_tol=
     if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > 5) or divisor_var < 0:
         #Subdivide but run some checks on the intervals first
         intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,\
-                                             change_sign,approx_tol,True)
+                                             change_sign,approx_tol,check_subintervals=True)
         if len(intervals) == 0:
             return np.zeros([0,dim])
         else:
@@ -767,10 +767,10 @@ def trim_coeffs(coeffs, approx_tol, solve_tol):
     if not all_triangular:
         return coeffs, -1
     else:
-        for divisor_var in range(coeffs[0].ndim):
-            if good_direc(coeffs,divisor_var,solve_tol):
-                return coeffs, divisor_var
-        return coeffs, -1
+      #  for divisor_var in range(coeffs[0].ndim):
+       #     if good_direc(coeffs,divisor_var,solve_tol):
+        #        return coeffs, divisor_var
+        return coeffs, 0
 
 @Memoize
 def mon_combos_limited_wrap(deg, dim, shape):
