@@ -567,9 +567,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-5,solve_tol=
             return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_data,\
                                                    approx_tol,solve_tol,polish,good_degs,level=level+1) for interval in intervals])
 
-    if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > 5):
-        divisor_var = -1
-    if divisor_var < 0:
+    if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > 5) or divisor_var < 0:
         #Subdivide but run some checks on the intervals first
         intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,\
                                              change_sign,approx_tol,True)
@@ -587,7 +585,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-5,solve_tol=
     zeros = multiplication(polys, approx_tol=approx_tol, solve_tol=solve_tol)
     if not isinstance(zeros, int):
         zeros = np.array(zeros)
-        interval_data.track_interval("Macaulay", [a,b])
+        interval_data.track_interval("Spectral", [a,b])
         if len(zeros) == 0:
             return np.zeros([0,dim])
         if polish:
@@ -687,7 +685,7 @@ def polish_zeros(zeros, funcs, tol=1.e-1):
         The polished zeros.
     """
     import warnings
-    warnings.warn("Polishing may return duplicate zeros. Tell Erik to not be lazy and fix this.")
+    warnings.warn("Polishing may return duplicate zeros.")
     
     if len(zeros) == 0:
         return zeros
@@ -888,10 +886,10 @@ def subdivision_solve_1d(f,a,b,interval_data,cheb_approx_tol=1.e-5,max_degree=12
                 return np.zeros([0])
             #Division is faster after degree 75
             if cur_deg > 75:
-                interval_data.track_interval('Macaulay', [a,b])
+                interval_data.track_interval('Spectral', [a,b])
                 return transform(good_zeros_1d(divCheb(coeffs)),a,b)
             else:
-                interval_data.track_interval('Macaulay', [a,b])
+                interval_data.track_interval('Spectral', [a,b])
                 return transform(good_zeros_1d(multCheb(np.trim_zeros(coeffs.copy(),trim='b'))),a,b)
         initial_approx = coeffs2N
         cur_deg*=2
