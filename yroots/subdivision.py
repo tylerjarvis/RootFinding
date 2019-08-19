@@ -21,7 +21,7 @@ import itertools
 import time
 import warnings
 
-def solve(funcs, a, b, plot = False, plot_intervals = False, polish = False):
+def solve(funcs, a, b, plot = False, plot_intervals = False, polish = False, approx_tol=5.e-12):
     '''
     Finds the real roots of the given list of functions on a given interval.
 
@@ -61,7 +61,7 @@ def solve(funcs, a, b, plot = False, plot_intervals = False, polish = False):
     if dim == 1:
         #one dimensional case
         interval_data = IntervalData(a,b)
-        zeros = subdivision_solve_1d(funcs[0],a,b,interval_data)
+        zeros = subdivision_solve_1d(funcs[0],a,b,interval_data, cheb_approx_tol=approx_tol)
         if plot:
             x = np.linspace(a,b,1000)
             for f in funcs:
@@ -88,7 +88,7 @@ def solve(funcs, a, b, plot = False, plot_intervals = False, polish = False):
             deg = deg_dim[dim]
 
         #Output the interval percentages
-        zeros = subdivision_solve_nd(funcs,a,b,deg,interval_data,polish=polish)
+        zeros = subdivision_solve_nd(funcs,a,b,deg,interval_data,polish=polish, approx_tol=approx_tol)
 
         print("\rPercent Finished: 100%       ")
         interval_data.print_results()
@@ -356,7 +356,10 @@ def get_subintervals(a,b,dimensions,interval_data,polys,change_sign,approx_tol,c
     if check_subintervals:
         scaled_subintervals = get_subintervals(-np.ones_like(a),np.ones_like(a),dimensions,None,None,None,approx_tol)
         #Uses 2*approx_tol because this much error can be added in the approximation and the trim_coeff
-        return interval_data.check_subintervals(subintervals, scaled_subintervals, polys, change_sign, 2*approx_tol)
+        # TODO Should be approx_tol/2? Or not since we account for that earlier?
+        # TODO Mabye should be (200/87)* approx tol because it's the original tolerance given,
+        # not necessarily the modified tolerance.
+        return interval_data.check_subintervals(subintervals, scaled_subintervals, polys, change_sign, approx_tol)
     else:
         return subintervals
 
@@ -391,6 +394,12 @@ def full_cheb_approximate(f,a,b,deg,approx_tol,good_deg=None):
     if good_deg is not None:
         coeff, bools, multiplier = interval_approximate_nd(f,a,b,good_deg,return_bools=True)
         return coeff, bools
+        
+    # Adjust approx_tol to match the tolerance guarenteed by the algorithm.
+    # TODO Include a reference to why this is scaled here from the paper.
+    # This is for trim_coeffs (*1/2) and the sup-norm error bound given by Boyd (<= 100/87).
+    approx_tol *= (0.969157486247)/2
+
     #Try degree deg and see if it's good enough
     coeff, multiplier = interval_approximate_nd(f,a,b,deg)
     coeff2, bools, multiplier = interval_approximate_nd(f,a,b,deg*2,return_bools=True, multiplier=multiplier)
@@ -435,7 +444,7 @@ def good_zeros_nd(zeros, imag_tol = 1.e-5, real_tol = 1.e-5):
     good_zeros = good_zeros[np.all(np.abs(good_zeros) <= 1 + real_tol,axis = 1)]
     return good_zeros.real
 
-def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-5,solve_tol=1.e-8, polish=False, good_degs=None, level=0, max_level=20):
+def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-12,solve_tol=1.e-8, polish=False, good_degs=None, level=0, max_level=25):
     """Finds the common zeros of the given functions.
 
     Parameters
@@ -477,6 +486,17 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-5,solve_tol=
         #     return (np.array(a) + np.array(b))/2
         return np.zeros([0,len(a)])
 
+    # TODO Potential speed up for systems that get stuck going too deep. Possible
+    # because of the error bound equation assumptions in the paper and assuming that
+    # N <= 256.
+    # if level > 8:
+    #     approx_tol *= 2**(deg)
+
+    # Also a potential speed up while keeping great accuracy.
+    # if level > 11:
+    #     approx_tol = 1.e-5
+    #     polish = True
+
     cheb_approx_list = []
     interval_data.print_progress()
     dim = len(a)
@@ -506,7 +526,8 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-5,solve_tol=
 
 #     print("Valid Approx")
     #Make the system stable to solve
-    coeffs, divisor_var = trim_coeffs(cheb_approx_list, approx_tol, solve_tol)
+    
+    coeffs, all_triangular = trim_coeffs(cheb_approx_list, approx_tol)
 
     #Check if everything is linear
 #     print([coeff.shape[0] for coeff in coeffs])
@@ -567,7 +588,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-5,solve_tol=
             return np.vstack([subdivision_solve_nd(funcs,interval[0],interval[1],deg,interval_data,\
                                                    approx_tol,solve_tol,polish,good_degs,level=level+1) for interval in intervals])
 
-    if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > 5) or divisor_var < 0:
+    if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > 5) or not all_triangular:
         #Subdivide but run some checks on the intervals first
         intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,\
                                              change_sign,approx_tol,check_subintervals=True)
@@ -582,7 +603,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-5,solve_tol=
     polys = [MultiCheb(coeff, lead_term = [coeff.shape[0]-1], clean_zeros = False) for coeff in coeffs]
     
     # zeros = division(polys,divisor_var,solve_tol)
-    zeros = multiplication(polys, approx_tol=approx_tol, solve_tol=solve_tol)
+    zeros = multiplication(polys, approx_tol=approx_tol)
     if not isinstance(zeros, int):
         zeros = np.array(zeros)
         interval_data.track_interval("Spectral", [a,b])
@@ -697,12 +718,13 @@ def polish_zeros(zeros, funcs, tol=1.e-1):
         b = np.array(zero) + 1.1*tol #Keep the root away from 0
         interval_data = IntervalData(a,b)
         interval_data.polishing = True
-        polished_zero = subdivision_solve_nd(funcs,a,b,5,interval_data,approx_tol=1.e-8,\
+        # TODO : Change the approx_tol to make polishing much more accurate.
+        polished_zero = subdivision_solve_nd(funcs,a,b,5,interval_data,approx_tol=1.e-13,\
                                                  solve_tol=1.e-12,polish=False)
         polished_zeros.append(polished_zero)
     return np.vstack(polished_zeros)
 
-def trim_coeffs(coeffs, approx_tol, solve_tol):
+def trim_coeffs(coeffs, approx_tol):
     """Trim the coefficient matrices so they are stable and choose a direction to divide in.
 
     Parameters
@@ -711,8 +733,6 @@ def trim_coeffs(coeffs, approx_tol, solve_tol):
         The coefficient matrices of the Chebyshev polynomials we are solving.
     approx_tol: float
         The bound of the sup norm error of the chebyshev approximation.
-    solve_tol : float
-        The tolerance to pass into division solve.
 
     Returns
     -------
@@ -721,9 +741,15 @@ def trim_coeffs(coeffs, approx_tol, solve_tol):
     divisor_var : int
         What direction to do the division in to be stable. -1 means we should subdivide.
     """
+    # Adjust approx_tol to match the tolerance guarenteed by the algorithm.
+    # TODO Include a reference to why this is scaled here from the paper.
+    # This is for trim_coeffs and the sup-norm error bound given by Boyd.
+    approx_tol *= (0.969157486247)/2
+
     all_triangular = True
     for num, coeff in enumerate(coeffs):
         error = 0.
+        # Potentially hard-coded tolerance: 1e-10 gets things that aren't really small
         spot = np.abs(coeff) < 1.e-10*np.max(np.abs(coeff))
         error = np.sum(np.abs(coeff[spot]))
         coeff[spot] = 0
@@ -764,13 +790,7 @@ def trim_coeffs(coeffs, approx_tol, solve_tol):
                         break
         coeffs[num] = coeff
 
-    if not all_triangular:
-        return coeffs, -1
-    else:
-      #  for divisor_var in range(coeffs[0].ndim):
-       #     if good_direc(coeffs,divisor_var,solve_tol):
-        #        return coeffs, divisor_var
-        return coeffs, 0
+    return coeffs, all_triangular
 
 @Memoize
 def mon_combos_limited_wrap(deg, dim, shape):
