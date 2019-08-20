@@ -62,4 +62,4 @@ def solve(polys,MSmatrix=0, eigvals=True, verbose=False, return_all_roots=True):
         if MSmatrix < 0:
             return division(polys, verbose=verbose, divisor_var=-MSmatrix-1, return_all_roots=return_all_roots)
         else:
-            return multiplication(polys, verbose=verbose, MSmatrix=MSmatrix, return_all_roots=return_all_roots)
+            return multiplication(polys, verbose=verbose, MSmatrix=MSmatrix, return_all_roots=return_all_roots, solve_tol=1.e-10)
