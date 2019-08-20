@@ -21,7 +21,7 @@ import itertools
 import time
 import warnings
 
-def solve(funcs, a, b, plot = False, plot_intervals = False, polish = False, approx_tol=5.e-12):
+def solve(funcs, a, b, plot = False, plot_intervals = False, polish = False, approx_tol=1.e-10):
     '''
     Finds the real roots of the given list of functions on a given interval.
 

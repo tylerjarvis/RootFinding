@@ -9,7 +9,7 @@ from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list
                               deg_d_polys, all_permutations_cheb
 import warnings
 
-def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, approx_tol = 1.e-4, solve_tol=1.e-8):
+def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, approx_tol = 1.e-4, solve_tol=1.e-15):
     '''
     Finds the roots of the given list of multidimensional polynomials using a multiplication matrix.
 
@@ -23,6 +23,14 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, appr
             Some positive integer i < dimension -- The Moller-Stetter matrix of x_i
     verbose : bool
         Prints information about how the roots are computed.
+    return_all_roots : bool
+        Returns all the roots (including complex roots) if true, just the real roots
+        otherwise.
+    approx_tol : float
+        The tolerance for the Chebyshev approximation. This is passed in trim_coeffs in
+        LinearProjection.remove_linear function.
+    solve_tol : float
+        How small we want the values to be before assuming they are 0.
     returns
     -------
     roots : numpy array
@@ -42,7 +50,7 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, appr
     degrees = [poly.degree for poly in polys]
     max_number_of_roots = np.prod(degrees)
 
-    m_f, var_dict = MSMultMatrix(polys, poly_type, verbose=verbose, MSmatrix=MSmatrix)
+    m_f, var_dict = MSMultMatrix(polys, poly_type, verbose=verbose, MSmatrix=MSmatrix, tol=solve_tol)
 
     if isinstance(m_f, int):
         return -1
@@ -84,7 +92,7 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, appr
         # only return roots in the unit complex hyperbox
         return roots.T[np.all(np.abs(roots) <= 1,axis = 0)]
 
-def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0, tol=1.e-10):
+def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0, tol=1.e-15):
     '''
     Finds the multiplication matrix using the reduced Macaulay matrix.
 
