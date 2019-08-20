@@ -3,10 +3,11 @@ import itertools
 from scipy.linalg import solve_triangular, eig
 from yroots import LinearProjection
 from yroots.polynomial import MultiCheb, MultiPower, is_power
-from yroots.MacaulayReduce import rrqr_reduceMacaulay2, rrqr_reduceMacaulay, find_degree, add_polys
+from yroots.MacaulayReduce import rrqr_reduceMacaulay2, rrqr_reduceMacaulay, find_degree, \
+                              add_polys
 from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list, \
                               mon_combos, mon_combosHighest, sort_polys_by_degree, \
-                              deg_d_polys, all_permutations_cheb
+                              deg_d_polys, all_permutations_cheb, ConditioningError
 import warnings
 
 def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, approx_tol = 1.e-4, solve_tol=1.e-8):
@@ -27,6 +28,9 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, appr
     -------
     roots : numpy array
         The common roots of the polynomials. Each row is a root.
+    Raises
+    ------
+    ConditioningError if MSMultMatrix(...) raises a ConditioningError.
     '''
     polys, transform, is_projected = LinearProjection.remove_linear(polys, approx_tol, solve_tol)
     if len(polys) == 1:
@@ -42,10 +46,10 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, appr
     degrees = [poly.degree for poly in polys]
     max_number_of_roots = np.prod(degrees)
 
-    m_f, var_dict = MSMultMatrix(polys, poly_type, verbose=verbose, MSmatrix=MSmatrix)
-
-    if isinstance(m_f, int):
-        return -1
+    try:
+        m_f, var_dict = MSMultMatrix(polys, poly_type, verbose=verbose, MSmatrix=MSmatrix)
+    except ConditioningError as e:
+        raise e
 
     if verbose:
         print("\nM_f:\n", m_f[::-1,::-1])
@@ -72,9 +76,9 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, appr
         print('\nEigeinvecs at the Variable Spots:\n',vecs[var_spots])
         print('\nConstant Term Spot in the Vector\n',zeros_spot)
         print('\nEigeinvecs at the Constant Term\n',vecs[zeros_spot])
-    
+
     roots = transform(vecs[var_spots]/vecs[zeros_spot])
-    
+
     #Check if too many roots
     assert roots.shape[1] <= max_number_of_roots,"Found too many roots"
 
@@ -107,12 +111,16 @@ def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0, tol=1.e-10):
         The multiplication matrix for a random polynomial f
     var_dict : dictionary
         Maps each variable to its position in the vector space basis
+        
+    Raises
+    ------
+    ConditioningError if MacaulayReduction(...) raises a ConditioningError.
     '''
-    basisDict, VB = MacaulayReduction(polys, accuracy=tol, verbose=verbose)
+    try:
+        basisDict, VB = MacaulayReduction(polys, accuracy=tol, verbose=verbose)
+    except ConditioningError as e:
+        raise e
 
-    if isinstance(basisDict, int):
-        return -1, -1
-    
     dim = max(f.dim for f in polys)
 
     # Get the polynomial to make the MS matrix of
@@ -176,6 +184,10 @@ def MacaulayReduction(initial_poly_list, accuracy = 0, verbose=False):
         can be reduced to.
     VB : numpy array
         The terms in the vector basis, each row being a term.
+        
+    Raises
+    ------
+    ConditioningError if rrqr_reduceMacaulay(...) raises a ConditioningError.
     """
     power = is_power(initial_poly_list)
     dim = initial_poly_list[0].dim
@@ -193,8 +205,10 @@ def MacaulayReduction(initial_poly_list, accuracy = 0, verbose=False):
         print('\nColumns in Macaulay Matrix\nFirst element in tuple is degree of x, Second element is degree of y\n', matrix_terms)
         print('\nLocation of Cuts in the Macaulay Matrix into [ Mb | M1* | M2* ]\n', cuts)
 
-
-    matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = accuracy)
+    try:
+        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = accuracy)
+    except ConditioningError as e:
+        raise e
 
     # TODO: rrqr_reduceMacaulay2 is not working when expected.
     # if np.allclose(matrix[cuts[0]:,:cuts[0]], 0):
@@ -202,9 +216,6 @@ def MacaulayReduction(initial_poly_list, accuracy = 0, verbose=False):
     # else:
     #     matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = accuracy)
 
-    if isinstance(matrix, int):
-        return -1, -1
-        
     if verbose:
         np.set_printoptions(suppress=True, linewidth=200)
         print("\nFinal Macaulay Matrix\n", matrix)
