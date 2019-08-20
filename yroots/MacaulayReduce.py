@@ -4,7 +4,7 @@ from scipy.linalg import qr, solve_triangular, qr_multiply
 from yroots.polynomial import Polynomial, MultiCheb, MultiPower
 from yroots.utils import row_swap_matrix, MacaulayError, slice_top, mon_combos, \
                               num_mons_full, memoized_all_permutations, mons_ordered, \
-                              all_permutations_cheb
+                              all_permutations_cheb, ConditioningError
 from matplotlib import pyplot as plt
 from scipy.linalg import svd
 
@@ -87,6 +87,10 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10, return_pe
         The reduced matrix.
     matrix_terms: numpy array
         The resorted matrix_terms.
+    Raises
+    ------
+    ConditioningError if the conditioning number of the Macaulay matrix after
+    QR is greater than 1/accuracy.
     '''
     #controller variables for each part of the matrix
     AD = matrix[:,:cuts[0]]
@@ -128,10 +132,10 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10, return_pe
             break
 
     #Conditioning check
-    if np.linalg.cond(matrix[:,:matrix.shape[0]])*accuracy > 1:
-        if return_perm:
-            return -1, -1, -1
-        return -1, -1    
+    cond_num = np.linalg.cond(matrix[:,:matrix.shape[0]])
+    if cond_num*accuracy > 1:
+        raise ConditioningError("Conditioning number of the Macaulay matrix "\
+                                + "after QR is: " + str(cond_num))
 
     #backsolve
     height = matrix.shape[0]
@@ -172,6 +176,10 @@ def rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
         The reduced matrix.
     matrix_terms: numpy array
         The resorted matrix_terms.
+    Raises
+    ------
+    ConditioningError if the conditioning number of the Macaulay matrix after
+    QR is greater than 1/accuracy.
     '''
     #controller variables for each part of the matrix
     AD = matrix[:,:cuts[0]]
@@ -226,8 +234,10 @@ def rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy = 1.e-10):
             break
 
     #Conditioning check
-    if np.linalg.cond(matrix[:,:matrix.shape[0]])*accuracy > 1:
-        return -1, -1
+    cond_num = np.linalg.cond(matrix[:,:matrix.shape[0]])
+    if cond_num*accuracy > 1:
+        raise ConditioningError("Conditioning number of the Macaulay matrix "\
+                                + "after QR is: " + str(cond_num))
 
     #backsolve
     height = matrix.shape[0]
