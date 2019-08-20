@@ -11,6 +11,19 @@ class InstabilityWarning(Warning):
 class MacaulayError(np.linalg.LinAlgError):
     pass
 
+class ConditioningError(Exception):
+    """Raised when the conditioning number of a matrix is not
+    within the desired tolerance.
+    
+    Attributes
+    ----------
+    message : str
+        A message describing the error that occurred.
+    """
+    
+    def __init__(self, message):
+        self.message = message
+
 class Term(object):
     '''
     Terms are just tuples of exponents with the grevlex ordering
