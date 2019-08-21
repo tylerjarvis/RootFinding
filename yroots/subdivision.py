@@ -721,7 +721,7 @@ def polish_zeros(zeros, funcs, tol=1.e-1):
         interval_data.polishing = True
         # TODO : Change the approx_tol to make polishing much more accurate.
         polished_zero = subdivision_solve_nd(funcs,a,b,5,interval_data,approx_tol=1.e-13,\
-                                                 solve_tol=1.e-12,polish=False)
+                                                 solve_tol=1.e-15,polish=False)
         polished_zeros.append(polished_zero)
     return np.vstack(polished_zeros)
 

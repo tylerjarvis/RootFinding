@@ -10,7 +10,7 @@ from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list
                               deg_d_polys, all_permutations_cheb, ConditioningError
 import warnings
 
-def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, approx_tol = 1.e-4, solve_tol=1.e-15):
+def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, approx_tol = 1.e-4, solve_tol=1.e-12):
     '''
     Finds the roots of the given list of multidimensional polynomials using a multiplication matrix.
 
@@ -55,7 +55,7 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, appr
     max_number_of_roots = np.prod(degrees)
 
     try:
-        m_f, var_dict = MSMultMatrix(polys, poly_type, verbose=verbose, MSmatrix=MSmatrix)
+        m_f, var_dict = MSMultMatrix(polys, poly_type, verbose=verbose, MSmatrix=MSmatrix, tol=solve_tol)
     except ConditioningError as e:
         raise e
 
