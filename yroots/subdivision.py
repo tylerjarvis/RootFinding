@@ -401,11 +401,16 @@ def full_cheb_approximate(f,a,b,deg,approx_tol,good_deg=None):
     # This is for trim_coeffs (*1/2) and the sup-norm error bound given by Boyd (<= 100/87).
     approx_tol *= (0.969157486247)/2
 
+    # Machine Epsilon
+    #eps = 7./3. - 4./3 - 1
+
     #Try degree deg and see if it's good enough
     coeff, multiplier = interval_approximate_nd(f,a,b,deg)
     coeff2, bools, multiplier = interval_approximate_nd(f,a,b,deg*2,return_bools=True, multiplier=multiplier)
     coeff2[slice_top(coeff)] -= coeff
-    if np.sum(np.abs(coeff2)) > approx_tol:
+
+    # TODO: Need to account for the added machine epsilon error?
+    if np.sum(np.abs(coeff2)) > approx_tol: # + (eps * deg**len(a)):
         #Find the directions to subdivide
         dim = len(a)
         # TODO: Intelligent Subdivision.
@@ -487,16 +492,8 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-12,solve_tol
         #     return (np.array(a) + np.array(b))/2
         return np.zeros([0,len(a)])
 
-    # TODO Potential speed up for systems that get stuck going too deep. Possible
-    # because of the error bound equation assumptions in the paper and assuming that
-    # N <= 256.
-    # if level > 8:
-    #     approx_tol *= 2**(deg)
-
-    # Also a potential speed up while keeping great accuracy.
-    # if level > 11:
-    #     approx_tol = 1.e-5
-    #     polish = True
+    # if level > 9 and level % 3 == 0:
+    #     approx_tol *= 2
 
     cheb_approx_list = []
     interval_data.print_progress()
