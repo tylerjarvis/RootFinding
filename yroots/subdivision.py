@@ -22,7 +22,7 @@ import itertools
 import time
 import warnings
 
-def solve(funcs, a, b, plot = False, plot_intervals = False, polish = False, approx_tol=1.e-6):
+def solve(funcs, a, b, plot = False, plot_intervals = False, polish = False, approx_tol=1.e-10):
     '''
     Finds the real roots of the given list of functions on a given interval.
 
@@ -398,9 +398,6 @@ def full_cheb_approximate(f,a,b,deg,approx_tol,good_deg=None):
         
     # This is for trim_coeffs (*1/2) 
     approx_tol /= 2
-
-    # Machine Epsilon
-    #eps = 7./3. - 4./3 - 1
 
     #Try degree deg and see if it's good enough
     coeff, multiplier = interval_approximate_nd(f,a,b,deg)
