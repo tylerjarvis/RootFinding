@@ -22,7 +22,7 @@ import itertools
 import time
 import warnings
 
-def solve(funcs, a, b, plot = False, plot_intervals = False, polish = False, approx_tol=1.e-10):
+def solve(funcs, a, b, plot = False, plot_intervals = False, polish = False, approx_tol=1.e-6):
     '''
     Finds the real roots of the given list of functions on a given interval.
 
@@ -396,10 +396,8 @@ def full_cheb_approximate(f,a,b,deg,approx_tol,good_deg=None):
         coeff, bools, multiplier = interval_approximate_nd(f,a,b,good_deg,return_bools=True)
         return coeff, bools
         
-    # Adjust approx_tol to match the tolerance guarenteed by the algorithm.
-    # TODO Include a reference to why this is scaled here from the paper.
-    # This is for trim_coeffs (*1/2) and the sup-norm error bound given by Boyd (<= 100/87).
-    approx_tol *= (0.969157486247)/2
+    # This is for trim_coeffs (*1/2) 
+    approx_tol /= 2
 
     # Machine Epsilon
     #eps = 7./3. - 4./3 - 1
@@ -409,8 +407,7 @@ def full_cheb_approximate(f,a,b,deg,approx_tol,good_deg=None):
     coeff2, bools, multiplier = interval_approximate_nd(f,a,b,deg*2,return_bools=True, multiplier=multiplier)
     coeff2[slice_top(coeff)] -= coeff
 
-    # TODO: Need to account for the added machine epsilon error?
-    if np.sum(np.abs(coeff2)) > approx_tol: # + (eps * deg**len(a)):
+    if np.sum(np.abs(coeff2)) > approx_tol: 
         #Find the directions to subdivide
         dim = len(a)
         # TODO: Intelligent Subdivision.
@@ -491,9 +488,6 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-12,solve_tol
         # if np.all(residual < solve_tol for residual in residual_samples):
         #     return (np.array(a) + np.array(b))/2
         return np.zeros([0,len(a)])
-
-    # if level > 9 and level % 3 == 0:
-    #     approx_tol *= 2
 
     cheb_approx_list = []
     interval_data.print_progress()
@@ -739,10 +733,8 @@ def trim_coeffs(coeffs, approx_tol):
     divisor_var : int
         What direction to do the division in to be stable. -1 means we should subdivide.
     """
-    # Adjust approx_tol to match the tolerance guarenteed by the algorithm.
-    # TODO Include a reference to why this is scaled here from the paper.
-    # This is for trim_coeffs and the sup-norm error bound given by Boyd.
-    approx_tol *= (0.969157486247)/2
+    # This is for trim_coeffs 
+    approx_tol /= 2
 
     all_triangular = True
     for num, coeff in enumerate(coeffs):
