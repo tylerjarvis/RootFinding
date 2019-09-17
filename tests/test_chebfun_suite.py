@@ -147,18 +147,22 @@ def test_roots_1():
     f = lambda x,y: x - y + .5
     g = lambda x,y: x + y
     yroots = solve([f,g],[-1,-1],[1,1])
-    a_roots = np.array([-.25, .25])
+    # Single root has to be in matrix form because yroots
+    # returns the roots in matrix form.
+    a_roots = np.array([[-.25, .25]])
 
-    pass_or_fail([f,g], yroots, m_sq_roots, 1.4)
+    pass_or_fail([f,g], yroots, a_roots, 1.4)
 
     # # Test 1.5
     # # TODO This test fails pass_or_fail but passes the residual test with tol = 1.e-15
     # f = lambda x,y: y + x/2 + 1/10
     # g = lambda x,y: y - 2.1*x + 2
     # yroots = solve([f,g],[-1,-1],[1,1])
-    # a_roots = np.array([0.730769230769231, -0.465384615384615])
+    # # Single root has to be in matrix form because yroots
+    # #  eturns the roots in matrix form.
+    # a_roots = np.array([[0.730769230769231, -0.465384615384615]\)
 
-    # pass_or_fail([f,g], yroots, m_sq_roots, 1.5)
+    # pass_or_fail([f,g], yroots, a_roots, 1.5)
 
 
 def test_roots_2():
@@ -187,13 +191,12 @@ def test_roots_2():
 
     pass_or_fail([f,g], yroots, m_sq_roots, 2.3)
 
-    # Test 2.4
-    f = lambda x,y: x - y + .5
-    g = lambda x,y: x + y
-    yroots = solve([f,g],[-1,-1],[1,1])
-    m_sq_roots = np.loadtxt('tests/chebfun_test_output/cftest2_4ms.csv', delimiter=',')
+    # # Test 2.4
+    # # TODO Functions needed
+    # yroots = solve([f,g],[-1,-1],[1,1])
+    # m_sq_roots = np.loadtxt('tests/chebfun_test_output/cftest2_4ms.csv', delimiter=',')
 
-    pass_or_fail([f,g], yroots, m_sq_roots, 2.4)
+    # pass_or_fail([f,g], yroots, m_sq_roots, 2.4)
 
     # # Test 2.5
     # # TODO Functions needed
