@@ -106,9 +106,13 @@ def pass_or_fail(funcs, yroots, roots, test_num, test_type="norm"):
 
     if len(yroots) != len(roots):
         if len(yroots) > len(roots):
-            raise AssertionError("Test " + str(test_num) +  ": YRoots found too many roots:" + str(len(yroots)))
+            raise AssertionError("Test " + str(test_num) +  ": YRoots found" 
+                                 " too many roots: " + str(len(yroots)) +
+                                 " where " + str(len(roots)) + " were expected.")
         else:
-            raise AssertionError("Test " + str(test_num) +  ": Yroots didn't find enough roots:" + str(len(yroots)))
+            raise AssertionError("Test " + str(test_num) +  ": YRoots didn't" 
+                                 " find enough roots: " + str(len(yroots)) +
+                                 " where " + str(len(roots)) + " were expected.")
     
     if test_type == 'norm':
         assert norm_pass_or_fail(yroots, roots), "Test " + str(test_num) + " failed."
