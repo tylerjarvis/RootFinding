@@ -22,7 +22,7 @@ import itertools
 import time
 import warnings
 
-def solve(funcs, a, b, plot = False, plot_intervals = False, polish = False, approx_tol=1.e-10):
+def solve(funcs, a, b, plot=False, plot_intervals=False, polish=False, approx_tol=1.e-10):
     '''
     Finds the real roots of the given list of functions on a given interval.
 
@@ -444,7 +444,7 @@ def good_zeros_nd(zeros, imag_tol = 1.e-5, real_tol = 1.e-5):
     good_zeros = good_zeros[np.all(np.abs(good_zeros) <= 1 + real_tol,axis = 1)]
     return good_zeros.real
 
-def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-12,solve_tol=1.e-8, polish=False, good_degs=None, level=0, max_level=25):
+def subdivision_solve_nd(funcs,a,b,deg,interval_data,approx_tol=1.e-10,solve_tol=1.e-8, polish=False, good_degs=None, level=0, max_level=25):
     """Finds the common zeros of the given functions.
 
     Parameters
