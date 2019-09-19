@@ -66,7 +66,7 @@ def residuals_pass_or_fail(funcs, roots, tol=2.220446049250313e-13):
             The roots to plug into the functions to get the residuals.
         tol : float, optional
             How close to 0 the maximal residual must be in order to pass.
-            Defaults to 1e.-13.
+            Defaults to 1000* eps where eps is machine epsilon.
 
     Returns
     -------
@@ -100,6 +100,9 @@ def pass_or_fail(funcs, yroots, roots, test_num, test_type="norm", tol=2.2204460
             What type of test to use to determine wheter it passes or fails.
              - "norm" -- runs norm_pass_or_fail, default
              - "residual" -- runs residual_pass_or_fail
+        tol : float, optional
+            The tolerance with which we want to run our tests. Defualts to
+            1000*eps where eps is machine epsilon.
 
     Raises
     ------
