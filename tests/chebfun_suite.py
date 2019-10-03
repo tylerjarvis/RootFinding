@@ -385,8 +385,8 @@ def test_roots_9():
     pass_or_fail([f,g], yroots, m_sq_roots, 9.1)
 
     # Test 9.2
-    f = lambda x,y: x**2+y**2-.9**2
-    g = lambda x,y: np.sin(x*y)
+    f = lambda x,y: x**2+y**2-.49**2
+    g = lambda x,y: (x-.1)*(x*y - .2)
     yroots = solve([f,g],[-1,-1],[1,1])
     m_sq_roots = np.loadtxt('tests/chebfun_test_output/cftest9_2ms.csv',delimiter=',')
 
