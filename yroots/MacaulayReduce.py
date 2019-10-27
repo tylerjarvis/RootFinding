@@ -58,7 +58,7 @@ def find_degree(poly_list, verbose=False):
         print('Degree of Macaulay Matrix:', sum(poly.degree for poly in poly_list) - len(poly_list) + 1)
     return sum(poly.degree for poly in poly_list) - len(poly_list) + 1
 
-def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10, return_perm=False):
+def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_cond_num=1.e6, macaulay_zero_tol=1.e-12, return_perm=False):
     ''' Reduces a Macaulay matrix, BYU style.
 
     The matrix is split into the shape
@@ -79,18 +79,25 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10, return_pe
     cuts : tuple
         When the matrix is reduced it is split into 3 parts with restricted pivoting. These numbers indicate
         where those cuts happen.
-    accuracy : float
-        Throws an error if the condition number of the backsolve is more than 1/accuracy.
+    max_cond_num : float
+        Throws an error if the condition number of the backsolve is more than max_cond_num.
+    macaulay_zero_tol : float
+        What is considered to be 0 after the reduction. Specifically, rows where every element has
+        magnitude less that macaulay_zero_tol are removed.
+    return_perm : bool
+        If True, also returns the permutation done by the pivoting.
     Returns
     -------
     matrix : numpy array
         The reduced matrix.
     matrix_terms: numpy array
         The resorted matrix_terms.
+    perm : numpy array
+        The permutation of the rows from the original. Returned only if return_perm is True.
     Raises
     ------
     ConditioningError if the conditioning number of the Macaulay matrix after
-    QR is greater than 1/accuracy.
+    QR is greater than max_cond_num.
     '''
     #controller variables for each part of the matrix
     AD = matrix[:,:cuts[0]]
@@ -122,26 +129,25 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = 1.e-10, return_pe
 
     #Resorts the matrix_terms.
     matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
-
+    
     #eliminate zero rows from the bottom of the matrix.
     matrix = row_swap_matrix(matrix)
     for row in matrix[::-1]:
-        if np.allclose(row, 0,atol=accuracy):
+        if np.allclose(row, 0,atol=macaulay_zero_tol):
             matrix = matrix[:-1]
         else:
             break
 
     #Conditioning check
     cond_num = np.linalg.cond(matrix[:,:matrix.shape[0]])
-    if cond_num*accuracy > 1:
+    if cond_num > max_cond_num:
         raise ConditioningError("Conditioning number of the Macaulay matrix "\
                                 + "after QR is: " + str(cond_num))
-
     #backsolve
     height = matrix.shape[0]
     matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
     matrix[:,:height] = np.eye(height)
-    
+        
     if return_perm:
         perm = np.arange(matrix.shape[1])
         perm[cuts[0]:cuts[1]] = perm[cuts[0]:cuts[1]][P]

@@ -10,7 +10,7 @@ from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list
                               deg_d_polys, all_permutations_cheb, ConditioningError
 import warnings
 
-def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, approx_tol = 1.e-4, solve_tol=1.e-8):
+def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, approx_error = 1.e-4, max_cond_num=1.e6, macaulay_zero_tol=1.e-12):
     '''
     Finds the roots of the given list of multidimensional polynomials using a multiplication matrix.
 
@@ -32,7 +32,8 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, appr
     ------
     ConditioningError if MSMultMatrix(...) raises a ConditioningError.
     '''
-    polys, transform, is_projected = LinearProjection.remove_linear(polys, approx_tol, solve_tol)
+    #TODO, what tol is being passed in here and make this work!!!
+    polys, transform, is_projected = LinearProjection.remove_linear(polys, approx_error, macaulay_zero_tol)
     if len(polys) == 1:
         from yroots.OneDimension import solve
         return transform(solve(polys[0], MSmatrix=0))
@@ -47,7 +48,7 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, appr
     max_number_of_roots = np.prod(degrees)
 
     try:
-        m_f, var_dict = MSMultMatrix(polys, poly_type, verbose=verbose, MSmatrix=MSmatrix)
+        m_f, var_dict = MSMultMatrix(polys, poly_type, verbose, MSmatrix, max_cond_num, macaulay_zero_tol)
     except ConditioningError as e:
         raise e
 
@@ -78,17 +79,17 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, appr
         print('\nEigeinvecs at the Constant Term\n',vecs[zeros_spot])
 
     roots = transform(vecs[var_spots]/vecs[zeros_spot])
-
+    
     #Check if too many roots
     assert roots.shape[1] <= max_number_of_roots,"Found too many roots"
-
+#     print(roots.T)
     if return_all_roots:
         return roots.T
     else:
         # only return roots in the unit complex hyperbox
         return roots.T[np.all(np.abs(roots) <= 1,axis = 0)]
 
-def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0, tol=1.e-10):
+def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0, max_cond_num=1.e6, macaulay_zero_tol=1.e-12):
     '''
     Finds the multiplication matrix using the reduced Macaulay matrix.
 
@@ -117,7 +118,7 @@ def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0, tol=1.e-10):
     ConditioningError if MacaulayReduction(...) raises a ConditioningError.
     '''
     try:
-        basisDict, VB = MacaulayReduction(polys, accuracy=tol, verbose=verbose)
+        basisDict, VB = MacaulayReduction(polys, max_cond_num, macaulay_zero_tol, verbose=verbose)
     except ConditioningError as e:
         raise e
 
@@ -167,7 +168,7 @@ def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0, tol=1.e-10):
 
     return mMatrix, var_dict
 
-def MacaulayReduction(initial_poly_list, accuracy = 0, verbose=False):
+def MacaulayReduction(initial_poly_list, max_cond_num=1.e6, macaulay_zero_tol=1.e-12, verbose=False):
     """Reduces the Macaulay matrix to find a vector basis for the system of polynomials.
 
     Parameters
@@ -206,7 +207,7 @@ def MacaulayReduction(initial_poly_list, accuracy = 0, verbose=False):
         print('\nLocation of Cuts in the Macaulay Matrix into [ Mb | M1* | M2* ]\n', cuts)
 
     try:
-        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = accuracy)
+        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_cond_num, macaulay_zero_tol)
     except ConditioningError as e:
         raise e
 
