@@ -823,8 +823,8 @@ def subdivision_solve_1d(f,a,b,deg,interval_data,root_tracker,tols,max_level,lev
             error += abs(coeff[-1])
             coeff = coeff[:-1]
         try:
-            zero_tol = error*tols.good_zeros_factor
-            zeros = transform(good_zeros_1d(multCheb(coeff),zero_tol,zero_tol),a,b)
+            good_zeros_tol = max(tols.min_good_zeros_tol, error*tols.good_zeros_factor)
+            zeros = transform(good_zeros_1d(multCheb(coeff),good_zeros_tol,good_zeros_tol),a,b)
             interval_data.track_interval('Spectral', [a,b])
             root_tracker.add_roots(zeros, a, b, 'Spectral')
         except ConditioningError as e:
