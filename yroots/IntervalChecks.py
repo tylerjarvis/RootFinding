@@ -201,7 +201,7 @@ class IntervalData:
         if self.tick >= 100:
             self.tick = 0
             if not self.polishing:
-                print("\rPercent Finished: {}%       ".format(round(100*self.current_area/self.total_area,200)), end='')
+                print("\rPercent Finished: {}%       ".format(round(100*self.current_area/self.total_area,2)), end='')
             else:
                 print_string =  '\rPolishing Round: {}'.format(self.polish_num)
                 print_string += ' Interval: {}/{}:'.format(self.polish_interval_num, len(self.polish_intervals))

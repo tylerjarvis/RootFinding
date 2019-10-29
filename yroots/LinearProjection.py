@@ -33,7 +33,6 @@ def remove_linear(polys, approx_tol, solve_tol, transform_in=None):
     projected : bool
         True is projection was performed, False if no projection
     """
-    return polys, lambda x:x, False #For testing
     assert len(polys) > 0
     transform_in = transform_in or (lambda x:x)
     if len(polys) == 1:

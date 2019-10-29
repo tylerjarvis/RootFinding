@@ -613,7 +613,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,root_tracker,tols,max_level
     else:
         polys = [MultiCheb(coeff, lead_term = [coeff.shape[0]-1], clean_zeros = False) for coeff in coeffs]
         try:
-            zeros = multiplication(polys, approx_error=approx_errors, max_cond_num=tols.max_cond_num, macaulay_zero_tol= tols.macaulay_zero_tol)
+            zeros = multiplication(polys, max_cond_num=tols.max_cond_num, macaulay_zero_tol= tols.macaulay_zero_tol)
             zeros = transform(good_zeros_nd(zeros,good_zeros_tol,good_zeros_tol),a,b)
             interval_data.track_interval("Spectral", [a,b])
             root_tracker.add_roots(zeros, a, b, "Spectral")

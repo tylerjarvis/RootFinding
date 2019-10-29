@@ -10,7 +10,7 @@ from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list
                               deg_d_polys, all_permutations_cheb, ConditioningError
 import warnings
 
-def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, approx_error = 1.e-4, max_cond_num=1.e6, macaulay_zero_tol=1.e-12):
+def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, max_cond_num=1.e6, macaulay_zero_tol=1.e-12):
     '''
     Finds the roots of the given list of multidimensional polynomials using a multiplication matrix.
 
@@ -18,12 +18,18 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, appr
     ----------
     polys : list of polynomial objects
         Polynomials to find the common roots of.
+    verbose : bool
+        Prints information about how the roots are computed.
     MSmatrix : int
         Controls which Moller-Stetter matrix is constructed. The options are:
             0 (default) -- The Moller-Stetter matrix of a random polynomial
             Some positive integer i < dimension -- The Moller-Stetter matrix of x_i
-    verbose : bool
-        Prints information about how the roots are computed.
+    return_all_roots : bool
+        If True returns all the roots, otherwise just the ones in the unit box.
+    max_cond_num : float
+        The maximum condition number of the Macaulay Matrix Reduction
+    macaulay_zero_tol : float
+        What is considered 0 in the macaulay matrix reduction.
     returns
     -------
     roots : numpy array
@@ -32,8 +38,9 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, appr
     ------
     ConditioningError if MSMultMatrix(...) raises a ConditioningError.
     '''
-    #TODO, what tol is being passed in here and make this work!!!
-    polys, transform, is_projected = LinearProjection.remove_linear(polys, approx_error, macaulay_zero_tol)
+    #We don't want to use Linear Projection right now
+    polys, transform, is_projected = polys, lambda x:x, False
+    
     if len(polys) == 1:
         from yroots.OneDimension import solve
         return transform(solve(polys[0], MSmatrix=0))
@@ -99,13 +106,16 @@ def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0, max_cond_num=1.e6,
         The polynomials to find the common zeros of
     poly_type : string
         The type of the polynomials in polys
+    verbose : bool
+        Prints information about how the roots are computed.
     MSmatrix : int
         Controls which Moller-Stetter matrix is constructed. The options are:
             0 (default) -- The Moller-Stetter matrix of a random polynomial
             Some positive integer i < dimension -- The Moller-Stetter matrix of x_i
-    verbose : bool
-        Prints information about how the roots are computed.
-
+    max_cond_num : float
+        The maximum condition number of the Macaulay Matrix Reduction
+    macaulay_zero_tol : float
+        What is considered 0 in the macaulay matrix reduction.
     Returns
     -------
     multiplicationMatrix : 2D numpy array
@@ -175,9 +185,12 @@ def MacaulayReduction(initial_poly_list, max_cond_num=1.e6, macaulay_zero_tol=1.
     --------
     initial_poly_list: list
         The polynomials in the system we are solving.
-    accuracy: float
-        How small we want a number to be before assuming it is zero.
-
+    max_cond_num : float
+        The maximum condition number of the Macaulay Matrix Reduction
+    macaulay_zero_tol : float
+        What is considered 0 in the macaulay matrix reduction.
+    verbose : bool
+        Prints information about how the roots are computed.
     Returns
     -----------
     basisDict : dict
