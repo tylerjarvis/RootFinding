@@ -10,7 +10,7 @@ from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list
                               deg_d_polys, all_permutations_cheb, ConditioningError
 import warnings
 
-def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, max_cond_num, macaulay_zero_tol):
+def multiplication(polys, max_cond_num, macaulay_zero_tol, verbose=False, MSmatrix=0, return_all_roots=True):
     '''
     Finds the roots of the given list of multidimensional polynomials using a multiplication matrix.
 
