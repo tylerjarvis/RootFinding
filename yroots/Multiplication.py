@@ -95,7 +95,7 @@ def multiplication(polys, max_cond_num, macaulay_zero_tol, verbose=False, MSmatr
         # only return roots in the unit complex hyperbox
         return roots.T[np.all(np.abs(roots) <= 1,axis = 0)]
 
-def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0, max_cond_num, macaulay_zero_tol):
+def MSMultMatrix(polys, poly_type, max_cond_num, macaulay_zero_tol, verbose=False, MSmatrix=0):
     '''
     Finds the multiplication matrix using the reduced Macaulay matrix.
 
