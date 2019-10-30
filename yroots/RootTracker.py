@@ -14,7 +14,7 @@ class RootTracker:
         The intervals to run polishing on.
     methods : list
         The methods used to find the roots.
-    
+
     Methods
     -------
     __init__
@@ -27,9 +27,8 @@ class RootTracker:
     def __init__(self):
         self.roots = np.array([])
         self.intervals = []
-        self.polish_intervals = []
         self.methods = []
-        
+
     def add_roots(self, zeros, a, b, method):
         ''' Store the roots that were found, along with the interval they were found in and the method used.
 
@@ -53,30 +52,26 @@ class RootTracker:
                 self.roots = np.zeros([0])
             else:
                 self.roots = np.zeros([0,dim])
-            
+
         if dim > 1:
             self.roots = np.vstack([self.roots, zeros])
         else:
             self.roots = np.hstack([self.roots, zeros])
-        self.intervals += [[a,b]]*len(zeros)
-        if len(zeros) > 0:
-            self.polish_intervals += [[a,b]]
+        self.intervals += [(a,b)]*len(zeros)
         self.methods += [method]*len(zeros)
 
     def get_polish_intervals(self):
         ''' Find the intervals to run the polishing on.
-        
+
         Deletes the rest of the info as subdivision will be rerun on these intervals.
-        
+
         returns
         -------
         polish_intervals : list
             The intervals to rerun the search on.
         '''
+        polish_intervals = np.unique(self.intervals,axis=0)
         self.intervals = []
         self.roots = []
         self.methods = []
-        #This must be copied because list are mutable in python
-        polish_intervals = self.polish_intervals.copy() 
-        self.polish_intervals = []
         return polish_intervals

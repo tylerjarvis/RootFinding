@@ -3,14 +3,14 @@ import itertools
 from scipy.linalg import solve_triangular, eig
 from yroots import LinearProjection
 from yroots.polynomial import MultiCheb, MultiPower, is_power
-from yroots.MacaulayReduce import rrqr_reduceMacaulay2, rrqr_reduceMacaulay, find_degree, \
+from yroots.MacaulayReduce import rrqr_reduceMacaulay, find_degree, \
                               add_polys
 from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list, \
                               mon_combos, mon_combosHighest, sort_polys_by_degree, \
                               deg_d_polys, all_permutations_cheb, ConditioningError
 import warnings
 
-def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, max_cond_num=1.e6, macaulay_zero_tol=1.e-12):
+def multiplication(polys, max_cond_num, macaulay_zero_tol, verbose=False, MSmatrix=0, return_all_roots=True):
     '''
     Finds the roots of the given list of multidimensional polynomials using a multiplication matrix.
 
@@ -40,7 +40,7 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, max_
     '''
     #We don't want to use Linear Projection right now
     polys, transform, is_projected = polys, lambda x:x, False
-    
+
     if len(polys) == 1:
         from yroots.OneDimension import solve
         return transform(solve(polys[0], MSmatrix=0))
@@ -86,17 +86,16 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, max_
         print('\nEigeinvecs at the Constant Term\n',vecs[zeros_spot])
 
     roots = transform(vecs[var_spots]/vecs[zeros_spot])
-    
+
     #Check if too many roots
     assert roots.shape[1] <= max_number_of_roots,"Found too many roots"
-#     print(roots.T)
     if return_all_roots:
         return roots.T
     else:
         # only return roots in the unit complex hyperbox
         return roots.T[np.all(np.abs(roots) <= 1,axis = 0)]
 
-def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0, max_cond_num=1.e6, macaulay_zero_tol=1.e-12):
+def MSMultMatrix(polys, poly_type, max_cond_num, macaulay_zero_tol, verbose=False, MSmatrix=0):
     '''
     Finds the multiplication matrix using the reduced Macaulay matrix.
 
@@ -122,7 +121,7 @@ def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0, max_cond_num=1.e6,
         The multiplication matrix for a random polynomial f
     var_dict : dictionary
         Maps each variable to its position in the vector space basis
-        
+
     Raises
     ------
     ConditioningError if MacaulayReduction(...) raises a ConditioningError.
@@ -178,7 +177,7 @@ def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0, max_cond_num=1.e6,
 
     return mMatrix, var_dict
 
-def MacaulayReduction(initial_poly_list, max_cond_num=1.e6, macaulay_zero_tol=1.e-12, verbose=False):
+def MacaulayReduction(initial_poly_list, max_cond_num, macaulay_zero_tol, verbose=False):
     """Reduces the Macaulay matrix to find a vector basis for the system of polynomials.
 
     Parameters
@@ -198,7 +197,7 @@ def MacaulayReduction(initial_poly_list, max_cond_num=1.e6, macaulay_zero_tol=1.
         can be reduced to.
     VB : numpy array
         The terms in the vector basis, each row being a term.
-        
+
     Raises
     ------
     ConditioningError if rrqr_reduceMacaulay(...) raises a ConditioningError.

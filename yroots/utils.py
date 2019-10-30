@@ -14,13 +14,13 @@ class MacaulayError(np.linalg.LinAlgError):
 class ConditioningError(Exception):
     """Raised when the conditioning number of a matrix is not
     within the desired tolerance.
-    
+
     Attributes
     ----------
     message : str
         A message describing the error that occurred.
     """
-    
+
     def __init__(self, message):
         self.message = message
 
@@ -1224,17 +1224,17 @@ def isNumber(x):
         True if x is an number, otherwise False.
     """
     return isinstance(x, (int, float, complex)) and not isinstance(x, bool)
-    
+
 class Tolerances:
     '''
     Class to track the tolerances being used in the subdivision solver.
 
     Any number of tolerances may be passed in.
-    
+
     A tolerance may be a float or an iterable type (ex. list, numpy array, etc). If an iterable
     is used, all iterables passed in must be the same length. Any floats passed in will be
     resized into lists of the same length as the iterables being used.
-    
+
     If a tolerance of name "tol" is passed in, the object self.tols is created to store all
     or the values to use for "tol". self.tol will be the current value for "tol".
 
@@ -1251,7 +1251,7 @@ class Tolerances:
         The list of tolerances to be used.
     *tol : int
         The next tolerance to use.
-        
+
     Methods
     -------
     __init__
@@ -1265,7 +1265,7 @@ class Tolerances:
         for name in tolerances:
             if not isNumber(tolerances[name]):
                 numTols = len(tolerances[name])
-        
+
         for name in tolerances:
             value = tolerances[name]
             if isNumber(value): #Turns the number into a list of the right name. Stores as attribute.
@@ -1279,7 +1279,7 @@ class Tolerances:
 
         self.currTol = -1
         self.numTols = numTols
-    
+
     def nextTols(self):
         """Determines the next tolerances
 
@@ -1303,5 +1303,5 @@ class Tolerances:
                 vals.append(self.__dict__[name][self.currTol])
             #The storing is done outside the loop so the dictionary size doesn't change during iteration.
             for name, val in zip(names, vals):
-                self.__setattr__(name, val)                
+                self.__setattr__(name, val)
             return True

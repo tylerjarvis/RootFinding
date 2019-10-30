@@ -3,7 +3,7 @@ import itertools
 from scipy.linalg import solve_triangular, eig, qr
 from yroots import LinearProjection
 from yroots.polynomial import MultiCheb, MultiPower, is_power
-from yroots.MacaulayReduce import add_polys, rrqr_reduceMacaulay, rrqr_reduceMacaulay2
+from yroots.MacaulayReduce import add_polys, rrqr_reduceMacaulay
 from yroots.utils import get_var_list, slice_top, row_swap_matrix, \
                               mon_combos, newton_polish, MacaulayError
 
@@ -149,7 +149,7 @@ def division(polys, divisor_var=0, max_cond_num=1.e6, macaulay_zero_tol=1.e-12, 
 
         #Reduces the inv_matrix to solve for the y^k/x terms in the vector basis.
         Q,R = qr(inv_matrix)
-    
+
         if np.linalg.cond(R[:,:R.shape[0]]) > max_cond_num:
             return -1
 
@@ -232,7 +232,7 @@ def division(polys, divisor_var=0, max_cond_num=1.e6, macaulay_zero_tol=1.e-12, 
 #         conditions = condeigv(division_matrix.T)
 #         if np.abs(vals[i]) > 1:
 #             print(root, conditions[i])
-                
+
         if polish:
             root = newton_polish(polys,root)
 
