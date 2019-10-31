@@ -3,7 +3,7 @@ import itertools
 from scipy.linalg import solve_triangular, eig, qr
 from yroots import LinearProjection
 from yroots.polynomial import MultiCheb, MultiPower, is_power
-from yroots.MacaulayReduce import add_polys, rrqr_reduceMacaulay, rrqr_reduceMacaulay2
+from yroots.MacaulayReduce import add_polys, rrqr_reduceMacaulay
 from yroots.utils import get_var_list, slice_top, row_swap_matrix, \
                               mon_combos, newton_polish, MacaulayError
 
@@ -42,7 +42,7 @@ def condeigv(A):
     return out
 
 
-def division(polys, divisor_var=0, tol=1.e-10, verbose=False, polish=False, return_all_roots=True):
+def division(polys, divisor_var=0, max_cond_num=1.e6, macaulay_zero_tol=1.e-12, verbose=False, polish=False, return_all_roots=True):
     '''Calculates the common zeros of polynomials using a division matrix.
 
     Parameters
@@ -51,13 +51,16 @@ def division(polys, divisor_var=0, tol=1.e-10, verbose=False, polish=False, retu
         The polynomials for which the common roots are found.
     divisor_var : int
         What variable is being divided by. 0 is x, 1 is y, etc. Defaults to x.
-    tol : float
-        The tolerance parameter for the Macaulay Reduce.
+    max_cond_num : float
+        The maximum condition number of the Macaulay Matrix Reduction
+    macaulay_zero_tol : float
+        What is considered 0 in the macaulay matrix reduction.
     verbose : bool
         If True prints information about the solve.
     polish: bool
         If True runs a newton polish on the zeros before returning.
-
+    return_all_roots : bool
+        If True returns all the roots, otherwise just the ones in the unit box.
     Returns
     -----------
     zeros : numpy array
@@ -65,7 +68,7 @@ def division(polys, divisor_var=0, tol=1.e-10, verbose=False, polish=False, retu
     '''
     #This first section creates the Macaulay Matrix with the monomials that don't have
     #the divisor variable in the first columns.
-    polys, transform, is_projected = LinearProjection.remove_linear(polys, 1e-4, 1e-8)
+    polys, transform, is_projected = polys, lambda x:x, False
     if len(polys) == 1:
         from yroots.OneDimension import solve
         return transform(solve(polys[0], MSmatrix=0))
@@ -88,9 +91,9 @@ def division(polys, divisor_var=0, tol=1.e-10, verbose=False, polish=False, retu
 
     #If bottom left is zero only does the first QR reduction on top part of matrix (for speed). Otherwise does it on the whole thing
     if np.allclose(matrix[cuts[0]:,:cuts[0]], 0):
-        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy=tol)
+        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_cond_num=max_cond_num, macaulay_zero_tol=macaulay_zero_tol)
     else:
-        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy=tol)
+        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_cond_num=max_cond_num, macaulay_zero_tol=macaulay_zero_tol)
 
     if isinstance(matrix, int):
         return -1
@@ -146,8 +149,8 @@ def division(polys, divisor_var=0, tol=1.e-10, verbose=False, polish=False, retu
 
         #Reduces the inv_matrix to solve for the y^k/x terms in the vector basis.
         Q,R = qr(inv_matrix)
-    
-        if np.linalg.cond(R[:,:R.shape[0]])*tol > 1:
+
+        if np.linalg.cond(R[:,:R.shape[0]]) > max_cond_num:
             return -1
 
         inv_solutions = np.hstack((np.eye(R.shape[0]),solve_triangular(R[:,:R.shape[0]], R[:,R.shape[0]:])))
@@ -229,9 +232,9 @@ def division(polys, divisor_var=0, tol=1.e-10, verbose=False, polish=False, retu
 #         conditions = condeigv(division_matrix.T)
 #         if np.abs(vals[i]) > 1:
 #             print(root, conditions[i])
-                
+
         if polish:
-            root = newton_polish(polys,root,tol = tol)
+            root = newton_polish(polys,root)
 
         #throw out bad roots in cheb
         if not power:

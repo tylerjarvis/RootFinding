@@ -3,14 +3,14 @@ import itertools
 from scipy.linalg import solve_triangular, eig
 from yroots import LinearProjection
 from yroots.polynomial import MultiCheb, MultiPower, is_power
-from yroots.MacaulayReduce import rrqr_reduceMacaulay2, rrqr_reduceMacaulay, find_degree, \
+from yroots.MacaulayReduce import rrqr_reduceMacaulay, find_degree, \
                               add_polys
 from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list, \
                               mon_combos, mon_combosHighest, sort_polys_by_degree, \
                               deg_d_polys, all_permutations_cheb, ConditioningError
 import warnings
 
-def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, approx_tol = 1.e-4, solve_tol=1.e-8):
+def multiplication(polys, max_cond_num, macaulay_zero_tol, verbose=False, MSmatrix=0, return_all_roots=True):
     '''
     Finds the roots of the given list of multidimensional polynomials using a multiplication matrix.
 
@@ -18,12 +18,18 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, appr
     ----------
     polys : list of polynomial objects
         Polynomials to find the common roots of.
+    verbose : bool
+        Prints information about how the roots are computed.
     MSmatrix : int
         Controls which Moller-Stetter matrix is constructed. The options are:
             0 (default) -- The Moller-Stetter matrix of a random polynomial
             Some positive integer i < dimension -- The Moller-Stetter matrix of x_i
-    verbose : bool
-        Prints information about how the roots are computed.
+    return_all_roots : bool
+        If True returns all the roots, otherwise just the ones in the unit box.
+    max_cond_num : float
+        The maximum condition number of the Macaulay Matrix Reduction
+    macaulay_zero_tol : float
+        What is considered 0 in the macaulay matrix reduction.
     returns
     -------
     roots : numpy array
@@ -32,7 +38,9 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, appr
     ------
     ConditioningError if MSMultMatrix(...) raises a ConditioningError.
     '''
-    polys, transform, is_projected = LinearProjection.remove_linear(polys, approx_tol, solve_tol)
+    #We don't want to use Linear Projection right now
+    polys, transform, is_projected = polys, lambda x:x, False
+
     if len(polys) == 1:
         from yroots.OneDimension import solve
         return transform(solve(polys[0], MSmatrix=0))
@@ -47,7 +55,7 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, appr
     max_number_of_roots = np.prod(degrees)
 
     try:
-        m_f, var_dict = MSMultMatrix(polys, poly_type, verbose=verbose, MSmatrix=MSmatrix)
+        m_f, var_dict = MSMultMatrix(polys, poly_type, verbose=verbose, MSmatrix=MSmatrix, max_cond_num=max_cond_num, macaulay_zero_tol=macaulay_zero_tol)
     except ConditioningError as e:
         raise e
 
@@ -81,14 +89,13 @@ def multiplication(polys, verbose=False, MSmatrix=0, return_all_roots=True, appr
 
     #Check if too many roots
     assert roots.shape[1] <= max_number_of_roots,"Found too many roots"
-
     if return_all_roots:
         return roots.T
     else:
         # only return roots in the unit complex hyperbox
         return roots.T[np.all(np.abs(roots) <= 1,axis = 0)]
 
-def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0, tol=1.e-10):
+def MSMultMatrix(polys, poly_type, max_cond_num, macaulay_zero_tol, verbose=False, MSmatrix=0):
     '''
     Finds the multiplication matrix using the reduced Macaulay matrix.
 
@@ -98,26 +105,29 @@ def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0, tol=1.e-10):
         The polynomials to find the common zeros of
     poly_type : string
         The type of the polynomials in polys
+    verbose : bool
+        Prints information about how the roots are computed.
     MSmatrix : int
         Controls which Moller-Stetter matrix is constructed. The options are:
             0 (default) -- The Moller-Stetter matrix of a random polynomial
             Some positive integer i < dimension -- The Moller-Stetter matrix of x_i
-    verbose : bool
-        Prints information about how the roots are computed.
-
+    max_cond_num : float
+        The maximum condition number of the Macaulay Matrix Reduction
+    macaulay_zero_tol : float
+        What is considered 0 in the macaulay matrix reduction.
     Returns
     -------
     multiplicationMatrix : 2D numpy array
         The multiplication matrix for a random polynomial f
     var_dict : dictionary
         Maps each variable to its position in the vector space basis
-        
+
     Raises
     ------
     ConditioningError if MacaulayReduction(...) raises a ConditioningError.
     '''
     try:
-        basisDict, VB = MacaulayReduction(polys, accuracy=tol, verbose=verbose)
+        basisDict, VB = MacaulayReduction(polys, max_cond_num=max_cond_num, macaulay_zero_tol=macaulay_zero_tol, verbose=verbose)
     except ConditioningError as e:
         raise e
 
@@ -167,16 +177,19 @@ def MSMultMatrix(polys, poly_type, verbose=False, MSmatrix=0, tol=1.e-10):
 
     return mMatrix, var_dict
 
-def MacaulayReduction(initial_poly_list, accuracy = 0, verbose=False):
+def MacaulayReduction(initial_poly_list, max_cond_num, macaulay_zero_tol, verbose=False):
     """Reduces the Macaulay matrix to find a vector basis for the system of polynomials.
 
     Parameters
     --------
     initial_poly_list: list
         The polynomials in the system we are solving.
-    accuracy: float
-        How small we want a number to be before assuming it is zero.
-
+    max_cond_num : float
+        The maximum condition number of the Macaulay Matrix Reduction
+    macaulay_zero_tol : float
+        What is considered 0 in the macaulay matrix reduction.
+    verbose : bool
+        Prints information about how the roots are computed.
     Returns
     -----------
     basisDict : dict
@@ -184,7 +197,7 @@ def MacaulayReduction(initial_poly_list, accuracy = 0, verbose=False):
         can be reduced to.
     VB : numpy array
         The terms in the vector basis, each row being a term.
-        
+
     Raises
     ------
     ConditioningError if rrqr_reduceMacaulay(...) raises a ConditioningError.
@@ -206,7 +219,7 @@ def MacaulayReduction(initial_poly_list, accuracy = 0, verbose=False):
         print('\nLocation of Cuts in the Macaulay Matrix into [ Mb | M1* | M2* ]\n', cuts)
 
     try:
-        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = accuracy)
+        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_cond_num=max_cond_num, macaulay_zero_tol=macaulay_zero_tol)
     except ConditioningError as e:
         raise e
 
