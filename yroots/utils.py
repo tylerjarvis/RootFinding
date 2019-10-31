@@ -2,7 +2,7 @@
 import numpy as np
 import itertools
 from scipy.linalg import qr, solve_triangular
-from scipy.misc import comb
+from scipy.special import comb
 import time
 
 class InstabilityWarning(Warning):
