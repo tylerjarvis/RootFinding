@@ -127,7 +127,7 @@ def MSMultMatrix(polys, poly_type, max_cond_num, macaulay_zero_tol, verbose=Fals
     ConditioningError if MacaulayReduction(...) raises a ConditioningError.
     '''
     try:
-        basisDict, VB = MacaulayReduction(polys, max_cond_num, macaulay_zero_tol, verbose=verbose)
+        basisDict, VB = MacaulayReduction(polys, max_cond_num=max_cond_num, macaulay_zero_tol=macaulay_zero_tol, verbose=verbose)
     except ConditioningError as e:
         raise e
 
@@ -219,7 +219,7 @@ def MacaulayReduction(initial_poly_list, max_cond_num, macaulay_zero_tol, verbos
         print('\nLocation of Cuts in the Macaulay Matrix into [ Mb | M1* | M2* ]\n', cuts)
 
     try:
-        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_cond_num, macaulay_zero_tol)
+        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_cond_num=max_cond_num, macaulay_zero_tol=macaulay_zero_tol)
     except ConditioningError as e:
         raise e
 

@@ -7,7 +7,7 @@ the approximation degree is small enough to be solved efficiently.
 """
 
 import numpy as np
-from numpy.fft.fftpack import fftn
+from numpy.fft import fftn
 from yroots.OneDimension import divCheb,divPower,multCheb,multPower,solve
 from yroots.Division import division
 from yroots.Multiplication import multiplication
@@ -19,6 +19,7 @@ from yroots.RootTracker import RootTracker
 from itertools import product
 from matplotlib import pyplot as plt
 from scipy.linalg import lu
+from utils import mon_combos_limited_wrap
 import itertools
 import time
 import warnings
@@ -707,64 +708,6 @@ def trim_coeffs(coeffs, abs_approx_tol, rel_approx_tol, inf_norms, errors):
         errors[num] = error
 
     return coeffs, good_approx, errors
-
-@Memoize
-def mon_combos_limited_wrap(deg, dim, shape):
-    '''A wrapper for mon_combos_limited to memoize.
-
-    Parameters
-    --------
-    deg: int
-        Degree of the monomials desired.
-    dim : int
-        Dimension of the monomials desired.
-    shape : tuple
-        The limiting shape. The i'th index of the mon can't be bigger than the i'th index of the shape.
-
-    Returns
-    -----------
-    mon_combo_limited_wrap : list
-        A list of all the monomials.
-    '''
-    return mon_combos_limited([0]*dim,deg,shape)
-
-def mon_combos_limited(mon, remaining_degrees, shape, cur_dim = 0):
-    '''Finds all the monomials of a given degree that fits in a given shape and returns them. Works recursively.
-
-    Very similar to mon_combos, but only returns the monomials of the desired degree.
-
-    Parameters
-    --------
-    mon: list
-        A list of zeros, the length of which is the dimension of the desired monomials. Will change
-        as the function searches recursively.
-    remaining_degrees : int
-        Initially the degree of the monomials desired. Will decrease as the function searches recursively.
-    shape : tuple
-        The limiting shape. The i'th index of the mon can't be bigger than the i'th index of the shape.
-    cur_dim : int
-        The current position in the list the function is iterating through. Defaults to 0, but increases
-        in each step of the recursion.
-
-    Returns
-    -----------
-    answers : list
-        A list of all the monomials.
-    '''
-    answers = []
-    if len(mon) == cur_dim+1: #We are at the end of mon, no more recursion.
-        if remaining_degrees < shape[cur_dim]:
-            mon[cur_dim] = remaining_degrees
-            answers.append(mon.copy())
-        return answers
-    if remaining_degrees == 0: #Nothing else can be added.
-        answers.append(mon.copy())
-        return answers
-    temp = mon.copy() #Quicker than copying every time inside the loop.
-    for i in range(min(shape[cur_dim],remaining_degrees+1)): #Recursively add to mon further down.
-        temp[cur_dim] = i
-        answers.extend(mon_combos_limited(temp, remaining_degrees-i, shape, cur_dim+1))
-    return answers
 
 def good_zeros_1d(zeros, imag_tol, real_tol):
     """Get the real zeros in the -1 to 1 interval
