@@ -1008,7 +1008,6 @@ def all_permutations(deg, dim, matrixDegree, permutations = None, current_degree
                     break
     return permutations
 
-
 def memoize_permutaions(function):
     """Specially designed for memoizing all_permutations.
     """

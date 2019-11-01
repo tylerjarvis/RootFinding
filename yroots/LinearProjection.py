@@ -1,6 +1,6 @@
 import numpy as np
 from numpy.fft import fftn
-from yroots.utils import get_var_list, mon_combos
+from yroots.utils import get_var_list, mon_combos, mon_combos_limited_wrap
 from yroots.polynomial import Polynomial, MultiCheb
 from scipy.linalg import qr
 from scipy import sparse as sp
@@ -225,62 +225,94 @@ def bounding_parallelepiped(linear): #TODO what if things are outside of the eva
     edges = Q[:,:-1].dot(np.diag(max_vals-min_vals))
     return p0, edges
 
-# def remove_affine_constraint(polys):
-#     """This function removes linear polynomials from a list by
-#     picking the variable in each linear polynomial with the coefficient closet
-#     to one. This function assumes that the polynomials are in Chebyshev form.
-#
-#     Parameters
-#     ----------
-#     polys : list of polynomial objects
-#         Polynomials to find the common roots of.
-#
-#     Returns
-#     -------
-#     polys : list of polynomial objects
-#         Polynomials to find the common roots of.
-#     transform : function
-#         A function mapping the roots of the output system to the roots of the
-#         original system.
-#     """
-#     #detect which polynomials are linear
-#     linear = np.where(polydegs == 1)[0]
-#     nonlinear = np.where(polydegs != 1)[0]
-#     power = is_power[polys[0]]
-#
-#
-#     #remove each linear polynomial
-#     #for hyperplane in linear:
-#
-#     #for now, just one linear polynomial
-#     newpolys = []
-#     removing_var = get_removing_var(hyperplane.coeff)
-#     new_dim = polys[0].dim-1
-#     transform, lin_combo = get_transform(hyperplane.coeff, removing_var)
-#     #find the maximum degree of the polynomial in terms of removing_var
-#     maxdeg = np.max([poly.coeff.shape[removing_var] for poly in polys])
-#     Td = get_Td_expressions(lin_combo,maxdeg)
-#     #get the projection of the coefficient matrix of each nonlinear polynomial
-#     for poly in nonlinear:
-#         coeff = transform_coeff_matrix(poly.coeff, lin_combo, removing_var)
-#         newpolys.append(MultiCheb(coeff))
-#
-#     return newpolys
+def remove_affine_constraint(polys):
+    """This function removes linear polynomials from a list by
+    picking the variable in each linear polynomial with the coefficient closet
+    to one. This function assumes that the polynomials are in Chebyshev form.
 
-# def get_removing_var():
+    Parameters
+    ----------
+    polys : list of polynomial objects
+        Polynomials to find the common roots of.
 
-# def get_transform():
+    Returns
+    -------
+    polys : list of polynomial objects
+        Polynomials to find the common roots of.
+    transform : function
+        A function mapping the roots of the output system to the roots of the
+        original system.
+    """
+    #detect which polynomials are linear
+    linear = np.where(polydegs == 1)[0]
+    nonlinear = np.where(polydegs != 1)[0]
 
-def transform_coeff_matrix(coeff,Td,removing_var):
-    #matrix for storing the new coefficient
-    newcoeff_shape = list(coeff.shape)
-    del newcoeff_shape[removing_var]
+    #remove each linear polynomial
+    #for hyperplane in linear:
+
+    #for now, just one linear polynomial
+    newpolys = []
+    removing_var, transform, lin_combo = pick_removing_var(polys[linear].coeff)
+    new_dim = polys[0].dim-1
+    #get the projection of the coefficient matrix of each nonlinear polynomial
+    for poly_idx in nonlinear:
+        coeff = transform_coeff_matrix(polys[poly_idx].coeff, lin_combo, removing_var)
+        newpolys.append(MultiCheb(coeff))
+
+    return newpolys
+
+def pick_removing_var(coeff):
+    olddim = len(coeff.shape)
+    #pick linear term with coeff closest to 1 as the removing_var
+    lin_combo = coeff[slice(mon_combos_limited_wrap(1, olddim, coeff.shape))][::-1]
+    removing_var = np.argmin(np.abs(coeffs - lin_combo))
+
+    #update the affine terms into a representation of
+    # xi = b + c0*x0 + c1*x1 + ... + cn*xn.
+    lin_combo = list(lin_combo)
+    removing_var_coeff = lin_combo.pop(removing_var)
+    const_term = coeff[tuple([0]*olddim)] #add in the constant term
+    lin_combo = -np.array([const_term] + lin_combo)/removing_var_coeff
+
+    #define the transform later used to transform the roots back
+    def transform(root):
+        return list(root).insert(removing_var,np.sum(root*lin_combo) + const_term)
+
+    return removing_var, transform, lin_combo
+
+def get_spot(combo,term,Td_idx,removing_var):
+    spot = []
+    for l,is_plus in enumerate(combo):
+        if is_plus:
+            spot.append(term[l] + Td_idx[l])
+        else:
+            spot.append(abs(term[l] - Td_idx[l]))
+    return tuple(spot)
+
+def transform_coeff_matrix(oldcoeff,lin_combo,removing_var):
+    #make matrix for storing the new coefficientString
+    #also get the max degree of removing_var in the oldcoeff
+    newcoeff_shape = list(oldcoeff.shape)
+    max_deg_removing_var = newcoeff_shape.pop(removing_var)
+    newcoeff_shape = [deg + max_deg_removing_var - 1 for deg in newcoeff_shape]
     newcoeff = np.zeros(newcoeff_shape)
-    #True means i+k, false means abs(i-k)
-    for i in product(*[[True,False]]*4):
-        print(bin(i))
+    #find expressions for Td(xi) for each d up to max_deg_removing_var
+    new_dim,Td = get_Td_expressions(lin_combo,max_deg_removing_var)
 
-def get_Td_expresssions(lin_combo,maxdeg):
+    #TODO: Probably a better way to do this with broadcasting, which would speed this up a lot
+    for term,coeff in np.ndenumerate(oldcoeff):
+        #take off the removing_var degree of the term
+        term = list(term)
+        d = term.pop(removing_var)
+        for Td_idx in mon_combos([0]*new_dim,d):
+            increment = Td[d][tuple(Td_idx)] * coeff
+            #True means i+k, false means abs(i-k)
+            for combo in product(*[[True,False]]*new_dim):
+                spot = get_spot(combo,term,Td_idx,removing_var)
+                newcoeff[spot] += increment
+    return newcoeff
+
+def get_Td_expressions(lin_combo,maxdeg):
     """This function expresses Td(xi) as a Chebyshev-form polynomial
     in the other variables given that xi = b + c0*x0 + c1*x1 + ... + cn*xn.
 
@@ -291,7 +323,7 @@ def get_Td_expresssions(lin_combo,maxdeg):
         then all of the coefficients of the variables (skipping i).
         In other words, lin_combo = [b,c0,c1,...cn]
     maxdeg : int
-        Maximum degree to compute Td(xi) in
+        Maximum degree to compute Td(xi) for
 
     Returns
     -------
@@ -303,18 +335,18 @@ def get_Td_expresssions(lin_combo,maxdeg):
 
     Td = {}
 
-    #T0
+    #T0(xi)
     Td[0] = np.zeros([maxdeg+1]*new_dim)
     Td[0][tuple([0]*new_dim)] += 1
 
-    #T1
+    #T1(xi)
     Td[1] = np.zeros([maxdeg+1]*new_dim)
     Td[1][tuple([0]*new_dim)] += lin_combo[0]
     for i,var in enumerate(get_var_list(new_dim)):
         Td[1][var] += lin_combo[i+1]
 
     for n in range(1,maxdeg):
-        #Td+1 = Td-1(lin_combo) + lin_combo[0] * Td(lin_combo)
+        #Td+1(xi) = Td-1(lin_combo) + lin_combo[0] * Td(lin_combo)
         # + lin_combo[1] x2 * Td(lin_combo) + lin_combo[2] x3 * Td(lin_combo) + ...
         Td[n+1] = Td[n-1] + lin_combo[0] * Td[n]
 
@@ -331,8 +363,8 @@ def get_Td_expresssions(lin_combo,maxdeg):
                     else:
                         slice1.append(slice(None,None,None))
                         slice_neg1.append(slice(None,None,None))
-                Td[n+1][tuple(slices1)] += lin_combo[j+1]*Td[n][tuple(slices_neg1)]
+                Td[n+1][tuple(slice1)] += lin_combo[j+1]*Td[n][tuple(slice_neg1)]
         else:
             Td[n+1][1:] += lin_combo[1]*Td[n][:-1]
 
-    return Td
+    return Td, new_dim
