@@ -262,12 +262,32 @@ def remove_affine_constraint(polys):
     return newpolys
 
 def pick_removing_var(coeff):
+    """Picks which variable to remove using an affine constraint
+    0 = b + c0*x0 + c1*x1 + ... + cn*xn.
+
+    Parameters
+    ----------
+    coeff : ndarray
+        coefficient tensor of the affine constraint/hyperplane
+
+    Returns
+    -------
+    removing_var : int
+        Variable xi to remove
+    transform : function
+        A function mapping the roots of the output system to the roots of the
+        original system.
+    lin_combo : ndarray (new_dim,)
+        Expression for xi. First entry is the constant term,
+        then all of the coefficients of the variables (skipping i).
+        In other words, lin_combo is [-b/ci,-c0/ci,-c1/ci,...,-cn/ci]
+    """
     olddim = len(coeff.shape)
     #pick linear term with coeff closest to 1 as the removing_var
     lin_combo = coeff[slice(mon_combos_limited_wrap(1, olddim, coeff.shape))][::-1]
-    removing_var = np.argmin(np.abs(coeffs - lin_combo))
+    removing_var = np.argmin(np.abs(lin_combo - 1))
 
-    #update the affine terms into a representation of
+    #Turn the affine terms into a representation of
     # xi = b + c0*x0 + c1*x1 + ... + cn*xn.
     lin_combo = list(lin_combo)
     removing_var_coeff = lin_combo.pop(removing_var)
@@ -276,11 +296,38 @@ def pick_removing_var(coeff):
 
     #define the transform later used to transform the roots back
     def transform(root):
-        return list(root).insert(removing_var,np.sum(root*lin_combo) + const_term)
+        return list(root).insert(removing_var,np.sum(root*lin_combo,axis=1) + const_term)
 
     return removing_var, transform, lin_combo
 
-def get_spot(combo,term,Td_idx,removing_var):
+def get_spot(combo,term,Td_idx):
+    """Helper function for transform_coeff_matrix. Determines where to update
+    the new coefficient tensor for certain products of chebyshev monomials.
+    For example, in 2-dimensions, we compute how Td(xi) is represented as a sum
+    of Ti(y)Tj(z), but then in order to multiply together Td(xi)Tk(y)Tl(z)
+    we have to compute  Ti(y)Tj(z)*Tk(y)Tl(z). Because
+    Ti(y)Tk(y) = Ti+k(y)/2 + T|i-k|(y)/2, we have to update 2^new_dim spots
+    each time.
+
+    Parameters
+    ----------
+    combo : list of bools, length new_dim
+        which of the 2^new_dim spots we're going to update. For each dimension,
+        True indicates that we're updating Ti+k(y)/2 and False indicates that
+        we're updating T|i-k|(y)/2.
+    term : list or tuple
+        which terms in the old coefficient tensor we're multiplying by.
+        In the example, this would be Tk(y)Tl(z), represented as [k,l]
+    Td_idx : list or tuple
+        which terms in the expression of Td(xi) we're multiplying by.
+        In the example, this would be Td(xi) = Ti(y)Tj(z), represented as [i,j]
+
+    Returns
+    -------
+    spot : list of bools
+        index in the new coefficient tensor to update
+
+    """
     spot = []
     for l,is_plus in enumerate(combo):
         if is_plus:
@@ -290,11 +337,29 @@ def get_spot(combo,term,Td_idx,removing_var):
     return tuple(spot)
 
 def transform_coeff_matrix(oldcoeff,lin_combo,removing_var):
-    #make matrix for storing the new coefficientString
+    """Transforms a coefficient tensor into a lower dimensional coefficient tensor.
+
+    Parameters
+    ----------
+    oldcoeff : ndarray
+        coefficient tensor of the old polynomial
+    lin_combo : ndarray (new_dim,)
+        Expression for xi. First entry is the constant term,
+        then all of the coefficients of the variables (skipping i).
+        In other words, lin_combo is [-b/ci,-c0/ci,-c1/ci,...,-cn/ci]
+    removing_var : int
+        Variable xi to remove
+
+    Returns
+    -------
+    newcoeff : ndarray
+        coefficient tensor of the new polynomial
+    """
+    #make matrix for storing the new coefficient
     #also get the max degree of removing_var in the oldcoeff
     newcoeff_shape = list(oldcoeff.shape)
     max_deg_removing_var = newcoeff_shape.pop(removing_var)
-    newcoeff_shape = [deg + max_deg_removing_var - 1 for deg in newcoeff_shape]
+    newcoeff_shape = [deg-1 + max_deg_removing_var for deg in newcoeff_shape]
     newcoeff = np.zeros(newcoeff_shape)
     #find expressions for Td(xi) for each d up to max_deg_removing_var
     new_dim,Td = get_Td_expressions(lin_combo,max_deg_removing_var)
@@ -314,14 +379,14 @@ def transform_coeff_matrix(oldcoeff,lin_combo,removing_var):
 
 def get_Td_expressions(lin_combo,maxdeg):
     """This function expresses Td(xi) as a Chebyshev-form polynomial
-    in the other variables given that xi = b + c0*x0 + c1*x1 + ... + cn*xn.
+    in the other variables given that 0 = b + c0*x0 + c1*x1 + ... + cn*xn.
 
     Parameters
     ----------
-    lin_combo : list of floats
-        Expression for xi. First entry should be the constant term,
+    lin_combo : ndarray (new_dim,)
+        Expression for xi. First entry is the constant term,
         then all of the coefficients of the variables (skipping i).
-        In other words, lin_combo = [b,c0,c1,...cn]
+        In other words, lin_combo is [-b/ci,-c0/ci,-c1/ci,...,-cn/ci]
     maxdeg : int
         Maximum degree to compute Td(xi) for
 
