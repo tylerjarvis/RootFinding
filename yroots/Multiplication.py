@@ -55,7 +55,7 @@ def multiplication(polys, max_cond_num, macaulay_zero_tol, verbose=False, MSmatr
     max_number_of_roots = np.prod(degrees)
 
     try:
-        m_f, var_dict = MSMultMatrix(polys, poly_type, verbose, MSmatrix, max_cond_num, macaulay_zero_tol)
+        m_f, var_dict = MSMultMatrix(polys, poly_type, verbose=verbose, MSmatrix=MSmatrix, max_cond_num=max_cond_num, macaulay_zero_tol=macaulay_zero_tol)
     except ConditioningError as e:
         raise e
 
