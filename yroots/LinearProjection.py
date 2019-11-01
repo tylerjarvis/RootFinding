@@ -4,7 +4,6 @@ from yroots.utils import get_var_list, mon_combos
 from yroots.polynomial import Polynomial, MultiCheb
 from scipy.linalg import qr
 from scipy import sparse as sp
-from utils import get_var_list, mon_combos_limited_wrap
 from itertools import product
 
 def cheb_remove_linear(polys, approx_tol, solve_tol, transform_in=None):
@@ -272,21 +271,16 @@ def bounding_parallelepiped(linear): #TODO what if things are outside of the eva
 
 # def get_transform():
 
-# def transform_coeff_matrix(coeff,Td,removing_var):
-#     #matrix for storing the new coefficient
-#     newcoeff_shape = list(coeff.shape)
-#     del newcoeff_shape[removing_var]
-#     newcoeff = np.zeros(newcoeff_shape)
-#
-#     for term in old tensor: #yeah no clue how to get all those terms. mon_combos_limited only you gets stuff of one degree at a time
-#         deg = term.pop(removing_var)
-#         new_expression = Td[deg]
-#
-#         for expression_term in new_expression: #yeah no clue how to get all those terms. mon_combos_limited only you gets stuff of one degree at a time
-#             #cartesian product
-#             for new_term in product([term[]])
+def transform_coeff_matrix(coeff,Td,removing_var):
+    #matrix for storing the new coefficient
+    newcoeff_shape = list(coeff.shape)
+    del newcoeff_shape[removing_var]
+    newcoeff = np.zeros(newcoeff_shape)
+    #True means i+k, false means abs(i-k)
+    for i in product(*[[True,False]]*4):
+        print(bin(i))
 
-def get_Td_transforms(lin_combo,maxdeg):
+def get_Td_expresssions(lin_combo,maxdeg):
     """This function expresses Td(xi) as a Chebyshev-form polynomial
     in the other variables given that xi = b + c0*x0 + c1*x1 + ... + cn*xn.
 

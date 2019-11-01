@@ -19,7 +19,7 @@ from yroots.RootTracker import RootTracker
 from itertools import product
 from matplotlib import pyplot as plt
 from scipy.linalg import lu
-from utils import mon_combos_limited_wrap
+from yroots.utils import mon_combos_limited_wrap, Memoize
 import itertools
 import time
 import warnings
@@ -224,19 +224,6 @@ def interval_approximate_1d(f,a,b,deg,inf_norm=None):
     coeffs[0]/=2
     coeffs[deg]/=2
     return coeffs[:deg+1], inf_norm
-
-class Memoize:
-    """
-    A Memoization class taken from Stack Overflow
-    https://stackoverflow.com/questions/1988804/what-is-memoization-and-how-can-i-use-it-in-python
-    """
-    def __init__(self, f):
-        self.f = f
-        self.memo = {}
-    def __call__(self, *args):
-        if not args in self.memo:
-            self.memo[args] = self.f(*args)
-        return self.memo[args]
 
 @Memoize
 def get_cheb_grid(deg, dim, has_eval_grid):
