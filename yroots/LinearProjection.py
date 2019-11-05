@@ -252,14 +252,14 @@ def remove_affine_constraint(polys):
 
     #for now, just one linear polynomial
     newpolys = []
-    removing_var, transform, lin_combo = pick_removing_var(polys[linear].coeff)
+    removing_var, lin_combo = pick_removing_var(polys[linear].coeff)
     new_dim = polys[0].dim-1
     #get the projection of the coefficient matrix of each nonlinear polynomial
     for poly_idx in nonlinear:
         coeff = transform_coeff_matrix(polys[poly_idx].coeff, lin_combo, removing_var)
         newpolys.append(MultiCheb(coeff))
 
-    return newpolys
+    return newpolys, lin_combo, removing_var
 
 def pick_removing_var(coeff):
     """Picks which variable to remove using an affine constraint
@@ -284,7 +284,7 @@ def pick_removing_var(coeff):
     """
     olddim = len(coeff.shape)
     #pick linear term with coeff closest to 1 as the removing_var
-    lin_combo = coeff[slice(mon_combos_limited_wrap(1, olddim, coeff.shape))][::-1]
+    lin_combo = coeff[slice(get_var_list(1, olddim, coeff.shape))] #TODO: TEST
     removing_var = np.argmin(np.abs(lin_combo - 1))
 
     #Turn the affine terms into a representation of
@@ -294,11 +294,7 @@ def pick_removing_var(coeff):
     const_term = coeff[tuple([0]*olddim)] #add in the constant term
     lin_combo = -np.array([const_term] + lin_combo)/removing_var_coeff
 
-    #define the transform later used to transform the roots back
-    def transform(root):
-        return list(root).insert(removing_var,np.sum(root*lin_combo,axis=1) + const_term)
-
-    return removing_var, transform, lin_combo
+    return removing_var, lin_combo
 
 def get_spot(combo,term,Td_idx):
     """Helper function for transform_coeff_matrix. Determines where to update
@@ -357,23 +353,32 @@ def transform_coeff_matrix(oldcoeff,lin_combo,removing_var):
     """
     #make matrix for storing the new coefficient
     #also get the max degree of removing_var in the oldcoeff
-    newcoeff_shape = list(oldcoeff.shape)
-    max_deg_removing_var = newcoeff_shape.pop(removing_var)
-    newcoeff_shape = [deg-1 + max_deg_removing_var for deg in newcoeff_shape]
+    starter_slice_shape = list(oldcoeff.shape)
+    max_deg_removing_var = starter_slice_shape.pop(removing_var)
+    starter_slice_to = tuple([slice(0,n,None) for n in starter_slice_shape])
+    newcoeff_shape = [deg-1 + max_deg_removing_var for deg in starter_slice_shape]
     newcoeff = np.zeros(newcoeff_shape)
     #find expressions for Td(xi) for each d up to max_deg_removing_var
-    new_dim,Td = get_Td_expressions(lin_combo,max_deg_removing_var)
+    Td,new_dim = get_Td_expressions(lin_combo,max_deg_removing_var)
 
-    #TODO: Probably a better way to do this with broadcasting, which would speed this up a lot
-    for term,coeff in np.ndenumerate(oldcoeff):
+    #we start off with the face that was not changed by mutliplication
+    getAll = slice(None,None,None)
+    starter_slice_from = tuple([getAll]*(removing_var)+[slice(1)]+[getAll]*(len(oldcoeff.shape)-removing_var-1))
+    newcoeff[starter_slice_to] = oldcoeff[starter_slice_from].reshape(starter_slice_shape)
+    # other_nonzero_terms_slice = tuple([slice(None,None,None)]*(removing_var-1)+[slice(1,None,None)]+[slice(None,None,None)]*(len(oldcoeff.shape)-removing_var))
+    for term in zip(*np.where(oldcoeff!=0)):
+        #we've already accounted for that face
+        if term[removing_var] == 0:
+            continue
         #take off the removing_var degree of the term
+        coeff = oldcoeff[term]
         term = list(term)
         d = term.pop(removing_var)
         for Td_idx in mon_combos([0]*new_dim,d):
-            increment = Td[d][tuple(Td_idx)] * coeff
+            increment = Td[d][tuple(Td_idx)] * coeff / 2**new_dim
             #True means i+k, false means abs(i-k)
-            for combo in product(*[[True,False]]*new_dim):
-                spot = get_spot(combo,term,Td_idx,removing_var)
+            for combo in product(*[[True,False]]*new_dim): #TODO: faster sparsity stuff there
+                spot = get_spot(combo,term,Td_idx)
                 newcoeff[spot] += increment
     return newcoeff
 
@@ -402,34 +407,46 @@ def get_Td_expressions(lin_combo,maxdeg):
 
     #T0(xi)
     Td[0] = np.zeros([maxdeg+1]*new_dim)
-    Td[0][tuple([0]*new_dim)] += 1
+    Td[0][tuple([0]*new_dim)] = 1
 
     #T1(xi)
     Td[1] = np.zeros([maxdeg+1]*new_dim)
-    Td[1][tuple([0]*new_dim)] += lin_combo[0]
-    for i,var in enumerate(get_var_list(new_dim)):
-        Td[1][var] += lin_combo[i+1]
+    Td[1][tuple([0]*new_dim)] = lin_combo[0]
+    varlist = get_var_list(new_dim)
+    for i,var in enumerate(varlist):
+        Td[1][var] = lin_combo[i+1]
 
     for n in range(1,maxdeg):
-        #Td+1(xi) = Td-1(lin_combo) + lin_combo[0] * Td(lin_combo)
+        #Td+1(xi) = -Td-1(lin_combo) + lin_combo[0] * Td(lin_combo)
         # + lin_combo[1] x2 * Td(lin_combo) + lin_combo[2] x3 * Td(lin_combo) + ...
-        Td[n+1] = Td[n-1] + lin_combo[0] * Td[n]
+        Td[n+1] = -Td[n-1] + 2*lin_combo[0] * Td[n]
 
         #breaks into cases for array slicing purposes
         if new_dim > 1:
-            for j,var in enumerate(get_var_list(new_dim)):
-                #slicers for [1:] and [:-1] in the jth direction
-                slice1 = []
-                slice_neg1 = []
+            for j,var in enumerate(varlist):
+                #slicers in the jth direction for moving coefficient tensors around
+                sliceupdown_from = []
+                sliceup_to = []
+                slicedown_to = []
+                sliceface_from = []
+                sliceface_to = []
                 for k in range(new_dim):
                     if j == k:
-                        slice1.append(slice(1,None,None))
-                        slice_neg1.append(slice(None,-1,None))
+                        sliceupdown_from.append(slice(1,-1,None))
+                        sliceup_to.append(slice(2,None,None))
+                        slicedown_to.append(slice(None,-2,None))
+                        sliceface_from.append(slice(1))
+                        sliceface_to.append(slice(1,2,None))
                     else:
-                        slice1.append(slice(None,None,None))
-                        slice_neg1.append(slice(None,None,None))
-                Td[n+1][tuple(slice1)] += lin_combo[j+1]*Td[n][tuple(slice_neg1)]
+                        sliceupdown_from.append(slice(None,None,None))
+                        sliceup_to.append(slice(None,None,None))
+                        slicedown_to.append(slice(None,None,None))
+                        sliceface_from.append(slice(None,None,None))
+                        sliceface_to.append(slice(None,None,None))
+                Td[n+1][tuple(sliceup_to)] += lin_combo[j+1]*Td[n][tuple(sliceupdown_from)]
+                Td[n+1][tuple(slicedown_to)] += lin_combo[j+1]*Td[n][tuple(sliceupdown_from)]
+                Td[n+1][tuple(sliceface_to)] += 2*lin_combo[j+1]*Td[n][tuple(sliceface_from)]
         else:
-            Td[n+1][1:] += lin_combo[1]*Td[n][:-1]
+            Td[n+1][1:] += 2*lin_combo[1]*Td[n][:-1]
 
     return Td, new_dim
