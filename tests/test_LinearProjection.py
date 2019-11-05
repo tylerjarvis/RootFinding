@@ -1,5 +1,5 @@
 import numpy as np
-from yroots.LinearProjection import remove_linear, project_down, bounding_parallelepiped, proj_approximate_nd
+from yroots.LinearProjection import cheb_remove_linear, project_down, bounding_parallelepiped, proj_approximate_nd
 from yroots.polynomial import Polynomial, MultiCheb, MultiPower, getPoly
 from yroots.MacaulayReduce import find_degree, mon_combos
 from yroots import polyroots as pr

@@ -726,6 +726,19 @@ def mon_combos(mon, numLeft, spot = 0):
         answers += mon_combos(temp, numLeft-i, spot+1)
     return answers
 
+class Memoize:
+    """
+    A Memoization class taken from Stack Overflow
+    https://stackoverflow.com/questions/1988804/what-is-memoization-and-how-can-i-use-it-in-python
+    """
+    def __init__(self, f):
+        self.f = f
+        self.memo = {}
+    def __call__(self, *args):
+        if not args in self.memo:
+            self.memo[args] = self.f(*args)
+        return self.memo[args]
+
 @Memoize
 def mon_combos_limited_wrap(deg, dim, shape):
     '''A wrapper for mon_combos_limited to memoize.
@@ -994,7 +1007,6 @@ def all_permutations(deg, dim, matrixDegree, permutations = None, current_degree
                     permutations[tuple(mon)] = permutations[var][permutations[diff]]
                     break
     return permutations
-
 
 def memoize_permutaions(function):
     """Specially designed for memoizing all_permutations.
