@@ -253,10 +253,11 @@ def remove_affine_constraint(polys):
     #for now, just one linear polynomial
     newpolys = []
     removing_var, lin_combo = pick_removing_var(polys[linear].coeff)
-    new_dim = polys[0].dim-1
     #get the projection of the coefficient matrix of each nonlinear polynomial
+    max_deg_removing_var = np.max([poly[i].coeff.shape[removing_var] for i in nonlinear])
+    Td = get_Td_expressions(lin_combo,max_deg_removing_var)
     for poly_idx in nonlinear:
-        coeff = transform_coeff_matrix(polys[poly_idx].coeff, lin_combo, removing_var)
+        coeff = transform_coeff_matrix(Td,polys[poly_idx].coeff, lin_combo, removing_var)
         newpolys.append(MultiCheb(coeff))
 
     return newpolys, lin_combo, removing_var
@@ -284,7 +285,7 @@ def pick_removing_var(coeff):
     """
     olddim = len(coeff.shape)
     #pick linear term with coeff closest to 1 as the removing_var
-    lin_combo = coeff[slice(get_var_list(1, olddim, coeff.shape))] #TODO: TEST
+    lin_combo = coeff[slice(get_var_list(1, olddim, coeff.shape))]
     removing_var = np.argmin(np.abs(lin_combo - 1))
 
     #Turn the affine terms into a representation of
@@ -296,7 +297,7 @@ def pick_removing_var(coeff):
 
     return removing_var, lin_combo
 
-def get_spot(combo,term,Td_idx):
+def get_spot(combo,term,Td_term):
     """Helper function for transform_coeff_matrix. Determines where to update
     the new coefficient tensor for certain products of chebyshev monomials.
     For example, in 2-dimensions, we compute how Td(xi) is represented as a sum
@@ -314,7 +315,7 @@ def get_spot(combo,term,Td_idx):
     term : list or tuple
         which terms in the old coefficient tensor we're multiplying by.
         In the example, this would be Tk(y)Tl(z), represented as [k,l]
-    Td_idx : list or tuple
+    Td_term : list or tuple
         which terms in the expression of Td(xi) we're multiplying by.
         In the example, this would be Td(xi) = Ti(y)Tj(z), represented as [i,j]
 
@@ -327,12 +328,12 @@ def get_spot(combo,term,Td_idx):
     spot = []
     for l,is_plus in enumerate(combo):
         if is_plus:
-            spot.append(term[l] + Td_idx[l])
+            spot.append(term[l] + Td_term[l])
         else:
-            spot.append(abs(term[l] - Td_idx[l]))
+            spot.append(abs(term[l] - Td_term[l]))
     return tuple(spot)
 
-def transform_coeff_matrix(oldcoeff,lin_combo,removing_var):
+def transform_coeff_matrix(oldcoeff,Td,lin_combo,removing_var):
     """Transforms a coefficient tensor into a lower dimensional coefficient tensor.
 
     Parameters
@@ -359,13 +360,12 @@ def transform_coeff_matrix(oldcoeff,lin_combo,removing_var):
     newcoeff_shape = [deg-1 + max_deg_removing_var for deg in starter_slice_shape]
     newcoeff = np.zeros(newcoeff_shape)
     #find expressions for Td(xi) for each d up to max_deg_removing_var
-    Td,new_dim = get_Td_expressions(lin_combo,max_deg_removing_var)
 
     #we start off with the face that was not changed by mutliplication
     getAll = slice(None,None,None)
     starter_slice_from = tuple([getAll]*(removing_var)+[slice(1)]+[getAll]*(len(oldcoeff.shape)-removing_var-1))
     newcoeff[starter_slice_to] = oldcoeff[starter_slice_from].reshape(starter_slice_shape)
-    # other_nonzero_terms_slice = tuple([slice(None,None,None)]*(removing_var-1)+[slice(1,None,None)]+[slice(None,None,None)]*(len(oldcoeff.shape)-removing_var))
+    new_dim = len(newcoeff.shape)
     for term in zip(*np.where(oldcoeff!=0)):
         #we've already accounted for that face
         if term[removing_var] == 0:
@@ -374,11 +374,17 @@ def transform_coeff_matrix(oldcoeff,lin_combo,removing_var):
         coeff = oldcoeff[term]
         term = list(term)
         d = term.pop(removing_var)
-        for Td_idx in mon_combos([0]*new_dim,d):
-            increment = Td[d][tuple(Td_idx)] * coeff / 2**new_dim
+
+        for Td_term in mon_combos([0]*new_dim,d):
+            # mask1 = np.array(term) != 0
+            # mask2 = np.array(Td_term) != 0
+            # mask = mask1*mask2
+            # increment = Td[d][tuple(Td_term)] * coeff / 2**np.sum(mask)
+            increment = Td[d][tuple(Td_term)] * coeff / 2**new_dim
             #True means i+k, false means abs(i-k)
-            for combo in product(*[[True,False]]*new_dim): #TODO: faster sparsity stuff there
-                spot = get_spot(combo,term,Td_idx)
+            # for combo in product(*[[True,False] if m else [True] for m in mask]):
+            for combo in product(*[[True,False]]*new_dim):
+                spot = get_spot(combo,term,Td_term)
                 newcoeff[spot] += increment
     return newcoeff
 
@@ -449,4 +455,4 @@ def get_Td_expressions(lin_combo,maxdeg):
         else:
             Td[n+1][1:] += 2*lin_combo[1]*Td[n][:-1]
 
-    return Td, new_dim
+    return Td
