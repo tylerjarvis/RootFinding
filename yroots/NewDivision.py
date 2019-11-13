@@ -3,7 +3,7 @@ import itertools
 from scipy.linalg import solve_triangular, eig, qr
 from yroots import LinearProjection
 from yroots.polynomial import MultiCheb, MultiPower, is_power
-from yroots.MacaulayReduce import add_polys, rrqr_reduceMacaulay, rrqr_reduceMacaulay2
+from yroots.MacaulayReduce import add_polys, rrqr_reduceMacaulay
 from yroots.utils import get_var_list, slice_top, row_swap_matrix, \
                               mon_combos, newton_polish, MacaulayError
 from yroots.Division import create_matrix
@@ -35,10 +35,10 @@ def divisionNew(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, r
     if len(polys) == 1:
         from yroots.OneDimension import solve
         return transform(solve(polys[0], MSmatrix=0))
-    power = is_power(polys)  
+    power = is_power(polys)
     if power:
         raise ValueError("This only works for Chebyshev polynomials")
-    
+
     dim = polys[0].dim
     matrix_degree = np.sum([poly.degree for poly in polys]) - len(polys) + 1
     poly_coeff_list = []
@@ -55,7 +55,7 @@ def divisionNew(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, r
     num_rows = matrix.shape[0]
     inv_matrix = np.zeros([num_rows + matrix.shape[0], len(inv_matrix_terms)])
     cuts = tuple([cuts[0], cuts[0]+cuts[1]])
-    
+
     #A dictionary of term in inv_matrix_terms to their spot in inv_matrix_terms.
     inv_spot_dict = dict()
     spot = 0
@@ -76,7 +76,7 @@ def divisionNew(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, r
 
     #Builds the inv_matrix by dividing the rows of matrix by x.
     for i in range(num_rows):
-        inv_matrix[i] = divide_row(matrix[i], matrix_terms, term_divide_dict, 
+        inv_matrix[i] = divide_row(matrix[i], matrix_terms, term_divide_dict,
                                    len(inv_matrix_terms))
 
     inv_matrix[num_rows:,cuts[0]:] = matrix
@@ -93,7 +93,7 @@ def divisionNew(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, r
     basisDict = makeBasisDict2(matrix, matrix_terms)
 
 #     print(len(VB))
-    
+
     #Dictionary of terms in the vector basis their spots in the matrix.
     VBdict = {}
     spot = 0
@@ -107,8 +107,8 @@ def divisionNew(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, r
 
     vals, vecs = eig(division_matrix,left=True,right=False)
     #conjugate because scipy gives the conjugate eigenvector
-    vecs = vecs.conj()    
-    
+    vecs = vecs.conj()
+
     if len(vals) > len(np.unique(np.round(vals, 10))):
         return -1
 
@@ -120,7 +120,7 @@ def divisionNew(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, r
     if verbose:
         print("\nDivision Matrix\n", np.round(division_matrix[::-1,::-1], 2))
         print("\nLeft Eigenvectors (as rows)\n", vecs.T)
-    
+
     if np.max(np.abs(vals)) > 1.e6:
         return -1
 
@@ -152,8 +152,8 @@ def divisionNew(polys, divisor_var=0, tol=1.e-12, verbose=False, polish=False, r
     else:
         # only return roots in the unit complex hyperbox
         zeros = transform(np.array(zeros))
-        return zeros[np.all(np.abs(zeros) <= 1,axis = 0)]    
-    
+        return zeros[np.all(np.abs(zeros) <= 1,axis = 0)]
+
 def divide_row(coeffs, terms, term_divide_dict, length):
     """Divides a row of the matrix by the divisor variable..
 
@@ -237,7 +237,7 @@ def get_divisor_terms(term, divisor_var):
         dec+=1
     return terms
 
-def build_division_matrix(VB, VBdict, basisDict, term_divide_dict, 
+def build_division_matrix(VB, VBdict, basisDict, term_divide_dict,
                           matrix_terms):
     """Builds the division matrix.
 
@@ -270,7 +270,7 @@ def build_division_matrix(VB, VBdict, basisDict, term_divide_dict,
                     div_matrix[VBdict[term]][i] += val
                 else:
                     div_matrix[:,i] -= val*basisDict[term]
-        
+
     return div_matrix
 
 def makeBasisDict2(matrix, matrix_terms):

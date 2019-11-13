@@ -6,7 +6,7 @@ from yroots.Division import division
 from yroots.Multiplication import multiplication
 from yroots.utils import Term, get_var_list, divides, MacaulayError, InstabilityWarning, match_size, match_poly_dimensions
 
-def solve(polys,MSmatrix=0, eigvals=True, verbose=False, return_all_roots=True):
+def solve(polys,MSmatrix=0, eigvals=True, verbose=False, return_all_roots=True, max_cond_num=1.e6, macaulay_zero_tol=1.e-12):
     '''
     Finds the roots of the given list of polynomials.
 
@@ -29,6 +29,12 @@ def solve(polys,MSmatrix=0, eigvals=True, verbose=False, return_all_roots=True):
         Roots of multivariate polynomials are always comptued from eigenvectors
     verbose : bool
         Prints information about how the roots are computed.
+    return_all_roots : bool
+        If True returns all the roots, otherwise just the ones in the unit box.
+    max_cond_num : float
+        The maximum condition number of the Macaulay Matrix Reduction
+    macaulay_zero_tol : float
+        What is considered 0 in the macaulay matrix reduction.
 
     returns
     -------
@@ -60,6 +66,6 @@ def solve(polys,MSmatrix=0, eigvals=True, verbose=False, return_all_roots=True):
             return zeros
     else:
         if MSmatrix < 0:
-            return division(polys, verbose=verbose, divisor_var=-MSmatrix-1, return_all_roots=return_all_roots)
+            return division(polys, verbose=verbose, divisor_var=-MSmatrix-1, return_all_roots=return_all_roots, max_cond_num=max_cond_num, macaulay_zero_tol=macaulay_zero_tol)
         else:
-            return multiplication(polys, verbose=verbose, MSmatrix=MSmatrix, return_all_roots=return_all_roots)
+            return multiplication(polys, verbose=verbose, MSmatrix=MSmatrix, return_all_roots=return_all_roots, max_cond_num=max_cond_num, macaulay_zero_tol=macaulay_zero_tol)

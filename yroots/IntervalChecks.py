@@ -40,6 +40,17 @@ class IntervalData:
         How much of the n dimensional volume has been checked.
     polishing: bool
         If true this class is just being used as a shell to pass into the polish code.
+    polish_intervals: list
+        The intervals polishing will be run on
+    polish_num: int
+        The number of time polishing has been run
+    polish_interval_num: int
+        The current interval being polished
+    polish_a: numpy array
+        The lower bounds of the interval being polished
+    polish_b: numpy array
+        The upper bounds of the interval being polished
+
     tick: int
         Keeps track of how many intervals have been solved. Every 100 it resets and prints the progress.
 
@@ -63,8 +74,6 @@ class IntervalData:
     def __init__(self,a,b):
         self.interval_checks = [constant_term_check]
         self.subinterval_checks = [quadratic_check]
-#         self.subinterval_checks = [linear_check]
-#         self.subinterval_checks = []
         self.a = a
         self.b = b
         self.interval_results = dict()
@@ -77,18 +86,47 @@ class IntervalData:
         self.interval_results["Too Deep"] = []
         self.total_area = np.prod(self.b-self.a)
         self.current_area = 0.
-        self.polishing = False
         self.tick = 0
 
-    def check_interval(self, coeff, approx_tol, a, b):
+        #For polishing code
+        self.polishing = False
+        self.polish_intervals = []
+        self.polish_num = 0
+        self.polish_interval_num = -1
+        self.polish_a = np.array([])
+        self.polish_b = np.array([])
+
+    def add_polish_intervals(self, polish_intervals):
+        ''' Add the intervals that polishing will be run on.
+
+        Parameters
+        ----------
+        polish_intervals : list
+            The intervals polishing will be run on.
+        '''
+        self.polishing = True
+        self.polish_intervals = polish_intervals
+        self.polish_num += 1
+        self.polish_interval_num = -1
+
+    def start_polish_interval(self):
+        '''Get the tracking ready to track the next polished interval
+        '''
+        #self.tick = 99 #So it will print right away.
+        self.polish_interval_num += 1
+        self.polish_a, self.polish_b = self.polish_intervals[self.polish_interval_num]
+        self.total_area = np.prod(self.polish_b-self.polish_a)
+        self.current_area = 0.
+
+    def check_interval(self, coeff, error, a, b):
         ''' Runs the interval checks on the interval [a,b]
 
         Parameters
         ----------
         coeff : numpy array.
             The coefficient matrix of the Chebyshev approximation to check.
-        approx_tol: float
-            The sup norm bound on the approximation error.
+        error: float
+            The approximation error.
         a: numpy array
             The lower bounds of the interval to check.
         b: numpy array
@@ -99,12 +137,13 @@ class IntervalData:
             True if we can throw out the interval. Otherwise False.
         '''
         for check in self.interval_checks:
-            if not check(coeff, approx_tol):
-                self.track_interval(check.__name__, [a,b])
+            if not check(coeff, error):
+                if not self.polishing:
+                    self.track_interval(check.__name__, [a,b])
                 return True
         return False
 
-    def check_subintervals(self, subintervals, scaled_subintervals, polys, change_sign, approx_tol):
+    def check_subintervals(self, subintervals, scaled_subintervals, polys, change_sign, errors):
         ''' Runs the subinterval checks on the given intervals
 
         Parameters
@@ -117,16 +156,16 @@ class IntervalData:
             The MultiCheb polynomials that approximate the functions on these intervals.
         change_sign: list
             A list of bools of whether we know the functions can change sign on the subintervals.
-        approx_tol: float
-            The sup norm bound on the approximation error.
+        errors: list
+            The approximation errors of the polynomials.
         Returns
         -------
         check_interval : bool
             True if we can throw out the interval. Otherwise False.
         '''
         for check in self.subinterval_checks:
-            for poly in polys:
-                mask = check(poly, scaled_subintervals, change_sign, approx_tol)
+            for poly,error in zip(polys, errors):
+                mask = check(poly, scaled_subintervals, change_sign, error)
                 new_scaled_subintervals = []
                 new_subintervals = []
                 for i, result in enumerate(mask):
@@ -134,7 +173,8 @@ class IntervalData:
                         new_scaled_subintervals.append(scaled_subintervals[i])
                         new_subintervals.append(subintervals[i])
                     else:
-                        self.track_interval(check.__name__, subintervals[i])
+                        if not self.polishing:
+                            self.track_interval(check.__name__, subintervals[i])
                 scaled_subintervals = new_scaled_subintervals
                 subintervals = new_subintervals
         return subintervals
@@ -151,17 +191,22 @@ class IntervalData:
         '''
         if not self.polishing:
             self.interval_results[name].append(interval)
-            self.current_area += np.prod(interval[1] - interval[0])
+        self.current_area += np.prod(interval[1] - interval[0])
 
     def print_progress(self):
         ''' Prints the progress of subdivision solve. Only prints every 100th time this function is
             called to save time.
         '''
-        if not self.polishing:
-            if self.tick == 100:
-                self.tick = 0
+        self.tick += 1
+        if self.tick >= 100:
+            self.tick = 0
+            if not self.polishing:
                 print("\rPercent Finished: {}%       ".format(round(100*self.current_area/self.total_area,2)), end='')
-            self.tick += 1
+            else:
+                print_string =  '\rPolishing Round: {}'.format(self.polish_num)
+                print_string += ' Interval: {}/{}:'.format(self.polish_interval_num, len(self.polish_intervals))
+                print_string += " Percent Finished: {}%{}".format(round(100*self.current_area/self.total_area,2), ' '*20)
+                print(print_string, end='')
 
     def print_results(self):
         ''' Prints the results of subdivision solve, how many intervals there were and what percent were
@@ -548,7 +593,7 @@ def linear_check(test_coeff, intervals, change_sign, tol):
     """
     dim = test_coeff.ndim
     coeff_abs_sum = np.sum(np.abs(test_coeff))
-    
+
     #Get the linear and constant terms
     idx = [0]*dim
     const = test_coeff[tuple(idx)]
@@ -559,20 +604,20 @@ def linear_check(test_coeff, intervals, change_sign, tol):
         idx[cur_dim] = 1
         lin_coeff[cur_dim] = test_coeff[tuple(idx)]
         idx[cur_dim] = 0
-    
+
     coeff_abs_sum -= np.sum(np.abs(lin_coeff))
     mask = []
-    
+
     for i, interval in enumerate(intervals):
         if change_sign[i]:
             mask.append(True)
             continue
-                
+
         corner_vals = []
         for ints in product(interval, repeat = dim):
             corner_vals.append(const + np.array([ints[i][i] for i in range(dim)])@lin_coeff)
         corner_vals = np.array(corner_vals)
-        
+
         # check if corners have mixed signs
         if (corner_vals.min() < 0 < corner_vals.max()):
             mask.append(True)
@@ -584,7 +629,7 @@ def linear_check(test_coeff, intervals, change_sign, tol):
             mask.append(False)
         else:
             mask.append(True)
-    
+
     return mask
 
 def quadratic_check(test_coeff, intervals,change_sign,tol):
@@ -667,7 +712,7 @@ def quadratic_check_2D(test_coeff, intervals, change_sign, tol):
         c5 = test_coeff[0,2]
     else:
         c5 = 0
-    
+
     #The sum of the absolute values of everything else
     other_sum = np.sum(np.abs(test_coeff)) - np.sum(np.abs([c0,c1,c2,c3,c4,c5]))
 
@@ -816,7 +861,7 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
 
     #The sum of the absolute values of everything else
     other_sum = np.sum(np.abs(test_coeff)) - np.sum(np.abs([c0,c1,c2,c3,c4,c5,c6,c7,c8,c9]))
-    
+
     #The interior min
     #Comes from solving dx, dy, dz = 0
     #Dx: 4c7x +  c4y +  c5z = -c1    Matrix inverse is  [(16c8c9-c6^2) -(4c4c9-c5c6)  (c4c6-4c5c8)]
@@ -837,7 +882,7 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
         if change_sign[interval_num]:
             mask.append(True)
             continue
-        
+
         extreme_points = []
         #Add all the corners
         extreme_points.append(eval_func(interval[0][0], interval[0][1], interval[0][2]))
@@ -873,7 +918,7 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
             z = -(c3+c5*x+c6*y)/(4*c9)
             if interval[0][2] < z < interval[1][2]:
                 extreme_points.append(eval_func(x,y,z))
-        
+
         #Adds the x and z constant boundaries
         #The partial with respect to y is zero
         #Dy:  c4x + 4c8y + c6z = -c2   => y=(-c2-c4x-c6z)/(4c8)
@@ -898,7 +943,7 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
             y = -(c2+c4*x+c6*z)/(4*c8)
             if interval[0][1] < y < interval[1][1]:
                 extreme_points.append(eval_func(x,y,z))
-                    
+
         #Adds the y and z constant boundaries
         #The partial with respect to x is zero
         #Dx: 4c7x +  c4y +  c5z = -c1   => x=(-c1-c4y-c5z)/(4c7)
@@ -923,7 +968,7 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
             x = -(c1+c4*y+c5*z)/(4*c7)
             if interval[0][0] < x < interval[1][0]:
                 extreme_points.append(eval_func(x,y,z))
-        
+
         #Add the x constant boundaries
         #The partials with respect to y and z are zero
         #Dy:  4c8y +  c6z = -c2 - c4x    Matrix inverse is [4c9  -c6]
@@ -974,7 +1019,7 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
             y = (c4*(c1+c5*z)    - 4*c7*(c2+c6*z))/det
             if interval[0][0] < x < interval[1][0] and interval[0][1] < y < interval[1][1]:
                 extreme_points.append(eval_func(x,y,z))
-        
+
         #Add the interior value
         if interval[0][0] < int_x < interval[1][0] and interval[0][1] < int_y < interval[1][1] and\
                 interval[0][2] < int_z < interval[1][2]:
@@ -1041,7 +1086,7 @@ def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
             test_coeff[spot] = 0
 
     quad_poly = MultiCheb(quad_coeff)
-    
+
     #The sum of the absolute values of everything else
     other_sum = np.sum(np.abs(test_coeff))
 
@@ -1050,7 +1095,7 @@ def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
         if change_sign[interval_num]:
             mask.append(True)
             continue
-            
+
         def powerset(iterable):
             "powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
             s = list(iterable)
@@ -1086,7 +1131,7 @@ def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
                     X[others] = X_
                     if np.all([interval[0][i] <= X[i] <= interval[1][0] for i in range(dim)]):
                         extreme_points.append(quad_poly(X))
-        
+
         extreme_points = np.array(extreme_points)
 
         #If sign change, True
