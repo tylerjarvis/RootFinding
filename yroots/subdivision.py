@@ -7,7 +7,7 @@ the approximation degree is small enough to be solved efficiently.
 """
 
 import numpy as np
-from numpy.fft.fftpack import fftn
+from scipy.fftpack import fftn
 from yroots.OneDimension import divCheb,divPower,multCheb,multPower,solve
 from yroots.Division import division
 from yroots.Multiplication import multiplication
@@ -138,6 +138,9 @@ def solve(funcs, a, b, rel_approx_tol=1.e-6, abs_approx_tol=1.e-10, max_cond_num
         elif dim == 2:
             interval_data.plot_results(funcs, root_tracker.roots, plot_intervals)
 
+    if len(root_tracker.potential_roots) != 0:
+        raise Warning("Some intervals subdivided too deep and some potential roots were found. The second array contains the potential roots.")
+        return root_tracker.roots, root_tracker.potential_roots
     return root_tracker.roots
 
 def transform(x,a,b):
@@ -545,13 +548,8 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,root_tracker,tols,max_level
     if level > max_level:
         # TODO Refine case where there may be a root and it goes too deep.
         interval_data.track_interval("Too Deep", [a, b])
-        # # Find residuals of the midpoint of the interval.
-        # residual_samples = list()
-        # for func in funcs:
-        #     residual_samples.append(func(*(np.array(a) + np.array(b))/2))
-        # # If all the residuals are within the tolerance, return midpoint approximation.
-        # if np.all(residual < solve_tol for residual in residual_samples):
-        #     return (np.array(a) + np.array(b))/2
+        # Return potential roots if the residuals are small
+        root_tracker.add_potential_roots((a + b)/2, a, b, "Too Deep.")
         return
 
     cheb_approx_list = []
