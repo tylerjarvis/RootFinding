@@ -77,6 +77,29 @@ def getPoly(deg,dim,power):
     else:
         return MultiCheb(ACoeff)
 
+
+def clean_coeff(coeff):
+    """
+    Gets rid of any 0's on the outside of the coeff matrix, not giving any info.
+    """
+    for cur_axis in range(coeff.ndim):
+        change = True
+        while change:
+            change = False
+            if coeff.shape[cur_axis] == 1:
+                continue
+            slices = list()
+            for i,degree in enumerate(coeff.shape):
+                if cur_axis == i:
+                    s = slice(degree-1,degree)
+                else:
+                    s = slice(0,degree)
+                slices.append(s)
+            if np.sum(abs(coeff[tuple(slices)])) == 0:
+                coeff = np.delete(coeff,-1,axis=cur_axis)
+                change = True
+    return coeff
+
 class Polynomial(object):
     '''
     Superclass for MultiPower and MultiCheb. Contains methods and attributes
@@ -148,7 +171,7 @@ class Polynomial(object):
         else:
             raise ValueError('coeff must be an np.array or a string!')
         if clean_zeros:
-            self.clean_coeff()
+            self.coeff = clean_coeff(self.coeff)
         self.dim = self.coeff.ndim
         self.order = order
         self.shape = self.coeff.shape
@@ -159,27 +182,6 @@ class Polynomial(object):
             self.lead_term = tuple(lead_term)
             self.degree = sum(self.lead_term)
             self.lead_coeff = self.coeff[self.lead_term]
-
-    def clean_coeff(self):
-        """
-        Gets rid of any 0's on the outside of the coeff matrix, not giving any info.
-        """
-        for cur_axis in range(self.coeff.ndim):
-            change = True
-            while change:
-                change = False
-                if self.coeff.shape[cur_axis] == 1:
-                    continue
-                slices = list()
-                for i,degree in enumerate(self.coeff.shape):
-                    if cur_axis == i:
-                        s = slice(degree-1,degree)
-                    else:
-                        s = slice(0,degree)
-                    slices.append(s)
-                if np.sum(abs(self.coeff[tuple(slices)])) == 0:
-                    self.coeff = np.delete(self.coeff,-1,axis=cur_axis)
-                    change = True
 
     def update_lead_term(self):
         non_zeros = list()
