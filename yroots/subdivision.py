@@ -23,7 +23,7 @@ import itertools
 import time
 import warnings
 
-def solve(funcs, a, b, rel_approx_tol=1.e-6, abs_approx_tol=1.e-10, max_cond_num=1e6, macaulay_zero_tol=1e-12, good_zeros_factor=100, min_good_zeros_tol=1e-5, plot = False, plot_intervals = False, deg = None, max_level=999):
+def solve(funcs, a, b, rel_approx_tol=1.e-6, abs_approx_tol=1.e-10, max_cond_num=1e6, macaulay_zero_tol=1e-12, good_zeros_factor=100, min_good_zeros_tol=1e-5, plot = False, plot_intervals = False, deg = None, max_level=999, return_potentials=False):
     '''
     Finds the real roots of the given list of functions on a given interval.
 
@@ -139,9 +139,12 @@ def solve(funcs, a, b, rel_approx_tol=1.e-6, abs_approx_tol=1.e-10, max_cond_num
             interval_data.plot_results(funcs, root_tracker.roots, plot_intervals)
 
     if len(root_tracker.potential_roots) != 0:
-        raise Warning("Some intervals subdivided too deep and some potential roots were found. The second array contains the potential roots.")
+        warnings.warn("Some intervals subdivided too deep and some potential roots were found. To access these roots, rerun the solver with the keyword return_potentials=True")
+    
+    if return_potentials:
         return root_tracker.roots, root_tracker.potential_roots
-    return root_tracker.roots
+    else:
+        return root_tracker.roots
 
 def transform(x,a,b):
     """Transforms points from the interval [-1,1] to the interval [a,b].
