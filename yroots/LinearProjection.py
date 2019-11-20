@@ -454,5 +454,31 @@ def get_Td_expressions(lin_combo,maxdeg):
                 Td[n+1][tuple(sliceface_to)] += 2*lin_combo[j+1]*Td[n][tuple(sliceface_from)]
         else:
             Td[n+1][1:] += 2*lin_combo[1]*Td[n][:-1]
-
     return Td
+
+def rref(A):
+    """Reduce the square matrix A to REF with full pivoting.
+    Parameters:
+        A ((n,n) ndarray): The matrix to be reduced.
+    Returns:
+        ((n,n) ndarray): The RREF of A.
+        ((n,) ndarray): The row pivoting array.
+        ((n,) ndarray): The column pivoting array.
+    """
+    A = np.array(A, dtype=np.float, copy=True)
+    m,n = A.shape
+    Pr = np.arange(m)
+    Pc = np.arange(n)
+    for j in range(m):
+        row,col = np.where(np.abs(A[j:,j:-1])==np.abs(A[j:,j:-1]).max())
+        k,l = row[0]+j,col[0]+j
+        A[j],A[k] = A[k],A[j]
+        Pr[j],Pr[k] = Pr[k],Pr[j]
+        A[:,j],A[:,l] = A[:,l],A[:,j]
+        Pc[j],Pc[l] = Pc[l],Pc[j]
+        for i in range(m):
+            if i != j:
+                A[i,j:] -= A[j,j:] * A[i,j] / A[j,j]
+        A[j] = A[j]/A[j,j]
+    return A,Pr,Pc
+>>>>>>> d6482a9bb08cbfe069aed7f0b3a9b290d3535f8e
