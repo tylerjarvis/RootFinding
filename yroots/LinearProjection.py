@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.fft import fftn
 from yroots.utils import get_var_list, mon_combos, mon_combos_limited_wrap
-from yroots.polynomial import Polynomial, MultiCheb
+from yroots.polynomial import Polynomial, MultiCheb, clean_coeff
 from scipy.linalg import qr
 from scipy import sparse as sp
 from itertools import product
@@ -225,7 +225,7 @@ def bounding_parallelepiped(linear): #TODO what if things are outside of the eva
     edges = Q[:,:-1].dot(np.diag(max_vals-min_vals))
     return p0, edges
 
-def remove_affine_constraint(polys):
+def remove_affine_constraints(polys):
     """This function removes linear polynomials from a list by
     picking the variable in each linear polynomial with the coefficient closet
     to one. This function assumes that the polynomials are in Chebyshev form.
@@ -247,30 +247,51 @@ def remove_affine_constraint(polys):
     linear = np.where(polydegs == 1)[0]
     nonlinear = np.where(polydegs != 1)[0]
 
-    #remove each linear polynomial
-    #for hyperplane in linear:
+    #if just one linear polynomial
+    if len(linear) == 1:
+        newpolys = []
+        removing_var, lin_combo = pick_removing_var(polys[linear].coeff)
+        #get the projection of the coefficient matrix of each nonlinear polynomial
+        max_deg_removing_var = np.max([polys[i].coeff.shape[removing_var] for i in nonlinear])
+        Td = get_Td_expressions(lin_combo,max_deg_removing_var)
+        for poly_idx in nonlinear:
+            coeff = transform_coeff_matrix(Td,polys[poly_idx].coeff, lin_combo, removing_var)
+            newpolys.append(MultiCheb(coeff))
+        return newpolys, lin_combo, removing_var
 
-    #for now, just one linear polynomial
-    newpolys = []
-    removing_var, lin_combo = pick_removing_var(polys[linear].coeff)
-    #get the projection of the coefficient matrix of each nonlinear polynomial
-    max_deg_removing_var = np.max([poly[i].coeff.shape[removing_var] for i in nonlinear])
-    Td = get_Td_expressions(lin_combo,max_deg_removing_var)
-    for poly_idx in nonlinear:
-        coeff = transform_coeff_matrix(Td,polys[poly_idx].coeff, lin_combo, removing_var)
-        newpolys.append(MultiCheb(coeff))
+    #compute the nullspace of the polynomials
+    A,Pc = nullspace(polys[linear])
+    #unpivot and negate the matrix
+    A = -A[:,np.argsort(Pc)] #np.argsort gives the inverse permutation
+    oldpolys = polys.copy()
 
-    return newpolys, lin_combo, removing_var
+    #number of variables to remove
+    oldpolys = [p.coeff for p in polys[nonlinear]]
+    for i in range(len(A)):
+        newpolys = []
+        removing_var = Pc[i]
+        Pc[Pc > removing_var] -= 1
+        #define our linear combination
+        A = np.delete(A,removing_var,1)
+        lin_combo = A[i]
+        print(lin_combo)
+        #get the projection of the coefficient matrix of each nonlinear polynomial
+        max_deg_removing_var = np.max([oldpolys[i].shape[removing_var] for i in nonlinear])
+        Td = get_Td_expressions(lin_combo,max_deg_removing_var)
+        for poly in oldpolys:
+            coeff = transform_coeff_matrix(Td,poly, lin_combo, removing_var)
+            newpolys.append(coeff)
+        oldpolys = newpolys
+
+    return [MutliCheb(p) for p in newpolys], lin_combo, Pc[:len(A)]
 
 def pick_removing_var(coeff):
-    """Picks which variable to remove using an affine constraint
+    """Picks which variable to remove using a single affine constraint
     0 = b + c0*x0 + c1*x1 + ... + cn*xn.
-
     Parameters
     ----------
     coeff : ndarray
         coefficient tensor of the affine constraint/hyperplane
-
     Returns
     -------
     removing_var : int
@@ -285,17 +306,41 @@ def pick_removing_var(coeff):
     """
     olddim = len(coeff.shape)
     #pick linear term with coeff closest to 1 as the removing_var
-    lin_combo = coeff[slice(get_var_list(1, olddim, coeff.shape))]
-    removing_var = np.argmin(np.abs(lin_combo - 1))
-
+    lin_combo = coeff[slice(get_var_list(olddim))]
+    removing_var = np.argmax(np.abs(lin_combo)) #TODO: better way to pick this?
     #Turn the affine terms into a representation of
     # xi = b + c0*x0 + c1*x1 + ... + cn*xn.
     lin_combo = list(lin_combo)
     removing_var_coeff = lin_combo.pop(removing_var)
     const_term = coeff[tuple([0]*olddim)] #add in the constant term
     lin_combo = -np.array([const_term] + lin_combo)/removing_var_coeff
-
     return removing_var, lin_combo
+
+def nullspace(linear_polys):
+    """Builds a matrix to represent the system of linear polynomials.
+    Columns 1:-1 represent coefficients of linear terms, while Column -1 represents
+    the constant terms.
+
+    Parameters
+    ----------
+    linear_polys : list
+        list of linear MultiCheb objects
+
+    Returns
+    -------
+    A: ((n,n) ndarray)
+        The RREF of A.
+    Pc: ((n,) ndarray)
+        The column pivoting array.
+    """
+    olddim = linear_polys[0].dim
+    #pick linear term with coeff closest to 1 as the removing_var
+    A = np.zeros((len(linear_polys),olddim+1))
+    for i,p in enumerate(linear_polys):
+        A[i,:-1] = p.coeff[get_var_list(olddim)]
+        A[i,-1]  = p.coeff[[0]*olddim]
+
+    return rref(A)
 
 def get_spot(combo,term,Td_term):
     """Helper function for transform_coeff_matrix. Determines where to update
@@ -376,13 +421,9 @@ def transform_coeff_matrix(oldcoeff,Td,lin_combo,removing_var):
         d = term.pop(removing_var)
 
         for Td_term in mon_combos([0]*new_dim,d):
-            # mask1 = np.array(term) != 0
-            # mask2 = np.array(Td_term) != 0
-            # mask = mask1*mask2
-            # increment = Td[d][tuple(Td_term)] * coeff / 2**np.sum(mask)
+            if np.any(np.nonzero(Td_term[np.where(lin_combo[1:] == 0)[0]])):
+                continue
             increment = Td[d][tuple(Td_term)] * coeff / 2**new_dim
-            #True means i+k, false means abs(i-k)
-            # for combo in product(*[[True,False] if m else [True] for m in mask]):
             for combo in product(*[[True,False]]*new_dim):
                 spot = get_spot(combo,term,Td_term)
                 newcoeff[spot] += increment
@@ -430,39 +471,49 @@ def get_Td_expressions(lin_combo,maxdeg):
         #breaks into cases for array slicing purposes
         if new_dim > 1:
             for j,var in enumerate(varlist):
-                #slicers in the jth direction for moving coefficient tensors around
-                sliceupdown_from = []
-                sliceup_to = []
-                slicedown_to = []
-                sliceface_from = []
-                sliceface_to = []
-                for k in range(new_dim):
-                    if j == k:
-                        sliceupdown_from.append(slice(1,-1,None))
-                        sliceup_to.append(slice(2,None,None))
-                        slicedown_to.append(slice(None,-2,None))
-                        sliceface_from.append(slice(1))
-                        sliceface_to.append(slice(1,2,None))
-                    else:
-                        sliceupdown_from.append(slice(None,None,None))
-                        sliceup_to.append(slice(None,None,None))
-                        slicedown_to.append(slice(None,None,None))
-                        sliceface_from.append(slice(None,None,None))
-                        sliceface_to.append(slice(None,None,None))
-                Td[n+1][tuple(sliceup_to)] += lin_combo[j+1]*Td[n][tuple(sliceupdown_from)]
-                Td[n+1][tuple(slicedown_to)] += lin_combo[j+1]*Td[n][tuple(sliceupdown_from)]
-                Td[n+1][tuple(sliceface_to)] += 2*lin_combo[j+1]*Td[n][tuple(sliceface_from)]
+                if lin_combo[j+1] == 0:
+                    #taking advantage of sparsity
+                    continue
+                else:
+                    #slicers in the jth direction for moving coefficient tensors around
+                    sliceupdown_from = []
+                    sliceup_to = []
+                    slicedown_to = []
+                    sliceface_from = []
+                    sliceface_to = []
+                    for k in range(new_dim):
+                        if j == k:
+                            sliceupdown_from.append(slice(1,-1,None))
+                            sliceup_to.append(slice(2,None,None))
+                            slicedown_to.append(slice(None,-2,None))
+                            sliceface_from.append(slice(1))
+                            sliceface_to.append(slice(1,2,None))
+                        elif lin_combo[k+1] == 0: #taking advantage of sparsity
+                            sliceupdown_from.append(slice(0,1,None))
+                            sliceup_to.append(slice(0,1,None))
+                            slicedown_to.append(slice(0,1,None))
+                            sliceface_from.append(slice(0,1,None))
+                            sliceface_to.append(slice(0,1,None))
+                        else:
+                            sliceupdown_from.append(slice(None,None,None))
+                            sliceup_to.append(slice(None,None,None))
+                            slicedown_to.append(slice(None,None,None))
+                            sliceface_from.append(slice(None,None,None))
+                            sliceface_to.append(slice(None,None,None))
+                    Td[n+1][tuple(sliceup_to)] += lin_combo[j+1]*Td[n][tuple(sliceupdown_from)]
+                    Td[n+1][tuple(slicedown_to)] += lin_combo[j+1]*Td[n][tuple(sliceupdown_from)]
+                    Td[n+1][tuple(sliceface_to)] += 2*lin_combo[j+1]*Td[n][tuple(sliceface_from)]
         else:
             Td[n+1][1:] += 2*lin_combo[1]*Td[n][:-1]
-    return Td
+
+    return {i: clean_coeff(Td[i]) for i in range(maxdeg+1)}
 
 def rref(A):
-    """Reduce the square matrix A to REF with full pivoting.
+    """Reduce the square matrix A to RREF with full pivoting.
     Parameters:
         A ((n,n) ndarray): The matrix to be reduced.
     Returns:
-        ((n,n) ndarray): The RREF of A.
-        ((n,) ndarray): The row pivoting array.
+        ((n,n) ndarray): The RREF of A, with columns pivoted back to their original spot
         ((n,) ndarray): The column pivoting array.
     """
     A = np.array(A, dtype=np.float, copy=True)
@@ -472,13 +523,15 @@ def rref(A):
     for j in range(m):
         row,col = np.where(np.abs(A[j:,j:-1])==np.abs(A[j:,j:-1]).max())
         k,l = row[0]+j,col[0]+j
-        A[j],A[k] = A[k],A[j]
+        A[[j,k]] = A[[k,j]]
         Pr[j],Pr[k] = Pr[k],Pr[j]
-        A[:,j],A[:,l] = A[:,l],A[:,j]
+        A[:,[j,l]] = A[:[l,j]]
         Pc[j],Pc[l] = Pc[l],Pc[j]
+        if A[j,j] == 0:
+            #handle rank deficient case
+            return A[:j],Pc
         for i in range(m):
             if i != j:
                 A[i,j:] -= A[j,j:] * A[i,j] / A[j,j]
         A[j] = A[j]/A[j,j]
-    return A,Pr,Pc
->>>>>>> d6482a9bb08cbfe069aed7f0b3a9b290d3535f8e
+    return A[:,Pc],Pc
