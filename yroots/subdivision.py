@@ -71,6 +71,8 @@ def solve(funcs, a, b, rel_approx_tol=1.e-6, abs_approx_tol=1.e-10, max_cond_num
         Degree 2 for 5D functions and above.
     max_level : int
         The maximum levels deep the recursion will go. Increasing it above 999 may result in recursion error!
+    return_potentials : bool
+        If True, returns the potential roots. Else, it does not.
 
     If finding roots of a univariate function, `funcs` does not need to be a list,
     and `a` and `b` can be floats instead of arrays.
