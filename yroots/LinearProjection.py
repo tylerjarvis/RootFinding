@@ -257,10 +257,16 @@ def remove_affine_constraints(polys):
         for poly_idx in nonlinear:
             coeff = transform_coeff_matrix(Td,polys[poly_idx].coeff, lin_combo, removing_var)
             newpolys.append(MultiCheb(coeff))
-        return newpolys, lin_combo, removing_var
+
+        def transf(rootarray):
+            removing_var_values = np.hstack((rootarray,np.ones(len(rootarray)))) @ lin_combo
+            return np.insert(rootarray,removing_var,removing_var_values,axis=1)
+        return newpolys, transf
 
     #compute the nullspace of the polynomials
     A,Pc = nullspace(polys[linear])
+    removing_vars = Pc[:len(A)].copy()
+    sort = np.argsort(removing_vars)
     #unpivot and negate the matrix
     A = -A[:,np.argsort(Pc)] #np.argsort gives the inverse permutation
     oldpolys = polys.copy()
@@ -283,7 +289,13 @@ def remove_affine_constraints(polys):
             newpolys.append(coeff)
         oldpolys = newpolys
 
-    return [MutliCheb(p) for p in newpolys], lin_combo, Pc[:len(A)]
+    def transf(rootarray):
+        removing_var_values = np.hstack((rootarray,np.ones(len(rootarray)))) @ A[sort].T
+        for i,var in enumerte(removing_vars[sort]):
+            rootarray = np.insert(rootarray,var,removing_var_values[:,i],axis=1)
+        return rootarray
+
+    return [MutliCheb(p) for p in newpolys], transf
 
 def pick_removing_var(coeff):
     """Picks which variable to remove using a single affine constraint
@@ -313,7 +325,7 @@ def pick_removing_var(coeff):
     lin_combo = list(lin_combo)
     removing_var_coeff = lin_combo.pop(removing_var)
     const_term = coeff[tuple([0]*olddim)] #add in the constant term
-    lin_combo = -np.array([const_term] + lin_combo)/removing_var_coeff
+    lin_combo = -np.array(lin_combo + [const_term])/removing_var_coeff
     return removing_var, lin_combo
 
 def nullspace(linear_polys):
