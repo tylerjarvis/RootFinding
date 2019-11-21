@@ -245,6 +245,8 @@ def remove_affine_constraints(polys):
     """
     #detect which polynomials are linear
     linear = np.where(polydegs == 1)[0]
+    if len(linear) == 0:
+        return polys, lambda x:x
     nonlinear = np.where(polydegs != 1)[0]
 
     #if just one linear polynomial

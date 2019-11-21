@@ -38,8 +38,8 @@ def multiplication(polys, max_cond_num, macaulay_zero_tol, verbose=False, MSmatr
     ------
     ConditioningError if MSMultMatrix(...) raises a ConditioningError.
     '''
-    #We don't want to use Linear Projection right now
-    polys, transform, is_projected = polys, lambda x:x, False
+    #Affine Constraint Removal
+    polys, transform = remove_affine_constraints(polys)
 
     if len(polys) == 1:
         from yroots.OneDimension import solve
