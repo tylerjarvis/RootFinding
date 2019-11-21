@@ -259,7 +259,7 @@ def remove_affine_constraints(polys):
             newpolys.append(MultiCheb(coeff))
 
         def transf(rootarray):
-            removing_var_values = np.hstack((rootarray,np.ones(len(rootarray)))) @ lin_combo
+            removing_var_values = np.insert(rootarray,rootarray.shape[1],np.ones(len(rootarray)),axis=1) @ lin_combo
             return np.insert(rootarray,removing_var,removing_var_values,axis=1)
         return newpolys, transf
 
@@ -290,8 +290,8 @@ def remove_affine_constraints(polys):
         oldpolys = newpolys
 
     def transf(rootarray):
-        removing_var_values = np.hstack((rootarray,np.ones(len(rootarray)))) @ A[sort].T
-        for i,var in enumerte(removing_vars[sort]):
+        removing_var_values = np.insert(rootarray,rootarray.shape[1],np.ones(len(rootarray)),axis=1) @ (A[sort].T)
+        for i,var in enumerate(removing_vars[sort]):
             rootarray = np.insert(rootarray,var,removing_var_values[:,i],axis=1)
         return rootarray
 
@@ -433,7 +433,7 @@ def transform_coeff_matrix(oldcoeff,Td,lin_combo,removing_var):
         d = term.pop(removing_var)
 
         for Td_term in mon_combos([0]*new_dim,d):
-            if np.any(np.nonzero(Td_term[np.where(lin_combo[1:] == 0)[0]])):
+            if np.any(np.nonzero(Td_term[np.where(lin_combo[:-1] == 0)[0]])):
                 continue
             increment = Td[d][tuple(Td_term)] * coeff / 2**new_dim
             for combo in product(*[[True,False]]*new_dim):
@@ -470,20 +470,20 @@ def get_Td_expressions(lin_combo,maxdeg):
 
     #T1(xi)
     Td[1] = np.zeros([maxdeg+1]*new_dim)
-    Td[1][tuple([0]*new_dim)] = lin_combo[0]
+    Td[1][tuple([0]*new_dim)] = lin_combo[-1]
     varlist = get_var_list(new_dim)
     for i,var in enumerate(varlist):
-        Td[1][var] = lin_combo[i+1]
+        Td[1][var] = lin_combo[i]
 
     for n in range(1,maxdeg):
-        #Td+1(xi) = -Td-1(lin_combo) + lin_combo[0] * Td(lin_combo)
-        # + lin_combo[1] x2 * Td(lin_combo) + lin_combo[2] x3 * Td(lin_combo) + ...
-        Td[n+1] = -Td[n-1] + 2*lin_combo[0] * Td[n]
+        #Td+1(xi) = -Td-1(lin_combo) + lin_combo[-1] * Td(lin_combo)
+        # + lin_combo[0] x2 * Td(lin_combo) + lin_combo[1] x3 * Td(lin_combo) + ...
+        Td[n+1] = -Td[n-1] + 2*lin_combo[-1] * Td[n]
 
         #breaks into cases for array slicing purposes
         if new_dim > 1:
             for j,var in enumerate(varlist):
-                if lin_combo[j+1] == 0:
+                if lin_combo[j] == 0:
                     #taking advantage of sparsity
                     continue
                 else:
@@ -500,7 +500,7 @@ def get_Td_expressions(lin_combo,maxdeg):
                             slicedown_to.append(slice(None,-2,None))
                             sliceface_from.append(slice(1))
                             sliceface_to.append(slice(1,2,None))
-                        elif lin_combo[k+1] == 0: #taking advantage of sparsity
+                        elif lin_combo[k] == 0: #taking advantage of sparsity
                             sliceupdown_from.append(slice(0,1,None))
                             sliceup_to.append(slice(0,1,None))
                             slicedown_to.append(slice(0,1,None))
@@ -512,11 +512,11 @@ def get_Td_expressions(lin_combo,maxdeg):
                             slicedown_to.append(slice(None,None,None))
                             sliceface_from.append(slice(None,None,None))
                             sliceface_to.append(slice(None,None,None))
-                    Td[n+1][tuple(sliceup_to)] += lin_combo[j+1]*Td[n][tuple(sliceupdown_from)]
-                    Td[n+1][tuple(slicedown_to)] += lin_combo[j+1]*Td[n][tuple(sliceupdown_from)]
-                    Td[n+1][tuple(sliceface_to)] += 2*lin_combo[j+1]*Td[n][tuple(sliceface_from)]
+                    Td[n+1][tuple(sliceup_to)] += lin_combo[j]*Td[n][tuple(sliceupdown_from)]
+                    Td[n+1][tuple(slicedown_to)] += lin_combo[j]*Td[n][tuple(sliceupdown_from)]
+                    Td[n+1][tuple(sliceface_to)] += 2*lin_combo[j]*Td[n][tuple(sliceface_from)]
         else:
-            Td[n+1][1:] += 2*lin_combo[1]*Td[n][:-1]
+            Td[n+1][1:] += 2*lin_combo[0]*Td[n][:-1]
 
     return {i: clean_coeff(Td[i]) for i in range(maxdeg+1)}
 
