@@ -1,7 +1,7 @@
 from itertools import product
 
 import numpy as np
-from numpy.fft.fftpack import fftn
+from scipy.fftpack import fftn
 from yroots.utils import get_var_list
 from yroots.polynomial import Polynomial, MultiCheb
 from scipy.linalg import qr
