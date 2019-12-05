@@ -7,7 +7,7 @@ from yroots.MacaulayReduce import rrqr_reduceMacaulay, find_degree, \
                               add_polys
 from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list, \
                               mon_combos, mon_combosHighest, sort_polys_by_degree, \
-                              deg_d_polys, all_permutations_cheb, ConditioningError
+                              deg_d_polys, all_permutations_cheb, ConditioningError, newton_polish
 import warnings
 
 def multiplication(polys, max_cond_num, macaulay_zero_tol, verbose=False, MSmatrix=0, return_all_roots=True):
@@ -90,7 +90,10 @@ def multiplication(polys, max_cond_num, macaulay_zero_tol, verbose=False, MSmatr
     #Check if too many roots
     assert roots.shape[1] <= max_number_of_roots,"Found too many roots"
     if return_all_roots:
-        return roots.T
+        roots = np.array(roots.T, dtype=complex)
+        for i in range(len(roots)):
+            roots[i] = newton_polish(polys,roots[i],niter=100,tol=1e-20)
+        return roots
     else:
         # only return roots in the unit complex hyperbox
         return roots.T[np.all(np.abs(roots) <= 1,axis = 0)]

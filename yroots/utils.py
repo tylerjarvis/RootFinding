@@ -1225,6 +1225,21 @@ def isNumber(x):
     """
     return isinstance(x, (int, float, complex)) and not isinstance(x, bool)
 
+def isNumOrBool(x):
+    """Determines if x is a number or a bool
+
+    Parameters
+    ----------
+    x : var
+        The variable to check.
+
+    Returns
+    -------
+    isNumber : bool
+        True if x is an number or bool, otherwise False.
+    """
+    return isinstance(x, (int, float, complex, bool))
+
 class Tolerances:
     '''
     Class to track the tolerances being used in the subdivision solver.
@@ -1263,19 +1278,19 @@ class Tolerances:
         numTols = 1
         #Finds the number of the tolerances to be used.
         for name in tolerances:
-            if not isNumber(tolerances[name]):
+            if not isNumOrBool(tolerances[name]):
                 numTols = len(tolerances[name])
 
         for name in tolerances:
             value = tolerances[name]
-            if isNumber(value): #Turns the number into a list of the right name. Stores as attribute.
+            if isNumOrBool(value): #Turns the number into a list of the right name. Stores as attribute.
                 self.__setattr__(name+'s', [value]*numTols)
             elif hasattr(value, '__iter__'): #Makes sure the list is the right length. Stores as attribute.
                 self.__setattr__(name+'s', value)
                 if len(value) != numTols:
                     raise ValueError("Length of tolerence lists must be the same!")
             else:
-                raise TypeError("Tolerance value must be number type or iterable!")
+                raise TypeError("Tolerance value must be number or boolean type or iterable!")
 
         self.currTol = -1
         self.numTols = numTols
