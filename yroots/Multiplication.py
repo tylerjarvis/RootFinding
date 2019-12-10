@@ -105,66 +105,6 @@ def multiplication(polys, max_cond_num, macaulay_zero_tol, verbose=False, MSmatr
                     temp *= roots[:,place]**num
             roots[:,order] -= temp
     
-    
-    from matplotlib import pyplot as plt
-    def get_interval(steps,a,b):
-        RAND = 0.5139303900908738
-        for step in steps:
-            diffs = ((b-a)*RAND)
-            if step == 0:
-                a += diffs
-            elif step == 1:
-                a[0] += diffs[0]
-                b[1] = a[1] + diffs[1]
-            elif step == 2:
-                b[0] = a[0] + diffs[0]
-                a[1] += diffs[1]
-            elif step == 3:
-                b = a + diffs
-            else:
-                raise ValueError('invalid step')
-        return a,b
-
-    a = np.array([-1.,-1.])
-    b = np.array([1.,1.])
-
-    steps = [0,2,3,1,3,1,3,2,2]
-    a,b = get_interval(steps,a,b)
-    
-    plt.figure(dpi=600)
-    fig,ax = plt.subplots(1)
-    fig.set_size_inches(6.5, 3)
-    plt.xlim(a[0],b[0])
-    plt.xlabel('$x$')
-    plt.ylim(a[1],b[1])
-    plt.ylabel('$y$')
-    plt.title('Zero-Loci and Roots')
-
-    dim = 2
-
-    #print the contours
-    contour_colors = ['#003cff','#50c878'] #royal blue and emerald green
-    x = np.linspace(a[0],b[0],100)
-    y = np.linspace(a[1],b[1],100)
-    X,Y = np.meshgrid(x,y)
-    for i in range(dim):
-        Z = np.zeros_like(X)
-        for spot,num in np.ndenumerate(X):
-            Z[spot] = polys[i]([X[spot],Y[spot]])
-        plt.contour(X,Y,Z,levels=[0],colors=contour_colors[i])
-
-    colors = ['w','#c3c3c3', 'C8', '#708090', '#897A57', '#D6C7A4','#73e600','#ccff99']
-
-    for root in roots:
-        plt.plot(root[0], root[1],'o',color='k',markeredgecolor='k',markersize=3,
-             zorder=22) 
-    
-    
-    
-    
-    
-    
-    
     #Check if too many roots
     assert roots.shape[0] <= max_number_of_roots,"Found too many roots,{}/{}/{}".format(roots.shape,max_number_of_roots, degrees)
     if return_all_roots:
