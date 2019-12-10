@@ -23,7 +23,7 @@ import itertools
 import time
 import warnings
 
-def solve(funcs, a, b, rel_approx_tol=1e-15, abs_approx_tol=1e-15, max_cond_num=1e5, macaulay_zero_tol=1e-12, good_zeros_factor=100, min_good_zeros_tol=1e-5, check_eval_error=True, check_eval_freq = 1, plot = False, plot_intervals = False, deg = None, max_level=999):
+def solve(funcs, a, b, rel_approx_tol=1e-15, abs_approx_tol=1e-15, max_cond_num=1e10, macaulay_zero_tol=0, good_zeros_factor=100, min_good_zeros_tol=1e-5, check_eval_error=True, check_eval_freq = 1, plot = False, plot_intervals = False, deg = None, max_level=999):
     '''
     Finds the real roots of the given list of functions on a given interval.
 
@@ -632,11 +632,11 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,root_tracker,tols,max_level
         root_tracker.add_roots(zero, a, b, "Base Case")
 
     #Check if anything is linear
-    elif np.any(np.array([coeff.shape[0] for coeff in coeffs]) == 2):
-        #Subdivide but run some checks on the intervals first
-        intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
-        for new_a, new_b in intervals:
-            subdivision_solve_nd(funcs,new_a,new_b,deg,interval_data,root_tracker,tols,max_level,good_degs,level+1)
+#     elif np.any(np.array([coeff.shape[0] for coeff in coeffs]) == 2):
+#         #Subdivide but run some checks on the intervals first
+#         intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
+#         for new_a, new_b in intervals:
+#             subdivision_solve_nd(funcs,new_a,new_b,deg,interval_data,root_tracker,tols,max_level,good_degs,level+1)
 
     #Runs the same things as above, but we want to get rid of that eventually so keep them seperate.
     elif np.any(np.array([coeff.shape[0] for coeff in coeffs]) > 5) or not good_approx:
@@ -646,6 +646,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,root_tracker,tols,max_level
 
     #Solve using spectral methods if stable.
     else:
+#         print(coeffs)
         polys = [MultiCheb(coeff, lead_term = [coeff.shape[0]-1], clean_zeros = False) for coeff in coeffs]
         try:
             zeros = multiplication(polys, max_cond_num=tols.max_cond_num, macaulay_zero_tol= tols.macaulay_zero_tol)
@@ -653,6 +654,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,root_tracker,tols,max_level
             interval_data.track_interval("Spectral", [a,b])
             root_tracker.add_roots(zeros, a, b, "Spectral")
         except ConditioningError as e:
+#             print(e)
             #Subdivide but run some checks on the intervals first
             intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
             for new_a, new_b in intervals:

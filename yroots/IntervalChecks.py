@@ -287,11 +287,11 @@ class IntervalData:
         #Plot the zeros
         if len(zeros) > 0:
             plt.plot(np.real(zeros[:,0]), np.real(zeros[:,1]),'o',color='#ffff00',markeredgecolor='#ffff00',markersize=3,
-                 zorder=22)
-#         plt.plot(-0.789513018545138, 0.127935072207566,'o',color='k',markeredgecolor='k',markersize=3,
-#                  zorder=22)
+                 zorder=22)        
         
-
+#         plt.plot(0.41589487873818587, -0.2682102425236283,'o',color='k',markeredgecolor='k',markersize=3,
+#                  zorder=22) 
+        
         if print_plot:
             plt.savefig('intervals.pdf', bbox_inches='tight')
         plt.show()

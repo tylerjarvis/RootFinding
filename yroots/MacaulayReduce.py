@@ -122,27 +122,35 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_cond_num, macaulay_zero_
     BCEF[...] = Q1.T @ BCEF
     del Q1 #Get rid of Q1 for memory purposes.
 
-    #RRQR reduces E sticking the result in it's place.
-    Q,E[...],P = qr(E, pivoting = True)
+    #Check to see if E exists
+    if cuts[0] != cuts[1] and cuts[0] < matrix.shape[0]:
+        #RRQR reduces E sticking the result in it's place.
+        Q,E[...],P = qr(E, pivoting = True)
 
-    #Multiplies F by Q.T.
-    F[...] = Q.T @ F
-    del Q #Get rid of Q for memory purposes.
+        #Multiplies F by Q.T.
+        F[...] = Q.T @ F
+        del Q #Get rid of Q for memory purposes.
 
-    #Permute the columns of B
-    B[...] = B[:,P]
+        #Permute the columns of B
+        B[...] = B[:,P]
 
-    #Resorts the matrix_t erms.
-    matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
+        #Resorts the matrix_terms.
+        matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
 
+#     print(matrix.diagonal())
+#     print(cuts)
+#     print(matrix.shape)
+#     print(matrix)
+        
     #eliminate zero rows from the bottom of the matrix.
-    matrix = row_swap_matrix(matrix)
+    matrix = row_swap_matrix(matrix)[:cuts[1]]    
     for row in matrix[::-1]:
-        if np.allclose(row, 0,atol=macaulay_zero_tol):
+        if np.allclose(row[:cuts[1]], 0,atol=macaulay_zero_tol):
+            print('Remove')
             matrix = matrix[:-1]
         else:
             break
-
+    
     #Conditioning check
     cond_num = np.linalg.cond(matrix[:,:matrix.shape[0]])
     if cond_num > max_cond_num:
