@@ -24,7 +24,7 @@ import time
 import warnings
 
 def solve(funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12, 
-          trim_zero_tol=1.e-10, max_cond_num=1e6, macaulay_zero_tol=1e-12,
+          trim_zero_tol=1.e-10, max_cond_num=1e6, macaulay_zero_tol=0,
           good_zeros_factor=100, min_good_zeros_tol=1e-5, 
           check_eval_error=True, check_eval_freq = 1, plot = False, 
           plot_intervals = False, deg = None, max_level=999, 
@@ -548,9 +548,9 @@ def getAbsApproxTol(func, deg, a, b):
     np.random.seed(0)
     for i in range(10):
         x = transform(np.random.rand(len(a))*2-1, a, b)
-        e = 2.220446049250313e-14
-        a = np.array(x - e)
-        b = np.array(x + e)
+        linearization_size = 2.220446049250313e-14
+        a = np.array(x - linearization_size)
+        b = np.array(x + linearization_size)
         coeff = interval_approximate_nd(func,a,b,2*deg)[0]
         coeff[:deg,:deg] = 0
         abs_approx_tol = np.sum(np.abs(coeff))
