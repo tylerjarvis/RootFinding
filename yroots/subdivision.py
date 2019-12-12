@@ -544,6 +544,27 @@ def solve_linear(coeffs):
             return np.zeros([0,dim])
 
 def getAbsApproxTol(func, deg, a, b):
+    """ Gets an absolute approximation tolerance based on the assumption that
+        on the interval of size linearization_size * 2, the function can be
+        perfectly approximated by a low degree Chebyshev polynomial.
+
+        Parameters
+        ----------
+            func : function
+                Function to approximate.
+            def : int
+                The degree to use to approximate the function on the interval.
+            a : numpy array
+                The lower bounds of the interval on which to approximate.
+            b : numpy array
+                The upper bounds of the interval on which to approximate.
+
+        Returns
+        -------
+            abs_approx_tol : float
+                The calculated absolute approximation tolerance based on the
+                noise of the function on the small interval.
+    """
     tols = []
     np.random.seed(0)
     for i in range(10):
