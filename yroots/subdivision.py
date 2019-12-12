@@ -23,16 +23,19 @@ import itertools
 import time
 import warnings
 
-def solve(funcs, a, b, rel_approx_tol=1e-8, abs_approx_tol=1e-12, 
-          max_cond_num=1e10, macaulay_zero_tol=0, good_zeros_factor=100, 
-          min_good_zeros_tol=1e-5, check_eval_error=True, check_eval_freq = 1, 
-          plot = False, plot_intervals = False, deg = None, max_level=999):
+def solve(funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12, 
+          trim_zero_tol=1.e-10, max_cond_num=1e6, macaulay_zero_tol=1e-12,
+          good_zeros_factor=100, min_good_zeros_tol=1e-5, 
+          check_eval_error=True, check_eval_freq = 1, plot = False, 
+          plot_intervals = False, deg = None, max_level=999, 
+          return_potentials=False):
     '''
     Finds the real roots of the given list of functions on a given interval.
 
-    All of the tolerances can be passed in as numbers of iterable types. If multiple
-    are passed in as iterable types they must have the same length. When the length is
-    more than 1, they are used one after the other to polish the roots.
+    All of the tolerances can be passed in as numbers of iterable types. If 
+    multiple are passed in as iterable types they must have the same length.
+    When the length is more than 1, they are used one after the other to polish
+    the roots.
 
     Parameters
     ----------
@@ -78,6 +81,8 @@ def solve(funcs, a, b, rel_approx_tol=1e-8, abs_approx_tol=1e-12,
         Degree 2 for 5D functions and above.
     max_level : int
         The maximum levels deep the recursion will go. Increasing it above 999 may result in recursion error!
+    return_potentials : bool
+        If True, returns the potential roots. Else, it does not.
 
     If finding roots of a univariate function, `funcs` does not need to be a list,
     and `a` and `b` can be floats instead of arrays.
@@ -106,7 +111,15 @@ def solve(funcs, a, b, rel_approx_tol=1e-8, abs_approx_tol=1e-12,
             deg = deg_dim[dim]
 
     #Sets up the tolerances.
-    tols = Tolerances(rel_approx_tol=rel_approx_tol, abs_approx_tol=abs_approx_tol, max_cond_num=max_cond_num, macaulay_zero_tol=macaulay_zero_tol, good_zeros_factor=good_zeros_factor, min_good_zeros_tol=min_good_zeros_tol,check_eval_error=check_eval_error,check_eval_freq=check_eval_freq)
+    tols = Tolerances(rel_approx_tol=rel_approx_tol, 
+                      abs_approx_tol=abs_approx_tol, 
+                      trim_zero_tol=trim_zero_tol, 
+                      max_cond_num=max_cond_num, 
+                      macaulay_zero_tol=macaulay_zero_tol, 
+                      good_zeros_factor=good_zeros_factor, 
+                      min_good_zeros_tol=min_good_zeros_tol,
+                      check_eval_error=check_eval_error,
+                      check_eval_freq=check_eval_freq)
     tols.nextTols()
 
     #Set up the interval data and root tracker classes
@@ -147,7 +160,13 @@ def solve(funcs, a, b, rel_approx_tol=1e-8, abs_approx_tol=1e-12,
         elif dim == 2:
             interval_data.plot_results(funcs, root_tracker.roots, plot_intervals)
 
-    return root_tracker.roots
+    if len(root_tracker.potential_roots) != 0:
+        warnings.warn("Some intervals subdivided too deep and some potential roots were found. To access these roots, rerun the solver with the keyword return_potentials=True")
+    
+    if return_potentials:
+        return root_tracker.roots, root_tracker.potential_roots
+    else:
+        return root_tracker.roots
 
 def transform(x,a,b):
     """Transforms points from the interval [-1,1] to the interval [a,b].
@@ -364,7 +383,7 @@ def get_subintervals(a,b,dimensions,interval_data,polys,change_sign,approx_error
     approx_error: float
         The bound of the sup norm error of the chebyshev approximation.
     check_subintervals : bool
-        If True runs the subinterval checks to through out intervals where the functions are never 0.
+        If True runs the subinterval checks to throw out intervals where the functions are never 0.
 
     Returns
     -------
@@ -539,8 +558,9 @@ def getAbsApproxTol(func, deg, a, b):
     tols = np.array(tols)
     numSpots = (deg*2)**len(a) - (deg)**len(a)
     return np.max(tols)*10 / numSpots
-        
-def subdivision_solve_nd(funcs,a,b,deg,interval_data,root_tracker,tols,max_level,good_degs=None,level=0):
+
+def subdivision_solve_nd(funcs, a, b, deg, interval_data, root_tracker, tols,
+                         max_level,good_degs=None,level=0):
     """Finds the common zeros of the given functions.
 
     All the zeros will be stored in root_tracker.
@@ -571,13 +591,8 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,root_tracker,tols,max_level
     if level >= max_level:
         # TODO Refine case where there may be a root and it goes too deep.
         interval_data.track_interval("Too Deep", [a, b])
-        # # Find residuals of the midpoint of the interval.
-        # residual_samples = list()
-        # for func in funcs:
-        #     residual_samples.append(func(*(np.array(a) + np.array(b))/2))
-        # # If all the residuals are within the tolerance, return midpoint approximation.
-        # if np.all(residual < solve_tol for residual in residual_samples):
-        #     return (np.array(a) + np.array(b))/2
+        # Return potential roots if the residuals are small
+        root_tracker.add_potential_roots((a + b)/2, a, b, "Too Deep.")
         return
     
     if tols.check_eval_error:
@@ -617,7 +632,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,root_tracker,tols,max_level
             cheb_approx_list.append(coeff)
 
     #Make the system stable to solve
-    coeffs, good_approx, approx_errors = trim_coeffs(cheb_approx_list, tols.abs_approx_tol, tols.rel_approx_tol, inf_norms, approx_errors)
+    coeffs, good_approx, approx_errors = trim_coeffs(cheb_approx_list, tols.abs_approx_tol, tols.rel_approx_tol, tols.trim_zero_tol, inf_norms, approx_errors)
 
     #Used if subdividing further.
     good_degs = [coeff.shape[0] - 1 for coeff in coeffs]
@@ -663,7 +678,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,root_tracker,tols,max_level
             for new_a, new_b in intervals:
                 subdivision_solve_nd(funcs,new_a,new_b,deg,interval_data,root_tracker,tols,max_level,good_degs,level+1)
 
-def trim_coeffs(coeffs, abs_approx_tol, rel_approx_tol, inf_norms, errors):
+def trim_coeffs(coeffs, abs_approx_tol, rel_approx_tol, trim_zero_tol, inf_norms, errors):
     """Trim the coefficient matrices so they are stable and choose a direction to divide in.
 
     Parameters
@@ -693,7 +708,7 @@ def trim_coeffs(coeffs, abs_approx_tol, rel_approx_tol, inf_norms, errors):
         #get the error inherent in the approximation
         error = errors[num]
         #zero out small spots in the coefficient matrix; increment the error accordingly
-        spot = np.abs(coeff) < 1.e-10*np.max(np.abs(coeff))
+        spot = np.abs(coeff) < trim_zero_tol*np.max(np.abs(coeff))
         error += np.sum(np.abs(coeff[spot]))
         coeff[spot] = 0
 

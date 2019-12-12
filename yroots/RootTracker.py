@@ -28,8 +28,10 @@ class RootTracker:
         The roots of the system being solved
     possible_duplicates : list
         Roots that were outside their search interval so might be duplicates
+    potential_roots : numpy array
+        Places that may or may not have a root that we found.
     intervals : list
-        The intervals that the roots were found in
+        The intervals that the roots were found in.
     polish_intervals : list
         The intervals to run polishing on.
     methods : list
@@ -41,12 +43,17 @@ class RootTracker:
         Initializes everything.
     add_roots
         Adds roots the were found to the list, along with their information.
+    add_potential_roots
+        Adds roots that were found by the solver but are questionable. We will
+        want to double check that these roots aren't duplicated elsewhere or that
+        they give a fairly good answer.
     get_polish_intervals
         Gets the intervals to run the next round of polishing on.
     '''
     def __init__(self):
         self.roots = np.array([])
         self.possible_duplicates = []
+        self.potential_roots = np.array([])
         self.intervals = []
         self.methods = []
 
@@ -132,6 +139,38 @@ class RootTracker:
             self.roots = np.hstack([self.roots, zero])
         self.intervals += [(a,b)]
         self.methods += [method]
+
+    def add_potential_roots(self, potentials, a, b, method):
+        ''' Store the potential roots that were found, along with the interval 
+        they were found in and the method used.
+
+        Parameters
+        ----------
+        potentials : numpy array.
+            The potential roots to store.
+        a: numpy array
+            The lower bounds of the interval the roots were found in.
+        b: numpy array
+            The upper bounds of the interval the roots were found in.
+        method : string
+            The method used to find the roots
+        '''
+        if not isinstance(a, np.ndarray):
+            dim = 1
+        else:
+            dim = len(a)
+        if len(self.potential_roots) == 0:
+            if dim == 1:
+                self.potential_roots = np.zeros([0])
+            else:
+                self.potential_roots = np.zeros([0,dim])
+
+        if dim > 1:
+            self.potential_roots = np.vstack([self.potential_roots, potentials])
+        else:
+            self.potential_roots = np.hstack([self.potential_roots, potentials])
+        self.intervals += [(a,b)]*len(potentials)
+        self.methods += [method]*len(potentials)
 
     def get_polish_intervals(self):
         ''' Find the intervals to run the polishing on.
