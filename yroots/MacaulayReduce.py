@@ -138,7 +138,7 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_cond_num, macaulay_zero_
     #eliminate zero rows from the bottom of the matrix.
     matrix = row_swap_matrix(matrix)
     for row in matrix[::-1]:
-        if np.allclose(row, 0,atol=macaulay_zero_tol):
+        if np.allclose(row, 0, atol=macaulay_zero_tol):
             matrix = matrix[:-1]
         else:
             break

@@ -23,13 +23,18 @@ import itertools
 import time
 import warnings
 
-def solve(funcs, a, b, rel_approx_tol=1.e-6, abs_approx_tol=1.e-10, trim_zero_tol=1.e-10, max_cond_num=1e6, macaulay_zero_tol=1e-12, good_zeros_factor=100, min_good_zeros_tol=1e-5, plot = False, plot_intervals = False, deg = None, max_level=999, return_potentials=False):
+def solve(funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12, 
+          trim_zero_tol=1.e-10, max_cond_num=1e6, macaulay_zero_tol=1e-12,
+          good_zeros_factor=100, min_good_zeros_tol=1e-5, plot = False, 
+          plot_intervals = False, deg = None, max_level=999, 
+          return_potentials=False):
     '''
     Finds the real roots of the given list of functions on a given interval.
 
-    All of the tolerances can be passed in as numbers of iterable types. If multiple
-    are passed in as iterable types they must have the same length. When the length is
-    more than 1, they are used one after the other to polish the roots.
+    All of the tolerances can be passed in as numbers of iterable types. If 
+    multiple are passed in as iterable types they must have the same length.
+    When the length is more than 1, they are used one after the other to polish
+    the roots.
 
     Parameters
     ----------
@@ -101,7 +106,13 @@ def solve(funcs, a, b, rel_approx_tol=1.e-6, abs_approx_tol=1.e-10, trim_zero_to
             deg = deg_dim[dim]
 
     #Sets up the tolerances.
-    tols = Tolerances(rel_approx_tol=rel_approx_tol, abs_approx_tol=abs_approx_tol, trim_zero_tol=trim_zero_tol, max_cond_num=max_cond_num, macaulay_zero_tol=macaulay_zero_tol, good_zeros_factor=good_zeros_factor, min_good_zeros_tol=min_good_zeros_tol)
+    tols = Tolerances(rel_approx_tol=rel_approx_tol, 
+                      abs_approx_tol=abs_approx_tol, 
+                      trim_zero_tol=trim_zero_tol, 
+                      max_cond_num=max_cond_num, 
+                      macaulay_zero_tol=macaulay_zero_tol, 
+                      good_zeros_factor=good_zeros_factor, 
+                      min_good_zeros_tol=min_good_zeros_tol)
     tols.nextTols()
 
     #Set up the interval data and root tracker classes
@@ -522,7 +533,8 @@ def solve_linear(coeffs):
                 warnings.warn('System potentially has infinitely many roots')
             return np.zeros([0,dim])
 
-def subdivision_solve_nd(funcs,a,b,deg,interval_data,root_tracker,tols,max_level,good_degs=None,level=0):
+def subdivision_solve_nd(funcs, a, b, deg, interval_data, root_tracker, tols,
+                         max_level,good_degs=None,level=0):
     """Finds the common zeros of the given functions.
 
     All the zeros will be stored in root_tracker.
