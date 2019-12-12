@@ -11,8 +11,8 @@ from scipy.fftpack import fftn
 from yroots.OneDimension import divCheb,divPower,multCheb,multPower,solve
 from yroots.Division import division
 from yroots.Multiplication import multiplication
-from yroots.utils import clean_zeros_from_matrix, slice_top, MacaulayError, get_var_list, \
-                        ConditioningError, Tolerances
+from yroots.utils import clean_zeros_from_matrix, slice_top, MacaulayError, \
+                        get_var_list, ConditioningError, Tolerances
 from yroots.polynomial import MultiCheb
 from yroots.IntervalChecks import IntervalData
 from yroots.RootTracker import RootTracker
