@@ -24,7 +24,7 @@ import time
 import warnings
 
 def solve(funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12, 
-          trim_zero_tol=1.e-10, max_cond_num=1e6, macaulay_zero_tol=0,
+          trim_zero_tol=1.e-10, max_cond_num=1e6, macaulay_zero_tol=1.e-13,
           good_zeros_factor=100, min_good_zeros_tol=1e-5, 
           check_eval_error=True, check_eval_freq = 1, plot = False, 
           plot_intervals = False, deg = None, max_level=999, 
