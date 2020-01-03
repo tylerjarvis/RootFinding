@@ -39,7 +39,7 @@ def multiplication(polys, max_cond_num, macaulay_zero_tol, verbose=False, MSmatr
     ConditioningError if MSMultMatrix(...) raises a ConditioningError.
     '''
     #We don't want to use Linear Projection right now
-#     polys, transform, is_projected = polys, lambda x:x, False
+#    polys, transform, is_projected = polys, lambda x:x, False
 
     if len(polys) == 1:
         from yroots.OneDimension import solve
@@ -104,7 +104,7 @@ def multiplication(polys, max_cond_num, macaulay_zero_tol, verbose=False, MSmatr
                 if num > 0:
                     temp *= roots[:,place]**num
             roots[:,order] -= temp
-    
+
     #Check if too many roots
     assert roots.shape[0] <= max_number_of_roots,"Found too many roots,{}/{}/{}".format(roots.shape,max_number_of_roots, degrees)
     if return_all_roots:
@@ -236,31 +236,30 @@ def MacaulayReduction(initial_poly_list, max_cond_num, macaulay_zero_tol, verbos
     dim = initial_poly_list[0].dim
     poly_coeff_list = []
     degree = find_degree(initial_poly_list)
-    
+
     numLinear = 0
 
-#     print('checking polys')
     linearVals = []
     for poly in initial_poly_list:
         if poly.degree == 1:
+            #normalize so make the smallest coeff is 1
             poly.coeff /= np.min(np.abs(poly.coeff[poly.coeff!=0]))
             coeff_vals = poly.coeff[poly.coeff!=0]
+            #always appends 1
             linearVals.append(np.min(np.abs(coeff_vals)))
             numLinear += 1
         poly_coeff_list = add_polys(degree, poly, poly_coeff_list)
     if numLinear > 0:
-#         print(linearVals)
+        #TODO: what the heck?
         macaulay_zero_tol = max(macaulay_zero_tol, np.min(linearVals) * 1e-3)
 
     #Choose which variables to remove if things are linear
+    #TODO: pick smarter
     varsToRemove = np.arange(numLinear)
-        
+
     #Creates the matrix
     matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, degree, dim, varsToRemove)
-#     print(matrix_terms)
-#     print(matrix.shape)
-#     print(matrix)
-#     print(cuts)
+
     if verbose:
         np.set_printoptions(suppress=False, linewidth=200)
         print('\nStarting Macaulay Matrix\n', matrix)
@@ -407,22 +406,25 @@ def sorted_matrix_terms(degree, dim, varsToRemove):
     while d > 1:
         other_mons += mon_combosHighest([0]*dim,d)[::-1]
         d -= 1
-        
+
+    #extra-small monomials: 1,x,y, etc.
     xs_mons = mon_combos([0]*dim,1)[::-1]
-    
+
+    #trivial case
     if degree == 1:
         matrix_terms = np.reshape(xs_mons, (len(xs_mons),dim))
         cuts = tuple([0,0])
+    #normal case
     else:
         matrix_terms = np.reshape(highest_mons+other_mons+xs_mons, (len(highest_mons+other_mons+xs_mons),dim))
         cuts = tuple([len(highest_mons),len(highest_mons)+len(other_mons)])
-    
+
     for var in varsToRemove:
         B = matrix_terms[cuts[0]:]
         mask = B[:,var] != 0
         matrix_terms[cuts[0]:] = np.vstack([B[mask], B[~mask]])
         cuts = tuple([cuts[0] + np.sum(mask), cuts[1]+1])
-    
+
     return matrix_terms, cuts
 
 def _random_poly(_type, dim):

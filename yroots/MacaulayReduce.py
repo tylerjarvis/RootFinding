@@ -137,20 +137,14 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_cond_num, macaulay_zero_
         #Resorts the matrix_terms.
         matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
 
-#     print(matrix.diagonal())
-#     print(cuts)
-#     print(matrix.shape)
-#     print(matrix)
-        
     #eliminate zero rows from the bottom of the matrix.
-    matrix = row_swap_matrix(matrix)[:cuts[1]]    
+    matrix = row_swap_matrix(matrix)[:cuts[1]]
     for row in matrix[::-1]:
         if np.allclose(row[:cuts[1]], 0,atol=macaulay_zero_tol):
-            print('Remove')
             matrix = matrix[:-1]
         else:
             break
-    
+
     #Conditioning check
     cond_num = np.linalg.cond(matrix[:,:matrix.shape[0]])
     if cond_num > max_cond_num:

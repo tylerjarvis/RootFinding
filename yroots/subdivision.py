@@ -7,7 +7,7 @@ the approximation degree is small enough to be solved efficiently.
 """
 
 import numpy as np
-from numpy.fft.fftpack import fftn
+from scipy.fft.fftpack import fftn
 from yroots.OneDimension import divCheb,divPower,multCheb,multPower,solve
 from yroots.Division import division
 from yroots.Multiplication import multiplication
@@ -536,7 +536,7 @@ def getAbsApproxTol(func, deg, a, b):
     tols = np.array(tols)
     numSpots = (deg*2)**len(a) - (deg)**len(a)
     return np.max(tols)*10 / numSpots
-        
+
 def subdivision_solve_nd(funcs,a,b,deg,interval_data,root_tracker,tols,max_level,good_degs=None,level=0):
     """Finds the common zeros of the given functions.
 
@@ -576,7 +576,7 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,root_tracker,tols,max_level
         # if np.all(residual < solve_tol for residual in residual_samples):
         #     return (np.array(a) + np.array(b))/2
         return
-    
+
     if tols.check_eval_error:
         tols.abs_approx_tol = tols.abs_approx_tols[tols.currTol]
         if level%tols.check_eval_freq == 0:
@@ -646,7 +646,6 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,root_tracker,tols,max_level
 
     #Solve using spectral methods if stable.
     else:
-#         print(coeffs)
         polys = [MultiCheb(coeff, lead_term = [coeff.shape[0]-1], clean_zeros = False) for coeff in coeffs]
         try:
             zeros = multiplication(polys, max_cond_num=tols.max_cond_num, macaulay_zero_tol= tols.macaulay_zero_tol)
@@ -654,7 +653,6 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,root_tracker,tols,max_level
             interval_data.track_interval("Spectral", [a,b])
             root_tracker.add_roots(zeros, a, b, "Spectral")
         except ConditioningError as e:
-#             print(e)
             #Subdivide but run some checks on the intervals first
             intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
             for new_a, new_b in intervals:
