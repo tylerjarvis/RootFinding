@@ -106,13 +106,17 @@ def multiplication(polys, max_cond_num, macaulay_zero_tol, verbose=False, MSmatr
             roots[:,order] -= temp
     
     #Check if too many roots
-    assert roots.shape[0] <= max_number_of_roots,"Found too many roots,{}/{}/{}".format(roots.shape,max_number_of_roots, degrees)
+    assert roots.shape[0] <= max_number_of_roots,"Found too many roots,{}/{}/{}:{}".format(roots.shape,max_number_of_roots, degrees,roots)
     if return_all_roots:
         roots = np.array(roots, dtype=complex)
-        print(roots)
-        for i in range(len(roots)):
-            roots[i] = newton_polish(polys,roots[i],niter=100,tol=1e-20)
-        print(roots)
+        # #print(roots)
+        
+        # REMARK: We don't always have good information about the derivatives, 
+        # so we can't use Newton polishing on our roots.
+        # for i in range(len(roots)):
+        #     roots[i] = newton_polish(polys,roots[i],niter=100,tol=1e-20)
+        
+        # #print(roots)
         return roots
     else:
         # only return roots in the unit complex hyperbox

@@ -1,7 +1,7 @@
 from itertools import product
 
 import numpy as np
-from numpy.fft.fftpack import fftn
+from scipy.fftpack import fftn
 from yroots.utils import get_var_list
 from yroots.polynomial import Polynomial, MultiCheb
 from scipy.linalg import qr
@@ -97,7 +97,7 @@ def project_down(polys, linear, approx_tol, solve_tol):
 
     if len(polys) > 1:
         from yroots.subdivision import trim_coeffs
-        return trim_coeffs(proj_poly_coeff, approx_tol, solve_tol)[0], T
+        return trim_coeffs(proj_poly_coeff, approx_tol)[0], T
     else:
         return proj_poly_coeff, T
 

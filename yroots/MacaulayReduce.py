@@ -146,7 +146,7 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_cond_num, macaulay_zero_
     matrix = row_swap_matrix(matrix)[:cuts[1]]    
     for row in matrix[::-1]:
         if np.allclose(row[:cuts[1]], 0,atol=macaulay_zero_tol):
-            print('Remove')
+            # print('Remove')
             matrix = matrix[:-1]
         else:
             break
