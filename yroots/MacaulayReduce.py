@@ -8,6 +8,7 @@ from yroots.utils import row_swap_matrix, MacaulayError, slice_top, mon_combos, 
 from matplotlib import pyplot as plt
 from scipy.linalg import svd
 
+macheps = 2.220446049250313e-16
 def add_polys(degree, poly, poly_coeff_list):
     """Adds polynomials to a Macaulay Matrix.
 
@@ -141,18 +142,21 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_cond_num, macaulay_zero_
 #     print(cuts)
 #     print(matrix.shape)
 #     print(matrix)
-        
+
     #eliminate zero rows from the bottom of the matrix.
-    matrix = row_swap_matrix(matrix)[:cuts[1]]    
-    for row in matrix[::-1]:
-        if np.allclose(row[:cuts[1]], 0,atol=macaulay_zero_tol):
-            # print('Remove')
-            matrix = matrix[:-1]
-        else:
-            break
-    
-    #Conditioning check
-    cond_num = np.linalg.cond(matrix[:,:matrix.shape[0]])
+    matrix = row_swap_matrix(matrix)[:cuts[1]]
+    # for row in matrix[::-1]:
+    #     if np.allclose(row[:cuts[1]], 0,atol=macaulay_zero_tol):
+    #         # print('Remove')
+    #         matrix = matrix[:-1]
+    #     else:
+    #         break
+    s = svd(matrix,compute_uv=False)
+    tol = max(matrix.shape)*s[0]*macheps
+    rank = len(s[s>tol])
+    matrix = matrix[:rank]
+
+    cond_num = s[0]/s[rank-1]
     if cond_num > max_cond_num:
         raise ConditioningError("Conditioning number of the Macaulay matrix "\
                                 + "after QR is: " + str(cond_num))
