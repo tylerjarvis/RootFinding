@@ -1,7 +1,7 @@
 import numpy as np
 import itertools
 from scipy.linalg import solve_triangular, eig
-from yroots import LinearProjection
+from yroots.LinearProjection import nullspace
 from yroots.polynomial import MultiCheb, MultiPower, is_power
 from yroots.MacaulayReduce import rrqr_reduceMacaulay, find_degree, \
                               add_polys
@@ -110,12 +110,12 @@ def multiplication(polys, max_cond_num, macaulay_zero_tol, verbose=False, MSmatr
     if return_all_roots:
         roots = np.array(roots, dtype=complex)
         # #print(roots)
-        
-        # REMARK: We don't always have good information about the derivatives, 
+
+        # REMARK: We don't always have good information about the derivatives,
         # so we can't use Newton polishing on our roots.
         # for i in range(len(roots)):
         #     roots[i] = newton_polish(polys,roots[i],niter=100,tol=1e-20)
-        
+
         # #print(roots)
         return roots
     else:
@@ -241,25 +241,33 @@ def MacaulayReduction(initial_poly_list, max_cond_num, macaulay_zero_tol, verbos
     poly_coeff_list = []
     degree = find_degree(initial_poly_list)
 
-    numLinear = 0
+    linear_polys = [poly for poly in initial_poly_list if poly.degree == 1]
+    nonlinear_polys = [poly for poly in initial_poly_list if poly.degree != 1]
+    #Choose which variables to remove if things are linear, and add linear polys to matrix
+    if len(linear_polys) == 1: #one linear
+        varsToRemove = [np.argmax(np.abs(linear_polys[0].coeff[get_var_list(dim)]))]
+        poly_coeff_list = add_polys(degree, linear_polys[0], poly_coeff_list)
+    elif len(linear_polys) > 1: #multiple linear
+        #get the row rededuced linear coefficients
+        A,Pc = nullspace(linear_polys)
+        varsToRemove = Pc[:len(A)].copy()
+        #add to macaulay matrix
+        for row in A:
+            #reconstruct a polynomial for each row
+            coeff = np.zeros([1]*dim)
+            coeff[get_var_list(dim)] = row[:-1]
+            coeff[[0]*dim] = row[-1]
+            if power:
+                poly = MultiPower(coeff)
+            else:
+                poly = MultiCheb(coeff)
+            poly_coeff_list = add_polys(degree, poly, poly_coeff_list)
+    else: #no linear
+        varsToRemove = []
 
-    linearVals = []
-    for poly in initial_poly_list:
-        if poly.degree == 1:
-            #normalize so make the smallest coeff is 1
-            poly.coeff /= np.min(np.abs(poly.coeff[poly.coeff!=0]))
-            coeff_vals = poly.coeff[poly.coeff!=0]
-            #always appends 1
-            linearVals.append(np.min(np.abs(coeff_vals)))
-            numLinear += 1
+    #add nonlinear polys to poly_coeff_list
+    for poly in nonlinear_polys:
         poly_coeff_list = add_polys(degree, poly, poly_coeff_list)
-    if numLinear > 0:
-        #TODO: what the heck?
-        macaulay_zero_tol = max(macaulay_zero_tol, np.min(linearVals) * 1e-3)
-
-    #Choose which variables to remove if things are linear
-    #TODO: pick smarter
-    varsToRemove = np.arange(numLinear)
 
     #Creates the matrix
     matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, degree, dim, varsToRemove)

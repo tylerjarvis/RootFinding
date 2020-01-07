@@ -7,11 +7,7 @@ the approximation degree is small enough to be solved efficiently.
 """
 
 import numpy as np
-<<<<<<< HEAD
-from scipy.fft.fftpack import fftn
-=======
 from scipy.fftpack import fftn
->>>>>>> 4f6348365ce7593fc20a1e2f3422a8b21a08759f
 from yroots.OneDimension import divCheb,divPower,multCheb,multPower,solve
 from yroots.Division import division
 from yroots.Multiplication import multiplication
@@ -27,16 +23,16 @@ import itertools
 import time
 import warnings
 
-def solve(funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12, 
-          trim_zero_tol=1.e-10, max_cond_num=1e6, macaulay_zero_tol=1.e-13,
-          good_zeros_factor=100, min_good_zeros_tol=1e-5, 
-          check_eval_error=True, check_eval_freq = 1, plot = False, 
-          plot_intervals = False, deg = None, max_level=999, 
+def solve(funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
+          trim_zero_tol=1.e-10, max_cond_num=1e5, macaulay_zero_tol=1.e-13,
+          good_zeros_factor=100, min_good_zeros_tol=1e-5,
+          check_eval_error=True, check_eval_freq = 1, plot = False,
+          plot_intervals = False, deg = None, max_level=999,
           return_potentials=False):
     '''
     Finds the real roots of the given list of functions on a given interval.
 
-    All of the tolerances can be passed in as numbers of iterable types. If 
+    All of the tolerances can be passed in as numbers of iterable types. If
     multiple are passed in as iterable types they must have the same length.
     When the length is more than 1, they are used one after the other to polish
     the roots.
@@ -115,12 +111,12 @@ def solve(funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
             deg = deg_dim[dim]
 
     #Sets up the tolerances.
-    tols = Tolerances(rel_approx_tol=rel_approx_tol, 
-                      abs_approx_tol=abs_approx_tol, 
-                      trim_zero_tol=trim_zero_tol, 
-                      max_cond_num=max_cond_num, 
-                      macaulay_zero_tol=macaulay_zero_tol, 
-                      good_zeros_factor=good_zeros_factor, 
+    tols = Tolerances(rel_approx_tol=rel_approx_tol,
+                      abs_approx_tol=abs_approx_tol,
+                      trim_zero_tol=trim_zero_tol,
+                      max_cond_num=max_cond_num,
+                      macaulay_zero_tol=macaulay_zero_tol,
+                      good_zeros_factor=good_zeros_factor,
                       min_good_zeros_tol=min_good_zeros_tol,
                       check_eval_error=check_eval_error,
                       check_eval_freq=check_eval_freq)
@@ -166,7 +162,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
 
     if len(root_tracker.potential_roots) != 0:
         warnings.warn("Some intervals subdivided too deep and some potential roots were found. To access these roots, rerun the solver with the keyword return_potentials=True")
-    
+
     if return_potentials:
         return root_tracker.roots, root_tracker.potential_roots
     else:
@@ -584,12 +580,7 @@ def getAbsApproxTol(func, deg, a, b):
     numSpots = (deg*2)**len(a) - (deg)**len(a)
     return np.max(tols)*10 / numSpots
 
-<<<<<<< HEAD
 def subdivision_solve_nd(funcs,a,b,deg,interval_data,root_tracker,tols,max_level,good_degs=None,level=0):
-=======
-def subdivision_solve_nd(funcs, a, b, deg, interval_data, root_tracker, tols,
-                         max_level,good_degs=None,level=0):
->>>>>>> 4f6348365ce7593fc20a1e2f3422a8b21a08759f
     """Finds the common zeros of the given functions.
 
     All the zeros will be stored in root_tracker.
