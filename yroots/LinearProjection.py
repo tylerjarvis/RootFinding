@@ -240,12 +240,11 @@ def nullspace(linear_polys):
     Pc: ((n,) ndarray)
         The column pivoting array.
     """
-    olddim = linear_polys[0].dim
-    #pick linear term with coeff closest to 1 as the removing_var
-    A = np.zeros((len(linear_polys),olddim+1))
+    dim = linear_polys[0].dim
+    A = np.zeros((len(linear_polys),dim+1))
     for i,p in enumerate(linear_polys):
-        A[i,:-1] = p.coeff[get_var_list(olddim)]
-        A[i,-1]  = p.coeff[[0]*olddim]
+        A[i,:-1] = p.coeff[get_var_list(dim)]
+        A[i,-1]  = p.coeff[tuple([0]*dim)]
 
     return rref(A)
 
@@ -266,7 +265,7 @@ def rref(A):
         k,l = row[0]+j,col[0]+j
         A[[j,k]] = A[[k,j]]
         Pr[j],Pr[k] = Pr[k],Pr[j]
-        A[:,[j,l]] = A[:[l,j]]
+        A[:,np.array([j,l])] = A[:,np.array([l,j])]
         Pc[j],Pc[l] = Pc[l],Pc[j]
         if A[j,j] == 0:
             #handle rank deficient case

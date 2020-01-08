@@ -254,9 +254,9 @@ def MacaulayReduction(initial_poly_list, max_cond_num, macaulay_zero_tol, verbos
         #add to macaulay matrix
         for row in A:
             #reconstruct a polynomial for each row
-            coeff = np.zeros([1]*dim)
+            coeff = np.zeros([2]*dim)
             coeff[get_var_list(dim)] = row[:-1]
-            coeff[[0]*dim] = row[-1]
+            coeff[tuple([0]*dim)] = row[-1]
             if power:
                 poly = MultiPower(coeff)
             else:
