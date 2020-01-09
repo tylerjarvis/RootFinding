@@ -23,16 +23,16 @@ import itertools
 import time
 import warnings
 
-def solve(funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12, 
-          trim_zero_tol=1.e-10, max_cond_num=1e6, macaulay_zero_tol=1.e-13,
-          good_zeros_factor=100, min_good_zeros_tol=1e-5, 
-          check_eval_error=True, check_eval_freq = 1, plot = False, 
-          plot_intervals = False, deg = None, max_level=999, 
+def solve(funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
+          trim_zero_tol=1.e-10, max_cond_num=1e5, macaulay_zero_tol=1.e-13,
+          good_zeros_factor=100, min_good_zeros_tol=1e-5,
+          check_eval_error=True, check_eval_freq = 1, plot = False,
+          plot_intervals = False, deg = None, max_level=999,
           return_potentials=False):
     '''
     Finds the real roots of the given list of functions on a given interval.
 
-    All of the tolerances can be passed in as numbers of iterable types. If 
+    All of the tolerances can be passed in as numbers of iterable types. If
     multiple are passed in as iterable types they must have the same length.
     When the length is more than 1, they are used one after the other to polish
     the roots.
@@ -111,12 +111,12 @@ def solve(funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
             deg = deg_dim[dim]
 
     #Sets up the tolerances.
-    tols = Tolerances(rel_approx_tol=rel_approx_tol, 
-                      abs_approx_tol=abs_approx_tol, 
-                      trim_zero_tol=trim_zero_tol, 
-                      max_cond_num=max_cond_num, 
-                      macaulay_zero_tol=macaulay_zero_tol, 
-                      good_zeros_factor=good_zeros_factor, 
+    tols = Tolerances(rel_approx_tol=rel_approx_tol,
+                      abs_approx_tol=abs_approx_tol,
+                      trim_zero_tol=trim_zero_tol,
+                      max_cond_num=max_cond_num,
+                      macaulay_zero_tol=macaulay_zero_tol,
+                      good_zeros_factor=good_zeros_factor,
                       min_good_zeros_tol=min_good_zeros_tol,
                       check_eval_error=check_eval_error,
                       check_eval_freq=check_eval_freq)
@@ -162,7 +162,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
 
     if len(root_tracker.potential_roots) != 0:
         warnings.warn("Some intervals subdivided too deep and some potential roots were found. To access these roots, rerun the solver with the keyword return_potentials=True")
-    
+
     if return_potentials:
         return root_tracker.roots, root_tracker.potential_roots
     else:
@@ -580,8 +580,7 @@ def getAbsApproxTol(func, deg, a, b):
     numSpots = (deg*2)**len(a) - (deg)**len(a)
     return np.max(tols)*10 / numSpots
 
-def subdivision_solve_nd(funcs, a, b, deg, interval_data, root_tracker, tols,
-                         max_level,good_degs=None,level=0):
+def subdivision_solve_nd(funcs,a,b,deg,interval_data,root_tracker,tols,max_level,good_degs=None,level=0):
     """Finds the common zeros of the given functions.
 
     All the zeros will be stored in root_tracker.
@@ -615,7 +614,7 @@ def subdivision_solve_nd(funcs, a, b, deg, interval_data, root_tracker, tols,
         # Return potential roots if the residuals are small
         root_tracker.add_potential_roots((a + b)/2, a, b, "Too Deep.")
         return
-    
+
     if tols.check_eval_error:
         tols.abs_approx_tol = tols.abs_approx_tols[tols.currTol]
         if level%tols.check_eval_freq == 0:
@@ -685,7 +684,6 @@ def subdivision_solve_nd(funcs, a, b, deg, interval_data, root_tracker, tols,
 
     #Solve using spectral methods if stable.
     else:
-#         print(coeffs)
         polys = [MultiCheb(coeff, lead_term = [coeff.shape[0]-1], clean_zeros = False) for coeff in coeffs]
         try:
             zeros = multiplication(polys, max_cond_num=tols.max_cond_num, macaulay_zero_tol= tols.macaulay_zero_tol)
@@ -693,7 +691,6 @@ def subdivision_solve_nd(funcs, a, b, deg, interval_data, root_tracker, tols,
             interval_data.track_interval("Spectral", [a,b])
             root_tracker.add_roots(zeros, a, b, "Spectral")
         except ConditioningError as e:
-#             print(e)
             #Subdivide but run some checks on the intervals first
             intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
             for new_a, new_b in intervals:

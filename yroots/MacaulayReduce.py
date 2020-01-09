@@ -138,28 +138,19 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_cond_num, macaulay_zero_
         #Resorts the matrix_terms.
         matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
 
-#     print(matrix.diagonal())
-#     print(cuts)
-#     print(matrix.shape)
-#     print(matrix)
-
-    #eliminate zero rows from the bottom of the matrix.
+    #use the numerical rank to determine how many rows to keep
     matrix = row_swap_matrix(matrix)[:cuts[1]]
-    # for row in matrix[::-1]:
-    #     if np.allclose(row[:cuts[1]], 0,atol=macaulay_zero_tol):
-    #         # print('Remove')
-    #         matrix = matrix[:-1]
-    #     else:
-    #         break
     s = svd(matrix,compute_uv=False)
     tol = max(matrix.shape)*s[0]*macheps
     rank = len(s[s>tol])
     matrix = matrix[:rank]
 
-    cond_num = s[0]/s[rank-1]
+    #find the condition number of the backsolve
+    s = svd(matrix[:,:rank],compute_uv=False)
+    cond_num = s[0]/s[-1]
     if cond_num > max_cond_num:
-        raise ConditioningError("Conditioning number of the Macaulay matrix "\
-                                + "after QR is: " + str(cond_num))
+        raise ConditioningError("Conditioning number of backsolving the Macaulay is: " + str(cond_num))
+
     #backsolve
     height = matrix.shape[0]
     matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
