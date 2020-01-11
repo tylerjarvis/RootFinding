@@ -1,3 +1,4 @@
+from sys import argv
 from timeit import default_timer as timer
 import numpy as np
 import pandas as pd
@@ -40,42 +41,21 @@ def run_save(dim,degrees,basis,ver,N=None,infilefmt=infilefmt,outfilefmt=outfile
     print(df)
     df.to_csv(outfilefmt.format(dim=dim,basis=basis,ver=ver))
 
+degrees = {}
+degrees[2] = np.arange(2,26)
+degrees[3] = np.arange(2,11)
+degrees[4] = np.arange(2,6)
+degrees[5] = [2,3,4]
+degrees[6] = [2,3]
+degrees[7] = [2]
+degrees[8] = [2]
+degrees[9] = [2]
+degrees[10] = [2]
+
 if __name__ == "__main__":
-    # dimension 2
-    degrees = np.arange(2,26)
-    run_save(2,degrees,"power")
-    run_save(2,degrees,"cheb")
-
-    # dimension 3
-    degrees = np.arange(2,11)
-    run_save(3,degrees,"power")
-    run_save(3,degrees,"cheb")
-
-    # dimension 4
-    degrees = np.arange(2,6)
-    run_save(4,degrees,"power")
-    run_save(4,degrees,"cheb")
-
-    # dimension 5
-    run_save(5,[2,3,4],"power")
-    run_save(5,[2,3,4],"cheb")
-
-    # # dimension 6
-    # run_save(6,[2,3],"power")
-    # run_save(6,[2,3],"cheb")
-    #
-    # # dimension 7
-    # run_save(7,[2],"power")
-    # run_save(7,[2],"cheb")
-    #
-    # # dimension 8
-    # run_save(8,[2],"power")
-    # run_save(8,[2],"cheb")
-    #
-    # # dimension 9
-    # run_save(9,[2],"power")
-    # run_save(9,[2],"cheb")
-    #
-    # # dimension 10
-    # run_save(10,[2],"power")
-    # run_save(10,[2],"cheb")
+    basis = argv[1]
+    ver = argv[2]
+    for arg in argv[3:]:
+        dim = int(arg)
+        run_save(dim,degrees[dim],basis,ver)
+        print(f"{basis} dim {dim} complete")
