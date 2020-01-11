@@ -59,6 +59,33 @@ def find_degree(poly_list, verbose=False):
         print('Degree of Macaulay Matrix:', sum(poly.degree for poly in poly_list) - len(poly_list) + 1)
     return sum(poly.degree for poly in poly_list) - len(poly_list) + 1
 
+def reduce_macaulay(matrix, cut, max_cond=1e6):
+
+    # QR reduce the highest-degree columns
+    M = matrix.copy()
+    cond_num = np.linalg.cond(M[:,:cut])
+    if cond_num > max_cond:
+        raise ConditioningError(f"Condition number of the Macaulay primary submatrix is {cond_num}")
+    Q,M[:,:cut] = la.qr(M[:,:cut])
+    M[:,cut:] = Q.T @ M[:,cut:]
+    del Q
+
+    # If the matrix is "tall", compute an orthogonal transformation of the remaining
+    # columns, generating a new polynomial basis
+    if cut < M.shape[0]:
+        Q = la.qr(M[cut:,cut:].T,pivoting=True)[0]
+        M[:cut,cut:] = M[:cut,cut:] @ Q # Apply column transform
+
+    # Check numerical rank and chop the matrix
+    s = la.svd(M, compute_uv=False)
+    tol = max(M.shape)*s[0]*macheps
+    rank = len(s[s>tol])
+    M = M[:cut]
+    M[:,cut:rank] = 0
+    M[:,rank:] = la.solve_triangular(M[:,:cut],M[:,rank:])
+
+    return M[:,rank:],Q[:,rank-M.shape[1]:]
+
 def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_cond_num, macaulay_zero_tol, return_perm=False):
     ''' Reduces a Macaulay matrix, BYU style.
 

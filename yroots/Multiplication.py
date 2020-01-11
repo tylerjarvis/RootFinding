@@ -3,14 +3,14 @@ import itertools
 from scipy.linalg import solve_triangular, eig
 from yroots.LinearProjection import nullspace
 from yroots.polynomial import MultiCheb, MultiPower, is_power
-from yroots.MacaulayReduce import rrqr_reduceMacaulay, find_degree, \
+from yroots.MacaulayReduce import reduce_macaulay, find_degree, \
                               add_polys
 from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list, \
                               mon_combos, mon_combosHighest, sort_polys_by_degree, \
                               deg_d_polys, all_permutations_cheb, ConditioningError, newton_polish
 import warnings
 
-def multiplication(polys, max_cond_num, macaulay_zero_tol, verbose=False, MSmatrix=0, return_all_roots=True):
+def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True):
     '''
     Finds the roots of the given list of multidimensional polynomials using a multiplication matrix.
 
@@ -18,18 +18,12 @@ def multiplication(polys, max_cond_num, macaulay_zero_tol, verbose=False, MSmatr
     ----------
     polys : list of polynomial objects
         Polynomials to find the common roots of.
-    verbose : bool
-        Prints information about how the roots are computed.
-    MSmatrix : int
-        Controls which Moller-Stetter matrix is constructed. The options are:
-            0 (default) -- The Moller-Stetter matrix of a random polynomial
-            Some positive integer i < dimension -- The Moller-Stetter matrix of x_i
-    return_all_roots : bool
-        If True returns all the roots, otherwise just the ones in the unit box.
     max_cond_num : float
         The maximum condition number of the Macaulay Matrix Reduction
-    macaulay_zero_tol : float
-        What is considered 0 in the macaulay matrix reduction.
+    verbose : bool
+        Prints information about how the roots are computed.
+    return_all_roots : bool
+        If True returns all the roots, otherwise just the ones in the unit box.
     returns
     -------
     roots : numpy array
@@ -47,55 +41,24 @@ def multiplication(polys, max_cond_num, macaulay_zero_tol, verbose=False, MSmatr
     poly_type = is_power(polys, return_string = True)
     dim = polys[0].dim
 
-    if MSmatrix not in list(range(dim+1)):
-        raise ValueError('MSmatrix must be 0 (random polynomial), or the index of a variable')
-
     #By Bezout's Theorem. Useful for making sure that the reduced Macaulay Matrix is as we expect
     degrees = [poly.degree for poly in polys]
     max_number_of_roots = np.prod(degrees)
 
+    matrix, matrix_terms, cut, varsToRemove = build_macaulay(polys, max_cond_num, verbose)
+
     try:
-        m_f, var_dict, basisDict, VB = MSMultMatrix(polys, poly_type, verbose=verbose, MSmatrix=MSmatrix, max_cond_num=max_cond_num, macaulay_zero_tol=macaulay_zero_tol)
+        E,Q = reduce_macaulay(matrix,cut,max_cond_num)
     except ConditioningError as e:
         raise e
 
-    if verbose:
-        print("\nM_f:\n", m_f[::-1,::-1])
+    if poly_type == "MultiCheb":
+        M = ms_matrices_cheb(E,Q,matrix_terms,dim)
+    else:
+        M = ms_matrices(E,Q,matrix_terms,dim)
 
-    # Get list of indexes of single variables and store vars that were not
-    # in the vector space basis.
-    var_spots = []
-    removed_var_order = []
-    removed_var_spots = []
-    var_mask = []
-    for order, spot in enumerate(get_var_list(dim)):
-        if spot in var_dict:
-            var_spots.append(var_dict[tuple(spot)])
-            var_mask.append(True)
-        else:
-            removed_var_order.append(order)
-            removed_var_spots.append(spot)
-            var_mask.append(False)
+    roots = msroots(M)
 
-    # Get left eigenvectors (come in conjugate pairs)
-    vals,vecs = eig(m_f,left=True,right=False)
-
-    if verbose:
-        print('\nLeft Eigenvectors (as rows)\n',vecs.T)
-        print('\nEigenvals\n', vals)
-
-    zeros_spot = var_dict[tuple(0 for i in range(dim))]
-
-    #throw out roots that were calculated unstably
-#     vecs = vecs[:,np.abs(vecs[zeros_spot]) > 1.e-10]
-    if verbose:
-        print('\nVariable Spots in the Vector\n',var_spots)
-        print('\nEigeinvecs at the Variable Spots:\n',vecs[var_spots])
-        print('\nConstant Term Spot in the Vector\n',zeros_spot)
-        print('\nEigeinvecs at the Constant Term\n',vecs[zeros_spot])
-
-    roots = np.zeros([len(vecs), dim], dtype=complex)
-    roots[:,var_mask] = (vecs[var_spots]/vecs[zeros_spot]).T
     #Compute the removed variables
     for order, spot in zip(removed_var_order, removed_var_spots):
         for coeff, pows in zip(basisDict[spot], VB):
@@ -108,19 +71,59 @@ def multiplication(polys, max_cond_num, macaulay_zero_tol, verbose=False, MSmatr
     #Check if too many roots
     assert roots.shape[0] <= max_number_of_roots,"Found too many roots,{}/{}/{}:{}".format(roots.shape,max_number_of_roots, degrees,roots)
     if return_all_roots:
-        roots = np.array(roots, dtype=complex)
-        # #print(roots)
-
-        # REMARK: We don't always have good information about the derivatives,
-        # so we can't use Newton polishing on our roots.
-        # for i in range(len(roots)):
-        #     roots[i] = newton_polish(polys,roots[i],niter=100,tol=1e-20)
-
-        # #print(roots)
         return roots
     else:
         # only return roots in the unit complex hyperbox
         return roots[np.all(np.abs(roots) <= 1,axis = 0)]
+
+def indexarray(matrix_terms,m,var):
+    mults = matrix_terms[m:].copy()
+    mults[:,var] += 1
+    return np.argmin(np.abs(mults[:,np.newaxis] - matrix_terms[np.newaxis]).sum(axis=-1),axis=1)
+
+def indexarray_cheb(matrix_terms,m,var):
+    up = matrix_terms[m:].copy()
+    up[:,var] += 1
+    down = matrix_terms[m:].copy()
+    down[:,var] -= 1
+    down[down[:,var]==-1,var] += 2
+    arr1 = np.argmin(np.abs(up[:,np.newaxis] - matrix_terms[np.newaxis]).sum(axis=-1),axis=1)
+    arr2 = np.argmin(np.abs(down[:,np.newaxis] - matrix_terms[np.newaxis]).sum(axis=-1),axis=1)
+    return arr1,arr2
+
+def ms_matrices(E,Q,matrix_terms,dim):
+    n = Q.shape[1]
+    m = E.shape[0]
+    M = np.empty((n,n,dim))
+    A = np.hstack((-E.T,Q.T))
+    for i in range(dim):
+        arr = indexarray(matrix_terms,m,i)
+        M[...,i] = A[:,arr]@Q
+    return M
+
+def ms_matrices_cheb(E,Q,matrix_terms,dim):
+    n = Q.shape[1]
+    m = E.shape[0]
+    M = np.empty((n,n,dim))
+    A = np.hstack((-E.T,Q.T))
+    for i in range(dim):
+        arr1,arr2 = indexarray_cheb(matrix_terms,m,i)
+        M[...,i] = .5*(A[:,arr1]+A[:,arr2])@Q
+    return M
+
+def msroots(M):
+    # perform a random rotation
+    dim = M.shape[-1]
+    Q = ortho_group.rvs(dim)
+    M = (Q@M[...,np.newaxis])[...,0]
+
+    eigs = np.empty((dim,M.shape[0]),dtype='complex')
+    T,Z = la.schur(M[...,0],output='complex')
+    eigs[0] = np.diag(T)
+    for i in range(1,dim):
+        T = (Z.conj().T)@(M[...,i])@Z
+        eigs[i] = np.diag(T)
+    return (Q.T@eigs).T
 
 def MSMultMatrix(polys, poly_type, max_cond_num, macaulay_zero_tol, verbose=False, MSmatrix=0):
     '''
@@ -209,7 +212,7 @@ def MSMultMatrix(polys, poly_type, max_cond_num, macaulay_zero_tol, verbose=Fals
 
     return mMatrix, var_dict, basisDict, VB
 
-def MacaulayReduction(initial_poly_list, max_cond_num, macaulay_zero_tol, verbose=False):
+def build_macaulay(initial_poly_list, max_cond_num, verbose=False):
     """Reduces the Macaulay matrix to find a vector basis for the system of polynomials.
 
     Parameters
@@ -218,17 +221,16 @@ def MacaulayReduction(initial_poly_list, max_cond_num, macaulay_zero_tol, verbos
         The polynomials in the system we are solving.
     max_cond_num : float
         The maximum condition number of the Macaulay Matrix Reduction
-    macaulay_zero_tol : float
-        What is considered 0 in the macaulay matrix reduction.
     verbose : bool
         Prints information about how the roots are computed.
     Returns
     -----------
-    basisDict : dict
-        A dictionary of terms not in the vector basis a matrixes of things in the vector basis that the term
-        can be reduced to.
-    VB : numpy array
-        The terms in the vector basis, each row being a term.
+    matrix : ndarray
+        The Macaulay matrix
+    matrix_terms : numpy array
+        Array containing the monomial column labels
+    cut : int
+        Where to cut the Macaulay matrix for the highest-degree monomials
     varsToRemove : list
         The variables to remove from the basis because we have linear polysnomials
 
@@ -270,34 +272,7 @@ def MacaulayReduction(initial_poly_list, max_cond_num, macaulay_zero_tol, verbos
         poly_coeff_list = add_polys(degree, poly, poly_coeff_list)
 
     #Creates the matrix
-    matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, degree, dim, varsToRemove)
-
-    if verbose:
-        np.set_printoptions(suppress=False, linewidth=200)
-        print('\nStarting Macaulay Matrix\n', matrix)
-        print('\nColumns in Macaulay Matrix\nFirst element in tuple is degree of x, Second element is degree of y\n', matrix_terms)
-        print('\nLocation of Cuts in the Macaulay Matrix into [ Mb | M1* | M2* ]\n', cuts)
-
-    try:
-        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_cond_num=max_cond_num, macaulay_zero_tol=macaulay_zero_tol)
-    except ConditioningError as e:
-        raise e
-
-    # TODO: rrqr_reduceMacaulay2 is not working when expected.
-    # if np.allclose(matrix[cuts[0]:,:cuts[0]], 0):
-    #     matrix, matrix_terms = rrqr_reduceMacaulay2(matrix, matrix_terms, cuts, accuracy = accuracy)
-    # else:
-    #     matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, accuracy = accuracy)
-
-    if verbose:
-        np.set_printoptions(suppress=True, linewidth=200)
-        print("\nFinal Macaulay Matrix\n", matrix)
-        print("\nColumns in Macaulay Matrix\n", matrix_terms)
-
-    VB = matrix_terms[matrix.shape[0]:]
-    basisDict = makeBasisDict(matrix, matrix_terms, VB, power)
-
-    return basisDict, VB, varsToRemove
+    return (*create_matrix(poly_coeff_list, degree, dim, varsToRemove), varsToRemove)
 
 def makeBasisDict(matrix, matrix_terms, VB, power):
     '''Calculates and returns the basisDict.
@@ -362,13 +337,12 @@ def create_matrix(poly_coeffs, degree, dim, varsToRemove):
         The Macaulay matrix.
     matrix_terms : numpy array
         The ith row is the term represented by the ith column of the matrix.
-    cuts : tuple
-        When the matrix is reduced it is split into 3 parts with restricted pivoting. These numbers indicate
-        where those cuts happen.
+    cut : int
+        Number of monomials of highest degree
     '''
     bigShape = [degree+1]*dim
 
-    matrix_terms, cuts = sorted_matrix_terms(degree, dim, varsToRemove)
+    matrix_terms, cut = sorted_matrix_terms(degree, dim, varsToRemove)
 
     #Get the slices needed to pull the matrix_terms from the coeff matrix.
     matrix_term_indexes = list()
@@ -390,7 +364,7 @@ def create_matrix(poly_coeffs, degree, dim, varsToRemove):
 
     #Sorts the rows of the matrix so it is close to upper triangular.
     matrix = row_swap_matrix(matrix)
-    return matrix, matrix_terms, cuts
+    return matrix, matrix_terms, cut
 
 def sorted_matrix_terms(degree, dim, varsToRemove):
     '''Finds the matrix_terms sorted in the term order needed for Macaulay reduction.
@@ -407,9 +381,8 @@ def sorted_matrix_terms(degree, dim, varsToRemove):
     -------
     sorted_matrix_terms : numpy array
         The sorted matrix_terms. The ith row is the term represented by the ith column of the matrix.
-    cuts : tuple
-        When the matrix is reduced it is split into 3 parts with restricted pivoting. These numbers indicate
-        where those cuts happen.
+    cuts : int
+        Number of monomials of highest degree
     '''
     highest_mons = mon_combosHighest([0]*dim,degree)[::-1]
 
@@ -425,19 +398,19 @@ def sorted_matrix_terms(degree, dim, varsToRemove):
     #trivial case
     if degree == 1:
         matrix_terms = np.reshape(xs_mons, (len(xs_mons),dim))
-        cuts = tuple([0,0])
+        cuts = 0
     #normal case
     else:
         matrix_terms = np.reshape(highest_mons+other_mons+xs_mons, (len(highest_mons+other_mons+xs_mons),dim))
-        cuts = tuple([len(highest_mons),len(highest_mons)+len(other_mons)])
+        cut = len(highest_mons)
 
-    for var in varsToRemove:
-        B = matrix_terms[cuts[0]:]
-        mask = B[:,var] != 0
-        matrix_terms[cuts[0]:] = np.vstack([B[mask], B[~mask]])
-        cuts = tuple([cuts[0] + np.sum(mask), cuts[1]+1])
+    # for var in varsToRemove:
+    #     B = matrix_terms[cuts[0]:]
+    #     mask = B[:,var] != 0
+    #     matrix_terms[cuts[0]:] = np.vstack([B[mask], B[~mask]])
+    #     cuts = tuple([cuts[0] + np.sum(mask), cuts[1]+1])
 
-    return matrix_terms, cuts
+    return matrix_terms, cut
 
 def _random_poly(_type, dim):
     '''
