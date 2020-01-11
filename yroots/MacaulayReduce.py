@@ -60,11 +60,13 @@ def find_degree(poly_list, verbose=False):
 
 def reduce_macaulay(matrix, cut, max_cond=1e6):
 
-    # QR reduce the highest-degree columns
     M = matrix.copy()
+    # Check condition number before first QR
     cond_num = np.linalg.cond(M[:,:cut])
     if cond_num > max_cond:
         raise ConditioningError(f"Condition number of the Macaulay high-degree columns is {cond_num}")
+
+    # QR reduce the highest-degree columns
     Q,M[:,:cut] = qr(M[:,:cut])
     M[:,cut:] = Q.T @ M[:,cut:]
     del Q
@@ -75,18 +77,17 @@ def reduce_macaulay(matrix, cut, max_cond=1e6):
         Q = qr(M[cut:,cut:].T,pivoting=True)[0]
         M[:cut,cut:] = M[:cut,cut:] @ Q # Apply column transform
 
-    # Check numerical rank and chop the matrix
+    # Compute numerical rank
     s = svd(M, compute_uv=False)
     tol = max(M.shape)*s[0]*macheps
     rank = len(s[s>tol])
-    M = M[:cut]
-    M[:,cut:rank] = 0
+
+    # Check condition number before backsolve
     cond_num = np.linalg.cond(M[:,:cut])
     if cond_num > max_cond:
         raise ConditioningError(f"Condition number of the Macaulay primary submatrix is {cond_num}")
-    M[:,rank:] = solve_triangular(M[:,:cut],M[:,rank:])
 
-    return M[:,rank:],Q[:,rank-M.shape[1]:]
+    return solve_triangular(M[:cut,:cut],M[:cut,rank:]),Q[:,rank-M.shape[1]:]
 
 def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_cond_num, macaulay_zero_tol, return_perm=False):
     ''' Reduces a Macaulay matrix, BYU style.

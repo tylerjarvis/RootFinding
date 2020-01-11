@@ -2,6 +2,10 @@
 *.swp
 *.py~
 *.ipynb
+*.npy
+*.npz
+*.png
+*.mp4
 pytest/htmlcov
 pytest/.cache
 .pytest_cache/
