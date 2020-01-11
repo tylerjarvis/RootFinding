@@ -1,6 +1,6 @@
 import numpy as np
 import itertools
-from scipy.linalg import solve_triangular, eig
+from scipy.linalg import solve_triangular, eig, schur
 from yroots.LinearProjection import nullspace
 from yroots.polynomial import MultiCheb, MultiPower, is_power
 from yroots.MacaulayReduce import reduce_macaulay, find_degree, \
@@ -9,6 +9,7 @@ from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list
                               mon_combos, mon_combosHighest, sort_polys_by_degree, \
                               deg_d_polys, all_permutations_cheb, ConditioningError, newton_polish
 import warnings
+from scipy.stats import ortho_group
 
 def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True):
     '''
@@ -45,7 +46,7 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True):
     degrees = [poly.degree for poly in polys]
     max_number_of_roots = np.prod(degrees)
 
-    matrix, matrix_terms, cut, varsToRemove = build_macaulay(polys, max_cond_num, verbose)
+    matrix, matrix_terms, cut, A, Pc = build_macaulay(polys, max_cond_num, verbose)
 
     try:
         E,Q = reduce_macaulay(matrix,cut,max_cond_num)
@@ -59,14 +60,12 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True):
 
     roots = msroots(M)
 
-    #Compute the removed variables
-    for order, spot in zip(removed_var_order, removed_var_spots):
-        for coeff, pows in zip(basisDict[spot], VB):
-            temp = coeff
-            for place,num in enumerate(pows):
-                if num > 0:
-                    temp *= roots[:,place]**num
-            roots[:,order] -= temp
+    if A:
+        n = A.shape[0]
+        tmp = np.empty((roots.shape[0],n),dtype='complex')
+        tmp[Pc[n:]] = roots
+        tmp[Pc[:n]] = (-A[:,n:-1]@(roots.T)-A[:,-1]).T
+        roots = tmp
 
     #Check if too many roots
     assert roots.shape[0] <= max_number_of_roots,"Found too many roots,{}/{}/{}:{}".format(roots.shape,max_number_of_roots, degrees,roots)
@@ -118,7 +117,7 @@ def msroots(M):
     M = (Q@M[...,np.newaxis])[...,0]
 
     eigs = np.empty((dim,M.shape[0]),dtype='complex')
-    T,Z = la.schur(M[...,0],output='complex')
+    T,Z = schur(M[...,0],output='complex')
     eigs[0] = np.diag(T)
     for i in range(1,dim):
         T = (Z.conj().T)@(M[...,i])@Z
@@ -259,12 +258,13 @@ def build_macaulay(initial_poly_list, max_cond_num, verbose=False):
             coeff = np.zeros([2]*dim)
             coeff[get_var_list(dim)] = row[:-1]
             coeff[tuple([0]*dim)] = row[-1]
-            if power:
-                poly = MultiPower(coeff)
-            else:
+            if not ower:
                 poly = MultiCheb(coeff)
+            else:
+                poly = MultiPower(coeff)
             poly_coeff_list = add_polys(degree, poly, poly_coeff_list)
     else: #no linear
+        A,Pc = None,None
         varsToRemove = []
 
     #add nonlinear polys to poly_coeff_list
@@ -272,7 +272,7 @@ def build_macaulay(initial_poly_list, max_cond_num, verbose=False):
         poly_coeff_list = add_polys(degree, poly, poly_coeff_list)
 
     #Creates the matrix
-    return (*create_matrix(poly_coeff_list, degree, dim, varsToRemove), varsToRemove)
+    return (*create_matrix(poly_coeff_list, degree, dim, varsToRemove), A, Pc)
 
 def makeBasisDict(matrix, matrix_terms, VB, power):
     '''Calculates and returns the basisDict.

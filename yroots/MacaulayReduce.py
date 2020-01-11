@@ -1,12 +1,11 @@
 import numpy as np
 import itertools
-from scipy.linalg import qr, solve_triangular, qr_multiply
+from scipy.linalg import qr, solve_triangular, qr_multiply, svd
 from yroots.polynomial import Polynomial, MultiCheb, MultiPower
 from yroots.utils import row_swap_matrix, MacaulayError, slice_top, mon_combos, \
                               num_mons_full, memoized_all_permutations, mons_ordered, \
                               all_permutations_cheb, ConditioningError
 from matplotlib import pyplot as plt
-from scipy.linalg import svd
 
 macheps = 2.220446049250313e-16
 def add_polys(degree, poly, poly_coeff_list):
@@ -65,24 +64,27 @@ def reduce_macaulay(matrix, cut, max_cond=1e6):
     M = matrix.copy()
     cond_num = np.linalg.cond(M[:,:cut])
     if cond_num > max_cond:
-        raise ConditioningError(f"Condition number of the Macaulay primary submatrix is {cond_num}")
-    Q,M[:,:cut] = la.qr(M[:,:cut])
+        raise ConditioningError(f"Condition number of the Macaulay high-degree columns is {cond_num}")
+    Q,M[:,:cut] = qr(M[:,:cut])
     M[:,cut:] = Q.T @ M[:,cut:]
     del Q
 
     # If the matrix is "tall", compute an orthogonal transformation of the remaining
     # columns, generating a new polynomial basis
     if cut < M.shape[0]:
-        Q = la.qr(M[cut:,cut:].T,pivoting=True)[0]
+        Q = qr(M[cut:,cut:].T,pivoting=True)[0]
         M[:cut,cut:] = M[:cut,cut:] @ Q # Apply column transform
 
     # Check numerical rank and chop the matrix
-    s = la.svd(M, compute_uv=False)
+    s = svd(M, compute_uv=False)
     tol = max(M.shape)*s[0]*macheps
     rank = len(s[s>tol])
     M = M[:cut]
     M[:,cut:rank] = 0
-    M[:,rank:] = la.solve_triangular(M[:,:cut],M[:,rank:])
+    cond_num = np.linalg.cond(M[:,:cut])
+    if cond_num > max_cond:
+        raise ConditioningError(f"Condition number of the Macaulay primary submatrix is {cond_num}")
+    M[:,rank:] = solve_triangular(M[:,:cut],M[:,rank:])
 
     return M[:,rank:],Q[:,rank-M.shape[1]:]
 
