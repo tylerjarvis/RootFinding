@@ -65,7 +65,4 @@ def solve(polys,MSmatrix=0, eigvals=True, verbose=False, return_all_roots=True, 
                 zeros = common
             return zeros
     else:
-        if MSmatrix < 0:
-            return division(polys, verbose=verbose, divisor_var=-MSmatrix-1, return_all_roots=return_all_roots, max_cond_num=max_cond_num, macaulay_zero_tol=macaulay_zero_tol)
-        else:
-            return multiplication(polys, verbose=verbose, MSmatrix=MSmatrix, return_all_roots=return_all_roots, max_cond_num=max_cond_num, macaulay_zero_tol=macaulay_zero_tol)
+        return multiplication(polys, max_cond_num=max_cond_num, verbose=verbose, return_all_roots=return_all_roots)

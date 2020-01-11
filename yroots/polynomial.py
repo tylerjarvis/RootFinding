@@ -8,14 +8,14 @@ import time
 
 from numba import jit
 
-@jit(cache=True)
+# @jit(cache=True)
 def polyval(x, cc): #pragma: no cover
     c0 = cc[-1]
     for i in range(2, len(cc) + 1):
         c0 = cc[-i] + c0*x
     return c0
 
-@jit(cache=True)
+# @jit(cache=True)
 def polyval2(x, cc): #pragma: no cover
     cc = cc.reshape(cc.shape + (1,)*x.ndim)
     c0 = cc[-1]
@@ -23,7 +23,7 @@ def polyval2(x, cc): #pragma: no cover
         c0 = cc[-i] + c0*x
     return c0
 
-@jit(cache=True)
+# @jit(cache=True)
 def chebval(x, cc): #pragma: no cover
     if len(cc) == 1:
         c0 = cc[0]
@@ -41,7 +41,7 @@ def chebval(x, cc): #pragma: no cover
             c1 = tmp + c1*x2
     return c0 + c1*x
 
-@jit(cache=True)
+# @jit(cache=True)
 def chebval2(x, cc): #pragma: no cover
     cc = cc.reshape(cc.shape + (1,)*x.ndim)
     if len(cc) == 1:
