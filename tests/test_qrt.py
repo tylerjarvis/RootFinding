@@ -1,25 +1,25 @@
 import os
 from timeit import default_timer as timer
 import numpy as np
-from yroots.polynomial import MultiCheb, MultiPower, getPoly
+from yroots.polynomial import MultiCheb, MultiPower
 from yroots.polyroots import solve
 from yroots.utils import ConditioningError
 
-infilefmt="random_tests/dim{dim}_deg{deg}_{basis}.npy"
+infilefmt="random_tests/dim{dim}_deg{deg}.npy"
 outfilefmt="test_qrt/{ver}/dim{dim}_{basis}.npy"
-def gen_tests(dim,degrees,power,N,filefmt=infilefmt):
-    if power: basis = "power"
-    else: basis = "cheb"
+def rand_coeffs(dim,deg,N):
+    shape = (*(deg+1,)*dim,dim,N)
+    coeffs = np.random.randn(*shape)
+    for idx in np.ndindex((deg+1,)*dim):
+        if np.sum(i) > deg:
+            coeffs[idx] = 0
+    return coeffs.T
+
+def gen_tests(dim,degrees,N,filefmt=infilefmt):
     for deg in degrees:
-        lst = []
-        for _ in range(N):
-            polys = [getPoly(deg,dim,power) for _ in range(dim)]
-            shape = polys[0].coeff.shape
-            arr = np.empty((dim,*shape))
-            arr = [poly.coeff for poly in polys]
-            lst.append(arr)
-        np.save(filefmt.format(dim=dim,deg=deg,basis=basis),lst)
-        print(f"{basis} dim={dim}, deg={deg}, N={N} saved")
+        coeffs = rand_coeffs(dim,deg,N)
+        np.save(filefmt.format(dim=dim,deg=deg),coeffs)
+        print(f"dim={dim}, deg={deg}, N={N} saved")
 
 def load_tests(dim,deg,basis,N=None,filefmt=infilefmt):
     arr = np.load(filefmt.format(dim=dim,deg=deg,basis=basis))
@@ -59,3 +59,8 @@ def run_tests(dim,degrees,basis,N=None,filefmt=infilefmt):
 def run_save(dim,degrees,basis,ver,N=None,infilefmt=infilefmt,outfilefmt=outfilefmt):
     arr = run_tests(dim,degrees,basis,N=N,filefmt=infilefmt)
     np.save(outfilefmt.format(dim=dim,basis=basis,ver=ver),arr)
+
+if __name__=="__main__":
+    # dimension 2
+    degrees = np.arange(2,21)
+    gen_tests(2,degrees)
