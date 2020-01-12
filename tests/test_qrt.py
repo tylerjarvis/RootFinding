@@ -55,7 +55,6 @@ def run_save_parallel(COMM,RANK,SIZE,dim,degrees,basis,ver,N=None,infilefmt=infi
     else: MultiX = MultiCheb
 
     if RANK == 0:
-        print(f"{basis} dim {dim} running on {SIZE} processes")
         arr = np.empty((len(degrees),6),dtype='float64')
 
     for i,deg in enumerate(degrees):
@@ -144,8 +143,6 @@ if __name__ == "__main__":
     if SIZE > 1:
         for arg in argv[4:]:
             dim = int(arg)
-            # if RANK == 0:
-            #
             run_save_parallel(COMM,RANK,SIZE,dim,degrees[dim],basis,ver,N)
 
     # run on a single process
