@@ -143,7 +143,7 @@ if __name__ == "__main__":
     if SIZE > 1:
         for arg in argv[4:]:
             dim = int(arg)
-            print(f"{basis} dim {dim} running on {SIZE} processes")
+            if RANK == 0: print(f"{basis} dim {dim} running on {SIZE} processes")
             COMM.barrier()
             run_save_parallel(COMM,RANK,SIZE,dim,degrees[dim],basis,ver,N)
 
