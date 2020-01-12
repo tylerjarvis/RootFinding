@@ -26,7 +26,7 @@ N[10] = 15
 if __name__ == "__main__":
 
     for dim in np.arange(2,11):
-        save_tests(dim,degrees[dim])
+        save_tests(dim,degrees[dim],N[dim])
     # dimension 2
     degrees = np.arange(2,26)
     save_tests(2,degrees,100)
