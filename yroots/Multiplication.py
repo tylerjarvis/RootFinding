@@ -58,7 +58,7 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True):
     else:
         M = ms_matrices(E,Q,matrix_terms,dim)
 
-    roots = msroots2(M)
+    roots = msroots(M)
 
     if A:
         n = A.shape[0]
@@ -123,19 +123,6 @@ def sort_eigs(eigs,diag):
     return w
 
 def msroots(M):
-    # perform a random rotation
-    dim = M.shape[-1]
-    Q = ortho_group.rvs(dim)
-    M = (Q@M[...,np.newaxis])[...,0]
-    eigs = np.empty((dim,M.shape[0]),dtype='complex')
-    T,Z = schur(M[...,0],output='complex')
-    eigs[0] = np.diag(T)
-    for i in range(1,dim):
-        T = (Z.conj().T)@(M[...,i])@Z
-        eigs[i] = np.diag(T)
-    return (Q.T@eigs).T
-
-def msroots2(M):
     # perform a random rotation
     dim = M.shape[-1]
     Q = ortho_group.rvs(dim)
