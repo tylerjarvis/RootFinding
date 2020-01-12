@@ -58,7 +58,7 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True):
     else:
         M = ms_matrices(E,Q,matrix_terms,dim)
 
-    roots = msroots(M)
+    roots = msroots2(M)
 
     if A:
         n = A.shape[0]
@@ -110,18 +110,42 @@ def ms_matrices_cheb(E,Q,matrix_terms,dim):
         M[...,i] = .5*(A[:,arr1]+A[:,arr2])@Q
     return M
 
+def sort_eigs(eigs,diag):
+    """Sorts the eigs array to match the order on the diagonal
+    of the Schur factorization"""
+    n = diag.shape[0]
+    lst = list(np.arange(n))
+    w = np.empty_like(eigs)
+    for eig in eigs:
+        i = lst[np.argmin(np.abs(diag[lst]-eig))]
+        w[i] = eig
+        lst.remove(i)
+    return w
+
 def msroots(M):
     # perform a random rotation
     dim = M.shape[-1]
     Q = ortho_group.rvs(dim)
     M = (Q@M[...,np.newaxis])[...,0]
-
     eigs = np.empty((dim,M.shape[0]),dtype='complex')
     T,Z = schur(M[...,0],output='complex')
     eigs[0] = np.diag(T)
     for i in range(1,dim):
         T = (Z.conj().T)@(M[...,i])@Z
         eigs[i] = np.diag(T)
+    return (Q.T@eigs).T
+
+def msroots2(M):
+    # perform a random rotation
+    dim = M.shape[-1]
+    Q = ortho_group.rvs(dim)
+    M = (Q@M[...,np.newaxis])[...,0]
+    eigs = np.empty((dim,M.shape[0]),dtype='complex')
+    T,Z = schur(M[...,0],output='complex')
+    eigs[0] = sort_eigs(eig(M[...,0],right=False),np.diag(T))
+    for i in range(1,dim):
+        T = (Z.conj().T)@(M[...,i])@Z
+        eigs[i] = sort_eigs(eig(M[...,i],right=False),np.diag(T))
     return (Q.T@eigs).T
 
 def MSMultMatrix(polys, poly_type, max_cond_num, macaulay_zero_tol, verbose=False, MSmatrix=0):
