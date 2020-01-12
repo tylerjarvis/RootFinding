@@ -74,8 +74,9 @@ def reduce_macaulay(matrix, cut, max_cond=1e6):
     # If the matrix is "tall", compute an orthogonal transformation of the remaining
     # columns, generating a new polynomial basis
     if cut < M.shape[0]:
-        Q = qr(M[cut:,cut:].T,pivoting=True)[0]
-        M[:cut,cut:] = M[:cut,cut:] @ Q # Apply column transform
+        Q,R,P = qr(M[cut:,cut:],pivoting=True)
+        # Q = qr(M[cut:,cut:].T,pivoting=True)[0]
+        M[:cut,cut:] = Q.T@M[:cut,cut:] # Apply column transform
 
     # Compute numerical rank
     s = svd(M, compute_uv=False)
