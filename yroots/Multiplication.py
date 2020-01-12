@@ -49,14 +49,14 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True):
     matrix, matrix_terms, cut, A, Pc = build_macaulay(polys, max_cond_num, verbose)
 
     try:
-        E,Q = reduce_macaulay(matrix,cut,max_cond_num)
+        E,P = reduce_macaulay(matrix,cut,max_cond_num)
     except ConditioningError as e:
         raise e
 
     if poly_type == "MultiCheb":
-        M = ms_matrices_cheb(E,Q,matrix_terms,dim)
+        M = ms_matrices_cheb(E,P,matrix_terms,dim,cut)
     else:
-        M = ms_matrices(E,Q,matrix_terms,dim)
+        M = ms_matrices(E,P,matrix_terms,dim,cut)
 
     roots = msroots2(M)
 
@@ -80,35 +80,38 @@ def indexarray(matrix_terms,m,var):
     mults[:,var] += 1
     return np.argmin(np.abs(mults[:,np.newaxis] - matrix_terms[np.newaxis]).sum(axis=-1),axis=1)
 
-def indexarray_cheb(matrix_terms,m,var):
-    up = matrix_terms[m:].copy()
-    up[:,var] += 1
-    down = matrix_terms[m:].copy()
-    down[:,var] -= 1
-    down[down[:,var]==-1,var] += 2
-    arr1 = np.argmin(np.abs(up[:,np.newaxis] - matrix_terms[np.newaxis]).sum(axis=-1),axis=1)
-    arr2 = np.argmin(np.abs(down[:,np.newaxis] - matrix_terms[np.newaxis]).sum(axis=-1),axis=1)
-    return arr1,arr2
+# def indexarray_cheb(matrix_terms,m,var):
+#     up = matrix_terms[m:].copy()
+#     up[:,var] += 1
+#     down = matrix_terms[m:].copy()
+#     down[:,var] -= 1
+#     down[down[:,var]==-1,var] += 2
+#     arr1 = np.argmin(np.abs(up[:,np.newaxis] - matrix_terms[np.newaxis]).sum(axis=-1),axis=1)
+#     arr2 = np.argmin(np.abs(down[:,np.newaxis] - matrix_terms[np.newaxis]).sum(axis=-1),axis=1)
+#     return arr1,arr2
 
-def ms_matrices(E,Q,matrix_terms,dim):
-    n = Q.shape[1]
-    m = E.shape[0]
+# def ms_matrices(E,P,matrix_terms,dim):
+
+
+def ms_matrices(E,P,matrix_terms,dim,cut):
+    r,n = E.shape
+    matrix_terms[cut:] = matrix_terms[cut:][P]
     M = np.empty((n,n,dim))
-    A = np.hstack((-E.T,Q.T))
+    A = np.hstack((-E.T,np.eye(n)))
     for i in range(dim):
-        arr = indexarray(matrix_terms,m,i)
-        M[...,i] = A[:,arr]@Q
+        arr = indexarray(matrix_terms,r,i)
+        M[...,i] = A[:,arr]
     return M
 
-def ms_matrices_cheb(E,Q,matrix_terms,dim):
-    n = Q.shape[1]
-    m = E.shape[0]
-    M = np.empty((n,n,dim))
-    A = np.hstack((-E.T,Q.T))
-    for i in range(dim):
-        arr1,arr2 = indexarray_cheb(matrix_terms,m,i)
-        M[...,i] = .5*(A[:,arr1]+A[:,arr2])@Q
-    return M
+# def ms_matrices_cheb(E,Q,matrix_terms,dim):
+#     n = Q.shape[1]
+#     m = E.shape[0]
+#     M = np.empty((n,n,dim))
+#     A = np.hstack((-E.T,Q.T))
+#     for i in range(dim):
+#         arr1,arr2 = indexarray_cheb(matrix_terms,m,i)
+#         M[...,i] = .5*(A[:,arr1]+A[:,arr2])@Q
+#     return M
 
 def sort_eigs(eigs,diag):
     """Sorts the eigs array to match the order on the diagonal
@@ -125,28 +128,30 @@ def sort_eigs(eigs,diag):
 def msroots(M):
     # perform a random rotation
     dim = M.shape[-1]
-    Q = ortho_group.rvs(dim)
-    M = (Q@M[...,np.newaxis])[...,0]
+    # Q = ortho_group.rvs(dim)
+    # M = (Q@M[...,np.newaxis])[...,0]
     eigs = np.empty((dim,M.shape[0]),dtype='complex')
     T,Z = schur(M[...,0],output='complex')
     eigs[0] = np.diag(T)
     for i in range(1,dim):
         T = (Z.conj().T)@(M[...,i])@Z
         eigs[i] = np.diag(T)
-    return (Q.T@eigs).T
+    # return (Q.T@eigs).T
+    return eigs.T
 
 def msroots2(M):
     # perform a random rotation
     dim = M.shape[-1]
-    Q = ortho_group.rvs(dim)
-    M = (Q@M[...,np.newaxis])[...,0]
+    # Q = ortho_group.rvs(dim)
+    # M = (Q@M[...,np.newaxis])[...,0]
     eigs = np.empty((dim,M.shape[0]),dtype='complex')
     T,Z = schur(M[...,0],output='complex')
     eigs[0] = sort_eigs(eig(M[...,0],right=False),np.diag(T))
     for i in range(1,dim):
         T = (Z.conj().T)@(M[...,i])@Z
         eigs[i] = sort_eigs(eig(M[...,i],right=False),np.diag(T))
-    return (Q.T@eigs).T
+    # return (Q.T@eigs).T
+    return eigs.T
 
 def MSMultMatrix(polys, poly_type, max_cond_num, macaulay_zero_tol, verbose=False, MSmatrix=0):
     '''

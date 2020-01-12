@@ -74,12 +74,9 @@ def reduce_macaulay(matrix, cut, max_cond=1e6):
     # If the matrix is "tall", compute an orthogonal transformation of the remaining
     # columns, generating a new polynomial basis
     if cut < M.shape[0]:
-        plt.matshow(M)
-        plt.show()
         Q,M[cut:,cut:],P = qr(M[cut:,cut:],pivoting=True)
-        print(Q.shape)
-        M[:cut,cut:] = (Q.T@M[:cut,cut:])[:,P] # Apply Q.T
         del Q
+        M[:cut,cut:] = M[:cut,cut:][:,P] # Permute columns
 
     # Compute numerical rank
     s = svd(M, compute_uv=False)
@@ -91,9 +88,7 @@ def reduce_macaulay(matrix, cut, max_cond=1e6):
     if cond_num > max_cond:
         raise ConditioningError(f"Condition number of the Macaulay primary submatrix is {cond_num}")
 
-    Q = np.eye(len(P))[:,P]
-
-    return solve_triangular(M[:rank,:rank],M[:rank,rank:]),Q
+    return solve_triangular(M[:rank,:rank],M[:rank,rank:]),P
 
 def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_cond_num, macaulay_zero_tol, return_perm=False):
     ''' Reduces a Macaulay matrix, BYU style.
