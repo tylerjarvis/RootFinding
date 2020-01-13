@@ -31,7 +31,7 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True):
         The common roots of the polynomials. Each row is a root.
     Raises
     ------
-    ConditioningError if MSMultMatrix(...) raises a ConditioningError.
+    ConditioningError if reduce_macaulay() raises a ConditioningError.
     '''
     #We don't want to use Linear Projection right now
 #    polys, transform, is_projected = polys, lambda x:x, False
@@ -46,20 +46,27 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True):
     degrees = [poly.degree for poly in polys]
     max_number_of_roots = np.prod(degrees)
 
-    matrix, matrix_terms, cut, A, Pc = build_macaulay(polys, max_cond_num, verbose)
+    matrix, matrix_terms, cut, A, Pc = build_macaulay(polys, verbose)
 
+    # Attempt to reduce the Macaulay matrix
     try:
         E,Q = reduce_macaulay(matrix,cut,max_cond_num)
     except ConditioningError as e:
         raise e
 
+    # Construct the Möller-Stetter matrices
+    # M is a 3d array containing the multiplication-by-x_i matrix in M[...,i]
     if poly_type == "MultiCheb":
         M = ms_matrices_cheb(E,Q,matrix_terms,dim)
     else:
         M = ms_matrices(E,Q,matrix_terms,dim)
 
+    # Compute the roots using eigenvalues of the Möller-Stetter matrices
     roots = msroots(M)
 
+    # If there are linear polynomials, compute the roots of the removed variables
+    # A is an array containing the linear relations for the removed variables
+    # Pc is an integer array containing the ordering of all the variables
     if A:
         n = A.shape[0]
         tmp = np.empty((roots.shape[0],n),dtype='complex')
@@ -67,7 +74,7 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True):
         tmp[Pc[:n]] = (-A[:,n:-1]@(roots.T)-A[:,-1]).T
         roots = tmp
 
-    #Check if too many roots
+    # Check if too many roots
     assert roots.shape[0] <= max_number_of_roots,"Found too many roots,{}/{}/{}:{}".format(roots.shape,max_number_of_roots, degrees,roots)
     if return_all_roots:
         return roots
@@ -76,11 +83,55 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True):
         return roots[np.all(np.abs(roots) <= 1,axis = 0)]
 
 def indexarray(matrix_terms,m,var):
+    """Compute the array mapping monomials under multiplication by x_var
+
+    Parameters
+    ----------
+    matrix_terms : 2d integer ndarray
+        Array containing the monomials in order. matrix_terms[i] is the array
+        containing the exponent for each variable in the ith multivariate
+        monomial
+    m : int
+        Number of monomials of highest degree, i.e. those that do not need to be
+        multiplied
+    var : int
+        Variable to multiply by: x_0,...,x_(dim-1)
+
+    Returns
+    -------
+    arr : 1d integer ndarray
+        Array containing the indices of the lower-degree monomials after multiplication
+        by x_var
+    """
     mults = matrix_terms[m:].copy()
     mults[:,var] += 1
     return np.argmin(np.abs(mults[:,np.newaxis] - matrix_terms[np.newaxis]).sum(axis=-1),axis=1)
 
 def indexarray_cheb(matrix_terms,m,var):
+    """Compute the array mapping Chebyshev monomials under multiplication by x_var:
+
+        T_1*T_0 = T_1
+        T_1*T_n = .5(T_(n+1)+ T_(n-1))
+
+    Parameters
+    ----------
+    matrix_terms : 2d integer ndarray
+        Array containing the monomials in order. matrix_terms[i] is the array
+        containing the degree for each univariate Chebyshev monomial in the ith
+        multivariate monomial
+    m : int
+        Number of monomials of highest degree, i.e. those that do not need to be
+        multiplied
+    var : int
+        Variable to multiply by: x_0,...,x_(dim-1)
+
+    Returns
+    -------
+    arr1 : 1d integer ndarray
+        Array containing the indices of T_(n+1)
+    arr2 : 1d
+        Array containing the indices of T_(n-1)
+    """
     up = matrix_terms[m:].copy()
     up[:,var] += 1
     down = matrix_terms[m:].copy()
@@ -91,6 +142,25 @@ def indexarray_cheb(matrix_terms,m,var):
     return arr1,arr2
 
 def ms_matrices(E,Q,matrix_terms,dim):
+    """Compute the Möller-Stetter matrices in the monomial basis
+
+    Parameters
+    ----------
+    E : (m,k) ndarray
+        Columns of the reduced Macaulay matrix corresponding to the quotient basis
+    Q : (l,n) 2d ndarray
+        Matrix whose columns give the quotient basis in terms of the monomial basis
+    matrix_terms : 2d ndarray
+        Array with ordered monomial basis
+    dim : int
+        Number of variables
+
+    Returns
+    -------
+    M : (n,n,dim) ndarray
+        Array containing the nxn Möller-Stetter matrices, where the matrix
+        corresponding to multiplication by x_i is M[...,i]
+    """
     n = Q.shape[1]
     m = E.shape[0]
     M = np.empty((n,n,dim))
@@ -101,6 +171,25 @@ def ms_matrices(E,Q,matrix_terms,dim):
     return M
 
 def ms_matrices_cheb(E,Q,matrix_terms,dim):
+    """Compute the Möller-Stetter matrices in the Chebyshev basis
+
+    Parameters
+    ----------
+    E : (m,k) ndarray
+        Columns of the reduced Macaulay matrix corresponding to the quotient basis
+    Q : (l,n) 2d ndarray
+        Matrix whose columns give the quotient basis in terms of the Chebyshev basis
+    matrix_terms : 2d ndarray
+        Array with ordered Chebyshev basis
+    dim : int
+        Number of variables
+
+    Returns
+    -------
+    M : (n,n,dim) ndarray
+        Array containing the nxn Möller-Stetter matrices, where the matrix
+        corresponding to multiplication by x_i is M[...,i]
+    """
     n = Q.shape[1]
     m = E.shape[0]
     M = np.empty((n,n,dim))
@@ -112,7 +201,20 @@ def ms_matrices_cheb(E,Q,matrix_terms,dim):
 
 def sort_eigs(eigs,diag):
     """Sorts the eigs array to match the order on the diagonal
-    of the Schur factorization"""
+    of the Schur factorization
+
+    Parameters
+    ----------
+    eigs : 1d ndarray
+        Array of unsorted eigenvalues
+    diag : 1d complex ndarray
+        Array containing the diagonal of the approximate Schur factorization
+
+    Returns
+    -------
+    w : 1d ndarray
+        Eigenvalues from eigs sorted to match the order in diag
+    """
     n = diag.shape[0]
     lst = list(np.arange(n))
     w = np.empty_like(eigs)
@@ -123,16 +225,41 @@ def sort_eigs(eigs,diag):
     return w
 
 def msroots(M):
-    # perform a random rotation
+    """Computes the roots to a system via the eigenvalues of the Möller-Stetter
+    matrices. Implicitly performs a random rotation of the coordinate system
+    to avoid repeated eigenvalues arising from special structure in the underlying
+    polynomial system. Approximates the joint eigenvalue problem using a Schur
+    factorization of a linear combination of the matrices.
+
+    Parameters
+    ----------
+    M : (n,n,dim) ndarray
+        Array containing the nxn Möller-Stetter matrices, where the matrix
+        corresponding to multiplication by x_i is M[...,i]
+
+    Returns
+    -------
+    roots : (n,dim) ndarray
+        Array containing the approximate roots of the system, where each row
+        is a root.
+    """
     dim = M.shape[-1]
+
+    # perform a random rotation with a random orthogonal Q
     Q = ortho_group.rvs(dim)
     M = (Q@M[...,np.newaxis])[...,0]
+
     eigs = np.empty((dim,M.shape[0]),dtype='complex')
-    T,Z = schur(M[...,0],output='complex')
-    eigs[0] = sort_eigs(eig(M[...,0],right=False),np.diag(T))
-    for i in range(1,dim):
-        T = (Z.conj().T)@(M[...,i])@Z
+    # Compute the matrix U that triangularizes a random linear combination
+    c = np.random.randn(dim)
+    U = schur((M*c).sum(axis=-1),output='complex')[1]
+
+    # Compute the eigenvalues of each matrix, and use the computed U to sort them
+    for i in range(dim):
+        T = (U.conj().T)@(M[...,i])@U
         eigs[i] = sort_eigs(eig(M[...,i],right=False),np.diag(T))
+
+    # Rotate back before returning, transposing to match expected shape
     return (Q.T@eigs).T
 
 def MSMultMatrix(polys, poly_type, max_cond_num, macaulay_zero_tol, verbose=False, MSmatrix=0):
@@ -222,31 +349,34 @@ def MSMultMatrix(polys, poly_type, max_cond_num, macaulay_zero_tol, verbose=Fals
 
     return mMatrix, var_dict, basisDict, VB
 
-def build_macaulay(initial_poly_list, max_cond_num, verbose=False):
-    """Reduces the Macaulay matrix to find a vector basis for the system of polynomials.
+def build_macaulay(initial_poly_list, verbose=False):
+    """Constructs the unreduced Macaulay matrix. Removes linear polynomials by
+    substituting in for a number of variables equal to the number of linear
+    polynomials.
 
     Parameters
     --------
     initial_poly_list: list
         The polynomials in the system we are solving.
-    max_cond_num : float
-        The maximum condition number of the Macaulay Matrix Reduction
     verbose : bool
         Prints information about how the roots are computed.
     Returns
     -----------
-    matrix : ndarray
+    matrix : 2d ndarray
         The Macaulay matrix
-    matrix_terms : numpy array
-        Array containing the monomial column labels
+    matrix_terms : 2d integer ndarray
+        Array containing the ordered basis, where the ith row contains the
+        exponent/degree of the ith basis monomial
     cut : int
         Where to cut the Macaulay matrix for the highest-degree monomials
     varsToRemove : list
-        The variables to remove from the basis because we have linear polysnomials
-
-    Raises
-    ------
-    ConditioningError if rrqr_reduceMacaulay(...) raises a ConditioningError.
+        The variables removed with removing linear polynomials
+    A : 2d ndarray
+        A matrix giving the linear relations between the removed variables and
+        the remaining variables
+    Pc : 1d integer ndarray
+        Array containing the order of the variables as the appear in the columns
+        of A
     """
     power = is_power(initial_poly_list)
     dim = initial_poly_list[0].dim

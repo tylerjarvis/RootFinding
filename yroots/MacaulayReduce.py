@@ -59,6 +59,25 @@ def find_degree(poly_list, verbose=False):
     return sum(poly.degree for poly in poly_list) - len(poly_list) + 1
 
 def reduce_macaulay(matrix, cut, max_cond=1e6):
+    """Reduces the Macaulay matrix using the Transposed QR method.
+
+    Parameters:
+    -----------
+    matrix : 2d ndarray
+        The Macaulay matrix
+    cut : int
+        Number of columns of max degree
+    max_cond : int or float
+        Max condition number for the two condition number checks
+
+    Returns:
+    --------
+    E : 2d ndarray
+        The columns of the reduced Macaulay matrix corresponding to the quotient basis
+    Q2 : 2d ndarray
+        Matrix giving the quotient basis in terms of the monomial basis. Q2[:,i]
+        being the coefficients for the ith basis element
+    """
 
     M = matrix.copy()
     # Check condition number before first QR
@@ -87,6 +106,7 @@ def reduce_macaulay(matrix, cut, max_cond=1e6):
     if cond_num > max_cond:
         raise ConditioningError(f"Condition number of the Macaulay primary submatrix is {cond_num}")
 
+    # Return the backsolved columns and coefficient matrix for the quotient basis
     return solve_triangular(M[:cut,:cut],M[:cut,rank:]),Q[:,rank-M.shape[1]:]
 
 def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_cond_num, macaulay_zero_tol, return_perm=False):
