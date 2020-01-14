@@ -46,7 +46,7 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True):
     degrees = [poly.degree for poly in polys]
     max_number_of_roots = np.prod(degrees)
 
-    matrix, matrix_terms, cut, A, Pc = build_macaulay(polys, verbose)
+    matrix, matrix_terms, cut = build_macaulay(polys, verbose)
 
     # Attempt to reduce the Macaulay matrix
     try:
@@ -67,12 +67,16 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True):
     # If there are linear polynomials, compute the roots of the removed variables
     # A is an array containing the linear relations for the removed variables
     # Pc is an integer array containing the ordering of all the variables
-    if A:
-        n = A.shape[0]
-        tmp = np.empty((roots.shape[0],n),dtype='complex')
-        tmp[Pc[n:]] = roots
-        tmp[Pc[:n]] = (-A[:,n:-1]@(roots.T)-A[:,-1]).T
-        roots = tmp
+    # if A is not None:
+    #     print(dim)
+    #     n = A.shape[0]
+    #     print(n)
+    #     print(roots)
+    #     print(Pc[n:])
+    #     tmp = np.empty((roots.shape[0],n),dtype='complex')
+    #     tmp[Pc[n:]] = roots
+    #     tmp[Pc[:n]] = (-A[:,n:-1]@(roots.T)-A[:,-1]).T
+    #     roots = tmp
 
     # Check if too many roots
     assert roots.shape[0] <= max_number_of_roots,"Found too many roots,{}/{}/{}:{}".format(roots.shape,max_number_of_roots, degrees,roots)
@@ -386,10 +390,7 @@ def build_macaulay(initial_poly_list, verbose=False):
     linear_polys = [poly for poly in initial_poly_list if poly.degree == 1]
     nonlinear_polys = [poly for poly in initial_poly_list if poly.degree != 1]
     #Choose which variables to remove if things are linear, and add linear polys to matrix
-    if len(linear_polys) == 1: #one linear
-        varsToRemove = [np.argmax(np.abs(linear_polys[0].coeff[get_var_list(dim)]))]
-        poly_coeff_list = add_polys(degree, linear_polys[0], poly_coeff_list)
-    elif len(linear_polys) > 1: #multiple linear
+    if len(linear_polys) >= 1: #Linear polys involved
         #get the row rededuced linear coefficients
         A,Pc = nullspace(linear_polys)
         varsToRemove = Pc[:len(A)].copy()
@@ -397,9 +398,9 @@ def build_macaulay(initial_poly_list, verbose=False):
         for row in A:
             #reconstruct a polynomial for each row
             coeff = np.zeros([2]*dim)
-            coeff[get_var_list(dim)] = row[:-1]
+            coeff[tuple(get_var_list(dim))] = row[:-1]
             coeff[tuple([0]*dim)] = row[-1]
-            if not ower:
+            if not power:
                 poly = MultiCheb(coeff)
             else:
                 poly = MultiPower(coeff)
@@ -413,7 +414,8 @@ def build_macaulay(initial_poly_list, verbose=False):
         poly_coeff_list = add_polys(degree, poly, poly_coeff_list)
 
     #Creates the matrix
-    return (*create_matrix(poly_coeff_list, degree, dim, varsToRemove), A, Pc)
+    # return (*create_matrix(poly_coeff_list, degree, dim, varsToRemove), A, Pc)
+    return create_matrix(poly_coeff_list, degree, dim, varsToRemove)
 
 def makeBasisDict(matrix, matrix_terms, VB, power):
     '''Calculates and returns the basisDict.
