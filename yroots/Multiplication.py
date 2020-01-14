@@ -115,7 +115,20 @@ def ms_matrices(E,P,matrix_terms,dim,cut):
 
 def sort_eigs(eigs,diag):
     """Sorts the eigs array to match the order on the diagonal
-    of the Schur factorization"""
+    of the Schur factorization
+
+    Parameters
+    ----------
+    eigs : 1d ndarray
+        Array of unsorted eigenvalues
+    diag : 1d complex ndarray
+        Array containing the diagonal of the approximate Schur factorization
+
+    Returns
+    -------
+    w : 1d ndarray
+        Eigenvalues from eigs sorted to match the order in diag
+    """
     n = diag.shape[0]
     lst = list(np.arange(n))
     w = np.empty_like(eigs)
@@ -126,31 +139,34 @@ def sort_eigs(eigs,diag):
     return w
 
 def msroots(M):
-    # perform a random rotation
-    dim = M.shape[-1]
-    # Q = ortho_group.rvs(dim)
-    # M = (Q@M[...,np.newaxis])[...,0]
-    eigs = np.empty((dim,M.shape[0]),dtype='complex')
-    T,Z = schur(M[...,0],output='complex')
-    eigs[0] = np.diag(T)
-    for i in range(1,dim):
-        T = (Z.conj().T)@(M[...,i])@Z
-        eigs[i] = np.diag(T)
-    # return (Q.T@eigs).T
-    return eigs.T
+    """Computes the roots to a system via the eigenvalues of the Möller-Stetter
+    matrices. Approximates the joint eigenvalue problem using a Schur
+    factorization of a linear combination of the matrices.
 
-def msroots2(M):
-    # perform a random rotation
+    Parameters
+    ----------
+    M : (n,n,dim) ndarray
+        Array containing the nxn Möller-Stetter matrices, where the matrix
+        corresponding to multiplication by x_i is M[...,i]
+
+    Returns
+    -------
+    roots : (n,dim) ndarray
+        Array containing the approximate roots of the system, where each row
+        is a root.
+    """
     dim = M.shape[-1]
-    # Q = ortho_group.rvs(dim)
-    # M = (Q@M[...,np.newaxis])[...,0]
+
     eigs = np.empty((dim,M.shape[0]),dtype='complex')
-    T,Z = schur(M[...,0],output='complex')
-    eigs[0] = sort_eigs(eig(M[...,0],right=False),np.diag(T))
-    for i in range(1,dim):
-        T = (Z.conj().T)@(M[...,i])@Z
+    # Compute the matrix U that triangularizes a random linear combination
+    c = np.random.randn(dim)
+    U = schur((M*c).sum(axis=-1),output='complex')[1]
+
+    # Compute the eigenvalues of each matrix, and use the computed U to sort them
+    for i in range(dim):
+        T = (U.conj().T)@(M[...,i])@U
         eigs[i] = sort_eigs(eig(M[...,i],right=False),np.diag(T))
-    # return (Q.T@eigs).T
+
     return eigs.T
 
 def MSMultMatrix(polys, poly_type, max_cond_num, macaulay_zero_tol, verbose=False, MSmatrix=0):
