@@ -6,8 +6,8 @@ import yroots as yr
 import numpy as np
 from scipy.stats import ortho_group
 from yroots.polynomial import MultiPower, MultiCheb, is_power
-from yroots.Multiplication import MSMultMatrix, create_matrix
-from yroots.MacaulayReduce import rrqr_reduceMacaulay, find_degree, add_polys
+from yroots.Multiplication import ms_matrices, ms_matrices_cheb, build_macaulay, multiplication
+from yroots.MacaulayReduce import reduce_macaulay, find_degree, add_polys
 from yroots.utils import ConditioningError
 import scipy.linalg as la
 import matplotlib.pyplot as plt
@@ -23,19 +23,6 @@ def condeig(A):
     for i in range(n):
         out[i] = 1/np.abs(np.dot(vl[:,i],vr[:,i]))
     return out
-
-def build_macaulay(polys):
-    power = is_power(polys)
-    dim = polys[0].dim
-    poly_coeff_list = []
-    degree = find_degree(polys)
-
-    for poly in polys:
-        poly_coeff_list = add_polys(degree, poly, poly_coeff_list)
-
-    #Creates the matrix
-    matrix, matrix_terms, cuts = create_matrix(poly_coeff_list, degree, dim,[])
-    return matrix, matrix_terms, cuts
 
 def polyqeps(Q,eps):
     dim = Q.shape[0]
@@ -106,106 +93,62 @@ def chebspolyqeps(Q,eps):
         polys.append(MultiCheb(coeff))
     return polys
 
-def macaulayqeps(Q,eps):
-    polys = polyqeps(Q,eps)
+def macaulayqeps(Q,eps,kind):
+    if kind == 'power': func = polyqeps
+    elif kind == 'spower': func = spolyqeps
+    elif kind == 'cheb': func = chebpolyqeps
+    else: func = chebspolyqeps
+    polys = func(Q,eps)
     return build_macaulay(polys)
 
-def smacaulayqeps(Q,eps):
-    polys = spolyqeps(Q,eps)
-    return build_macaulay(polys)
-
-def chebmacaulayqeps(Q,eps):
-    polys = chebpolyqeps(Q,eps)
-    return build_macaulay(polys)
-
-def chebsmacaulayqeps(Q,eps):
-    polys = chebspolyqeps(Q,eps)
-    return build_macaulay(polys)
-
-def redmacaulayqeps(Q,eps):
-    matrix,matrix_terms,cuts = macaulayqeps(Q,eps)
+def redmacaulayqeps(Q,eps,kind):
+    matrix,matrix_terms,cut = macaulayqeps(Q,eps,kind)
     try:
-        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, 1e20, 1e-14)
+        E, Q = reduce_macaulay(matrix, cut, 1e5)
     except ConditioningError as e:
         raise e
-    return matrix,matrix_terms
+    return E,Q,matrix_terms,cut
 
-def sredmacaulayqeps(Q,eps):
-    matrix,matrix_terms,cuts = smacaulayqeps(Q,eps)
-    try:
-        matrix, matrix_terms = rrqr_reduceMacaulay(matrix, matrix_terms, cuts, 1e20, 1e-14)
-    except ConditioningError as e:
-        raise e
-    return matrix,matrix_terms
+def msmatqeps(Q,eps,kind):
+    E,Q2,matrix_terms,cut = redmacaulayqeps(Q,eps,kind)
+    if kind in ['power','spower']:
+        return ms_matrices(E,Q2,matrix_terms,Q.shape[0])
+    else:
+        return ms_matrices_cheb(E,Q2,matrix_terms,Q.shape[0])
 
-def msmatqeps(Q,eps,var):
-    polys = polyqeps(Q,eps)
-    return MSMultMatrix(polys,"MultiPower",1e20,1e-14,MSmatrix=var)[:2]
-
-def smsmatqeps(Q,eps,var):
-    polys = spolyqeps(Q,eps)
-    return MSMultMatrix(polys,"MultiPower",1e20,1e-14,MSmatrix=var)[:2]
-
-def mseigqeps(Q,eps,var):
-    m = msmatqeps(Q,eps,var)[0]
+def mseigqeps(Q,eps,var,kind):
+    m = msmatqeps(Q,eps,kind)[...,var]
     w,vl,vr = la.eig(m,left=True)
-    i = np.argmin(np.abs(w))
-    return np.abs(w[i]), 1/np.abs(vl[:,i]@vr[:,i])
-
-def smseigqeps(Q,eps,var):
-    m = smsmatqeps(Q,eps,var)[0]
-    w,vl,vr = la.eig(m,left=True)
-    i = np.argmin(np.abs(w-1))
-    return np.abs(w[i]-1), 1/np.abs(vl[:,i]@vr[:,i])
-
-def newsmseigqeps(Q,eps,var):
-    m = newmsqeps(Q,eps,var)
-    w,vl,vr = la.eig(m,left=True)
-    i = np.argmin(np.abs(w-1))
-    return np.abs(w[i]-1), 1/np.abs(vl[:,i]@vr[:,i])
+    if kind in ['power','cheb']:
+        i = np.argmin(np.abs(w))
+        return np.abs(w[i]), 1/np.abs(vl[:,i]@vr[:,i])
+    else:
+        i = np.argmin(np.abs(w-1))
+        return np.abs(w[i]-1), 1/np.abs(vl[:,i]@vr[:,i])
 
 def randq(dim):
     return ortho_group.rvs(dim)
 
-def randpoly(dim,eps):
+def randpoly(dim,eps,kind):
     """Returns MultiPower objects for a random devastating example of dimension
-    dim and .
+    dim and parameter value of eps.
     """
     Q = randq(dim)
-    return polyqeps(Q,eps)
+    return polyqeps(Q,eps,kind)
 
-def randspoly(dim,eps):
-    """Returns MultiPower objects for a random devastating example of dimension
-    dim and .
-    """
+def randmacaulay(dim,eps,kind):
     Q = randq(dim)
-    return spolyqeps(Q,eps)
+    return macaulayqeps(Q,eps,kind)
 
-def randmacaulay(dim,eps):
+def randredmacaulay(dim,eps,kind):
     Q = randq(dim)
-    return macaulayqeps(Q,eps)
+    return redmacaulayqeps(Q,eps,kind)
 
-def randsmacaulay(dim,eps):
+def randmsmat(dim,eps,kind):
     Q = randq(dim)
-    return smacaulayqeps(Q,eps)
+    return msmatqeps(Q,eps,kind)
 
-def randredmacaulay(dim,eps):
-    Q = randq(dim)
-    return redmacaulayqeps(Q,eps)
-
-def randsredmacaulay(dim,eps):
-    Q = randq(dim)
-    return sredmacaulayqeps(Q,eps)
-
-def randmsmat(dim,eps,var):
-    Q = randq(dim)
-    return msmatqeps(Q,eps,var)
-
-def randsmsmat(dim,eps,var):
-    Q = randq(dim)
-    return smsmatqeps(Q,eps,var)
-
-def chebapprox(polys,a,b,deg,atol=1e-8,rtol=1e-12,ttol=1e-10):
+def chebapprox(polys,a,b,deg,atol=1e-15,rtol=1e-15,ttol=1e-15):
     chebcoeff = []
     inf_norms = []
     errors = []
@@ -219,13 +162,6 @@ def chebapprox(polys,a,b,deg,atol=1e-8,rtol=1e-12,ttol=1e-10):
     for coeff in chebcoeff:
         chebpolys.append(MultiCheb(coeff))
     return chebpolys
-
-def chebmseig(m,a,b):
-    root = 2*(1-a[0])/(b[0]-a[0])-1
-    w,vl,vr = la.eig(m,left=True)
-    i = np.argmin(np.abs(w-root))
-    return np.abs(w[i]-root), 1/np.abs(vl[:,i]@vr[:,i])
-
 
 def mx2d(Q,eps):
     M = np.zeros((4,4))
@@ -253,107 +189,3 @@ def smx2d(Q,eps):
                   [B*D+E,-B,0,0],
                   [-B*F,E,0,0]])
     return M
-
-def new_reduceMacaulay(matrix, cut, max_cond=1e6):
-
-    # QR reduce the highest-degree columns
-    M = matrix.copy()
-    cond_num = np.linalg.cond(M[:,:cut])
-    if cond_num > max_cond:
-        raise ConditioningError(f"Condition number of the Macaulay primary submatrix is {cond_num}")
-    Q,M[:,:cut] = la.qr(M[:,:cut])
-    M[:,cut:] = Q.T @ M[:,cut:]
-    del Q
-
-    # If the matrix is "tall", compute an orthogonal transformation of the remaining
-    # columns, generating a new polynomial basis
-    if cut < M.shape[0]:
-        Q = la.qr(M[cut:,cut:].T,pivoting=True)[0]
-        M[:cut,cut:] = M[:cut,cut:] @ Q # Apply column transform
-
-    # Check numerical rank and chop the matrix
-    s = la.svd(M, compute_uv=False)
-    tol = max(M.shape)*s[0]*macheps
-    rank = len(s[s>tol])
-    M = M[:cut]
-    M[:,cut:rank] = 0
-    M[:,rank:] = la.solve_triangular(M[:,:cut],M[:,rank:])
-
-    return M[:,rank:],Q[:,rank-M.shape[1]:]
-
-def indexarray(matrix_terms,m,var):
-    mults = matrix_terms[m:].copy()
-    mults[:,var] += 1
-    return np.argmin(np.abs(mults[:,np.newaxis] - matrix_terms[np.newaxis]).sum(axis=-1),axis=1)
-
-def indexarray_cheb(matrix_terms,m,var):
-    up = matrix_terms[m:].copy()
-    up[:,var] += 1
-    down = matrix_terms[m:].copy()
-    down[:,var] -= 1
-    down[down[:,var]==-1,var] += 2
-    arr1 = np.argmin(np.abs(up[:,np.newaxis] - matrix_terms[np.newaxis]).sum(axis=-1),axis=1)
-    arr2 = np.argmin(np.abs(down[:,np.newaxis] - matrix_terms[np.newaxis]).sum(axis=-1),axis=1)
-    return arr1,arr2
-
-def ms_matrices(E,Q,matrix_terms,dim):
-    n = Q.shape[1]
-    m = E.shape[0]
-    M = np.empty((n,n,dim))
-    A = np.hstack((-E.T,Q.T))
-    for i in range(dim):
-        arr = indexarray(matrix_terms,m,i)
-        M[...,i] = A[:,arr]@Q
-    return M
-
-def ms_matrices_cheb(E,Q,matrix_terms,dim):
-    n = Q.shape[1]
-    m = E.shape[0]
-    M = np.empty((n,n,dim))
-    A = np.hstack((-E.T,Q.T))
-    for i in range(dim):
-        arr1,arr2 = indexarray_cheb(matrix_terms,m,i)
-        M[...,i] = .5*(A[:,arr1]+A[:,arr2])@Q
-    return M
-
-def roots(M):
-    # perform a random rotation
-    dim = M.shape[-1]
-    Q = ortho_group.rvs(dim)
-    M = (Q@M[...,np.newaxis])[...,0]
-
-    eigs = np.empty((dim,M.shape[0]),dtype='complex')
-    T,Z = la.schur(M[...,0],output='complex')
-    eigs[0] = np.diag(T)
-    for i in range(1,dim):
-        T = (Z.conj().T)@(M[...,i])@Z
-        eigs[i] = np.diag(T)
-    return (Q.T@eigs).T
-
-def mx(E,Q,matrix_terms,var):
-    arr = indexarray(matrix_terms,E.shape[0],var)
-    return np.hstack((-E.T,Q.T))[:,arr]@Q
-# def roots(M):
-#     w,V = la.eig(M[0])
-#     roots = np.empty((len(w),len(M)),dtype='complex')
-#     roots[:,0] = w
-#     for i in range(1,len(M)):
-#         w = la.eig(M[i],right=False)
-#
-#         w1 = np.mean((M[i]@V)/V,axis=0)
-#         print(w1,"\n-----")
-#         roots[:,i] = w[np.argsort(np.abs(np.subtract.outer(w,w1)),axis=0)[0]]
-#     print(roots)
-#     return roots
-#
-# def Roots(Q,eps):
-#     M = []
-#     for i in range(len(Q)):
-#         print(Q)
-#         M.append(newmsqeps(Q,eps,i))
-#     return roots(M)
-
-def newmsqeps(Q,eps,var):
-    M,matrix_terms,cuts = smacaulayqeps(Q,eps)
-    E,Q2,d,n = new_reduceMacaulay(M,cuts[0])
-    return mx(E,Q2,d,n,matrix_terms,var)
