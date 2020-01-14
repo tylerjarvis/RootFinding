@@ -144,6 +144,7 @@ def test_subdivision_solve_with_transform():
 
     #Case 4 - Two MultiPower 2D, one degree 20 and one degree 28
     #choose a seed that has a zero like 0,1,2,3,4,5,6,7,8,9,10
+    # This test slows down with tighter tolerances.
     np.random.seed(1)
     a = -2*np.ones(2);b = 2*np.ones(2)
     A = getPoly(20,2,True)
@@ -164,7 +165,7 @@ def test_subdivision_solve_with_transform_1d():
     #Case 6 - One MultiPower 1D of degrees 10
     #choose a seed that has a zero like ?
     np.random.seed(2)
-    a = -2*np.ones(1);b = 2*np.ones(1)
+    a = -1.1*np.ones(1);b = 1.1*np.ones(1)
     A = getPoly(20,1,False)
     correctZeros([A], a, b)
 

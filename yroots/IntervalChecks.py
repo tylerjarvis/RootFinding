@@ -40,6 +40,17 @@ class IntervalData:
         How much of the n dimensional volume has been checked.
     polishing: bool
         If true this class is just being used as a shell to pass into the polish code.
+    polish_intervals: list
+        The intervals polishing will be run on
+    polish_num: int
+        The number of time polishing has been run
+    polish_interval_num: int
+        The current interval being polished
+    polish_a: numpy array
+        The lower bounds of the interval being polished
+    polish_b: numpy array
+        The upper bounds of the interval being polished
+
     tick: int
         Keeps track of how many intervals have been solved. Every 100 it resets and prints the progress.
 
@@ -63,8 +74,6 @@ class IntervalData:
     def __init__(self,a,b):
         self.interval_checks = [constant_term_check]
         self.subinterval_checks = [quadratic_check]
-#         self.subinterval_checks = [linear_check]
-#         self.subinterval_checks = []
         self.a = a
         self.b = b
         self.interval_results = dict()
@@ -77,18 +86,47 @@ class IntervalData:
         self.interval_results["Too Deep"] = []
         self.total_area = np.prod(self.b-self.a)
         self.current_area = 0.
-        self.polishing = False
         self.tick = 0
 
-    def check_interval(self, coeff, approx_tol, a, b):
+        #For polishing code
+        self.polishing = False
+        self.polish_intervals = []
+        self.polish_num = 0
+        self.polish_interval_num = -1
+        self.polish_a = np.array([])
+        self.polish_b = np.array([])
+
+    def add_polish_intervals(self, polish_intervals):
+        ''' Add the intervals that polishing will be run on.
+
+        Parameters
+        ----------
+        polish_intervals : list
+            The intervals polishing will be run on.
+        '''
+        self.polishing = True
+        self.polish_intervals = polish_intervals
+        self.polish_num += 1
+        self.polish_interval_num = -1
+
+    def start_polish_interval(self):
+        '''Get the tracking ready to track the next polished interval
+        '''
+        #self.tick = 99 #So it will print right away.
+        self.polish_interval_num += 1
+        self.polish_a, self.polish_b = self.polish_intervals[self.polish_interval_num]
+        self.total_area = np.prod(self.polish_b-self.polish_a)
+        self.current_area = 0.
+
+    def check_interval(self, coeff, error, a, b):
         ''' Runs the interval checks on the interval [a,b]
 
         Parameters
         ----------
         coeff : numpy array.
             The coefficient matrix of the Chebyshev approximation to check.
-        approx_tol: float
-            The sup norm bound on the approximation error.
+        error: float
+            The approximation error.
         a: numpy array
             The lower bounds of the interval to check.
         b: numpy array
@@ -99,12 +137,13 @@ class IntervalData:
             True if we can throw out the interval. Otherwise False.
         '''
         for check in self.interval_checks:
-            if not check(coeff, approx_tol):
-                self.track_interval(check.__name__, [a,b])
+            if not check(coeff, error):
+                if not self.polishing:
+                    self.track_interval(check.__name__, [a,b])
                 return True
         return False
 
-    def check_subintervals(self, subintervals, scaled_subintervals, polys, change_sign, approx_tol):
+    def check_subintervals(self, subintervals, scaled_subintervals, polys, change_sign, errors):
         ''' Runs the subinterval checks on the given intervals
 
         Parameters
@@ -117,16 +156,16 @@ class IntervalData:
             The MultiCheb polynomials that approximate the functions on these intervals.
         change_sign: list
             A list of bools of whether we know the functions can change sign on the subintervals.
-        approx_tol: float
-            The sup norm bound on the approximation error.
+        errors: list
+            The approximation errors of the polynomials.
         Returns
         -------
         check_interval : bool
             True if we can throw out the interval. Otherwise False.
         '''
         for check in self.subinterval_checks:
-            for poly in polys:
-                mask = check(poly, scaled_subintervals, change_sign, approx_tol)
+            for poly,error in zip(polys, errors):
+                mask = check(poly, scaled_subintervals, change_sign, error)
                 new_scaled_subintervals = []
                 new_subintervals = []
                 for i, result in enumerate(mask):
@@ -134,7 +173,8 @@ class IntervalData:
                         new_scaled_subintervals.append(scaled_subintervals[i])
                         new_subintervals.append(subintervals[i])
                     else:
-                        self.track_interval(check.__name__, subintervals[i])
+                        if not self.polishing:
+                            self.track_interval(check.__name__, subintervals[i])
                 scaled_subintervals = new_scaled_subintervals
                 subintervals = new_subintervals
         return subintervals
@@ -151,17 +191,22 @@ class IntervalData:
         '''
         if not self.polishing:
             self.interval_results[name].append(interval)
-            self.current_area += np.prod(interval[1] - interval[0])
+        self.current_area += np.prod(interval[1] - interval[0])
 
     def print_progress(self):
         ''' Prints the progress of subdivision solve. Only prints every 100th time this function is
             called to save time.
         '''
-        if not self.polishing:
-            if self.tick == 100:
-                self.tick = 0
+        self.tick += 1
+        if self.tick >= 100:
+            self.tick = 0
+            if not self.polishing:
                 print("\rPercent Finished: {}%       ".format(round(100*self.current_area/self.total_area,2)), end='')
-            self.tick += 1
+            else:
+                print_string =  '\rPolishing Round: {}'.format(self.polish_num)
+                print_string += ' Interval: {}/{}:'.format(self.polish_interval_num, len(self.polish_intervals))
+                print_string += " Percent Finished: {}%{}".format(round(100*self.current_area/self.total_area,2), ' '*20)
+                print(print_string, end='')
 
     def print_results(self):
         ''' Prints the results of subdivision solve, how many intervals there were and what percent were
@@ -231,18 +276,22 @@ class IntervalData:
                     a0,b0 = data
                     if first:
                         first = False
-                        rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.01,\
-                                                 edgecolor='#a6a6a6',facecolor=colors[i], label=check)
+                        rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.1,\
+                                                 edgecolor='red',facecolor=colors[i], label=check)
                     else:
-                        rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.01,\
-                                                 edgecolor='#a6a6a6',facecolor=colors[i])
+                        rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.1,\
+                                                 edgecolor='red',facecolor=colors[i])
                     ax.add_patch(rect)
             plt.legend()
 
         #Plot the zeros
-        plt.plot(np.real(zeros[:,0]), np.real(zeros[:,1]),'o',color='#ffff00',markeredgecolor='#ffff00',markersize=3,
-                 zorder=22)
-
+        if len(zeros) > 0:
+            plt.plot(np.real(zeros[:,0]), np.real(zeros[:,1]),'o',color='#ffff00',markeredgecolor='#ffff00',markersize=3,
+                 zorder=22)        
+        
+#         plt.plot(0.41589487873818587, -0.2682102425236283,'o',color='k',markeredgecolor='k',markersize=3,
+#                  zorder=22) 
+        
         if print_plot:
             plt.savefig('intervals.pdf', bbox_inches='tight')
         plt.show()

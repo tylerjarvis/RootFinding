@@ -235,7 +235,7 @@ def test_cheb_roots_multrand():
     The assert statements will be inside of the correctZeros helper function.
     '''
 
-    np.random.seed(59)
+    np.random.seed(590)
 
     #Case 1 - Two MultiCheb 2D degree 10 polynomials.
     A = getPoly(10,2,False)
