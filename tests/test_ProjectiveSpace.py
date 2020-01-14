@@ -1,5 +1,5 @@
-from numalgsolve.ProjectiveSpace import *
-from numalgsolve.polynomial import MultiCheb, MultiPower
+from yroots.ProjectiveSpace import *
+from yroots.polynomial import MultiCheb, MultiPower
 import unittest
 
 #@unittest.skip("Projective Space is still a work in progress")

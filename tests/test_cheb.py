@@ -1,5 +1,5 @@
 import numpy as np
-from numalgsolve.polynomial import MultiCheb, MultiPower, poly2cheb, cheb2poly
+from yroots.polynomial import MultiCheb, MultiPower, poly2cheb, cheb2poly
 import pytest
 import pdb
 
