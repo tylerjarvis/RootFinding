@@ -688,8 +688,8 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,root_tracker,tols,max_level
         try:
             zeros = multiplication(polys, max_cond_num=tols.max_cond_num, macaulay_zero_tol= tols.macaulay_zero_tol)
             zeros = transform(good_zeros_nd(zeros,good_zeros_tol,good_zeros_tol),a,b)
-            interval_data.track_interval("Spectral", [a,b])
-            root_tracker.add_roots(zeros, a, b, "Spectral")
+            interval_data.track_interval("Macaulay", [a,b])
+            root_tracker.add_roots(zeros, a, b, "Macaulay")
         except ConditioningError as e:
             #Subdivide but run some checks on the intervals first
             intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
@@ -911,8 +911,8 @@ def subdivision_solve_1d(f,a,b,deg,interval_data,root_tracker,tols,max_level,lev
         try:
             good_zeros_tol = max(tols.min_good_zeros_tol, error*tols.good_zeros_factor)
             zeros = transform(good_zeros_1d(multCheb(coeff),good_zeros_tol,good_zeros_tol),a,b)
-            interval_data.track_interval('Spectral', [a,b])
-            root_tracker.add_roots(zeros, a, b, 'Spectral')
+            interval_data.track_interval("Macaulay", [a,b])
+            root_tracker.add_roots(zeros, a, b, "Macaulay")
         except ConditioningError as e:
             div_spot = a + (b-a)*RAND
             subdivision_solve_1d(f,a,div_spot,deg,interval_data,root_tracker,tols,max_level,level+1)

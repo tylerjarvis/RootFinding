@@ -82,7 +82,7 @@ class IntervalData:
         for check in self.subinterval_checks:
             self.interval_results[check.__name__] = []
         self.interval_results["Base Case"] = []
-        self.interval_results["Spectral"] = []
+        self.interval_results["Macaulay"] = []
         self.interval_results["Too Deep"] = []
         self.total_area = np.prod(self.b-self.a)
         self.current_area = 0.
