@@ -9,10 +9,4 @@ pytest/.cache
 .cache/
 __pycache__/
 .ipynb_checkpoints/
-.eggs/
-*.egg-info/
 .DS_Store
-<<<<<<< HEAD
-Base_case_analysis.txt
-=======
->>>>>>> erik_develop
