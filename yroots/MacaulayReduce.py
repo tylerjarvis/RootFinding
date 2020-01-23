@@ -83,7 +83,7 @@ def reduce_macaulay(matrix, cut, max_cond=1e6):
     # Check condition number before first QR
     cond_num = np.linalg.cond(M[:,:cut])
     if cond_num > max_cond:
-        raise ConditioningError(f"Condition number of the Macaulay high-degree columns is {cond_num}")
+        raise ConditioningError("Condition number of the Macaulay high-degree columns is {}".format(cond_num))
 
     # QR reduce the highest-degree columns
     Q,M[:,:cut] = qr(M[:,:cut])
@@ -104,7 +104,7 @@ def reduce_macaulay(matrix, cut, max_cond=1e6):
     # Check condition number before backsolve
     cond_num = np.linalg.cond(M[:,:cut])
     if cond_num > max_cond:
-        raise ConditioningError(f"Condition number of the Macaulay primary submatrix is {cond_num}")
+        raise ConditioningError("Condition number of the Macaulay primary submatrix is {}".format(cond_sum))
 
     # Return the backsolved columns and coefficient matrix for the quotient basis
     return solve_triangular(M[:cut,:cut],M[:cut,rank:]),Q[:,rank-M.shape[1]:]
