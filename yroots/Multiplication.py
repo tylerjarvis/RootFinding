@@ -11,7 +11,7 @@ from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list
 import warnings
 from scipy.stats import ortho_group
 
-def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,method='qrt'):
+def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,method='qrt',eigmethod='vals'):
     '''
     Finds the roots of the given list of multidimensional polynomials using a multiplication matrix.
 
@@ -59,6 +59,11 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
             E,Q = reduce_macaulay_tvb(matrix,cut,max_cond_num)
         except ConditioningError as e:
             raise e
+    elif method == 'byu':
+        try:
+            E,Q = reduce_macaulay_byu(matrix,cut,dim,max_cond_num)
+        except ConditioningError as e:
+            raise e
 
     # Construct the Möller-Stetter matrices
     # M is a 3d array containing the multiplication-by-x_i matrix in M[...,i]
@@ -71,7 +76,11 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
             M = ms_matrices_tvb(E,Q,matrix_terms,dim,cut)
 
     # Compute the roots using eigenvalues of the Möller-Stetter matrices
-    roots = msroots(M)
+    if eigmethod == 'vals':
+        roots = msroots(M)
+
+    elif eigmethod == 'vecs' and method == 'byu':
+
 
     # If there are linear polynomials, compute the roots of the removed variables
     # A is an array containing the linear relations for the removed variables
@@ -212,7 +221,7 @@ def ms_matrices_cheb(E,Q,matrix_terms,dim):
         M[...,i] = .5*(A[:,arr1]+A[:,arr2])@Q
     return M
 
-def ms_matrices_tvb(E,P,matrix_terms,dim,cut):
+def ms_matrices_p(E,P,matrix_terms,dim,cut):
     r,n = E.shape
     matrix_terms[cut:] = matrix_terms[cut:][P]
     M = np.empty((n,n,dim))
@@ -286,6 +295,24 @@ def msroots(M):
 
     # Rotate back before returning, transposing to match expected shape
     return (Q.T@eigs).T
+
+def msroots_byu_vec(M,dim):
+    """Computes the roots to a system via the eigenvectors of a Möller-Stetter
+    matrix.
+
+    Parameters
+    ----------
+    M : (n,n) ndarray
+        nxn Möller-Stetter matrix
+
+    Returns
+    -------
+    roots : (n,dim) ndarray
+        Array containing the approximate roots of the system, where each row
+        is a root.
+    """
+    v = la.eig(M.T)[1]
+    return (v[-(dim+1):-1]/v[-1]).T
 
 def MSMultMatrix(polys, poly_type, max_cond_num, macaulay_zero_tol, verbose=False, MSmatrix=0):
     '''
