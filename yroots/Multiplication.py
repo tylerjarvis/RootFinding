@@ -4,7 +4,7 @@ from scipy.linalg import solve_triangular, eig, schur
 from yroots.LinearProjection import nullspace
 from yroots.polynomial import MultiCheb, MultiPower, is_power
 from yroots.MacaulayReduce import reduce_macaulay, find_degree, \
-                              add_polys, reduce_macaulay_tvb
+                              add_polys, reduce_macaulay_tvb, reduce_macaulay_byu
 from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list, \
                               mon_combos, mon_combosHighest, sort_polys_by_degree, \
                               deg_d_polys, all_permutations_cheb, ConditioningError, newton_polish
@@ -87,7 +87,7 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
         else:
             m = M[...,multvar-1]
 
-        v = la.eig(M.T)[1]
+        v = eig(m.T)[1]
         roots = (v[-(dim+1):-1]/v[-1]).T
     else:
         raise ValueError("Only method 'byu' is compatible with eigmethod 'vecs'")

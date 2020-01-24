@@ -188,6 +188,7 @@ def reduce_macaulay_byu(matrix, cut, dim,max_cond=1e6):
     # columns, generating a new polynomial basis
     if cut < M.shape[0] and cut != M.shape[1]-(dim+1):
         Q,M[cut:,cut:-(dim+1)],P = qr(M[cut:,cut:-(dim+1)],pivoting=True)
+        M[cut:,-(dim+1):] = Q.T @ M[cut:,-(dim+1):]
         del Q
         M[:cut,cut:-(dim+1)] = M[:cut,cut:-(dim+1)][:,P] # Permute columns
 

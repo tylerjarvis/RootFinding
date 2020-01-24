@@ -6,8 +6,8 @@ import yroots as yr
 import numpy as np
 from scipy.stats import ortho_group
 from yroots.polynomial import MultiPower, MultiCheb
-from yroots.Multiplication import ms_matrices, ms_matrices_cheb, ms_matrices_tvb, build_macaulay, multiplication
-from yroots.MacaulayReduce import reduce_macaulay, reduce_macaulay_tvb, reduce_macaulay_p
+from yroots.Multiplication import ms_matrices, ms_matrices_cheb, ms_matrices_p, build_macaulay, multiplication
+from yroots.MacaulayReduce import reduce_macaulay, reduce_macaulay_tvb, reduce_macaulay_p, reduce_macaulay_byu
 from yroots.utils import ConditioningError
 import scipy.linalg as la
 import matplotlib.pyplot as plt
@@ -125,6 +125,7 @@ def redmacaulayqeps(Q,eps,kind,method,P=None):
     matrix,matrix_terms,cut = macaulayqeps(Q,eps,kind)
     if method == 'qrt': func = reduce_macaulay
     elif method == 'tvb': func = reduce_macaulay_tvb
+    elif method == 'byu': func = reduce_macaulay_byu
     elif method == 'p':
         try:
             E, Q2 = reduce_macaulay_p(matrix, cut, P, 1e5)
@@ -141,6 +142,7 @@ def redmacaulaypolys(polys,method,P=None):
     matrix,matrix_terms,cut = macaulaypolys(polys)
     if method == 'qrt': func = reduce_macaulay
     elif method == 'tvb': func = reduce_macaulay_tvb
+    elif method == 'byu': func = reduce_macaulay_byu
     elif method == 'p':
         try:
             E, Q2 = reduce_macaulay_p(matrix, cut, P, 1e5)
@@ -161,7 +163,7 @@ def msmatqeps(Q,eps,kind,method,P=None):
         else:
             return ms_matrices_cheb(E,Q2,matrix_terms,Q.shape[0])
     else:
-        return ms_matrices_tvb(E,Q2,matrix_terms,Q.shape[0],cut)
+        return ms_matrices_p(E,Q2,matrix_terms,Q.shape[0],cut)
 
 def msmatpolys(polys,method,P=None):
     E,Q2,matrix_terms,cut = redmacaulaypolys(polys,method,P)
@@ -171,7 +173,7 @@ def msmatpolys(polys,method,P=None):
         else:
             return ms_matrices_cheb(E,Q2,matrix_terms,len(polys))
     else:
-        return ms_matrices_tvb(E,Q2,matrix_terms,len(polys),cut)
+        return ms_matrices_p(E,Q2,matrix_terms,len(polys),cut)
 
 def mseigqeps(Q,eps,var,kind,method,P=None):
     m = msmatqeps(Q,eps,kind,method,P)[...,var]
