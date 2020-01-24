@@ -4,14 +4,14 @@ from scipy.linalg import solve_triangular, eig, schur
 from yroots.LinearProjection import nullspace
 from yroots.polynomial import MultiCheb, MultiPower, is_power
 from yroots.MacaulayReduce import reduce_macaulay, find_degree, \
-                              add_polys
+                              add_polys, reduce_macaulay_tvb
 from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list, \
                               mon_combos, mon_combosHighest, sort_polys_by_degree, \
                               deg_d_polys, all_permutations_cheb, ConditioningError, newton_polish
 import warnings
 from scipy.stats import ortho_group
 
-def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True):
+def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,method='qrt'):
     '''
     Finds the roots of the given list of multidimensional polynomials using a multiplication matrix.
 
@@ -49,17 +49,26 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True):
     matrix, matrix_terms, cut = build_macaulay(polys, verbose)
 
     # Attempt to reduce the Macaulay matrix
-    try:
-        E,Q = reduce_macaulay(matrix,cut,max_cond_num)
-    except ConditioningError as e:
-        raise e
+    if method == 'qrt':
+        try:
+            E,Q = reduce_macaulay(matrix,cut,max_cond_num)
+        except ConditioningError as e:
+            raise e
+    elif method == 'tvb':
+        try:
+            E,Q = reduce_macaulay_tvb(matrix,cut,max_cond_num)
+        except ConditioningError as e:
+            raise e
 
     # Construct the Möller-Stetter matrices
     # M is a 3d array containing the multiplication-by-x_i matrix in M[...,i]
     if poly_type == "MultiCheb":
         M = ms_matrices_cheb(E,Q,matrix_terms,dim)
     else:
-        M = ms_matrices(E,Q,matrix_terms,dim)
+        if method == 'qrt':
+            M = ms_matrices(E,Q,matrix_terms,dim)
+        elif method == 'tvb':
+            M = ms_matrices_tvb(E,Q,matrix_terms,dim,cut)
 
     # Compute the roots using eigenvalues of the Möller-Stetter matrices
     roots = msroots(M)
@@ -203,6 +212,16 @@ def ms_matrices_cheb(E,Q,matrix_terms,dim):
         M[...,i] = .5*(A[:,arr1]+A[:,arr2])@Q
     return M
 
+def ms_matrices_tvb(E,P,matrix_terms,dim,cut):
+    r,n = E.shape
+    matrix_terms[cut:] = matrix_terms[cut:][P]
+    M = np.empty((n,n,dim))
+    A = np.hstack((-E.T,np.eye(n)))
+    for i in range(dim):
+        arr = indexarray(matrix_terms,r,i)
+        M[...,i] = A[:,arr]
+    return M
+
 def sort_eigs(eigs,diag):
     """Sorts the eigs array to match the order on the diagonal
     of the Schur factorization
@@ -222,11 +241,13 @@ def sort_eigs(eigs,diag):
     n = diag.shape[0]
     lst = list(np.arange(n))
     w = np.empty_like(eigs)
+    arr = []
     for eig in eigs:
         i = lst[np.argmin(np.abs(diag[lst]-eig))]
+        arr.append(i)
         w[i] = eig
         lst.remove(i)
-    return w
+    return w,np.argsort(arr)
 
 def msroots(M):
     """Computes the roots to a system via the eigenvalues of the Möller-Stetter
@@ -261,7 +282,7 @@ def msroots(M):
     # Compute the eigenvalues of each matrix, and use the computed U to sort them
     for i in range(dim):
         T = (U.conj().T)@(M[...,i])@U
-        eigs[i] = sort_eigs(eig(M[...,i],right=False),np.diag(T))
+        eigs[i] = sort_eigs(eig(M[...,i],right=False),np.diag(T))[0]
 
     # Rotate back before returning, transposing to match expected shape
     return (Q.T@eigs).T

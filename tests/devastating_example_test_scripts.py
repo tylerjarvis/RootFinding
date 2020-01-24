@@ -5,24 +5,41 @@
 import yroots as yr
 import numpy as np
 from scipy.stats import ortho_group
-from yroots.polynomial import MultiPower, MultiCheb, is_power
-from yroots.Multiplication import ms_matrices, ms_matrices_cheb, build_macaulay, multiplication
-from yroots.MacaulayReduce import reduce_macaulay, find_degree, add_polys
+from yroots.polynomial import MultiPower, MultiCheb
+from yroots.Multiplication import ms_matrices, ms_matrices_cheb, ms_matrices_tvb, build_macaulay, multiplication
+from yroots.MacaulayReduce import reduce_macaulay, reduce_macaulay_tvb, reduce_macaulay_p
 from yroots.utils import ConditioningError
 import scipy.linalg as la
 import matplotlib.pyplot as plt
-# from yroots.subdivision import full_cheb_approximate, trim_coeffs
+from yroots.subdivision import full_cheb_approximate, trim_coeffs
+from random_tests import rand_coeffs
 
-macheps = 2.220446049250313e-16
-def condeig(A):
-    """Calculates the condition numbers of the eigenvalues of A"""
+def condeig(A,eig,v):
+    """Calculates the condition number of an eigenvalue of A"""
     n = A.shape[0]
-    w, vl, vr = la.eig(A,left=True)
-    vl, vr = vl/la.norm(vl,axis=0), vr/la.norm(vr,axis=0)
-    out = np.empty(n)
-    for i in range(n):
-        out[i] = 1/np.abs(np.dot(vl[:,i],vr[:,i]))
-    return out
+    Q = hh(v)
+    B = ((Q.conj().T)@A@Q)
+    R = la.qr(B[1:,1:]-eig*np.eye(n-1))[1]
+    z = la.solve_triangular(R,-B[0,1:],trans=2)
+    return (1+la.norm(z))**.5
+
+def hh(x):
+    u = x.copy().astype('complex')
+    u[0] += np.exp(1j*np.angle(x[0]))*la.norm(x)
+    u = u/la.norm(u)
+    return np.eye(len(u)) - 2*np.outer(u,u.conj())
+
+def condeigs(A):
+    n = A.shape[0]
+    w,v = la.eig(A)
+    cond = np.zeros(n)
+    for i,eig in enumerate(w):
+        Q = hh(v[:,i])
+        B = ((Q.conj().T)@A@Q)
+        R = la.qr(B[1:,1:]-eig*np.eye(n-1))[1]
+        z = la.solve_triangular(R,-B[0,1:],trans=2)
+        cond[i] = (1+la.norm(z))**.5
+    return w,cond
 
 def polyqeps(Q,eps):
     dim = Q.shape[0]
@@ -101,23 +118,73 @@ def macaulayqeps(Q,eps,kind):
     polys = func(Q,eps)
     return build_macaulay(polys)
 
-def redmacaulayqeps(Q,eps,kind):
+def macaulaypolys(polys):
+    return build_macaulay(polys)
+
+def redmacaulayqeps(Q,eps,kind,method,P=None):
     matrix,matrix_terms,cut = macaulayqeps(Q,eps,kind)
+    if method == 'qrt': func = reduce_macaulay
+    elif method == 'tvb': func = reduce_macaulay_tvb
+    elif method == 'p':
+        try:
+            E, Q2 = reduce_macaulay_p(matrix, cut, P, 1e5)
+        except ConditioningError as e:
+            raise e
+        return E,Q2,matrix_terms,cut
     try:
-        E, Q = reduce_macaulay(matrix, cut, 1e5)
+        E, Q2 = func(matrix, cut, 1e5)
     except ConditioningError as e:
         raise e
-    return E,Q,matrix_terms,cut
+    return E,Q2,matrix_terms,cut
 
-def msmatqeps(Q,eps,kind):
-    E,Q2,matrix_terms,cut = redmacaulayqeps(Q,eps,kind)
-    if kind in ['power','spower']:
-        return ms_matrices(E,Q2,matrix_terms,Q.shape[0])
+def redmacaulaypolys(polys,method,P=None):
+    matrix,matrix_terms,cut = macaulaypolys(polys)
+    if method == 'qrt': func = reduce_macaulay
+    elif method == 'tvb': func = reduce_macaulay_tvb
+    elif method == 'p':
+        try:
+            E, Q2 = reduce_macaulay_p(matrix, cut, P, 1e5)
+        except ConditioningError as e:
+            raise e
+        return E,Q2,matrix_terms,cut
+    try:
+        E, Q2 = func(matrix, cut, 1e5)
+    except ConditioningError as e:
+        raise e
+    return E,Q2,matrix_terms,cut
+
+def msmatqeps(Q,eps,kind,method,P=None):
+    E,Q2,matrix_terms,cut = redmacaulayqeps(Q,eps,kind,method,P)
+    if method == 'qrt':
+        if kind in ['power','spower']:
+            return ms_matrices(E,Q2,matrix_terms,Q.shape[0])
+        else:
+            return ms_matrices_cheb(E,Q2,matrix_terms,Q.shape[0])
     else:
-        return ms_matrices_cheb(E,Q2,matrix_terms,Q.shape[0])
+        return ms_matrices_tvb(E,Q2,matrix_terms,Q.shape[0],cut)
 
-def mseigqeps(Q,eps,var,kind):
-    m = msmatqeps(Q,eps,kind)[...,var]
+def msmatpolys(polys,method,P=None):
+    E,Q2,matrix_terms,cut = redmacaulaypolys(polys,method,P)
+    if method == 'qrt':
+        if isinstance(polys[0],MultiPower):
+            return ms_matrices(E,Q2,matrix_terms,len(polys))
+        else:
+            return ms_matrices_cheb(E,Q2,matrix_terms,len(polys))
+    else:
+        return ms_matrices_tvb(E,Q2,matrix_terms,len(polys),cut)
+
+def mseigqeps(Q,eps,var,kind,method,P=None):
+    m = msmatqeps(Q,eps,kind,method,P)[...,var]
+    w,v = la.eig(m)
+    if kind in ['power','cheb']:
+        i = np.argmin(np.abs(w))
+        return np.abs(w[i]), condeig(A,w[i],v[:,i])
+    else:
+        i = np.argmin(np.abs(w-1))
+        return np.abs(w[i]-1), condeig(A,w[i],v[:,i])
+
+def mseigpolys(polys,var,kind,method,P=None):
+    m = msmatpolys(polys,method,P)[...,var]
     w,vl,vr = la.eig(m,left=True)
     if kind in ['power','cheb']:
         i = np.argmin(np.abs(w))
@@ -134,19 +201,38 @@ def randpoly(dim,eps,kind):
     dim and parameter value of eps.
     """
     Q = randq(dim)
-    return polyqeps(Q,eps,kind)
+    if kind == 'power': func = polyqeps
+    elif kind == 'spower': func = spolyqeps
+    elif kind == 'cheb': func = chebpolyqeps
+    else: func = chebspolyqeps
+    return func(Q,eps)
 
 def randmacaulay(dim,eps,kind):
     Q = randq(dim)
     return macaulayqeps(Q,eps,kind)
 
-def randredmacaulay(dim,eps,kind):
+def randredmacaulay(dim,eps,kind,method):
     Q = randq(dim)
-    return redmacaulayqeps(Q,eps,kind)
+    return redmacaulayqeps(Q,eps,kind,method)
 
 def randmsmat(dim,eps,kind):
     Q = randq(dim)
-    return msmatqeps(Q,eps,kind)
+    return msmatqeps(Q,eps,kind,method)
+
+def perturbpoly(dim,deg,basis,eps):
+    if basis == 'power': MultiX = MultiPower
+    else: MultiX = MultiCheb
+    coeff = eps*rand_coeffs(dim,deg,1)[0,0]
+    return MultiX(coeff)
+
+def perturb(polys,eps):
+    dim = polys[0].dim
+    if isinstance(polys[0],MultiPower): basis = 'power'
+    else: basis = MultiCheb
+    newpolys = []
+    for poly in polys:
+        newpolys.append(poly + perturbpoly(dim,2,basis,eps))
+    return newpolys
 
 def chebapprox(polys,a,b,deg,atol=1e-15,rtol=1e-15,ttol=1e-15):
     chebcoeff = []
