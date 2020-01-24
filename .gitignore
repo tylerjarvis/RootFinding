@@ -10,3 +10,10 @@ pytest/.cache
 __pycache__/
 .ipynb_checkpoints/
 .DS_Store
+*.png
+*.mp4
+/tests/test_qrt/
+/tests/random_tests/
+/tests/random_tests_res/
+.eggs/
+RootFinding.egg-info/
