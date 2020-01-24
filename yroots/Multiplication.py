@@ -11,7 +11,7 @@ from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list
 import warnings
 from scipy.stats import ortho_group
 
-def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,method='qrt',eigmethod='vals'):
+def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,method='qrt',eigmethod='vals',multvar=0):
     '''
     Finds the roots of the given list of multidimensional polynomials using a multiplication matrix.
 
@@ -72,14 +72,25 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
     else:
         if method == 'qrt':
             M = ms_matrices(E,Q,matrix_terms,dim)
-        elif method == 'tvb':
-            M = ms_matrices_tvb(E,Q,matrix_terms,dim,cut)
+        elif method == 'tvb' or method == 'byu':
+            M = ms_matrices_p(E,Q,matrix_terms,dim,cut)
 
     # Compute the roots using eigenvalues of the Möller-Stetter matrices
     if eigmethod == 'vals':
         roots = msroots(M)
 
     elif eigmethod == 'vecs' and method == 'byu':
+        if multvar == 0:
+            # generate random linear combination
+            c = np.random.randn(dim)
+            m = (M*c).sum(axis=-1)
+        else:
+            m = M[...,multvar-1]
+
+        v = la.eig(M.T)[1]
+        roots = (v[-(dim+1):-1]/v[-1]).T
+    else:
+        raise ValueError("Only method 'byu' is compatible with eigmethod 'vecs'")
 
 
     # If there are linear polynomials, compute the roots of the removed variables
@@ -295,24 +306,6 @@ def msroots(M):
 
     # Rotate back before returning, transposing to match expected shape
     return (Q.T@eigs).T
-
-def msroots_byu_vec(M,dim):
-    """Computes the roots to a system via the eigenvectors of a Möller-Stetter
-    matrix.
-
-    Parameters
-    ----------
-    M : (n,n) ndarray
-        nxn Möller-Stetter matrix
-
-    Returns
-    -------
-    roots : (n,dim) ndarray
-        Array containing the approximate roots of the system, where each row
-        is a root.
-    """
-    v = la.eig(M.T)[1]
-    return (v[-(dim+1):-1]/v[-1]).T
 
 def MSMultMatrix(polys, poly_type, max_cond_num, macaulay_zero_tol, verbose=False, MSmatrix=0):
     '''
