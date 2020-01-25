@@ -1,7 +1,7 @@
 # A collection of functions used in the F4 Macaulay and TVB solvers
 import numpy as np
 import itertools
-from scipy.linalg import qr, solve_triangular, svd, norm
+from scipy.linalg import qr, solve_triangular, svd, norm, eig
 from scipy.special import comb
 import time
 
@@ -1329,7 +1329,7 @@ def condeig(A,eig,x,condvec=False):
     n = A.shape[0]
     Q = householder(x)
     B = ((Q.conj().T)@A@Q)
-    R = qr(B[1:,1:]-eig*np.eye(n-1),mode='r')
+    R = qr(B[1:,1:]-eig*np.eye(n-1),mode='r')[0]
     v = solve_triangular(R,-B[0,1:],trans=2)
     if condvec:
         return (1+norm(v))**.5,1/(svd(R,compute_uv=False)[-1])
@@ -1340,7 +1340,7 @@ def condeigs(A,condvec=False):
     """Estimates the condition numbers of the eigenvalues of A. Optionally
     estimates the condition numbers of the eigenvectors."""
     n = A.shape[0]
-    w,v = la.eig(A)
+    w,v = eig(A)
 
     if condvec: cond = np.empty((n,2))
     else: cond = np.empty(n)
