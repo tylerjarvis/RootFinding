@@ -58,12 +58,12 @@ def find_degree(poly_list, verbose=False):
         print('Degree of Macaulay Matrix:', sum(poly.degree for poly in poly_list) - len(poly_list) + 1)
     return sum(poly.degree for poly in poly_list) - len(poly_list) + 1
 
-def reduce_macaulay(matrix, cut, max_cond=1e6):
+def reduce_macaulay(M, cut, max_cond=1e6):
     """Reduces the Macaulay matrix using the Transposed QR method.
 
     Parameters:
     -----------
-    matrix : 2d ndarray
+    M : 2d ndarray
         The Macaulay matrix
     cut : int
         Number of columns of max degree
@@ -79,7 +79,6 @@ def reduce_macaulay(matrix, cut, max_cond=1e6):
         being the coefficients for the ith basis element
     """
 
-    M = matrix.copy()
     # Check condition number before first QR
     cond_num = np.linalg.cond(M[:,:cut])
     if cond_num > max_cond:
