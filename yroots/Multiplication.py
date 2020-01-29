@@ -46,7 +46,7 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True):
     degrees = [poly.degree for poly in polys]
     max_number_of_roots = np.prod(degrees)
 
-    matrix, matrix_terms, cut, A, Pc = build_macaulay(polys, max_cond_num, verbose)
+    matrix, matrix_terms, cut = build_macaulay(polys, verbose)
 
     try:
         E,P = reduce_macaulay(matrix,cut,max_cond_num)
@@ -58,14 +58,14 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True):
     else:
         M = ms_matrices(E,P,matrix_terms,dim,cut)
 
-    roots = msroots2(M)
+    roots = msroots(M)
 
-    if A:
-        n = A.shape[0]
-        tmp = np.empty((roots.shape[0],n),dtype='complex')
-        tmp[Pc[n:]] = roots
-        tmp[Pc[:n]] = (-A[:,n:-1]@(roots.T)-A[:,-1]).T
-        roots = tmp
+    # if A:
+    #     n = A.shape[0]
+    #     tmp = np.empty((roots.shape[0],n),dtype='complex')
+    #     tmp[Pc[n:]] = roots
+    #     tmp[Pc[:n]] = (-A[:,n:-1]@(roots.T)-A[:,-1]).T
+    #     roots = tmp
 
     #Check if too many roots
     assert roots.shape[0] <= max_number_of_roots,"Found too many roots,{}/{}/{}:{}".format(roots.shape,max_number_of_roots, degrees,roots)
@@ -256,15 +256,13 @@ def MSMultMatrix(polys, poly_type, max_cond_num, macaulay_zero_tol, verbose=Fals
 
     return mMatrix, var_dict, basisDict, VB
 
-def build_macaulay(initial_poly_list, max_cond_num, verbose=False):
+def build_macaulay(initial_poly_list, verbose=False):
     """Reduces the Macaulay matrix to find a vector basis for the system of polynomials.
 
     Parameters
     --------
     initial_poly_list: list
         The polynomials in the system we are solving.
-    max_cond_num : float
-        The maximum condition number of the Macaulay Matrix Reduction
     verbose : bool
         Prints information about how the roots are computed.
     Returns
@@ -303,7 +301,7 @@ def build_macaulay(initial_poly_list, max_cond_num, verbose=False):
             coeff = np.zeros([2]*dim)
             coeff[get_var_list(dim)] = row[:-1]
             coeff[tuple([0]*dim)] = row[-1]
-            if not ower:
+            if not power:
                 poly = MultiCheb(coeff)
             else:
                 poly = MultiPower(coeff)
@@ -317,7 +315,7 @@ def build_macaulay(initial_poly_list, max_cond_num, verbose=False):
         poly_coeff_list = add_polys(degree, poly, poly_coeff_list)
 
     #Creates the matrix
-    return (*create_matrix(poly_coeff_list, degree, dim, varsToRemove), A, Pc)
+    return create_matrix(poly_coeff_list, degree, dim, varsToRemove)
 
 def makeBasisDict(matrix, matrix_terms, VB, power):
     '''Calculates and returns the basisDict.
