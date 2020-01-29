@@ -3,8 +3,8 @@ import itertools
 from scipy.linalg import solve_triangular, eig, schur
 from yroots.LinearProjection import nullspace
 from yroots.polynomial import MultiCheb, MultiPower, is_power
-from yroots.MacaulayReduce import reduce_macaulay, find_degree, \
-                              add_polys, reduce_macaulay_tvb, reduce_macaulay_byu
+from yroots.MacaulayReduce import reduce_macaulay_qrt, find_degree, \
+                              add_polys, reduce_macaulay_tvb, reduce_macaulay_svd
 from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list, \
                               mon_combos, mon_combosHighest, sort_polys_by_degree, \
                               deg_d_polys, all_permutations_cheb, ConditioningError, newton_polish
@@ -51,17 +51,17 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
     # Attempt to reduce the Macaulay matrix
     if method == 'qrt':
         try:
-            E,Q = reduce_macaulay(matrix,cut,max_cond_num)
+            E,Q,cond,cond_back = reduce_macaulay_qrt(matrix,cut,max_cond_num)
         except ConditioningError as e:
             raise e
     elif method == 'tvb':
         try:
-            E,Q = reduce_macaulay_tvb(matrix,cut,max_cond_num)
+            E,Q,cond,cond_back = reduce_macaulay_tvb(matrix,cut,max_cond_num)
         except ConditioningError as e:
             raise e
-    elif method == 'byu':
+    elif method == 'svd':
         try:
-            E,Q = reduce_macaulay_byu(matrix,cut,dim,max_cond_num)
+            E,Q,cond,cond_back = reduce_macaulay_svd(matrix,cut,max_cond_num)
         except ConditioningError as e:
             raise e
 
@@ -70,27 +70,27 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
     if poly_type == "MultiCheb":
         M = ms_matrices_cheb(E,Q,matrix_terms,dim)
     else:
-        if method == 'qrt':
+        if method == 'qrt' or method == 'svd':
             M = ms_matrices(E,Q,matrix_terms,dim)
-        elif method == 'tvb' or method == 'byu':
+        elif method == 'tvb':
             M = ms_matrices_p(E,Q,matrix_terms,dim,cut)
 
     # Compute the roots using eigenvalues of the Möller-Stetter matrices
     if eigmethod == 'vals':
         roots = msroots(M)
-
-    elif eigmethod == 'vecs' and method == 'byu':
-        if multvar == 0:
-            # generate random linear combination
-            c = np.random.randn(dim)
-            m = (M*c).sum(axis=-1)
-        else:
-            m = M[...,multvar-1]
-
-        v = eig(m.T)[1]
-        roots = (v[-(dim+1):-1]/v[-1]).T
-    else:
-        raise ValueError("Only method 'byu' is compatible with eigmethod 'vecs'")
+    #
+    # elif eigmethod == 'vecs' and method == 'byu':
+    #     if multvar == 0:
+    #         # generate random linear combination
+    #         c = np.random.randn(dim)
+    #         m = (M*c).sum(axis=-1)
+    #     else:
+    #         m = M[...,multvar-1]
+    #
+    #     v = eig(m.T)[1]
+    #     roots = (v[-(dim+1):-1]/v[-1]).T
+    # else:
+    #     raise ValueError("Only method 'byu' is compatible with eigmethod 'vecs'")
 
 
     # If there are linear polynomials, compute the roots of the removed variables
@@ -110,10 +110,10 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
     # Check if too many roots
     assert roots.shape[0] <= max_number_of_roots,"Found too many roots,{}/{}/{}:{}".format(roots.shape,max_number_of_roots, degrees,roots)
     if return_all_roots:
-        return roots
+        return roots,cond,cond_back
     else:
         # only return roots in the unit complex hyperbox
-        return roots[np.all(np.abs(roots) <= 1,axis = 0)]
+        return roots[np.all(np.abs(roots) <= 1,axis = 0)],cond,cond_back
 
 def indexarray(matrix_terms,m,var):
     """Compute the array mapping monomials under multiplication by x_var

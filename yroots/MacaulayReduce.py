@@ -58,7 +58,7 @@ def find_degree(poly_list, verbose=False):
         print('Degree of Macaulay Matrix:', sum(poly.degree for poly in poly_list) - len(poly_list) + 1)
     return sum(poly.degree for poly in poly_list) - len(poly_list) + 1
 
-def reduce_macaulay(matrix, cut, max_cond=1e6):
+def reduce_macaulay_qrt(M, cut, max_cond=1e6):
     """Reduces the Macaulay matrix using the Transposed QR method.
 
     Parameters:
@@ -79,7 +79,6 @@ def reduce_macaulay(matrix, cut, max_cond=1e6):
         being the coefficients for the ith basis element
     """
 
-    M = matrix.copy()
     # Check condition number before first QR
     cond_num = np.linalg.cond(M[:,:cut])
     if cond_num > max_cond:
@@ -102,16 +101,65 @@ def reduce_macaulay(matrix, cut, max_cond=1e6):
     rank = len(s[s>tol])
 
     # Check condition number before backsolve
-    cond_num = np.linalg.cond(M[:,:cut])
+    cond_num_back = np.linalg.cond(M[:,:cut])
     if cond_num > max_cond:
         raise ConditioningError("Condition number of the Macaulay primary submatrix is {}".format(cond_sum))
 
     # Return the backsolved columns and coefficient matrix for the quotient basis
-    return solve_triangular(M[:cut,:cut],M[:cut,rank:]),Q[:,rank-M.shape[1]:]
+    return solve_triangular(M[:cut,:cut],M[:cut,rank:]),Q[:,rank-M.shape[1]:], cond_num, cond_num_back
 
-def reduce_macaulay_tvb(matrix, cut, max_cond=1e6):
+def reduce_macaulay_svd(M, cut, max_cond=1e6):
+    """Reduces the Macaulay matrix using the Transposed QR method.
 
-    M = matrix.copy()
+    Parameters:
+    -----------
+    matrix : 2d ndarray
+        The Macaulay matrix
+    cut : int
+        Number of columns of max degree
+    max_cond : int or float
+        Max condition number for the two condition number checks
+
+    Returns:
+    --------
+    E : 2d ndarray
+        The columns of the reduced Macaulay matrix corresponding to the quotient basis
+    Q2 : 2d ndarray
+        Matrix giving the quotient basis in terms of the monomial basis. Q2[:,i]
+        being the coefficients for the ith basis element
+    """
+
+    # Check condition number before first QR
+    cond_num = np.linalg.cond(M[:,:cut])
+    if cond_num > max_cond:
+        raise ConditioningError("Condition number of the Macaulay high-degree columns is {}".format(cond_num))
+
+    # QR reduce the highest-degree columns
+    Q,M[:,:cut] = qr(M[:,:cut])
+    M[:,cut:] = Q.T @ M[:,cut:]
+    del Q
+
+    # If the matrix is "tall", compute an orthogonal transformation of the remaining
+    # columns, generating a new polynomial basis
+    if cut < M.shape[0]:
+        Q = svd(M[cut:,cut:])[2].conj().T
+        M[:cut,cut:] = M[:cut,cut:] @ Q # Apply column transform
+
+    # Compute numerical rank
+    s = svd(M, compute_uv=False)
+    tol = max(M.shape)*s[0]*macheps
+    rank = len(s[s>tol])
+
+    # Check condition number before backsolve
+    cond_num_back = np.linalg.cond(M[:,:cut])
+    if cond_num > max_cond:
+        raise ConditioningError("Condition number of the Macaulay primary submatrix is {}".format(cond_sum))
+
+    # Return the backsolved columns and coefficient matrix for the quotient basis
+    return solve_triangular(M[:cut,:cut],M[:cut,rank:]),Q[:,rank-M.shape[1]:], cond_num, cond_num_back
+
+def reduce_macaulay_tvb(M, cut, max_cond=1e6):
+
     # Check condition number before first QR
     cond_num = np.linalg.cond(M[:,:cut])
     if cond_num > max_cond:
@@ -135,11 +183,11 @@ def reduce_macaulay_tvb(matrix, cut, max_cond=1e6):
     rank = len(s[s>tol])
 
     # Check condition number before backsolve
-    cond_num = np.linalg.cond(M[:,:cut])
+    cond_num_back = np.linalg.cond(M[:,:cut])
     if cond_num > max_cond:
         raise ConditioningError(f"Condition number of the Macaulay primary submatrix is {cond_num}")
 
-    return solve_triangular(M[:rank,:rank],M[:rank,rank:]),P
+    return solve_triangular(M[:rank,:rank],M[:rank,rank:]),P, cond_num, cond_num_back
 
 def reduce_macaulay_p(matrix, cut, P, max_cond=1e6):
     M = matrix.copy()
@@ -165,47 +213,11 @@ def reduce_macaulay_p(matrix, cut, P, max_cond=1e6):
     rank = len(s[s>tol])
 
     # Check condition number before backsolve
-    cond_num = np.linalg.cond(M[:,:cut])
+    cond_num_back = np.linalg.cond(M[:,:cut])
     if cond_num > max_cond:
         raise ConditioningError(f"Condition number of the Macaulay primary submatrix is {cond_num}")
 
-    return solve_triangular(M[:rank,:rank],M[:rank,rank:]),P
-
-def reduce_macaulay_byu(matrix, cut, dim,max_cond=1e6):
-
-    M = matrix.copy()
-    # Check condition number before first QR
-    cond_num = np.linalg.cond(M[:,:cut])
-    if cond_num > max_cond:
-        raise ConditioningError(f"Condition number of the Macaulay high-degree columns is {cond_num}")
-
-    # QR reduce the highest-degree columns
-    Q,M[:,:cut] = qr(M[:,:cut])
-    M[:,cut:] = Q.T @ M[:,cut:]
-    del Q
-
-    # If the matrix is "tall", compute an orthogonal transformation of the remaining
-    # columns, generating a new polynomial basis
-    if cut < M.shape[0] and cut != M.shape[1]-(dim+1):
-        Q,M[cut:,cut:-(dim+1)],P = qr(M[cut:,cut:-(dim+1)],pivoting=True)
-        M[cut:,-(dim+1):] = Q.T @ M[cut:,-(dim+1):]
-        del Q
-        M[:cut,cut:-(dim+1)] = M[:cut,cut:-(dim+1)][:,P] # Permute columns
-
-        # update P to be correct length as an array for all columns less than max degree
-        P = np.hstack((P,np.arange(len(P),len(P)+dim+1)))
-
-    # Compute numerical rank
-    s = svd(M, compute_uv=False)
-    tol = max(M.shape)*s[0]*macheps
-    rank = len(s[s>tol])
-
-    # Check condition number before backsolve
-    cond_num = np.linalg.cond(M[:,:cut])
-    if cond_num > max_cond:
-        raise ConditioningError(f"Condition number of the Macaulay primary submatrix is {cond_num}")
-
-    return solve_triangular(M[:rank,:rank],M[:rank,rank:]),P
+    return solve_triangular(M[:rank,:rank],M[:rank,rank:]),P, cond_num, cond_num_back
 
 def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_cond_num, macaulay_zero_tol, return_perm=False):
     ''' Reduces a Macaulay matrix, BYU style.
