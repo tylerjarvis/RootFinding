@@ -413,20 +413,26 @@ def test_roots_10(method):
 
 if __name__ == "__main__":
     # Put all the tests in a list
-    tests = [test_roots_1_1,test_roots_1_2,test_roots_1_3,test_roots_1_4,test_roots_1_5,test_roots_2_1,
+    tests = [test_roots_1_1,test_roots_1_2,test_roots_1_3,#test_roots_1_4,test_roots_1_5,
+                test_roots_2_1,
                 test_roots_2_2,test_roots_2_3,test_roots_2_4,test_roots_2_5,test_roots_3_1,test_roots_3_2,
                 test_roots_4_1, test_roots_4_2, test_roots_5,test_roots_6_1,test_roots_6_2,test_roots_6_3,
-                test_roots_7_1,test_roots_7_2,test_roots_7_3,test_roots_7_4,test_roots_8_1,test_roots_8_2,
-                test_roots_9_1,test_roots_9_2, test_roots_10]
+                test_roots_7_1,test_roots_7_2,test_roots_7_3,#test_roots_7_4,
+                test_roots_8_1,test_roots_8_2,
+                test_roots_9_1,test_roots_9_2]#, test_roots_10]
 
-    test_nums =[1.1, 1.2, 1.3, 1.4, 1.5, 2.1,
+    test_nums =[1.1, 1.2, 1.3, #1.4,1.5,
+                2.1,
                 2.2, 2.3, 2.4, 2.5, 3.1, 3.2,
                 4.1, 4.2, 5, 6.1, 6.2, 6.3,
-                7.1, 7.2, 7.3, 7.4, 8.1, 8.2,
-                9.1, 9.2, 10]
+                7.1, 7.2, 7.3, #7.4,
+                8.1, 8.2,
+                9.1, 9.2]#, 10]
+
+    num_tests = len(test_nums)
 
     # Create the dictionary that maps n to the float test number
-    test_num_dict = {n:test_nums[n - 1] for n in range(1,28)}
+    test_num_dict = {n+1:test_nums[n] for n in range(num_tests)}
 
     methods = ['qrt','svd','tvb']
     results_dict = {method:dict() for method in methods}
@@ -440,8 +446,8 @@ if __name__ == "__main__":
         backcond_dict = dict()
         cond_eig_dict = dict()
 
-        for i, test in zip(range(1,28), tests):
-            print('Running test {}'.format(test_num_dict[i]))
+        for i, test in enumerate(tests):
+            print('Running test {}'.format(test_num_dict[i+1]))
             max_res, timing, norm_diff, num_roots, cond, backcond, cond_eig, test_num = test(method)
             residual_dict[test_num] = max_res
             timing_dict[test_num] = timing
