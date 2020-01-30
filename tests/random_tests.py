@@ -25,7 +25,7 @@ def gen_tests(dim,degrees,N,kind):
     return arrs
 
 def save_tests(dim,degrees,N,kind,filefmt=filefmt):
-    arrs = gen_tests(dim,degrees,N)
+    arrs = gen_tests(dim,degrees,N,kind)
     for i,deg in enumerate(degrees):
         np.save(filefmt.format(dim=dim,deg=deg,kind=kind),arrs[i])
         print(f"dim {dim}/deg {deg}: saved N={N} systems")

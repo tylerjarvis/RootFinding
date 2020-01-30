@@ -25,12 +25,12 @@ def run_test(polys,method):
     except ConditioningError:
         return np.array([0,0,0,0,0,0,0,1],dtype='float64')
 
-infilefmt="random_tests/dim{dim}_deg{deg}.npy"
-def run_tests(dim,degrees,basis,method,N=None,filefmt=infilefmt):
+infilefmt="random_tests/coeffs/dim{dim}_deg{deg}_{kind}.npy"
+def run_tests(dim,degrees,basis,method,kind,N=None,filefmt=infilefmt):
     arr = np.zeros((len(degrees),10))
     for i,deg in enumerate(degrees):
         arr[i,0] = deg
-        tests = load_tests(dim,deg,basis,N=N,filefmt=infilefmt)
+        tests = load_tests(dim,deg,basis,kind,N=N,filefmt=infilefmt)
         for polys in tests:
             arr[i,1:9] += run_test(polys,method)
     arr[:,9] = len(tests)
@@ -46,18 +46,18 @@ def run_tests_parallel(tests,MultiX,method):
     arr[9] = tests.shape[0]
     return arr
 
-outfilefmt="test_qrt/{ver}/dim{dim}_{basis}.csv"
+outfilefmt="random_tests/{title}/{method}/dim{dim}_{basis}_{kind}.csv"
 columns = ['deg','maxres','avgres','macaulay_cond_1','macaulay_cond_2','maxcondeig','avgcondeig','time','fails','N']
 intcols = ['deg','fails','N']
-def run_save(dim,degrees,basis,method,N=None,infilefmt=infilefmt,outfilefmt=outfilefmt):
-    arr = run_tests(dim,degrees,basis,method,N=N,filefmt=infilefmt)
+def run_save(dim,degrees,basis,method,kind,title,N=None,infilefmt=infilefmt,outfilefmt=outfilefmt):
+    arr = run_tests(dim,degrees,basis,method,kind,N=N,filefmt=infilefmt)
     df = pd.DataFrame(arr,columns=columns)
     df[intcols] = df[intcols].applymap(np.int64)
     df = df.set_index('deg')
     print(df)
-    df.to_csv(outfilefmt.format(dim=dim,basis=basis,ver=ver))
+    df.to_csv(outfilefmt.format(title=title,dim=dim,basis=basis,method=method,kind=kind))
 
-def run_save_parallel(COMM,RANK,SIZE,dim,degrees,basis,ver,N=None,infilefmt=infilefmt,outfilefmt=outfilefmt):
+def run_save_parallel(COMM,RANK,SIZE,dim,degrees,basis,method,kind,title,N=None,infilefmt=infilefmt,outfilefmt=outfilefmt):
     # set polynomial basis
     if basis == "power": MultiX = MultiPower
     else: MultiX = MultiCheb
@@ -89,7 +89,7 @@ def run_save_parallel(COMM,RANK,SIZE,dim,degrees,basis,ver,N=None,infilefmt=infi
 
         # rank 0 process loads the array of coefficent tensors
         if RANK == 0:
-            coeffs[...] = np.load(infilefmt.format(dim=dim,deg=deg))[:N]
+            coeffs[...] = np.load(infilefmt.format(dim=dim,deg=deg,kind=kind))[:N]
 
         # each process stores a reference to a subset of the array
         if RANK < SIZE -1:
@@ -128,10 +128,10 @@ def run_save_parallel(COMM,RANK,SIZE,dim,degrees,basis,ver,N=None,infilefmt=infi
         df[intcols] = df[intcols].applymap(np.int64)
         df = df.set_index('deg')
         print(df)
-        df.to_csv(outfilefmt.format(dim=dim,basis=basis,ver=ver))
+        df.to_csv(outfilefmt.format(title=title,dim=dim,basis=basis,kind=kind,method=method))
 
 degrees = {}
-degrees[2] = np.arange(2,6)
+degrees[2] = np.arange(2,81)[::5]
 degrees[3] = np.arange(2,11)
 degrees[4] = np.arange(2,6)
 degrees[5] = [2,3,4]
@@ -156,26 +156,28 @@ if __name__ == "__main__":
     from sys import argv
     from mpi4py import MPI
 
-    N = int(argv[1])
+    title = argv[1]
+    N = int(argv[2])
     if N == 0: N = None
 
-    basis = argv[2]
-    method = argv[3]
+    basis = argv[3]
+    method = argv[4]
+    kind = argv[5]
 
     # run in parallel
     COMM = MPI.COMM_WORLD
     RANK = COMM.Get_rank()
     SIZE = COMM.Get_size()
     if SIZE > 1:
-        for arg in argv[4:]:
+        for arg in argv[6:]:
             dim = int(arg)
             if RANK == 0: print(f"{basis} dim {dim} running on {SIZE} processes")
             COMM.barrier()
-            run_save_parallel(COMM,RANK,SIZE,dim,degrees[dim],basis,method,N)
+            run_save_parallel(COMM,RANK,SIZE,dim,degrees[dim],basis,method,kind,title,N)
 
     # run on a single process
     else:
-        for arg in argv[4:]:
+        for arg in argv[6:]:
             dim = int(arg)
             print(f"{basis} dim {dim} running on 1 process")
-            run_save(dim,degrees[dim],basis,method,N)
+            run_save(dim,degrees[dim],basis,method,kind,title,N)
