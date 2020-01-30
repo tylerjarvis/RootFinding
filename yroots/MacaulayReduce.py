@@ -78,7 +78,9 @@ def reduce_macaulay_qrt(M, cut, max_cond=1e6):
         Matrix giving the quotient basis in terms of the monomial basis. Q2[:,i]
         being the coefficients for the ith basis element
     """
-
+    plt.matshow(M)
+    plt.title("Before reduction")
+    plt.show()
     # Check condition number before first QR
     cond_num = np.linalg.cond(M[:,:cut])
     if cond_num > max_cond:
@@ -88,6 +90,9 @@ def reduce_macaulay_qrt(M, cut, max_cond=1e6):
     Q,M[:,:cut] = qr(M[:,:cut])
     M[:,cut:] = Q.T @ M[:,cut:]
     del Q
+    plt.matshow(M)
+    plt.title("After first QR")
+    plt.show()
 
     # If the matrix is "tall", compute an orthogonal transformation of the remaining
     # columns, generating a new polynomial basis
@@ -95,6 +100,9 @@ def reduce_macaulay_qrt(M, cut, max_cond=1e6):
         Q = qr(M[cut:,cut:].T,pivoting=True)[0]
         M[:cut,cut:] = M[:cut,cut:] @ Q # Apply column transform
 
+    plt.matshow(M)
+    plt.title("After second QR")
+    plt.show()
     # Compute numerical rank
     s = svd(M, compute_uv=False)
     tol = max(M.shape)*s[0]*macheps
@@ -106,7 +114,15 @@ def reduce_macaulay_qrt(M, cut, max_cond=1e6):
         raise ConditioningError("Condition number of the Macaulay primary submatrix is {}".format(cond_sum))
 
     # Return the backsolved columns and coefficient matrix for the quotient basis
-    return solve_triangular(M[:cut,:cut],M[:cut,rank:]),Q[:,rank-M.shape[1]:], cond_num, cond_num_back
+    E = solve_triangular(M[:cut,:cut],M[:cut,rank:]),
+    Q = Q[:,rank-M.shape[1]:]
+    plt.matshow(E)
+    plt.title("Result of Backsolve")
+    plt.show()
+    plt.matshow(Q)
+    plt.title("Quotient Basis")
+    plt.show()
+    return E, Q, cond_num, cond_num_back
 
 def reduce_macaulay_svd(M, cut, max_cond=1e6):
     """Reduces the Macaulay matrix using the Transposed QR method.
