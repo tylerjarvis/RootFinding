@@ -60,7 +60,7 @@ def chebval2(x, cc): #pragma: no cover
             c1 = tmp + c1*x2
     return c0 + c1*x
 
-def getPoly(deg,dim,power):
+def getPoly(deg,dim,power,pcnt_sparse=None,integer=False,maxint=10):
     '''
     A helper function for testing. Returns a random upper triangular polynomial of the given dimension and degree.
     power is a boolean indicating whether or not the polynomial should be MultiPower.
@@ -68,7 +68,14 @@ def getPoly(deg,dim,power):
     deg += 1
     # ACoeff = np.random.random_sample(deg*np.ones(dim, dtype = int))
     dimensions = (deg,)*dim
-    ACoeff = np.random.randn(*dimensions)
+    if integer:
+        ACoeff = np.random.randint(0,maxint,size=dimensions)
+    else:
+        ACoeff = np.random.randn(*dimensions)
+    if pcnt_sparse is not None:
+        idx = np.random.choice(np.arange(ACoeff.size),replace=False,size=int(ACoeff.size * pcnt_sparse))
+        idx = np.unravel_index(idx,dimensions)
+        ACoeff[idx] = 0
     for i,j in np.ndenumerate(ACoeff):
         if np.sum(i) >= deg:
             ACoeff[i] = 0
