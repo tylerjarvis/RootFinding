@@ -3,7 +3,7 @@ from random_tests import save_tests
 np.random.seed(2)
 
 degrees = {}
-degrees[2] = np.arange(2,21)
+degrees[2] = np.arange(2,81)
 degrees[3] = np.arange(2,21)
 degrees[4] = np.arange(2,16)
 degrees[5] = np.arange(2,11)
