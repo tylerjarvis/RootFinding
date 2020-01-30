@@ -95,6 +95,10 @@ class IntervalData:
         self.polish_interval_num = -1
         self.polish_a = np.array([])
         self.polish_b = np.array([])
+        
+        #for keeping track of condition numbers
+        self.cond = 0
+        self.backcond = 0
 
     def add_polish_intervals(self, polish_intervals):
         ''' Add the intervals that polishing will be run on.
@@ -287,11 +291,11 @@ class IntervalData:
         #Plot the zeros
         if len(zeros) > 0:
             plt.plot(np.real(zeros[:,0]), np.real(zeros[:,1]),'o',color='#ffff00',markeredgecolor='#ffff00',markersize=3,
-                 zorder=22)        
-        
+                 zorder=22)
+
 #         plt.plot(0.41589487873818587, -0.2682102425236283,'o',color='k',markeredgecolor='k',markersize=3,
-#                  zorder=22) 
-        
+#                  zorder=22)
+
         if print_plot:
             plt.savefig('intervals.pdf', bbox_inches='tight')
         plt.show()

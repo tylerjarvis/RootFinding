@@ -78,7 +78,6 @@ def reduce_macaulay_qrt(M, cut, max_cond=1e6):
         Matrix giving the quotient basis in terms of the monomial basis. Q2[:,i]
         being the coefficients for the ith basis element
     """
-
     # Check condition number before first QR
     cond_num = np.linalg.cond(M[:,:cut])
     if cond_num > max_cond:
@@ -183,7 +182,7 @@ def reduce_macaulay_tvb(M, cut, max_cond=1e6):
     rank = len(s[s>tol])
 
     # Check condition number before backsolve
-    cond_num_back = np.linalg.cond(M[:,:cut])
+    cond_num_back = np.linalg.cond(M[:,:rank])
     if cond_num > max_cond:
         raise ConditioningError(f"Condition number of the Macaulay primary submatrix is {cond_num}")
 
