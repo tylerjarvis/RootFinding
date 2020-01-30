@@ -1336,11 +1336,10 @@ def condeig(A,eig,x,condvec=False):
     else:
         return (1+norm(v))**.5
 
-def condeigs(A,condvec=False):
+def condeigs(A,w,v,condvec=False):
     """Estimates the condition numbers of the eigenvalues of A. Optionally
     estimates the condition numbers of the eigenvectors."""
     n = A.shape[0]
-    w,v = eig(A)
 
     if condvec: cond = np.empty((n,2))
     else: cond = np.empty(n)
