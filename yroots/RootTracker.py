@@ -56,8 +56,9 @@ class RootTracker:
         self.potential_roots = np.array([])
         self.intervals = []
         self.methods = []
+        self.conds = []
 
-    def add_roots(self, zeros, a, b, method):
+    def add_roots(self, zeros, conds, a, b, method):
         ''' Store the roots that were found, along with the interval they were found in and the method used.
 
         Parameters
@@ -71,9 +72,9 @@ class RootTracker:
         method : string
             The method used to find the roots
         '''
-        for zero in zeros:
+        for i,zero in enumerate(zeros):
             if rootInBox(zero, a, b):
-                self.add_root(zero, a, b, method)
+                self.add_root(zero, conds[i], a, b, method)
             else:
                 found = False
                 for a_,b_ in self.intervals:
@@ -82,7 +83,7 @@ class RootTracker:
                         break
                 if not found:
                     self.possible_duplicates.append([zero, a, b, method])
-        
+
         temp = []
         for zero, a_, b_, method in self.possible_duplicates:
             if rootInBox(zero, a, b):
@@ -90,8 +91,8 @@ class RootTracker:
             else:
                 temp.append([zero, a_, b_, method])
         self.possible_duplicates = temp
-                
-        
+
+
 #         if not isinstance(a, np.ndarray):
 #             dim = 1
 #         else:
@@ -108,8 +109,8 @@ class RootTracker:
 #             self.roots = np.hstack([self.roots, zeros])
 #         self.intervals += [(a,b)]*len(zeros)
 #         self.methods += [method]*len(zeros)
-        
-    def add_root(self, zero, a, b, method):
+
+    def add_root(self, zero, cond, a, b, method):
         ''' Store the root that was found, along with the interval it was found in and the method used.
 
         Parameters
@@ -132,16 +133,17 @@ class RootTracker:
                 self.roots = np.zeros([0])
             else:
                 self.roots = np.zeros([0,dim])
-
+                self.conds.append(cond)
         if dim > 1:
             self.roots = np.vstack([self.roots, zero])
+            self.conds.append(cond)
         else:
             self.roots = np.hstack([self.roots, zero])
         self.intervals += [(a,b)]
         self.methods += [method]
 
     def add_potential_roots(self, potentials, a, b, method):
-        ''' Store the potential roots that were found, along with the interval 
+        ''' Store the potential roots that were found, along with the interval
         they were found in and the method used.
 
         Parameters
