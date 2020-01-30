@@ -87,6 +87,7 @@ def reduce_macaulay_qrt(M, cut, max_cond=1e6):
     # QR reduce the highest-degree columns
     Q,M[:,:cut] = qr(M[:,:cut])
     M[:,cut:] = Q.T @ M[:,cut:]
+    Q = None
     del Q
 
     # If the matrix is "tall", compute an orthogonal transformation of the remaining
@@ -137,6 +138,7 @@ def reduce_macaulay_svd(M, cut, max_cond=1e6):
     # QR reduce the highest-degree columns
     Q,M[:,:cut] = qr(M[:,:cut])
     M[:,cut:] = Q.T @ M[:,cut:]
+    Q = None
     del Q
 
     # If the matrix is "tall", compute an orthogonal transformation of the remaining
@@ -168,13 +170,13 @@ def reduce_macaulay_tvb(M, cut, max_cond=1e6):
     # QR reduce the highest-degree columns
     Q,M[:,:cut] = qr(M[:,:cut])
     M[:,cut:] = Q.T @ M[:,cut:]
+    Q = None
     del Q
 
     # If the matrix is "tall", compute an orthogonal transformation of the remaining
     # columns, generating a new polynomial basis
     if cut < M.shape[0]:
-        Q,M[cut:,cut:],P = qr(M[cut:,cut:],pivoting=True)
-        del Q
+        M[cut:,cut:],P = qr(M[cut:,cut:],pivoting=True)[1:]
         M[:cut,cut:] = M[:cut,cut:][:,P] # Permute columns
 
     # Compute numerical rank
@@ -189,8 +191,7 @@ def reduce_macaulay_tvb(M, cut, max_cond=1e6):
 
     return solve_triangular(M[:rank,:rank],M[:rank,rank:]),P, cond_num, cond_num_back
 
-def reduce_macaulay_p(matrix, cut, P, max_cond=1e6):
-    M = matrix.copy()
+def reduce_macaulay_p(M, cut, P, max_cond=1e6):
     # Check condition number before first QR
     cond_num = np.linalg.cond(M[:,:cut])
     if cond_num > max_cond:
@@ -199,13 +200,13 @@ def reduce_macaulay_p(matrix, cut, P, max_cond=1e6):
     # QR reduce the highest-degree columns
     Q,M[:,:cut] = qr(M[:,:cut])
     M[:,cut:] = (Q.T @ M[:,cut:])[:,P]
+    Q = None
     del Q
 
     # If the matrix is "tall", compute an orthogonal transformation of the remaining
     # columns, generating a new polynomial basis
     if cut < M.shape[0]:
-        Q,M[cut:,cut:] = qr(M[cut:,cut:])
-        del Q
+        M[cut:,cut:] = qr(M[cut:,cut:])[1:]
 
     # Compute numerical rank
     s = svd(M, compute_uv=False)

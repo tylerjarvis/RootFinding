@@ -7,11 +7,11 @@ from yroots.MacaulayReduce import reduce_macaulay_qrt, find_degree, \
                               add_polys, reduce_macaulay_tvb, reduce_macaulay_svd
 from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list, \
                               mon_combos, mon_combosHighest, sort_polys_by_degree, \
-                              deg_d_polys, all_permutations_cheb, ConditioningError, newton_polish
+                              deg_d_polys, all_permutations_cheb, ConditioningError, newton_polish, condeigs
 import warnings
 from scipy.stats import ortho_group
 
-def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,method='qrt',eigmethod='vals',multvar=0):
+def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,method='qrt'):
     '''
     Finds the roots of the given list of multidimensional polynomials using a multiplication matrix.
 
@@ -76,44 +76,15 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
             M = ms_matrices_p(E,Q,matrix_terms,dim,cut)
 
     # Compute the roots using eigenvalues of the Möller-Stetter matrices
-    if eigmethod == 'vals':
-        roots = msroots(M)
-    #
-    # elif eigmethod == 'vecs' and method == 'byu':
-    #     if multvar == 0:
-    #         # generate random linear combination
-    #         c = np.random.randn(dim)
-    #         m = (M*c).sum(axis=-1)
-    #     else:
-    #         m = M[...,multvar-1]
-    #
-    #     v = eig(m.T)[1]
-    #     roots = (v[-(dim+1):-1]/v[-1]).T
-    # else:
-    #     raise ValueError("Only method 'byu' is compatible with eigmethod 'vecs'")
-
-
-    # If there are linear polynomials, compute the roots of the removed variables
-    # A is an array containing the linear relations for the removed variables
-    # Pc is an integer array containing the ordering of all the variables
-    # if A is not None:
-    #     print(dim)
-    #     n = A.shape[0]
-    #     print(n)
-    #     print(roots)
-    #     print(Pc[n:])
-    #     tmp = np.empty((roots.shape[0],n),dtype='complex')
-    #     tmp[Pc[n:]] = roots
-    #     tmp[Pc[:n]] = (-A[:,n:-1]@(roots.T)-A[:,-1]).T
-    #     roots = tmp
+    roots,cond_eig = msroots(M)
 
     # Check if too many roots
     assert roots.shape[0] <= max_number_of_roots,"Found too many roots,{}/{}/{}:{}".format(roots.shape,max_number_of_roots, degrees,roots)
     if return_all_roots:
-        return roots,cond,cond_back
+        return roots,cond,cond_back,cond_eig
     else:
         # only return roots in the unit complex hyperbox
-        return roots[np.all(np.abs(roots) <= 1,axis = 0)],cond,cond_back
+        return roots[np.all(np.abs(roots) <= 1,axis = 0)],cond,cond_back,cond_eig
 
 def indexarray(matrix_terms,m,var):
     """Compute the array mapping monomials under multiplication by x_var
@@ -260,14 +231,12 @@ def sort_eigs(eigs,diag):
     """
     n = diag.shape[0]
     lst = list(np.arange(n))
-    w = np.empty_like(eigs)
     arr = []
     for eig in eigs:
         i = lst[np.argmin(np.abs(diag[lst]-eig))]
         arr.append(i)
-        w[i] = eig
         lst.remove(i)
-    return w,np.argsort(arr)
+    return np.argsort(arr)
 
 def msroots(M):
     """Computes the roots to a system via the eigenvalues of the Möller-Stetter
@@ -300,12 +269,22 @@ def msroots(M):
     U = schur((M*c).sum(axis=-1),output='complex')[1]
 
     # Compute the eigenvalues of each matrix, and use the computed U to sort them
-    for i in range(dim):
+    T = (U.conj().T)@(M[...,0])@U
+    w,v = eig(M[...,0])
+    arr = sort_eigs(w,np.diag(T))
+    eigs[0] = w[arr]
+
+    # compute eigenvalue condition numbers (will be the same for all matrices)
+    cond = condeigs(M[...,0],eigs[0],v[:,arr])
+
+    for i in range(1,dim):
         T = (U.conj().T)@(M[...,i])@U
-        eigs[i] = sort_eigs(eig(M[...,i],right=False),np.diag(T))[0]
+        w = eig(M[...,i],right=False)
+        arr = sort_eigs(w,np.diag(T))
+        eigs[i] = w[arr]
 
     # Rotate back before returning, transposing to match expected shape
-    return (Q.T@eigs).T
+    return (Q.T@eigs).T,cond
 
 def MSMultMatrix(polys, poly_type, max_cond_num, macaulay_zero_tol, verbose=False, MSmatrix=0):
     '''
