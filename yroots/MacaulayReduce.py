@@ -102,7 +102,7 @@ def reduce_macaulay_qrt(M, cut, max_cond=1e6):
 
     # Check condition number before backsolve
     cond_num_back = np.linalg.cond(M[:,:cut])
-    if cond_num > max_cond:
+    if cond_num_back > max_cond:
         raise ConditioningError("Condition number of the Macaulay primary submatrix is {}".format(cond_sum))
 
     # Return the backsolved columns and coefficient matrix for the quotient basis
@@ -152,7 +152,7 @@ def reduce_macaulay_svd(M, cut, max_cond=1e6):
 
     # Check condition number before backsolve
     cond_num_back = np.linalg.cond(M[:,:cut])
-    if cond_num > max_cond:
+    if cond_num_back > max_cond:
         raise ConditioningError("Condition number of the Macaulay primary submatrix is {}".format(cond_sum))
 
     # Return the backsolved columns and coefficient matrix for the quotient basis
@@ -184,7 +184,7 @@ def reduce_macaulay_tvb(M, cut, max_cond=1e6):
 
     # Check condition number before backsolve
     cond_num_back = np.linalg.cond(M[:,:cut])
-    if cond_num > max_cond:
+    if cond_num_back > max_cond:
         raise ConditioningError(f"Condition number of the Macaulay primary submatrix is {cond_num}")
 
     return solve_triangular(M[:rank,:rank],M[:rank,rank:]),P, cond_num, cond_num_back
@@ -214,7 +214,7 @@ def reduce_macaulay_p(matrix, cut, P, max_cond=1e6):
 
     # Check condition number before backsolve
     cond_num_back = np.linalg.cond(M[:,:cut])
-    if cond_num > max_cond:
+    if cond_num_back > max_cond:
         raise ConditioningError(f"Condition number of the Macaulay primary submatrix is {cond_num}")
 
     return solve_triangular(M[:rank,:rank],M[:rank,rank:]),P, cond_num, cond_num_back
