@@ -194,5 +194,6 @@ class RootTracker:
         ''' Adds the possible duplicate roots to the roots
         '''
         for zero, a, b, method in self.possible_duplicates:
-            self.add_root(zero, a, b, method)
+            # Pass in None for the condition number since we don't have it
+            self.add_root(zero, a, b, None, method)
         self.possible_duplicates = []

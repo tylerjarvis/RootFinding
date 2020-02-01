@@ -24,7 +24,7 @@ import time
 import warnings
 
 def solve(method, funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
-          trim_zero_tol=1.e-10, max_cond_num=1e5, macaulay_zero_tol=1.e-13,
+          trim_zero_tol=1.e-10, max_cond_num=1e5,
           good_zeros_factor=100, min_good_zeros_tol=1e-5,
           check_eval_error=True, check_eval_freq = 1, plot = False,
           plot_intervals = False, deg = None, max_level=999,
@@ -115,7 +115,6 @@ def solve(method, funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
                       abs_approx_tol=abs_approx_tol,
                       trim_zero_tol=trim_zero_tol,
                       max_cond_num=max_cond_num,
-                      macaulay_zero_tol=macaulay_zero_tol,
                       good_zeros_factor=good_zeros_factor,
                       min_good_zeros_tol=min_good_zeros_tol,
                       check_eval_error=check_eval_error,
@@ -494,10 +493,20 @@ def good_zeros_nd(zeros, conds, imag_tol, real_tol):
     good_zeros : numpy array
         The real zeros in [-1,1]^n of the input zeros.
     """
-    mask = np.all(np.abs(zeros.imag) <= imag_tol,axis = 1)
-    mask *= np.all(np.abs(zeros) <= 1 + real_tol,axis = 1)
+    # Take care of the case where we found only 1 root
+    if len(zeros.shape) == 1:
+        mask = np.all(np.abs(zeros.imag) <= imag_tol,axis = 0)
+        mask *= np.all(np.abs(zeros) <= 1 + real_tol,axis = 0)
+    else:
+        mask = np.all(np.abs(zeros.imag) <= imag_tol,axis = 1)
+        mask *= np.all(np.abs(zeros) <= 1 + real_tol,axis = 1)
     # good_zeros = zeros[np.all(np.abs(zeros.imag) <= imag_tol,axis = 1)]
     # good_zeros = good_zeros[np.all(np.abs(good_zeros) <= 1 + real_tol,axis = 1)]
+    
+    # Cast conds to be a numpy array so that the mask works even with
+    # only 1 element
+    conds = np.array(conds)
+
     return zeros[mask].real, conds[mask]
 
 def solve_linear(coeffs):
@@ -668,7 +677,7 @@ def subdivision_solve_nd(method,funcs,a,b,deg,interval_data,root_tracker,tols,ma
         zero,cond = solve_linear(coeffs)
         #Store the information and exit
         zero, cond = good_zeros_nd(zero,cond,good_zeros_tol,good_zeros_tol)
-        zero = transform(zeros,a,b)
+        zero = transform(zero,a,b)
         interval_data.track_interval("Base Case", [a,b])
         root_tracker.add_roots(zero, cond, a, b, "Base Case")
 
