@@ -176,7 +176,7 @@ def reduce_macaulay_tvb(M, cut, max_cond=1e6):
     # If the matrix is "tall", compute an orthogonal transformation of the remaining
     # columns, generating a new polynomial basis
     if cut < M.shape[0]:
-        M[cut:,cut:],P = qr(M[cut:,cut:],pivoting=True)[1:]
+        M[cut:,cut:],P = qr(M[cut:,cut:], mode='r', pivoting=True)
         M[:cut,cut:] = M[:cut,cut:][:,P] # Permute columns
 
     # Compute numerical rank
