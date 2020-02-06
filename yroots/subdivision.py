@@ -165,7 +165,7 @@ def solve(method, funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
     if return_potentials:
         return root_tracker.roots, root_tracker.potential_roots
     else:
-        return root_tracker.roots, interval_data.cond, interval_data.backcond, root_tracker.conds
+        return root_tracker.roots, interval_data.cond, interval_data.backcond, root_tracker.conds, root_tracker.grads
 
 def transform(x,a,b):
     """Transforms points from the interval [-1,1] to the interval [a,b].
@@ -475,7 +475,7 @@ def full_cheb_approximate(f,a,b,deg,abs_approx_tol,rel_approx_tol,good_deg=None)
     else:
         return coeff, bools, inf_norm, error
 
-def good_zeros_nd(zeros, conds, grad, imag_tol, real_tol):
+def good_zeros_nd(zeros, conds, grads, imag_tol, real_tol):
     """Get the real zeros in the -1 to 1 interval in each dimension.
 
     Parameters
@@ -504,8 +504,9 @@ def good_zeros_nd(zeros, conds, grad, imag_tol, real_tol):
     # Cast conds to be a numpy array so that the mask works even with
     # only 1 element
     conds = np.array(conds)
+    grads = np.array(grads)
 
-    return zeros[mask].real, conds[mask]
+    return zeros[mask].real, conds[mask], grads[mask]
 
 def solve_linear(coeffs):
     """Finds the roots when the coeffs are **all** linear.
@@ -672,7 +673,8 @@ def subdivision_solve_nd(method,funcs,a,b,deg,interval_data,root_tracker,tols,ma
         if deg != 2:
             subdivision_solve_nd(method,funcs,a,b,2,interval_data,root_tracker,tols,max_level,good_degs,level)
             return
-        zero, cond, grad = solve_linear(coeffs)
+        zero, cond = solve_linear(coeffs)
+        grad = [[poly.grad(z) for poly in polys] for z in zeros]
         #Store the information and exit
         zero, cond, grad = good_zeros_nd(zero,cond,good_zeros_tol,good_zeros_tol)
         zero = transform(zeros,a,b)
@@ -696,7 +698,8 @@ def subdivision_solve_nd(method,funcs,a,b,deg,interval_data,root_tracker,tols,ma
     else:
         polys = [MultiCheb(coeff, lead_term = [coeff.shape[0]-1], clean_zeros = False) for coeff in coeffs]
         try:
-            zeros,cond,backcond,cond_eig, grad = multiplication(polys, max_cond_num=tols.max_cond_num, method=method)
+            zeros,cond,backcond,cond_eig = multiplication(polys, max_cond_num=tols.max_cond_num, method=method)
+            grad = [[poly.grad(z) for poly in polys] for z in zeros]
             interval_data.cond     =  max(cond,    interval_data.cond)
             interval_data.backcond =  max(backcond,interval_data.backcond)
             zeros,cond_eig,grad = good_zeros_nd(zeros,cond_eig,grad,good_zeros_tol,good_zeros_tol)
