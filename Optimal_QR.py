@@ -3,6 +3,7 @@ import time
 from yroots.subdivision import solve
 import pickle
 
+
 def timeIt(method, funcs, a=np.array([-1,-1]), b=np.array([1,1]), trials=5):
         """ Runs the test multiple times and takes the average of the times.
 
@@ -413,21 +414,29 @@ def test_roots_10(method):
 
 if __name__ == "__main__":
     # Put all the tests in a list
-    tests = [test_roots_1_1,test_roots_1_2,test_roots_1_3,#test_roots_1_4,test_roots_1_5,
-                test_roots_2_1,
-                test_roots_2_2,test_roots_2_3,test_roots_2_4,test_roots_2_5,test_roots_3_1,test_roots_3_2,
-                test_roots_4_1, test_roots_4_2, test_roots_5,test_roots_6_1,test_roots_6_2,test_roots_6_3,
-                test_roots_7_1,test_roots_7_2,test_roots_7_3,#test_roots_7_4,
-                test_roots_8_1,test_roots_8_2,
-                test_roots_9_1,test_roots_9_2]#, test_roots_10]
+    tests = [test_roots_1_1,test_roots_1_2,test_roots_1_3,
+            test_roots_1_4,test_roots_1_5,
+            test_roots_2_1, test_roots_2_2,test_roots_2_3,
+            test_roots_2_4,test_roots_2_5,
+            test_roots_3_1,test_roots_3_2,
+            test_roots_4_1, test_roots_4_2, 
+            test_roots_5,
+            test_roots_6_1,test_roots_6_2,test_roots_6_3,
+            test_roots_7_1,test_roots_7_2,test_roots_7_3, test_roots_7_4,
+            test_roots_8_1,test_roots_8_2,
+            test_roots_9_1,test_roots_9_2,
+            test_roots_10]
 
-    test_nums =[1.1, 1.2, 1.3, #1.4,1.5,
-                2.1,
-                2.2, 2.3, 2.4, 2.5, 3.1, 3.2,
-                4.1, 4.2, 5, 6.1, 6.2, 6.3,
-                7.1, 7.2, 7.3, #7.4,
+    test_nums =[1.1, 1.2, 1.3, 1.4,1.5,
+                2.1, 2.2, 2.3, 2.4, 2.5, 
+                3.1, 3.2, 
+                4.1, 4.2, 
+                5, 
+                6.1, 6.2, 6.3,
+                7.1, 7.2, 7.3, 7.4,
                 8.1, 8.2,
-                9.1, 9.2]#, 10]
+                9.1, 9.2,
+                10]
 
     num_tests = len(test_nums)
 
@@ -464,6 +473,9 @@ if __name__ == "__main__":
         results_dict[method]['cond'] = cond_dict
         results_dict[method]['backcond'] = backcond_dict
         results_dict[method]['cond_eig'] = cond_eig_dict
+
+        with open('QR_safetynet.pkl', 'wb') as f:
+            pickle.dump(results_dict, f, pickle.HIGHEST_PROTOCOL)
 
     with open('tests/chebsuite_tests/chebsuite_result_dict.pkl', 'wb') as f:
         pickle.dump(results_dict, f, pickle.HIGHEST_PROTOCOL)
