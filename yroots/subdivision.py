@@ -476,7 +476,7 @@ def full_cheb_approximate(f,a,b,deg,abs_approx_tol,rel_approx_tol,good_deg=None)
     else:
         return coeff, bools, inf_norm, error
 
-def good_zeros_nd(zeros, conds, imag_tol, real_tol):
+def good_zeros_nd(zeros, conds, grad, imag_tol, real_tol):
     """Get the real zeros in the -1 to 1 interval in each dimension.
 
     Parameters
@@ -498,7 +498,7 @@ def good_zeros_nd(zeros, conds, imag_tol, real_tol):
     mask *= np.all(np.abs(zeros) <= 1 + real_tol,axis = 1)
     # good_zeros = zeros[np.all(np.abs(zeros.imag) <= imag_tol,axis = 1)]
     # good_zeros = good_zeros[np.all(np.abs(good_zeros) <= 1 + real_tol,axis = 1)]
-    return zeros[mask].real, conds[mask]
+    return zeros[mask].real, conds[mask], grad[mask]
 
 def solve_linear(coeffs):
     """Finds the roots when the coeffs are **all** linear.
@@ -665,12 +665,12 @@ def subdivision_solve_nd(method,funcs,a,b,deg,interval_data,root_tracker,tols,ma
         if deg != 2:
             subdivision_solve_nd(method,funcs,a,b,2,interval_data,root_tracker,tols,max_level,good_degs,level)
             return
-        zero,cond = solve_linear(coeffs)
+        zero, cond, grad = solve_linear(coeffs)
         #Store the information and exit
-        zero, cond = good_zeros_nd(zero,cond,good_zeros_tol,good_zeros_tol)
+        zero, cond, grad = good_zeros_nd(zero,cond,good_zeros_tol,good_zeros_tol)
         zero = transform(zeros,a,b)
         interval_data.track_interval("Base Case", [a,b])
-        root_tracker.add_roots(zero, cond, a, b, "Base Case")
+        root_tracker.add_roots(zero, cond, grad, a, b, "Base Case")
 
     #Check if anything is linear
 #     elif np.any(np.array([coeff.shape[0] for coeff in coeffs]) == 2):
@@ -689,13 +689,13 @@ def subdivision_solve_nd(method,funcs,a,b,deg,interval_data,root_tracker,tols,ma
     else:
         polys = [MultiCheb(coeff, lead_term = [coeff.shape[0]-1], clean_zeros = False) for coeff in coeffs]
         try:
-            zeros,cond,backcond,cond_eig = multiplication(polys, max_cond_num=tols.max_cond_num, method=method)
+            zeros,cond,backcond,cond_eig, grad = multiplication(polys, max_cond_num=tols.max_cond_num, method=method)
             interval_data.cond     =  max(cond,    interval_data.cond)
             interval_data.backcond =  max(backcond,interval_data.backcond)
-            zeros,cond_eig = good_zeros_nd(zeros,cond_eig,good_zeros_tol,good_zeros_tol)
+            zeros,cond_eig,grad = good_zeros_nd(zeros,cond_eig,grad,good_zeros_tol,good_zeros_tol)
             zeros = transform(zeros,a,b)
             interval_data.track_interval("Spectral", [a,b])
-            root_tracker.add_roots(zeros,cond_eig, a, b, "Spectral")
+            root_tracker.add_roots(zeros,cond_eig,grad, a, b, "Spectral")
         except ConditioningError as e:
             #Subdivide but run some checks on the intervals first
             intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)

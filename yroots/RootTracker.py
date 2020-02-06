@@ -56,9 +56,11 @@ class RootTracker:
         self.potential_roots = np.array([])
         self.intervals = []
         self.methods = []
+        #for tracking condition numbers and gradients
         self.conds = []
+        self.grads = []
 
-    def add_roots(self, zeros, conds, a, b, method):
+    def add_roots(self, zeros, conds, grads, a, b, method):
         ''' Store the roots that were found, along with the interval they were found in and the method used.
 
         Parameters
@@ -74,7 +76,7 @@ class RootTracker:
         '''
         for i,zero in enumerate(zeros):
             if rootInBox(zero, a, b):
-                self.add_root(zero, conds[i], a, b, method)
+                self.add_root(zero, conds[i], grads[i], a, b, method)
             else:
                 found = False
                 for a_,b_ in self.intervals:
@@ -110,7 +112,7 @@ class RootTracker:
 #         self.intervals += [(a,b)]*len(zeros)
 #         self.methods += [method]*len(zeros)
 
-    def add_root(self, zero, cond, a, b, method):
+    def add_root(self, zero, cond, grad, a, b, method):
         ''' Store the root that was found, along with the interval it was found in and the method used.
 
         Parameters
@@ -137,6 +139,7 @@ class RootTracker:
         if dim > 1:
             self.roots = np.vstack([self.roots, zero])
             self.conds.append(cond)
+            self.grads.append(grad)
         else:
             self.roots = np.hstack([self.roots, zero])
         self.intervals += [(a,b)]
