@@ -674,10 +674,10 @@ def subdivision_solve_nd(method,funcs,a,b,deg,interval_data,root_tracker,tols,ma
             subdivision_solve_nd(method,funcs,a,b,2,interval_data,root_tracker,tols,max_level,good_degs,level)
             return
         zero, cond = solve_linear(coeffs)
-        grad = [[poly.grad(z) for poly in polys] for z in zeros]
+        grad = [MultiCheb(c).grad(zero) for c in coeffs]
         #Store the information and exit
-        zero, cond, grad = good_zeros_nd(zero,cond,good_zeros_tol,good_zeros_tol)
-        zero = transform(zeros,a,b)
+        zero, cond, grad = good_zeros_nd(zero,cond,grad,good_zeros_tol,good_zeros_tol)
+        zero = transform(zero,a,b)
         interval_data.track_interval("Base Case", [a,b])
         root_tracker.add_roots(zero, cond, grad, a, b, "Base Case")
 
