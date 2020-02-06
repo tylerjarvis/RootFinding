@@ -478,7 +478,7 @@ if __name__ == "__main__":
         results_dict[method]['cond_eig'] = cond_eig_dict
         results_dict[method]['gradient_info'] = grad_dict
 
-        with open(f'tests/chebsuite_tests/chebsuite_result_{method}}.pkl', 'wb') as f:
+        with open('tests/chebsuite_tests/chebsuite_result_{}}.pkl'.format(method), 'wb') as f:
             pickle.dump(results_dict, f, pickle.HIGHEST_PROTOCOL)
 
     with open('tests/chebsuite_tests/chebsuite_result.pkl', 'wb') as f:
