@@ -218,13 +218,16 @@ def ms_matrices_p(E,P,matrix_terms,dim,cut):
     return M
 
 def ms_matrices_p_cheb(E,P,matrix_terms,dim,cut):
+    """ Compute the Möller-Stetter matrices in the Chebyshev basis in the
+        Telen-Van Barel method.
+    """
     r,n = E.shape
     matrix_terms[cut:] = matrix_terms[cut:][P]
     M = np.empty((n,n,dim))
     A = np.hstack((-E.T,np.eye(n)))
     for i in range(dim):
         arr1,arr2 = indexarray_cheb(matrix_terms,r,i)
-        M[...,i] = .5*(A[:,arr1]+A[:,arr2])@Q
+        M[...,i] = .5*(A[:,arr1]+A[:,arr2])
     return M
 
 def sort_eigs(eigs,diag):
