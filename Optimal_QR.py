@@ -120,7 +120,7 @@ def get_results(method,funcs, a, b, comp_roots, n=-1):
 
     # Time, solve for the roots, and compute max resiudals.
     timing = timeIt(method, funcs, a, b)
-    roots, cond, backcond, cond_eig = solve(method, funcs, a, b)
+    roots, cond, backcond, cond_eig, grad = solve(method, funcs, a, b)
     num_roots = len(roots)
     max_res = -1
     if num_roots > 0:
@@ -133,7 +133,7 @@ def get_results(method,funcs, a, b, comp_roots, n=-1):
     if num_roots == len(comp_roots):
         norm_diff = norm_test(yroots=roots, roots=comp_roots)
 
-    return max_res, timing, norm_diff, num_roots, cond, backcond, cond_eig, n
+    return max_res, timing, norm_diff, num_roots, cond, backcond, cond_eig, grad, n
 
 def test_roots_1_1(method):
     # Test 1.1
@@ -419,7 +419,7 @@ if __name__ == "__main__":
             test_roots_2_1, test_roots_2_2,test_roots_2_3,
             test_roots_2_4,test_roots_2_5,
             test_roots_3_1,test_roots_3_2,
-            test_roots_4_1, test_roots_4_2, 
+            test_roots_4_1, test_roots_4_2,
             test_roots_5,
             test_roots_6_1,test_roots_6_2,test_roots_6_3,
             test_roots_7_1,test_roots_7_2,test_roots_7_3, test_roots_7_4,
@@ -428,10 +428,10 @@ if __name__ == "__main__":
             test_roots_10]
 
     test_nums =[1.1, 1.2, 1.3, 1.4,1.5,
-                2.1, 2.2, 2.3, 2.4, 2.5, 
-                3.1, 3.2, 
-                4.1, 4.2, 
-                5, 
+                2.1, 2.2, 2.3, 2.4, 2.5,
+                3.1, 3.2,
+                4.1, 4.2,
+                5,
                 6.1, 6.2, 6.3,
                 7.1, 7.2, 7.3, 7.4,
                 8.1, 8.2,
@@ -443,6 +443,7 @@ if __name__ == "__main__":
     # Create the dictionary that maps n to the float test number
     test_num_dict = {n+1:test_nums[n] for n in range(num_tests)}
 
+#debug for TVB
     methods = ['qrt','svd','tvb']
     results_dict = {method:dict() for method in methods}
     for method in methods:
@@ -454,17 +455,19 @@ if __name__ == "__main__":
         cond_dict = dict()
         backcond_dict = dict()
         cond_eig_dict = dict()
+        grad_dict = dict()
 
         for i, test in enumerate(tests):
             print('Running test {}'.format(test_num_dict[i+1]))
-            max_res, timing, norm_diff, num_roots, cond, backcond, cond_eig, test_num = test(method)
+            max_res, timing, norm_diff, num_roots, cond, backcond, cond_eig, grad, test_num = test(method)
             residual_dict[test_num] = max_res
             timing_dict[test_num] = timing
             norm_dict[test_num] = norm_diff
             num_roots_dict[test_num] = num_roots
             cond_dict[test_num] = cond
             backcond_dict[test_num] = backcond
-            cond_eig_dict = cond_eig
+            cond_eig_dict[test_num] = cond_eig
+            grad_dict[test_num] = grad
 
         results_dict[method]['residuals'] = residual_dict
         results_dict[method]['timing'] = timing_dict
@@ -473,9 +476,10 @@ if __name__ == "__main__":
         results_dict[method]['cond'] = cond_dict
         results_dict[method]['backcond'] = backcond_dict
         results_dict[method]['cond_eig'] = cond_eig_dict
+        results_dict[method]['gradient_info'] = grad_dict
 
-        with open('QR_safetynet.pkl', 'wb') as f:
+        with open('tests/chebsuite_tests/chebsuite_result_{}}.pkl'.format(method), 'wb') as f:
             pickle.dump(results_dict, f, pickle.HIGHEST_PROTOCOL)
 
-    with open('tests/chebsuite_tests/chebsuite_result_dict.pkl', 'wb') as f:
+    with open('tests/chebsuite_tests/chebsuite_result.pkl', 'wb') as f:
         pickle.dump(results_dict, f, pickle.HIGHEST_PROTOCOL)
