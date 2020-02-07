@@ -117,7 +117,7 @@ def solve(method, funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
 
     # Choose an appropriate target degree if none is specified
     if target_deg is None:
-        if dim > 2:
+        if dim != 2:
             target_deg = deg
         else:
             target_deg = 5

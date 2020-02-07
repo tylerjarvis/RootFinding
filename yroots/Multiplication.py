@@ -220,6 +220,23 @@ def ms_matrices_p(E,P,matrix_terms,dim,cut):
 def ms_matrices_p_cheb(E,P,matrix_terms,dim,cut):
     """ Compute the Möller-Stetter matrices in the Chebyshev basis in the
         Telen-Van Barel method.
+
+    Parameters
+    ----------
+    E : (m,k) ndarray
+        Columns of the reduced Macaulay matrix corresponding to the quotient basis
+    P : (,l) ndarray
+        Array of pivots returned in QR with pivoting, used to permute the columns.
+    matrix_terms : 2d ndarray
+        Array with ordered Chebyshev basis
+    dim : int
+        Number of variables
+
+    Returns
+    -------
+    M : (n,n,dim) ndarray
+        Array containing the nxn Möller-Stetter matrices, where the matrix
+        corresponding to multiplication by x_i is M[...,i]
     """
     r,n = E.shape
     matrix_terms[cut:] = matrix_terms[cut:][P]
