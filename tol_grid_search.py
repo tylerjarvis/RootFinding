@@ -6,7 +6,7 @@ import pickle
 import timeout_decorator
 from itertools import product
 
-@timeout_decorator.timeout(30, use_signals=False)
+@timeout_decorator.timeout(15, use_signals=False)
 def solve(method, tol_set, funcs, a, b, plot=False):
     """ Wrapper function for yr.solve. Makes it so that it aborts the solver
         if it's taking too much time (over a minute).
@@ -156,7 +156,7 @@ def get_results(method, tol_set, funcs, a, b, comp_roots, n=-1):
 
     # Time, solve for the roots, and compute max resiudals.
     timing = timeIt(method, tol_set, funcs, a=a, b=b)
-    roots, cond, backcond, cond_eig = solve(method, tol_set,funcs, a, b)
+    roots, cond, backcond, cond_eig, grad = solve(method,tol_set, funcs, a, b)
     num_roots = len(roots)
     max_res = -1
     if num_roots > 0:
@@ -480,7 +480,7 @@ if __name__ == "__main__":
     test_num_dict = {n+1:test_nums[n] for n in range(num_tests)}
 
     # NOTE -- With the current default tolerances, the whole test-suite takes
-    # about 5 minunutes to run (4 min 50s) on my machine. Keep this in mind
+    # about 5 minutes to run (4 min 50s) on my machine. Keep this in mind
     # when using tighter tolerances.
     """
         Default tolerances ~ 5 minutes
@@ -494,13 +494,15 @@ if __name__ == "__main__":
     """
 
     # Define all the tolerances to try
-    rel_approx_tol = [10.**-i for i in range(8,11)] # 1
-    abs_approx_tol = [10.**-i for i in range(12,16)] # 2
+    rel_approx_tol = [10.**-i for i in range(10,13)] # 3
+    abs_approx_tol = [10.**-i for i in range(12,16)] # 4
     trim_zero_tol = [10.**-i for i in range(10,11)] # 1
-    max_cond_num = [10.**i for i in range(4,7)] # 1
+    max_cond_num = [10.**i for i in range(3,7)] # 4
     good_zeros_tol = [10.**-i for i in range(5,6)] # 1
-    deg = [9, 16]
-    target_deg = [5, 9]
+    # deg = [9, 16] # 2
+    # target_deg = [5, 9] # 2
+    deg = [9]
+    target_deg = [5]
     good_zero_factor = [100] # 1
 
     tols_to_test = [rel_approx_tol, abs_approx_tol, trim_zero_tol,
@@ -514,9 +516,9 @@ if __name__ == "__main__":
                         max_cond_num, good_zeros_tol, 
                         good_zero_factor, deg, target_deg))
 
-    results_dict = {tol_set:dict() for tol_set in possible_tols}
-    for i, tol_set in enumerate(possible_tols):
-        print('Running tolerance {}/{}'.format(i + 1,total_tols_to_test))
+    results_dict = {n:dict() for n in range(len(possible_tols))}
+    for n, tol_set in enumerate(possible_tols):
+        print('Running tolerance {}/{}'.format(n + 1,total_tols_to_test))
         print('Running with tolerances',tol_set,end='\n\n')
         residual_dict = dict()
         timing_dict = dict()
@@ -528,25 +530,39 @@ if __name__ == "__main__":
 
         for i, test in enumerate(tests):
             print('\nRunning test {}\n'.format(test_num_dict[i+1]))
-            max_res, timing, norm_diff, num_roots, cond, backcond, cond_eig, test_num = test('qrt', tol_set)
-            residual_dict[test_num] = max_res
-            timing_dict[test_num] = timing
-            norm_dict[test_num] = norm_diff
-            num_roots_dict[test_num] = num_roots
-            cond_dict[test_num] = cond
-            backcond_dict[test_num] = backcond
-            cond_eig_dict = cond_eig
-
-        results_dict[tol_set]['residuals'] = residual_dict
-        results_dict[tol_set]['timing'] = timing_dict
-        results_dict[tol_set]['norms'] = norm_dict
-        results_dict[tol_set]['num_roots'] = num_roots_dict
-        results_dict[tol_set]['cond'] = cond_dict
-        results_dict[tol_set]['backcond'] = backcond_dict
-        results_dict[tol_set]['cond_eig'] = cond_eig_dict
+            try:
+                max_res, timing, norm_diff, num_roots, cond, backcond, cond_eig, test_num = test('qrt', tol_set)
+                residual_dict[test_num] = max_res
+                timing_dict[test_num] = timing
+                norm_dict[test_num] = norm_diff
+                num_roots_dict[test_num] = num_roots
+                cond_dict[test_num] = cond
+                backcond_dict[test_num] = backcond
+                cond_eig_dict = cond_eig
+            except Exception: # Took to long and timed out.
+                residual_dict[i] = -1
+                timing_dict[i] = -1
+                norm_dict[i] = -1
+                num_roots_dict[i] = -1
+                cond_dict[i] = -1
+                backcond_dict[i] = -1
+                cond_eig_dict = -1
+                continue
+                
         
-        with open('QR_safetynet.pkl', 'wb') as f:
+        # Index the dictionary with n instead of the tol_set tuple
+        # Should be easier to identify (visualize) than with a key of tol_set
+        results_dict[n]['tol_set'] = tol_set
+        results_dict[n]['residuals'] = residual_dict
+        results_dict[n]['timing'] = timing_dict
+        results_dict[n]['norms'] = norm_dict
+        results_dict[n]['num_roots'] = num_roots_dict
+        results_dict[n]['cond'] = cond_dict
+        results_dict[n]['backcond'] = backcond_dict
+        results_dict[n]['cond_eig'] = cond_eig_dict
+        
+        with open('tests/chebsuite_tests/tol_safety.pkl', 'xb') as f:
             pickle.dump(results_dict, f, pickle.HIGHEST_PROTOCOL)
 
-    with open('tests/chebfun_suite_tols.pkl', 'wb') as f:
+    with open('tests/chebsuite_tests/tol_results.pkl', 'xb') as f:
         pickle.dump(results_dict, f, pickle.HIGHEST_PROTOCOL)

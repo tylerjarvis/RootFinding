@@ -575,7 +575,7 @@ def getAbsApproxTol(func, deg, a, b):
         ----------
             func : function
                 Function to approximate.
-            def : int
+            deg : int
                 The degree to use to approximate the function on the interval.
             a : numpy array
                 The lower bounds of the interval on which to approximate.
