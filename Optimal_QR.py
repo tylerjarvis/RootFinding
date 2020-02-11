@@ -61,7 +61,7 @@ def norm_test(yroots, roots, tol=2.220446049250313e-13):
     roots_sorted = np.sort(roots,axis=0)
     yroots_sorted = np.sort(yroots,axis=0)
     root_diff = roots_sorted - yroots_sorted
-    return max(np.linalg.norm(root_diff[:,0]), np.linalg.norm(root_diff[:,1]))
+    return root_diff
 
 def max_residuals(funcs, roots):
     """ Finds the residuals of the given function at the roots.
@@ -80,6 +80,24 @@ def max_residuals(funcs, roots):
 
     """
     return np.max([np.abs(func(roots[:,0],roots[:,1])) for func in funcs])
+
+def avg_residuals(funcs, roots):
+    """ Finds the average of the residuals of given functions at the roots.
+
+    Paramters
+    ---------
+        funcs : list of functions
+            The functions to find the max residuals of.
+        roots : numpy array
+            The coordinates of the roots.
+
+    Returns
+    -------
+        tuple of numpy arrays
+            The average residuals of each function
+    """
+    return (np.mean([funcs[0](root[0], root[1]) for root in roots]),
+            np.mean([funcs[1](root[0], root[1]) for root in roots]))
 
 def get_results(method,funcs, a, b, comp_roots, n=-1):
     """ Runs the solver keeping track of the time, the max residuals, the norm
@@ -120,11 +138,13 @@ def get_results(method,funcs, a, b, comp_roots, n=-1):
 
     # Time, solve for the roots, and compute max resiudals.
     timing = timeIt(method, funcs, a, b)
-    roots, cond, backcond, cond_eig, grad = solve(method, funcs, a, b)
+    roots, cond, backcond, cond_eig, grad, total_intervals = solve(method, funcs, a, b)
     num_roots = len(roots)
     max_res = -1
+    avg_res = -1
     if num_roots > 0:
         max_res = max_residuals(funcs, roots)
+        avg_res = avg_residuals(funcs, roots)
 
 
     # The norm test can only be run if the same number of roots are found.
@@ -133,7 +153,7 @@ def get_results(method,funcs, a, b, comp_roots, n=-1):
     if num_roots == len(comp_roots):
         norm_diff = norm_test(yroots=roots, roots=comp_roots)
 
-    return max_res, timing, norm_diff, num_roots, cond, backcond, cond_eig, grad, n
+    return max_res, avg_res, timing, norm_diff, num_roots, cond, backcond, cond_eig, grad, n, total_intervals
 
 def test_roots_1_1(method):
     # Test 1.1
@@ -348,7 +368,7 @@ def test_roots_7_3(method):
     g = lambda x,y: np.cos(y/c)-np.cos(2*x*y/(c**2))
     chebfun_roots = np.loadtxt('tests/chebfun_test_output/cftest7_3.csv',delimiter=',')
 
-    return get_results(method,[f,g], [-1e-9, -1e-9],[1e-9, 1e-9], chebfun_roots, 21)
+    return get_results(method,[f,g], [-1e-9, -1e-9], [1e-9, 1e-9], chebfun_roots, 21)
 
 
 def test_roots_7_4(method):
@@ -448,7 +468,8 @@ if __name__ == "__main__":
     results_dict = {method:dict() for method in methods}
     for method in methods:
         print('Using',method,end='\n\n')
-        residual_dict = dict()
+        max_residual_dict = dict()
+        avg_residual_dict = dict()
         timing_dict = dict()
         norm_dict = dict()
         num_roots_dict = dict()
@@ -456,11 +477,15 @@ if __name__ == "__main__":
         backcond_dict = dict()
         cond_eig_dict = dict()
         grad_dict = dict()
+        interval_dict = dict()
 
         for i, test in enumerate(tests):
             print('Running test {}'.format(test_num_dict[i+1]))
-            max_res, timing, norm_diff, num_roots, cond, backcond, cond_eig, grad, test_num = test(method)
-            residual_dict[test_num] = max_res
+            max_res, avg_res, timing, norm_diff, num_roots, cond, backcond, \
+            cond_eig, grad, test_num, total_intervals = test(method)
+            
+            max_residual_dict[test_num] = max_res
+            avg_residual_dict[test_num] = avg_res
             timing_dict[test_num] = timing
             norm_dict[test_num] = norm_diff
             num_roots_dict[test_num] = num_roots
@@ -468,8 +493,10 @@ if __name__ == "__main__":
             backcond_dict[test_num] = backcond
             cond_eig_dict[test_num] = cond_eig
             grad_dict[test_num] = grad
+            interval_dict[test_num] = total_intervals
 
-        results_dict[method]['residuals'] = residual_dict
+        results_dict[method]['max_residuals'] = max_residual_dict
+        results_dict[method]['avg_residuals'] = avg_residual_dict
         results_dict[method]['timing'] = timing_dict
         results_dict[method]['norms'] = norm_dict
         results_dict[method]['num_roots'] = num_roots_dict
@@ -477,6 +504,7 @@ if __name__ == "__main__":
         results_dict[method]['backcond'] = backcond_dict
         results_dict[method]['cond_eig'] = cond_eig_dict
         results_dict[method]['gradient_info'] = grad_dict
+        results_dict[method]['intervals'] = interval_dict
 
         with open('tests/chebsuite_tests/chebsuite_result_{}.pkl'.format(method), 'xb') as f:
             pickle.dump(results_dict, f, pickle.HIGHEST_PROTOCOL)

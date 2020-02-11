@@ -178,7 +178,7 @@ def solve(method, funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
     if return_potentials:
         return root_tracker.roots, root_tracker.potential_roots
     else:
-        return root_tracker.roots, interval_data.cond, interval_data.backcond, root_tracker.conds, root_tracker.grads
+        return root_tracker.roots, interval_data.cond, interval_data.backcond, root_tracker.conds, root_tracker.grads, interval_data.total_intervals
 
 def transform(x,a,b):
     """Transforms points from the interval [-1,1] to the interval [a,b].
@@ -575,7 +575,7 @@ def getAbsApproxTol(func, deg, a, b):
         ----------
             func : function
                 Function to approximate.
-            def : int
+            deg : int
                 The degree to use to approximate the function on the interval.
             a : numpy array
                 The lower bounds of the interval on which to approximate.
