@@ -198,5 +198,5 @@ class RootTracker:
         '''
         for zero, a, b, method in self.possible_duplicates:
             # Pass in None for the condition number since we don't have it
-            self.add_root(zero, a, b, None, None, method)
+            self.add_root(zero, None, None, a, b, method)
         self.possible_duplicates = []

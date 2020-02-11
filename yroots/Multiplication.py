@@ -68,7 +68,11 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
     # Construct the Möller-Stetter matrices
     # M is a 3d array containing the multiplication-by-x_i matrix in M[...,i]
     if poly_type == "MultiCheb":
-        M = ms_matrices_cheb(E,Q,matrix_terms,dim)
+        if method == 'qrt' or method == 'svd':
+            M = ms_matrices_cheb(E,Q,matrix_terms,dim)
+        elif method == 'tvb':
+            M = ms_matrices_p_cheb(E,Q,matrix_terms,dim,cut)
+
     else:
         if method == 'qrt' or method == 'svd':
             M = ms_matrices(E,Q,matrix_terms,dim)
@@ -211,6 +215,36 @@ def ms_matrices_p(E,P,matrix_terms,dim,cut):
     for i in range(dim):
         arr = indexarray(matrix_terms,r,i)
         M[...,i] = A[:,arr]
+    return M
+
+def ms_matrices_p_cheb(E,P,matrix_terms,dim,cut):
+    """ Compute the Möller-Stetter matrices in the Chebyshev basis in the
+        Telen-Van Barel method.
+
+    Parameters
+    ----------
+    E : (m,k) ndarray
+        Columns of the reduced Macaulay matrix corresponding to the quotient basis
+    P : (,l) ndarray
+        Array of pivots returned in QR with pivoting, used to permute the columns.
+    matrix_terms : 2d ndarray
+        Array with ordered Chebyshev basis
+    dim : int
+        Number of variables
+
+    Returns
+    -------
+    M : (n,n,dim) ndarray
+        Array containing the nxn Möller-Stetter matrices, where the matrix
+        corresponding to multiplication by x_i is M[...,i]
+    """
+    r,n = E.shape
+    matrix_terms[cut:] = matrix_terms[cut:][P]
+    M = np.empty((n,n,dim))
+    A = np.hstack((-E.T,np.eye(n)))
+    for i in range(dim):
+        arr1,arr2 = indexarray_cheb(matrix_terms,r,i)
+        M[...,i] = .5*(A[:,arr1]+A[:,arr2])
     return M
 
 def sort_eigs(eigs,diag):
