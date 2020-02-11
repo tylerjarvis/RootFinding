@@ -178,7 +178,7 @@ def solve(method, funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
     if return_potentials:
         return root_tracker.roots, root_tracker.potential_roots
     else:
-        return root_tracker.roots, interval_data.cond, interval_data.backcond, root_tracker.conds, root_tracker.grads
+        return root_tracker.roots, interval_data.cond, interval_data.backcond, root_tracker.conds, root_tracker.grads, interval_data.total_intervals
 
 def transform(x,a,b):
     """Transforms points from the interval [-1,1] to the interval [a,b].
@@ -757,9 +757,9 @@ def trim_coeffs(coeffs, abs_approx_tol, rel_approx_tol, trim_zero_tol, inf_norms
         #get the error inherent in the approximation
         error = errors[num]
         #zero out small spots in the coefficient matrix; increment the error accordingly
-        spot = np.abs(coeff) < trim_zero_tol*np.max(np.abs(coeff))
-        error += np.sum(np.abs(coeff[spot]))
-        coeff[spot] = 0
+        # spot = np.abs(coeff) < trim_zero_tol*np.max(np.abs(coeff))
+        # error += np.sum(np.abs(coeff[spot]))
+        # coeff[spot] = 0
 
         #try to zero out everything below the lower-reverse-hyperdiagonal
         #that's a fancy way of saying monomials that are more than the specified degree

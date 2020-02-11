@@ -38,7 +38,7 @@ def solve(method, tol_set, funcs, a, b, plot=False):
                     trim_zero_tol=trim_zero_tol, max_cond_num=max_cond_num,
                     min_good_zeros_tol=min_good_zeros_tol, 
                     good_zeros_factor=good_zeros_factor, plot=plot,
-                    deg=deg, target_deg=target_deg)
+                    deg=deg, target_deg=target_deg, check_eval_error=False)
 
 def timeIt(method, tol_set, funcs, a=np.array([-1,-1]), b=np.array([1,1]), trials=5):
         """ Runs the test multiple times and takes the average of the times.

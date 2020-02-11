@@ -218,6 +218,7 @@ class IntervalData:
         '''
         results_numbers = np.array([len(self.interval_results[name]) for name in self.interval_results])
         total_intervals = sum(results_numbers)
+        self.total_intervals = total_intervals
         checkers = [name for name in self.interval_results]
         print("Total intervals checked was {}".format(total_intervals))
         print("Methods used were {}".format(checkers))
