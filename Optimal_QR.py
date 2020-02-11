@@ -289,7 +289,7 @@ def test_roots_5(method):
     m_sq_roots = np.loadtxt('tests/chebfun_test_output/cftest5_1ms.csv',delimiter=',')
     chebfun_roots = np.loadtxt('tests/chebfun_test_output/cftest5_1.csv', delimiter=',')
 
-    return get_results(method,[f,g], [-1, -1], [1, 1], m_sq_roots, 15)
+    return get_results(method,[f,g], [-2, -2], [2, 2], m_sq_roots, 15)
 
 def test_roots_6_1(method):
     # Test 6.1
