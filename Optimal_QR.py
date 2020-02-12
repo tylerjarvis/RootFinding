@@ -506,8 +506,8 @@ if __name__ == "__main__":
         results_dict[method]['gradient_info'] = grad_dict
         results_dict[method]['intervals'] = interval_dict
 
-        with open('tests/chebsuite_tests/chebsuite_result_{}.pkl'.format(method), 'xb') as f:
+        with open('tests/chebsuite_tests/chebsuite_result_{}.pkl'.format(method), 'wb') as f:
             pickle.dump(results_dict, f, pickle.HIGHEST_PROTOCOL)
 
-    with open('tests/chebsuite_tests/chebsuite_result.pkl', 'xb') as f:
+    with open('tests/chebsuite_tests/chebsuite_result.pkl', 'wb') as f:
         pickle.dump(results_dict, f, pickle.HIGHEST_PROTOCOL)
