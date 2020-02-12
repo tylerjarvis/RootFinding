@@ -599,8 +599,8 @@ if __name__ == "__main__":
         results_dict[n]['intervals'] = interval_dict
         results_dict[n]['root_vols'] = root_box_vol_dict
 
-        with open('tests/chebsuite_tests/chebsuite_result_{}_{}.pkl'.format(method, sys.argv[2]), 'wb') as f:
+        with open('tests/chebsuite_tests/tols_{}_{}.pkl'.format(method, deg), 'xb') as f:
             pickle.dump(results_dict, f, pickle.HIGHEST_PROTOCOL)
 
-    with open('tests/chebsuite_tests/chebsuite_result.pkl', 'wb') as f:
+    with open('tests/chebsuite_tests/tols_{}_{}.pkl'.format(method, deg), 'xb') as f:
         pickle.dump(results_dict, f, pickle.HIGHEST_PROTOCOL)
