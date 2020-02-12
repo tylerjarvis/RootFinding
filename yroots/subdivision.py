@@ -73,7 +73,7 @@ def solve(method, funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
         If True, plot is True, and the functions are 2 dimensional, plots what check/method solved
         each part of the interval.
     deg : int
-        The degree used for the approximation. If None, the following degrees 
+        The degree used for the approximation. If None, the following degrees
         are used.
         Degree 50 for 1D functions.
         Degree 9 for 2D functions.
@@ -549,7 +549,7 @@ def solve_linear(coeffs):
                 A[row,col] = coeff[var_list[col]]
     #solve the system
     try:
-        return np.linalg.solve(A,-B), [np.linalg.cond(A)]
+        return np.linalg.solve(A,-B), np.nan
     except np.linalg.LinAlgError as e:
         if str(e) == 'Singular matrix':
             #if the system is dependent, then there are infinitely many roots
