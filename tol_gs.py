@@ -571,7 +571,7 @@ if __name__ == "__main__":
                 interval_dict[test_num] = total_intervals
                 root_box_vol_dict[test_num] = root_vols
             
-            except Exception: # Took to long and timed out.
+            except Exception: # Took too long and timed out.
                 test_num = i + 1
                 max_residual_dict[test_num] = np.nan
                 residual_dict[test_num] = np.nan
@@ -599,8 +599,8 @@ if __name__ == "__main__":
         results_dict[n]['intervals'] = interval_dict
         results_dict[n]['root_vols'] = root_box_vol_dict
 
-        with open('tests/chebsuite_tests/tols_{}_{}.pkl'.format(method, deg), 'xb') as f:
+        with open('tests/chebsuite_tests/tols_{}_{}.pkl'.format(method, deg), 'wb') as f:
             pickle.dump(results_dict, f, pickle.HIGHEST_PROTOCOL)
 
-    with open('tests/chebsuite_tests/tols_{}_{}.pkl'.format(method, deg), 'xb') as f:
+    with open('tests/chebsuite_tests/tols_{}_{}.pkl'.format(method, deg), 'wb') as f:
         pickle.dump(results_dict, f, pickle.HIGHEST_PROTOCOL)
