@@ -1,12 +1,13 @@
 import numpy as np
 import time
-# from yroots.subdivision import solve
 import yroots as yr
 import pickle
 import timeout_decorator
 from itertools import product
+import sys
 
-@timeout_decorator.timeout(15, use_signals=False)
+
+@timeout_decorator.timeout(125, use_signals=False)
 def solve(method, tol_set, funcs, a, b, plot=False):
     """ Wrapper function for yr.solve. Makes it so that it aborts the solver
         if it's taking too much time (over a minute).
@@ -32,13 +33,13 @@ def solve(method, tol_set, funcs, a, b, plot=False):
         TimeoutError if the solver takes more than a minute to solve. Returns -1 in this case.
     """
     rel_approx_tol, abs_approx_tol, trim_zero_tol, max_cond_num, min_good_zeros_tol, \
-    good_zeros_factor, deg, target_deg = tol_set
+    good_zeros_factor, deg = tol_set
     return yr.solve(method, funcs, a, b, rel_approx_tol=rel_approx_tol, 
                     abs_approx_tol=abs_approx_tol, 
                     trim_zero_tol=trim_zero_tol, max_cond_num=max_cond_num,
                     min_good_zeros_tol=min_good_zeros_tol, 
                     good_zeros_factor=good_zeros_factor, plot=plot,
-                    deg=deg, target_deg=target_deg, check_eval_error=False)
+                    deg=deg, target_deg=deg, check_eval_error=False)
 
 def timeIt(method, tol_set, funcs, a=np.array([-1,-1]), b=np.array([1,1]), trials=5):
         """ Runs the test multiple times and takes the average of the times.
@@ -97,7 +98,7 @@ def norm_test(yroots, roots, tol=2.220446049250313e-13):
     roots_sorted = np.sort(roots,axis=0)
     yroots_sorted = np.sort(yroots,axis=0)
     root_diff = roots_sorted - yroots_sorted
-    return max(np.linalg.norm(root_diff[:,0]), np.linalg.norm(root_diff[:,1]))
+    return root_diff
 
 def max_residuals(funcs, roots):
     """ Finds the residuals of the given function at the roots.
@@ -116,6 +117,24 @@ def max_residuals(funcs, roots):
 
     """
     return np.max([np.abs(func(roots[:,0],roots[:,1])) for func in funcs])
+
+def residuals(funcs, roots):
+    """Returns the residuals of given functions at the roots.
+
+    Paramters
+    ---------
+        funcs : list of functions
+            The functions to find the max residuals of.
+        roots : numpy array
+            The coordinates of the roots.
+
+    Returns
+    -------
+        tuple of numpy arrays
+            The residuals of each function
+    """
+    return ([funcs[0](root[0], root[1]) for root in roots],
+            [funcs[1](root[0], root[1]) for root in roots])
 
 def get_results(method, tol_set, funcs, a, b, comp_roots, n=-1):
     """ Runs the solver keeping track of the time, the max residuals, the norm
@@ -155,12 +174,14 @@ def get_results(method, tol_set, funcs, a, b, comp_roots, n=-1):
     b = np.array(b)
 
     # Time, solve for the roots, and compute max resiudals.
-    timing = timeIt(method, tol_set, funcs, a=a, b=b)
-    roots, cond, backcond, cond_eig, grad = solve(method,tol_set, funcs, a, b)
+    timing = timeIt(method, tol_set, funcs, a, b)
+    roots, cond, backcond, cond_eig, grad, total_intervals, root_vols = solve(method, tol_set, funcs, a, b)
     num_roots = len(roots)
     max_res = -1
+    avg_res = -1
     if num_roots > 0:
         max_res = max_residuals(funcs, roots)
+        res = residuals(funcs, roots)
 
 
     # The norm test can only be run if the same number of roots are found.
@@ -169,7 +190,7 @@ def get_results(method, tol_set, funcs, a, b, comp_roots, n=-1):
     if num_roots == len(comp_roots):
         norm_diff = norm_test(yroots=roots, roots=comp_roots)
 
-    return max_res, timing, norm_diff, num_roots, cond, backcond, cond_eig, n
+    return max_res, res, timing, norm_diff, num_roots, cond, backcond, cond_eig, grad, n, total_intervals, root_vols
 
 def test_roots_1_1(method, tol_set):
     # Test 1.1
@@ -325,7 +346,7 @@ def test_roots_5(method, tol_set):
     m_sq_roots = np.loadtxt('tests/chebfun_test_output/cftest5_1ms.csv',delimiter=',')
     chebfun_roots = np.loadtxt('tests/chebfun_test_output/cftest5_1.csv', delimiter=',')
 
-    return get_results(method, tol_set, [f,g], [-1, -1], [1, 1], m_sq_roots, 15)
+    return get_results(method, tol_set, [f,g], [-2, -2], [2, 2], m_sq_roots, 15)
 
 def test_roots_6_1(method, tol_set):
     # Test 6.1
@@ -384,7 +405,7 @@ def test_roots_7_3(method, tol_set):
     g = lambda x,y: np.cos(y/c)-np.cos(2*x*y/(c**2))
     chebfun_roots = np.loadtxt('tests/chebfun_test_output/cftest7_3.csv',delimiter=',')
 
-    return get_results(method, tol_set, [f,g], [-1e-9, -1e-9],[1e-9, 1e-9], chebfun_roots, 21)
+    return get_results(method, tol_set, [f,g], [-1e-9, -1e-9], [1e-9, 1e-9], chebfun_roots, 21)
 
 
 def test_roots_7_4(method, tol_set):
@@ -449,13 +470,16 @@ def test_roots_10(method, tol_set):
     return get_results(method, tol_set, [f,g], [-1, -1], [1, 1], actual_roots, 27)
 
 if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("The script requires 2 arguments: method (Macaulay reduction method) and 1, 2, or 3 to determine which range of degrees to test.")
+    method = sys.argv[1]
     # Put all the tests in a list
     tests = [test_roots_1_1,test_roots_1_2,test_roots_1_3,
             test_roots_1_4,test_roots_1_5,
             test_roots_2_1, test_roots_2_2,test_roots_2_3,
             test_roots_2_4,test_roots_2_5,
             test_roots_3_1,test_roots_3_2,
-            test_roots_4_1, test_roots_4_2, 
+            test_roots_4_1, test_roots_4_2,
             test_roots_5,
             test_roots_6_1,test_roots_6_2,test_roots_6_3,
             test_roots_7_1,test_roots_7_2,test_roots_7_3, test_roots_7_4,
@@ -464,10 +488,10 @@ if __name__ == "__main__":
             test_roots_10]
 
     test_nums =[1.1, 1.2, 1.3, 1.4,1.5,
-                2.1, 2.2, 2.3, 2.4, 2.5, 
-                3.1, 3.2, 
-                4.1, 4.2, 
-                5, 
+                2.1, 2.2, 2.3, 2.4, 2.5,
+                3.1, 3.2,
+                4.1, 4.2,
+                5,
                 6.1, 6.2, 6.3,
                 7.1, 7.2, 7.3, 7.4,
                 8.1, 8.2,
@@ -479,47 +503,45 @@ if __name__ == "__main__":
     # Create the dictionary that maps n to the float test number
     test_num_dict = {n+1:test_nums[n] for n in range(num_tests)}
 
-    # NOTE -- With the current default tolerances, the whole test-suite takes
-    # about 5 minutes to run (4 min 50s) on my machine. Keep this in mind
-    # when using tighter tolerances.
-    """
-        Default tolerances ~ 5 minutes
-        method, funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
-          trim_zero_tol=1.e-10, max_cond_num=1e5,
-          good_zeros_factor=100, min_good_zeros_tol=1e-5,
-          check_eval_error=True, check_eval_freq=1, plot=False,
-          plot_intervals=False, deg=9, target_deg=5, max_level=999,
-          return_potentials=False
-
-    """
-
     # Define all the tolerances to try
-    rel_approx_tol = [10.**-i for i in range(10,13)] # 3
-    abs_approx_tol = [10.**-i for i in range(12,16)] # 4
+    rel_approx_tol = [10.**-i for i in [12, 15]] # 2
+    abs_approx_tol = [10.**-i for i in [12, 15]] # 2
     trim_zero_tol = [10.**-i for i in range(10,11)] # 1
-    max_cond_num = [10.**i for i in range(3,7)] # 4
+    max_cond_num = [100, 1000, 10000] # 3
     good_zeros_tol = [10.**-i for i in range(5,6)] # 1
     # deg = [9, 16] # 2
     # target_deg = [5, 9] # 2
-    deg = [9]
-    target_deg = [5]
+
+    deg = list()
+
+    # Choose what degree based on what's passed in.
+    if sys.argv[2] == '1':
+        deg = [3, 5]
+    elif sys.argv[2] == '2':
+        deg = [9, 12, 16]
+    elif sys.argv[2] == '3':
+        deg = [20, 25]
+
     good_zero_factor = [100] # 1
 
     tols_to_test = [rel_approx_tol, abs_approx_tol, trim_zero_tol,
                     max_cond_num, good_zeros_tol, 
-                    good_zero_factor, deg, target_deg]
+                    good_zero_factor, deg]
 
     total_tols_to_test = np.prod([len(t) for t in tols_to_test])
     print('Testing ' + str(total_tols_to_test) + ' tolerances')
 
     possible_tols = list(product(rel_approx_tol, abs_approx_tol, trim_zero_tol, 
                         max_cond_num, good_zeros_tol, 
-                        good_zero_factor, deg, target_deg))
+                        good_zero_factor, deg))
 
     results_dict = {n:dict() for n in range(len(possible_tols))}
     for n, tol_set in enumerate(possible_tols):
         print('Running tolerance {}/{}'.format(n + 1,total_tols_to_test))
         print('Running with tolerances',tol_set,end='\n\n')
+
+        print('\nUsing',method,end='\n\n')
+        max_residual_dict = dict()
         residual_dict = dict()
         timing_dict = dict()
         norm_dict = dict()
@@ -527,32 +549,45 @@ if __name__ == "__main__":
         cond_dict = dict()
         backcond_dict = dict()
         cond_eig_dict = dict()
+        grad_dict = dict()
+        interval_dict = dict()
+        root_box_vol_dict = dict()
 
         for i, test in enumerate(tests):
-            print('\nRunning test {}\n'.format(test_num_dict[i+1]))
+            print('Running test {}'.format(test_num_dict[i+1]))
             try:
-                max_res, timing, norm_diff, num_roots, cond, backcond, cond_eig, test_num = test('qrt', tol_set)
-                residual_dict[test_num] = max_res
+                max_res, res, timing, norm_diff, num_roots, cond, backcond, \
+                cond_eig, grad, test_num, total_intervals, root_vols= test(method, tol_set)
+                
+                max_residual_dict[test_num] = max_res
+                residual_dict[test_num] = res
                 timing_dict[test_num] = timing
                 norm_dict[test_num] = norm_diff
                 num_roots_dict[test_num] = num_roots
                 cond_dict[test_num] = cond
                 backcond_dict[test_num] = backcond
-                cond_eig_dict = cond_eig
-            except Exception: # Took to long and timed out.
-                residual_dict[i] = -1
-                timing_dict[i] = -1
-                norm_dict[i] = -1
-                num_roots_dict[i] = -1
-                cond_dict[i] = -1
-                backcond_dict[i] = -1
-                cond_eig_dict = -1
+                cond_eig_dict[test_num] = cond_eig
+                grad_dict[test_num] = grad
+                interval_dict[test_num] = total_intervals
+                root_box_vol_dict[test_num] = root_vols
+            
+            except Exception: # Took too long and timed out.
+                test_num = i + 1
+                max_residual_dict[test_num] = np.nan
+                residual_dict[test_num] = np.nan
+                timing_dict[test_num] = np.nan
+                norm_dict[test_num] = np.nan
+                num_roots_dict[test_num] = np.nan
+                cond_dict[test_num] = np.nan
+                backcond_dict[test_num] = np.nan
+                cond_eig_dict[test_num] = np.nan
+                grad_dict[test_num] = np.nan
+                interval_dict[test_num] = np.nan
+                root_box_vol_dict[test_num] = np.nan
                 continue
-                
         
-        # Index the dictionary with n instead of the tol_set tuple
-        # Should be easier to identify (visualize) than with a key of tol_set
         results_dict[n]['tol_set'] = tol_set
+        results_dict[n]['max_residuals'] = max_residual_dict
         results_dict[n]['residuals'] = residual_dict
         results_dict[n]['timing'] = timing_dict
         results_dict[n]['norms'] = norm_dict
@@ -560,9 +595,12 @@ if __name__ == "__main__":
         results_dict[n]['cond'] = cond_dict
         results_dict[n]['backcond'] = backcond_dict
         results_dict[n]['cond_eig'] = cond_eig_dict
-        
-        with open('tests/chebsuite_tests/tol_safety.pkl', 'xb') as f:
+        results_dict[n]['gradient_info'] = grad_dict
+        results_dict[n]['intervals'] = interval_dict
+        results_dict[n]['root_vols'] = root_box_vol_dict
+
+        with open('tests/chebsuite_tests/tols2_{}_{}.pkl'.format(method, deg), 'w+b') as f:
             pickle.dump(results_dict, f, pickle.HIGHEST_PROTOCOL)
 
-    with open('tests/chebsuite_tests/tol_results.pkl', 'xb') as f:
+    with open('tests/chebsuite_tests/tols2_{}_{}.pkl'.format(method, deg), 'w+b') as f:
         pickle.dump(results_dict, f, pickle.HIGHEST_PROTOCOL)
