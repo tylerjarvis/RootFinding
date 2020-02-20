@@ -504,8 +504,8 @@ if __name__ == "__main__":
     test_num_dict = {n+1:test_nums[n] for n in range(num_tests)}
 
     # Define all the tolerances to try
-    rel_approx_tol = [10.**-i for i in [8, 12, 15]] # 3
-    abs_approx_tol = [10.**-i for i in [8, 12, 15]] # 3
+    rel_approx_tol = [10.**-i for i in [12, 15]] # 2
+    abs_approx_tol = [10.**-i for i in [12, 15]] # 2
     trim_zero_tol = [10.**-i for i in range(10,11)] # 1
     max_cond_num = [100, 1000, 10000] # 3
     good_zeros_tol = [10.**-i for i in range(5,6)] # 1
