@@ -33,6 +33,7 @@ def run_tests(dim,degrees,basis,method,kind,N=None,filefmt=infilefmt):
         tests = load_tests(dim,deg,basis,kind,N=N,filefmt=infilefmt)
         for polys in tests:
             arr[i,1:9] += run_test(polys,method)
+        print(f"deg {deg} complete")
     arr[:,9] = len(tests)
     arr[:,1:8] /= (arr[:,9]-arr[:,8])[:,np.newaxis]
     arr[:,1:7] = (10**arr[:,1:7])
@@ -103,6 +104,7 @@ def run_save_parallel(COMM,RANK,SIZE,dim,degrees,basis,method,kind,title,N=None,
     results = np.zeros((len(degrees),10),dtype='float64')
     for i,deg in enumerate(degrees):
         results[i] = run_tests_parallel(tests[deg],MultiX,method)
+        print(f"deg {deg} complete")
 
     # collect results
     if RANK == 0:
@@ -131,9 +133,9 @@ def run_save_parallel(COMM,RANK,SIZE,dim,degrees,basis,method,kind,title,N=None,
         df.to_csv(outfilefmt.format(title=title,dim=dim,basis=basis,kind=kind,method=method))
 
 degrees = {}
-degrees[2] = np.arange(2,81)[::5]
-degrees[3] = np.arange(2,11)
-degrees[4] = np.arange(2,6)
+degrees[2] = np.arange(2,36)
+degrees[3] = np.arange(2,13)
+degrees[4] = np.arange(2,7)
 degrees[5] = [2,3,4]
 degrees[6] = [2,3]
 degrees[7] = [2]
@@ -142,11 +144,11 @@ degrees[9] = [2]
 degrees[10] = [2]
 
 Ntests = {}
-Ntests[2] = 100
+Ntests[2] = 200
 Ntests[3] = 100
-Ntests[4] = 100
-Ntests[5] = 50
-Ntests[6] = 50
+Ntests[4] = 50
+Ntests[5] = 25
+Ntests[6] = 25
 Ntests[7] = 25
 Ntests[8] = 25
 Ntests[9] = 15
