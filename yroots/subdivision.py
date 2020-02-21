@@ -73,7 +73,7 @@ def solve(method, funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
         If True, plot is True, and the functions are 2 dimensional, plots what check/method solved
         each part of the interval.
     deg : int
-        The degree used for the approximation. If None, the following degrees 
+        The degree used for the approximation. If None, the following degrees
         are used.
         Degree 50 for 1D functions.
         Degree 9 for 2D functions.
@@ -178,7 +178,9 @@ def solve(method, funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
     if return_potentials:
         return root_tracker.roots, root_tracker.potential_roots
     else:
-        return root_tracker.roots, interval_data.cond, interval_data.backcond, root_tracker.conds, root_tracker.grads, interval_data.total_intervals
+        return root_tracker.roots, interval_data.cond, interval_data.backcond, \
+               root_tracker.conds, root_tracker.grads, interval_data.total_intervals,\
+               [np.prod(b - a) for a, b in root_tracker.intervals]
 
 def transform(x,a,b):
     """Transforms points from the interval [-1,1] to the interval [a,b].
@@ -549,7 +551,7 @@ def solve_linear(coeffs):
                 A[row,col] = coeff[var_list[col]]
     #solve the system
     try:
-        return np.linalg.solve(A,-B), [np.linalg.cond(A)]
+        return np.linalg.solve(A,-B), np.nan
     except np.linalg.LinAlgError as e:
         if str(e) == 'Singular matrix':
             #if the system is dependent, then there are infinitely many roots

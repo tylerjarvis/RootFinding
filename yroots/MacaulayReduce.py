@@ -186,8 +186,8 @@ def reduce_macaulay_tvb(M, cut, max_cond=1e6):
 
     # Check condition number before backsolve
     cond_num_back = np.linalg.cond(M[:,:rank])
-    if cond_num > max_cond:
-        raise ConditioningError(f"Condition number of the Macaulay primary submatrix is {cond_num}")
+    if cond_num_back > max_cond:
+        raise ConditioningError(f"Condition number of the Macaulay primary submatrix is {cond_num_back}")
 
     return solve_triangular(M[:rank,:rank],M[:rank,rank:]),P, cond_num, cond_num_back
 
