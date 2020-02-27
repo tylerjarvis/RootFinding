@@ -512,7 +512,7 @@ if __name__ == "__main__":
     # deg = [9, 16] # 2
     # target_deg = [5, 9] # 2
 
-    deg = list()
+    #deg = list()
 
     # Choose what degree based on what's passed in.
     deg = sys.argv[2] 
@@ -600,7 +600,7 @@ if __name__ == "__main__":
         results_dict[n]['intervals'] = interval_dict
         results_dict[n]['root_vols'] = root_box_vol_dict
 
-        with open('tests/chebsuite_tests/small_cond_{}_{}.pkl'.format(method, deg), 'w+b') as f:
+        with open('tests/chebsuite_tests/longertimetol_{}_{}_cond.pkl'.format(method, deg), 'w+b') as f:
             pickle.dump(results_dict, f, pickle.HIGHEST_PROTOCOL)
 
     with open('tests/chebsuite_tests/longertimetol_{}_{}_cond.pkl'.format(method, deg), 'w+b') as f:
