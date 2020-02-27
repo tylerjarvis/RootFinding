@@ -7,7 +7,7 @@ from itertools import product
 import sys
 
 
-@timeout_decorator.timeout(125, use_signals=False)
+@timeout_decorator.timeout(605, use_signals=False)
 def solve(method, tol_set, funcs, a, b, plot=False):
     """ Wrapper function for yr.solve. Makes it so that it aborts the solver
         if it's taking too much time (over a minute).
@@ -504,10 +504,10 @@ if __name__ == "__main__":
     test_num_dict = {n+1:test_nums[n] for n in range(num_tests)}
 
     # Define all the tolerances to try
-    rel_approx_tol = [10.**-i for i in [12, 15]] # 2
-    abs_approx_tol = [10.**-i for i in [12, 15]] # 2
+    rel_approx_tol = [10.**-i for i in [8, 12, 15]] # 2
+    abs_approx_tol = 10.**-12 #[10.**-i for i in [12, 15]] # 2
     trim_zero_tol = [10.**-i for i in range(10,11)] # 1
-    max_cond_num = [1] # 3
+    max_cond_num = [10.**i for i in [3,5,7,9]] # 3
     good_zeros_tol = [10.**-i for i in range(5,6)] # 1
     # deg = [9, 16] # 2
     # target_deg = [5, 9] # 2
@@ -602,5 +602,5 @@ if __name__ == "__main__":
         with open('tests/chebsuite_tests/small_cond_{}_{}.pkl'.format(method, deg), 'w+b') as f:
             pickle.dump(results_dict, f, pickle.HIGHEST_PROTOCOL)
 
-    with open('tests/chebsuite_tests/small_cond_{}_{}.pkl'.format(method, deg), 'w+b') as f:
+    with open('tests/chebsuite_tests/longertimetol_{}_{}_cond.pkl'.format(method, deg), 'w+b') as f:
         pickle.dump(results_dict, f, pickle.HIGHEST_PROTOCOL)
