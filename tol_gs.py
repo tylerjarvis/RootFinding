@@ -515,12 +515,13 @@ if __name__ == "__main__":
     deg = list()
 
     # Choose what degree based on what's passed in.
-    if sys.argv[2] == '1':
-        deg = [3, 5]
-    elif sys.argv[2] == '2':
-        deg = [9, 12, 16]
-    elif sys.argv[2] == '3':
-        deg = [20, 25]
+    deg = sys.argv[2] 
+    #if sys.argv[2] == '1':
+    #    deg = [3, 5]
+    #elif sys.argv[2] == '2':
+    #    deg = [9, 12, 16]
+    #elif sys.argv[2] == '3':
+    #    deg = [20, 25]
 
     good_zero_factor = [100] # 1
 
