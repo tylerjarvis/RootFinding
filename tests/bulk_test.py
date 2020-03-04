@@ -104,7 +104,8 @@ def run_save_parallel(COMM,RANK,SIZE,dim,degrees,basis,method,kind,title,N=None,
     results = np.zeros((len(degrees),10),dtype='float64')
     for i,deg in enumerate(degrees):
         results[i] = run_tests_parallel(tests[deg],MultiX,method)
-        print(f"deg {deg} complete")
+        if RANK == 0:
+            print(f"deg {deg} complete")
 
     # collect results
     if RANK == 0:
@@ -135,7 +136,7 @@ def run_save_parallel(COMM,RANK,SIZE,dim,degrees,basis,method,kind,title,N=None,
 degrees = {}
 degrees[2] = np.arange(2,36)
 degrees[3] = np.arange(2,13)
-degrees[4] = np.arange(2,7)
+degrees[4] = np.arange(2,8)
 degrees[5] = [2,3,4]
 degrees[6] = [2,3]
 degrees[7] = [2]
