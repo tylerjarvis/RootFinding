@@ -27,7 +27,7 @@ def polyval2(x, cc): #pragma: no cover
 def chebval(x, cc): #pragma: no cover
     if len(cc) == 1:
         c0 = cc[0]
-        c1 = 0
+        c1 = np.array([0.0])
     elif len(cc) == 2:
         c0 = cc[0]
         c1 = cc[1]
@@ -43,10 +43,9 @@ def chebval(x, cc): #pragma: no cover
 
 @jit(cache=True)
 def chebval2(x, cc): #pragma: no cover
-    cc = cc.reshape(cc.shape + (1,)*x.ndim)
     if len(cc) == 1:
         c0 = cc[0]
-        c1 = 0
+        c1 = np.array([0.0])
     elif len(cc) == 2:
         c0 = cc[0]
         c1 = cc[1]
@@ -516,7 +515,8 @@ class MultiCheb(Polynomial):
         n = c.ndim
         c = chebval2(points[:,0],c)
         for i in range(1,n):
-            c = chebval(points[:,i],c)
+            cc = c.reshape(c.shape + (1,)*points[:,i].ndim)
+            c = chebval(points[:,i],cc)
         if len(c) == 1:
             return c[0]
         else:
@@ -543,7 +543,8 @@ class MultiCheb(Polynomial):
 
         c = self.coeff
         for i in range(xyz.shape[1]):
-            c = chebval2(xyz[:,i] ,c)
+            cc = c.reshape(c.shape + (1,)*xyz[:,i].ndim)
+            c = chebval2(xyz[:,i] ,cc)
 
         if np.product(c.shape)==1:
             return c[0]
