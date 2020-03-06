@@ -22,7 +22,7 @@ def solve(method, tol_set, funcs, a, b, plot=False):
             Upper bounds of the intervals.
         plot : bool
             Whether or not to display the plots.
-    
+
     Returns
     -------
         roots : numpy array
@@ -32,12 +32,12 @@ def solve(method, tol_set, funcs, a, b, plot=False):
     ------
         TimeoutError if the solver takes more than a minute to solve. Returns -1 in this case.
     """
-    rel_approx_tol, abs_approx_tol, trim_zero_tol, max_cond_num, min_good_zeros_tol, \
+    rel_approx_tol, abs_approx_tol, max_cond_num, min_good_zeros_tol, \
     good_zeros_factor, deg = tol_set
-    return yr.solve(method, funcs, a, b, rel_approx_tol=rel_approx_tol, 
-                    abs_approx_tol=abs_approx_tol, 
-                    trim_zero_tol=trim_zero_tol, max_cond_num=max_cond_num,
-                    min_good_zeros_tol=min_good_zeros_tol, 
+    return yr.solve(method, funcs, a, b, rel_approx_tol=rel_approx_tol,
+                    abs_approx_tol=abs_approx_tol,
+                    max_cond_num=max_cond_num, #trim_zero_tol=trim_zero_tol,
+                    min_good_zeros_tol=min_good_zeros_tol,
                     good_zeros_factor=good_zeros_factor, plot=plot,
                     deg=deg, target_deg=deg, check_eval_error=False)
 
@@ -506,7 +506,7 @@ if __name__ == "__main__":
     # Define all the tolerances to try
     rel_approx_tol = [10.**-i for i in [8, 12, 15]] # 2
     abs_approx_tol = [10.**-12] #[10.**-i for i in [12, 15]] # 2
-    trim_zero_tol = [10.**-i for i in range(10,11)] # 1
+    # trim_zero_tol = [10.**-i for i in range(10,11)] # 1
     max_cond_num = [10.**i for i in [3,5,7,9]] # 3
     good_zeros_tol = [10.**-i for i in range(5,6)] # 1
     # deg = [9, 16] # 2
@@ -525,15 +525,15 @@ if __name__ == "__main__":
 
     good_zero_factor = [100] # 1
 
-    tols_to_test = [rel_approx_tol, abs_approx_tol, trim_zero_tol,
-                    max_cond_num, good_zeros_tol, 
+    tols_to_test = [rel_approx_tol, abs_approx_tol, #trim_zero_tol,
+                    max_cond_num, good_zeros_tol,
                     good_zero_factor, deg]
 
     total_tols_to_test = np.prod([len(t) for t in tols_to_test])
     print('Testing ' + str(total_tols_to_test) + ' tolerances')
 
-    possible_tols = list(product(rel_approx_tol, abs_approx_tol, trim_zero_tol, 
-                        max_cond_num, good_zeros_tol, 
+    possible_tols = list(product(rel_approx_tol, abs_approx_tol, #trim_zero_tol,
+                        max_cond_num, good_zeros_tol,
                         good_zero_factor, deg))
 
     results_dict = {n:dict() for n in range(len(possible_tols))}
@@ -559,7 +559,7 @@ if __name__ == "__main__":
             try:
                 max_res, res, timing, norm_diff, num_roots, cond, backcond, \
                 cond_eig, grad, test_num, total_intervals, root_vols= test(method, tol_set)
-                
+
                 max_residual_dict[test_num] = max_res
                 residual_dict[test_num] = res
                 timing_dict[test_num] = timing
@@ -571,8 +571,9 @@ if __name__ == "__main__":
                 grad_dict[test_num] = grad
                 interval_dict[test_num] = total_intervals
                 root_box_vol_dict[test_num] = root_vols
-            
-            except Exception: # Took too long and timed out.
+
+            except Exception as e: # Took too long and timed out.
+                print(e)
                 test_num = i + 1
                 max_residual_dict[test_num] = np.nan
                 residual_dict[test_num] = np.nan
@@ -586,7 +587,7 @@ if __name__ == "__main__":
                 interval_dict[test_num] = np.nan
                 root_box_vol_dict[test_num] = np.nan
                 continue
-        
+
         results_dict[n]['tol_set'] = tol_set
         results_dict[n]['max_residuals'] = max_residual_dict
         results_dict[n]['residuals'] = residual_dict
