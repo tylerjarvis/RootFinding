@@ -276,18 +276,22 @@ class IntervalData:
                     a0,b0 = data
                     if first:
                         first = False
-                        rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.01,\
-                                                 edgecolor='#a6a6a6',facecolor=colors[i], label=check)
+                        rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.1,\
+                                                 edgecolor='red',facecolor=colors[i], label=check)
                     else:
-                        rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.01,\
-                                                 edgecolor='#a6a6a6',facecolor=colors[i])
+                        rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.1,\
+                                                 edgecolor='red',facecolor=colors[i])
                     ax.add_patch(rect)
             plt.legend()
 
         #Plot the zeros
-        plt.plot(np.real(zeros[:,0]), np.real(zeros[:,1]),'o',color='#ffff00',markeredgecolor='#ffff00',markersize=3,
-                 zorder=22)
-
+        if len(zeros) > 0:
+            plt.plot(np.real(zeros[:,0]), np.real(zeros[:,1]),'o',color='#ffff00',markeredgecolor='#ffff00',markersize=3,
+                 zorder=22)        
+        
+#         plt.plot(0.41589487873818587, -0.2682102425236283,'o',color='k',markeredgecolor='k',markersize=3,
+#                  zorder=22) 
+        
         if print_plot:
             plt.savefig('intervals.pdf', bbox_inches='tight')
         plt.show()

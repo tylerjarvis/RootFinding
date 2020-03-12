@@ -11,8 +11,8 @@ from scipy.fftpack import fftn
 from yroots.OneDimension import divCheb,divPower,multCheb,multPower,solve
 from yroots.Division import division
 from yroots.Multiplication import multiplication
-from yroots.utils import clean_zeros_from_matrix, slice_top, MacaulayError, get_var_list, \
-                        ConditioningError, Tolerances
+from yroots.utils import clean_zeros_from_matrix, slice_top, MacaulayError, \
+                        get_var_list, ConditioningError, Tolerances
 from yroots.polynomial import MultiCheb
 from yroots.IntervalChecks import IntervalData
 from yroots.RootTracker import RootTracker
@@ -23,13 +23,19 @@ import itertools
 import time
 import warnings
 
-def solve(funcs, a, b, rel_approx_tol=1.e-6, abs_approx_tol=1.e-10, trim_zero_tol=1.e-10, max_cond_num=1e6, macaulay_zero_tol=1e-12, good_zeros_factor=100, min_good_zeros_tol=1e-5, plot = False, plot_intervals = False, deg = None, max_level=999, return_potentials=False):
+def solve(funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
+          trim_zero_tol=1.e-10, max_cond_num=1e5, macaulay_zero_tol=1.e-13,
+          good_zeros_factor=100, min_good_zeros_tol=1e-5,
+          check_eval_error=True, check_eval_freq = 1, plot = False,
+          plot_intervals = False, deg = None, max_level=999,
+          return_potentials=False):
     '''
     Finds the real roots of the given list of functions on a given interval.
 
-    All of the tolerances can be passed in as numbers of iterable types. If multiple
-    are passed in as iterable types they must have the same length. When the length is
-    more than 1, they are used one after the other to polish the roots.
+    All of the tolerances can be passed in as numbers of iterable types. If
+    multiple are passed in as iterable types they must have the same length.
+    When the length is more than 1, they are used one after the other to polish
+    the roots.
 
     Parameters
     ----------
@@ -57,6 +63,10 @@ def solve(funcs, a, b, rel_approx_tol=1.e-6, abs_approx_tol=1.e-10, trim_zero_to
     min_good_zeros_tol : float or list
         The smallest the good_zeros_tol can be, which is how far outside of [-1,1] a root can
         be and still be considered inside the interval.
+    check_eval_error : bool
+        Whether to compute the evaluation error on the fly and replace the approx tol with it.
+    check_eval_freq : int
+        The evaluation error will be computed on levels that are multiples of this.
     plot : bool
         If True plots the zeros-loci of the functions along with the computed roots
     plot_intervals : bool
@@ -101,7 +111,15 @@ def solve(funcs, a, b, rel_approx_tol=1.e-6, abs_approx_tol=1.e-10, trim_zero_to
             deg = deg_dim[dim]
 
     #Sets up the tolerances.
-    tols = Tolerances(rel_approx_tol=rel_approx_tol, abs_approx_tol=abs_approx_tol, trim_zero_tol=trim_zero_tol, max_cond_num=max_cond_num, macaulay_zero_tol=macaulay_zero_tol, good_zeros_factor=good_zeros_factor, min_good_zeros_tol=min_good_zeros_tol)
+    tols = Tolerances(rel_approx_tol=rel_approx_tol,
+                      abs_approx_tol=abs_approx_tol,
+                      trim_zero_tol=trim_zero_tol,
+                      max_cond_num=max_cond_num,
+                      macaulay_zero_tol=macaulay_zero_tol,
+                      good_zeros_factor=good_zeros_factor,
+                      min_good_zeros_tol=min_good_zeros_tol,
+                      check_eval_error=check_eval_error,
+                      check_eval_freq=check_eval_freq)
     tols.nextTols()
 
     #Set up the interval data and root tracker classes
@@ -117,6 +135,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-6, abs_approx_tol=1.e-10, trim_zero_to
 
     #Initial Solve
     solve_func(funcs,a,b,deg,interval_data,root_tracker,tols,max_level)
+    root_tracker.keep_possible_duplicates()
 
     #Polishing
     while tols.nextTols():
@@ -125,6 +144,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-6, abs_approx_tol=1.e-10, trim_zero_to
         for new_a, new_b in polish_intervals:
             interval_data.start_polish_interval()
             solve_func(funcs,new_a,new_b,deg,interval_data,root_tracker,tols,max_level)
+            root_tracker.keep_possible_duplicates()
     print("\rPercent Finished: 100%{}".format(' '*50))
 
     #Print results
@@ -142,7 +162,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-6, abs_approx_tol=1.e-10, trim_zero_to
 
     if len(root_tracker.potential_roots) != 0:
         warnings.warn("Some intervals subdivided too deep and some potential roots were found. To access these roots, rerun the solver with the keyword return_potentials=True")
-    
+
     if return_potentials:
         return root_tracker.roots, root_tracker.potential_roots
     else:
@@ -363,7 +383,7 @@ def get_subintervals(a,b,dimensions,interval_data,polys,change_sign,approx_error
     approx_error: float
         The bound of the sup norm error of the chebyshev approximation.
     check_subintervals : bool
-        If True runs the subinterval checks to through out intervals where the functions are never 0.
+        If True runs the subinterval checks to throw out intervals where the functions are never 0.
 
     Returns
     -------
@@ -431,6 +451,8 @@ def full_cheb_approximate(f,a,b,deg,abs_approx_tol,rel_approx_tol,good_deg=None)
     #Try degree deg and see if it's good enough
     coeff, inf_norm = interval_approximate_nd(f,a,b,deg)
     coeff2, bools, inf_norm = interval_approximate_nd(f,a,b,deg*2,return_bools=True, inf_norm=inf_norm)
+#     print(coeff)
+#     print(coeff2)
     coeff2[slice_top(coeff)] -= coeff
 
     error = np.sum(np.abs(coeff2))
@@ -502,7 +524,6 @@ def solve_linear(coeffs):
                 A[row,col] = 0
             else:
                 A[row,col] = coeff[var_list[col]]
-
     #solve the system
     try:
         return np.linalg.solve(A,-B)
@@ -521,6 +542,43 @@ def solve_linear(coeffs):
                 #independent
                 warnings.warn('System potentially has infinitely many roots')
             return np.zeros([0,dim])
+
+def getAbsApproxTol(func, deg, a, b):
+    """ Gets an absolute approximation tolerance based on the assumption that
+        on the interval of size linearization_size * 2, the function can be
+        perfectly approximated by a low degree Chebyshev polynomial.
+
+        Parameters
+        ----------
+            func : function
+                Function to approximate.
+            def : int
+                The degree to use to approximate the function on the interval.
+            a : numpy array
+                The lower bounds of the interval on which to approximate.
+            b : numpy array
+                The upper bounds of the interval on which to approximate.
+
+        Returns
+        -------
+            abs_approx_tol : float
+                The calculated absolute approximation tolerance based on the
+                noise of the function on the small interval.
+    """
+    tols = []
+    np.random.seed(0)
+    for i in range(10):
+        x = transform(np.random.rand(len(a))*2-1, a, b)
+        linearization_size = 2.220446049250313e-14
+        a = np.array(x - linearization_size)
+        b = np.array(x + linearization_size)
+        coeff = interval_approximate_nd(func,a,b,2*deg)[0]
+        coeff[:deg,:deg] = 0
+        abs_approx_tol = np.sum(np.abs(coeff))
+        tols.append(abs_approx_tol)
+    tols = np.array(tols)
+    numSpots = (deg*2)**len(a) - (deg)**len(a)
+    return np.max(tols)*10 / numSpots
 
 def subdivision_solve_nd(funcs,a,b,deg,interval_data,root_tracker,tols,max_level,good_degs=None,level=0):
     """Finds the common zeros of the given functions.
@@ -550,12 +608,19 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,root_tracker,tols,max_level
     level : int
         The current level of the recursion.
     """
-    if level > max_level:
+    if level >= max_level:
         # TODO Refine case where there may be a root and it goes too deep.
         interval_data.track_interval("Too Deep", [a, b])
         # Return potential roots if the residuals are small
         root_tracker.add_potential_roots((a + b)/2, a, b, "Too Deep.")
         return
+
+    if tols.check_eval_error:
+        tols.abs_approx_tol = tols.abs_approx_tols[tols.currTol]
+        if level%tols.check_eval_freq == 0:
+            numSpots = (deg*2)**len(a) - (deg)**len(a)
+            for func in funcs:
+                tols.abs_approx_tol = max(tols.abs_approx_tol, numSpots * getAbsApproxTol(func, 3, a, b))
 
     cheb_approx_list = []
     interval_data.print_progress()
@@ -595,6 +660,9 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,root_tracker,tols,max_level
 
     #Check if everything is linear
     if np.all(np.array([coeff.shape[0] for coeff in coeffs]) == 2):
+        if deg != 2:
+            subdivision_solve_nd(funcs,a,b,2,interval_data,root_tracker,tols,max_level,good_degs,level)
+            return
         zero = solve_linear(coeffs)
         #Store the information and exit
         zero = transform(good_zeros_nd(zero.reshape([1,dim]),good_zeros_tol,good_zeros_tol),a,b)
@@ -602,11 +670,11 @@ def subdivision_solve_nd(funcs,a,b,deg,interval_data,root_tracker,tols,max_level
         root_tracker.add_roots(zero, a, b, "Base Case")
 
     #Check if anything is linear
-    elif np.any(np.array([coeff.shape[0] for coeff in coeffs]) == 2):
-        #Subdivide but run some checks on the intervals first
-        intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
-        for new_a, new_b in intervals:
-            subdivision_solve_nd(funcs,new_a,new_b,deg,interval_data,root_tracker,tols,max_level,good_degs,level+1)
+#     elif np.any(np.array([coeff.shape[0] for coeff in coeffs]) == 2):
+#         #Subdivide but run some checks on the intervals first
+#         intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
+#         for new_a, new_b in intervals:
+#             subdivision_solve_nd(funcs,new_a,new_b,deg,interval_data,root_tracker,tols,max_level,good_degs,level+1)
 
     #Runs the same things as above, but we want to get rid of that eventually so keep them seperate.
     elif np.any(np.array([coeff.shape[0] for coeff in coeffs]) > 5) or not good_approx:

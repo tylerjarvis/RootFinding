@@ -8,6 +8,7 @@ from yroots.utils import row_swap_matrix, MacaulayError, slice_top, mon_combos, 
 from matplotlib import pyplot as plt
 from scipy.linalg import svd
 
+macheps = 2.220446049250313e-16
 def add_polys(degree, poly, poly_coeff_list):
     """Adds polynomials to a Macaulay Matrix.
 
@@ -122,32 +123,34 @@ def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_cond_num, macaulay_zero_
     BCEF[...] = Q1.T @ BCEF
     del Q1 #Get rid of Q1 for memory purposes.
 
-    #RRQR reduces E sticking the result in it's place.
-    Q,E[...],P = qr(E, pivoting = True)
+    #Check to see if E exists
+    if cuts[0] != cuts[1] and cuts[0] < matrix.shape[0]:
+        #RRQR reduces E sticking the result in it's place.
+        Q,E[...],P = qr(E, pivoting = True)
 
-    #Multiplies F by Q.T.
-    F[...] = Q.T @ F
-    del Q #Get rid of Q for memory purposes.
+        #Multiplies F by Q.T.
+        F[...] = Q.T @ F
+        del Q #Get rid of Q for memory purposes.
 
-    #Permute the columns of B
-    B[...] = B[:,P]
+        #Permute the columns of B
+        B[...] = B[:,P]
 
-    #Resorts the matrix_t erms.
-    matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
+        #Resorts the matrix_terms.
+        matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
 
-    #eliminate zero rows from the bottom of the matrix.
-    matrix = row_swap_matrix(matrix)
-    for row in matrix[::-1]:
-        if np.allclose(row, 0,atol=macaulay_zero_tol):
-            matrix = matrix[:-1]
-        else:
-            break
+    #use the numerical rank to determine how many rows to keep
+    matrix = row_swap_matrix(matrix)[:cuts[1]]
+    s = svd(matrix,compute_uv=False)
+    tol = max(matrix.shape)*s[0]*macheps
+    rank = len(s[s>tol])
+    matrix = matrix[:rank]
 
-    #Conditioning check
-    cond_num = np.linalg.cond(matrix[:,:matrix.shape[0]])
+    #find the condition number of the backsolve
+    s = svd(matrix[:,:rank],compute_uv=False)
+    cond_num = s[0]/s[-1]
     if cond_num > max_cond_num:
-        raise ConditioningError("Conditioning number of the Macaulay matrix "\
-                                + "after QR is: " + str(cond_num))
+        raise ConditioningError("Conditioning number of backsolving the Macaulay is: " + str(cond_num))
+
     #backsolve
     height = matrix.shape[0]
     matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])

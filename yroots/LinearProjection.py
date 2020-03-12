@@ -97,7 +97,7 @@ def project_down(polys, linear, approx_tol, solve_tol):
 
     if len(polys) > 1:
         from yroots.subdivision import trim_coeffs
-        return trim_coeffs(proj_poly_coeff, approx_tol, solve_tol)[0], T
+        return trim_coeffs(proj_poly_coeff, approx_tol)[0], T
     else:
         return proj_poly_coeff, T
 
@@ -224,3 +224,54 @@ def bounding_parallelepiped(linear):
     p0 = Q[:,:-1].dot(min_vals) + v0
     edges = Q[:,:-1].dot(np.diag(max_vals-min_vals))
     return p0, edges
+
+def nullspace(linear_polys):
+    """Builds a matrix to represent the system of linear polynomials.
+    Columns 1:-1 represent coefficients of linear terms, while Column -1 represents
+    the constant terms.
+    Parameters
+    ----------
+    linear_polys : list
+        list of linear MultiCheb objects
+    Returns
+    -------
+    A: ((n,n) ndarray)
+        The RREF of A.
+    Pc: ((n,) ndarray)
+        The column pivoting array.
+    """
+    dim = linear_polys[0].dim
+    A = np.zeros((len(linear_polys),dim+1))
+    for i,p in enumerate(linear_polys):
+        A[i,:-1] = p.coeff[get_var_list(dim)]
+        A[i,-1]  = p.coeff[tuple([0]*dim)]
+
+    return rref(A)
+
+def rref(A):
+    """Reduce the square matrix A to RREF with full pivoting.
+    Parameters:
+        A ((n,n) ndarray): The matrix to be reduced.
+    Returns:
+        ((n,n) ndarray): The RREF of A, with columns pivoted as the algorithm chooses
+        ((n,) ndarray): The column pivoting array.
+    """
+    A = np.array(A, dtype=np.float, copy=True)
+    m,n = A.shape
+    Pr = np.arange(m)
+    Pc = np.arange(n)
+    for j in range(m):
+        row,col = np.where(np.abs(A[j:,j:-1])==np.abs(A[j:,j:-1]).max())
+        k,l = row[0]+j,col[0]+j
+        A[[j,k]] = A[[k,j]]
+        Pr[j],Pr[k] = Pr[k],Pr[j]
+        A[:,np.array([j,l])] = A[:,np.array([l,j])]
+        Pc[j],Pc[l] = Pc[l],Pc[j]
+        if A[j,j] == 0:
+            #handle rank deficient case
+            return A[:j],Pc
+        for i in range(m):
+            if i != j:
+                A[i,j:] -= A[j,j:] * A[i,j] / A[j,j]
+        A[j] = A[j]/A[j,j]
+    return A,Pc

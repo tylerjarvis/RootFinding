@@ -144,6 +144,7 @@ def test_subdivision_solve_with_transform():
 
     #Case 4 - Two MultiPower 2D, one degree 20 and one degree 28
     #choose a seed that has a zero like 0,1,2,3,4,5,6,7,8,9,10
+    # This test slows down with tighter tolerances.
     np.random.seed(1)
     a = -2*np.ones(2);b = 2*np.ones(2)
     A = getPoly(20,2,True)
