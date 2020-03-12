@@ -245,7 +245,7 @@ def MacaulayReduction(initial_poly_list, max_cond_num, macaulay_zero_tol, verbos
     nonlinear_polys = [poly for poly in initial_poly_list if poly.degree != 1]
     #Choose which variables to remove if things are linear, and add linear polys to matrix
     if len(linear_polys) == 1: #one linear
-        varsToRemove = [np.argmax(np.abs(linear_polys[0].coeff[get_var_list(dim)]))]
+        varsToRemove = [np.argmax(np.abs(linear_polys[0].coeff[tuple(get_var_list(dim))]))]
         poly_coeff_list = add_polys(degree, linear_polys[0], poly_coeff_list)
     elif len(linear_polys) > 1: #multiple linear
         #get the row rededuced linear coefficients

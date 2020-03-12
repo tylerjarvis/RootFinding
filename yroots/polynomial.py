@@ -17,7 +17,6 @@ def polyval(x, cc): #pragma: no cover
 
 @jit(cache=True)
 def polyval2(x, cc): #pragma: no cover
-    cc = cc.reshape(cc.shape + (1,)*x.ndim)
     c0 = cc[-1]
     for i in range(2, len(cc) + 1):
         c0 = cc[-i] + c0*x
@@ -27,7 +26,7 @@ def polyval2(x, cc): #pragma: no cover
 def chebval(x, cc): #pragma: no cover
     if len(cc) == 1:
         c0 = cc[0]
-        c1 = np.array([0.0])
+        c1 = np.zeros_like(c0)
     elif len(cc) == 2:
         c0 = cc[0]
         c1 = cc[1]
@@ -45,7 +44,7 @@ def chebval(x, cc): #pragma: no cover
 def chebval2(x, cc): #pragma: no cover
     if len(cc) == 1:
         c0 = cc[0]
-        c1 = np.array([0.0])
+        c1 = np.zeros_like(c0)
     elif len(cc) == 2:
         c0 = cc[0]
         c1 = cc[1]
@@ -778,7 +777,8 @@ class MultiPower(Polynomial):
         n = c.ndim
         c = polyval2(points[:,0],c)
         for i in range(1,n):
-            c = polyval(points[:,i],c)
+            cc = c.reshape(c.shape + (1,)*points[:,i].ndim)
+            c = polyval(points[:,i],cc)
         if len(c) == 1:
             return c[0]
         else:
@@ -805,7 +805,8 @@ class MultiPower(Polynomial):
 
         c = self.coeff
         for i in range(xyz.shape[1]):
-            c = polyval2(xyz[:,i] ,c)
+            cc = c.reshape(c.shape + (1,)*xyz[:,i].ndim)
+            c = polyval2(xyz[:,i] ,cc)
 
         if np.product(c.shape)==1:
             return c[0]
