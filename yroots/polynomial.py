@@ -136,6 +136,11 @@ class Polynomial(object):
         '''
         if isinstance(coeff,np.ndarray):
             self.coeff = coeff
+            # If coeff has integer coefficients, 
+            # cast as numpy floats for jit compilation
+            if coeff.dtype == np.int32 or coeff.dtype == np.int64:
+                coeff = coeff.astype(np.float64)
+        
         elif isinstance(coeff,str):
             self.coeff = makePolyCoeffMatrix(coeff)
         elif isinstance(coeff, tuple):
@@ -512,10 +517,10 @@ class MultiCheb(Polynomial):
 
         c = self.coeff
         n = c.ndim
-        c = chebval2(points[:,0],c)
+        cc = c.reshape(c.shape + (1,)*points.ndim)
+        c = chebval2(points[:,0],cc)
         for i in range(1,n):
-            cc = c.reshape(c.shape + (1,)*points[:,i].ndim)
-            c = chebval(points[:,i],cc)
+            c = chebval(points[:,i],c)
         if len(c) == 1:
             return c[0]
         else:
@@ -775,10 +780,10 @@ class MultiPower(Polynomial):
 
         c = self.coeff
         n = c.ndim
-        c = polyval2(points[:,0],c)
+        cc = c.reshape(c.shape + (1,)*points.ndim)
+        c = polyval2(points[:,0],cc)
         for i in range(1,n):
-            cc = c.reshape(c.shape + (1,)*points[:,i].ndim)
-            c = polyval(points[:,i],cc)
+            c = polyval(points[:,i],c)
         if len(c) == 1:
             return c[0]
         else:
