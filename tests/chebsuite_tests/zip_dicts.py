@@ -46,14 +46,8 @@ if __name__ == '__main__':
         dict_list.append(np.load(file_name, allow_pickle=True))
         degs.append(int(re.findall(deg_pattern, file_name)[0]))
 
-    print(degs)
-    print(len(dict_list))
     # Put the first dictionary into the final dict
     final_dict = {deg:dictionary for deg, dictionary in zip(degs, dict_list)}
-
-    # Print the final length (Debuging purposes)
-    print('The resulting dictionary has the appropriate length: {}' \
-           .format(len(final_dict) == sum(len(d) for d in dict_list)))
 
     # Format the output name properly
     if output_name[-4:] != '.pkl':
