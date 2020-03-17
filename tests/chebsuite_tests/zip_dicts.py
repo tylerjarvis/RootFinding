@@ -20,31 +20,36 @@
 import pickle
 import sys
 import numpy as np
+import os
+from glob import glob
+import re
 
 if __name__ == '__main__':
     # Get the variables from argv
+    if len(sys.argv) != 3:
+        raise Exception("'zip_dicts.py' requires 2 arguments -- method name and output file name.")
     method_name = sys.argv[1]
     output_name = sys.argv[2]
 
     # Get the file names
-    file_names = [method_name + '_[3, 5].pkl', method_name + '_[9, 12, 16].pkl', \
-                  method_name + '_[20, 25].pkl']
+    file_names = sorted(glob('longertimetol_' + method_name + "*"))
 
+    print(file_names)
     dict_list = list()
+    degs = list()
+    # Compile regex for finding the degrees
+    deg_pattern = re.compile('.*_([0-9]+)_cond\.pkl')
+
     # Read each of the individual file dictionaries and store
+    # Also get the degree list
     for file_name in file_names:
         dict_list.append(np.load(file_name, allow_pickle=True))
-    
+        degs.append(int(re.findall(deg_pattern, file_name)[0]))
+
+    print(degs)
+    print(len(dict_list))
     # Put the first dictionary into the final dict
-    final_dict = {n:dict_list[0][n] for n in range(len(dict_list[0]))}
-
-    # Put the next dictionary into the final dict
-    for i in range(len(dict_list[1])):
-        final_dict[len(dict_list[0]) + i] = dict_list[1][i]
-
-    # Put the third dictionary into the final dict
-    for i in range(len(dict_list[2])):
-        final_dict[len(dict_list[0]) + len(dict_list[1]) + i] = dict_list[2][i]
+    final_dict = {deg:dictionary for deg, dictionary in zip(degs, dict_list)}
 
     # Print the final length (Debuging purposes)
     print('The resulting dictionary has the appropriate length: {}' \
