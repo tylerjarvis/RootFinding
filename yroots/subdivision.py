@@ -12,7 +12,7 @@ from yroots.OneDimension import divCheb,divPower,multCheb,multPower,solve
 from yroots.Division import division
 from yroots.Multiplication import multiplication
 from yroots.utils import clean_zeros_from_matrix, slice_top, MacaulayError, \
-                        get_var_list, ConditioningError, Tolerances
+                        get_var_list, ConditioningError, TooManyRoots, Tolerances
 from yroots.polynomial import MultiCheb
 from yroots.IntervalChecks import IntervalData
 from yroots.RootTracker import RootTracker
@@ -23,11 +23,11 @@ import itertools
 import time
 import warnings
 
-def solve(method, funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
+def solve(funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
           max_cond_num=1e5, good_zeros_factor=100, min_good_zeros_tol=1e-5,
           check_eval_error=True, check_eval_freq=1, plot=False,
           plot_intervals=False, deg=None, target_deg=None, max_level=999,
-          return_potentials=False):
+          return_potentials=False, method='svd'):
     '''
     Finds the real roots of the given list of functions on a given interval.
 
@@ -87,6 +87,9 @@ def solve(method, funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
         The maximum levels deep the recursion will go. Increasing it above 999 may result in recursion error!
     return_potentials : bool
         If True, returns the potential roots. Else, it does not.
+    method : str (optional)
+        The method to use when reducing the Macaulay matrix. Valid options are
+        svd, tvb, and qrt.
 
     If finding roots of a univariate function, `funcs` does not need to be a list,
     and `a` and `b` can be floats instead of arrays.
@@ -143,8 +146,8 @@ def solve(method, funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
         solve_func = subdivision_solve_nd
 
     #Initial Solve
-    solve_func(method, funcs, a, b, deg, target_deg, interval_data, \
-              root_tracker, tols, max_level)
+    solve_func(funcs, a, b, deg, target_deg, interval_data, \
+              root_tracker, tols, max_level, method=method)
     root_tracker.keep_possible_duplicates()
 
     #Polishing
@@ -153,7 +156,7 @@ def solve(method, funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
         interval_data.add_polish_intervals(polish_intervals)
         for new_a, new_b in polish_intervals:
             interval_data.start_polish_interval()
-            solve_func(method,funcs,new_a,new_b,deg,interval_data,root_tracker,tols,max_level)
+            solve_func(funcs,new_a,new_b,deg,interval_data,root_tracker,tols,max_level,method=method)
             root_tracker.keep_possible_duplicates()
     print("\rPercent Finished: 100%{}".format(' '*50))
 
@@ -176,9 +179,7 @@ def solve(method, funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
     if return_potentials:
         return root_tracker.roots, root_tracker.potential_roots
     else:
-        return root_tracker.roots, interval_data.cond, interval_data.backcond, \
-               root_tracker.conds, root_tracker.grads, interval_data.total_intervals,\
-               [np.prod(b - a) for a, b in root_tracker.intervals]
+        return root_tracker.roots
 
 def transform(x,a,b):
     """Transforms points from the interval [-1,1] to the interval [a,b].
@@ -488,7 +489,7 @@ def full_cheb_approximate(f,a,b,deg,abs_approx_tol,rel_approx_tol,good_deg=None)
     else:
         return coeff, bools, inf_norm, error
 
-def good_zeros_nd(zeros, conds, grads, imag_tol, real_tol):
+def good_zeros_nd(zeros, imag_tol, real_tol):
     """Get the real zeros in the -1 to 1 interval in each dimension.
 
     Parameters
@@ -514,12 +515,7 @@ def good_zeros_nd(zeros, conds, grads, imag_tol, real_tol):
         mask = np.all(np.abs(zeros.imag) <= imag_tol,axis = 1)
         mask *= np.all(np.abs(zeros) <= 1 + real_tol,axis = 1)
 
-    # Cast conds to be a numpy array so that the mask works even with
-    # only 1 element
-    conds = np.array(conds)
-    grads = np.array(grads)
-
-    return zeros[mask].real, conds[mask], grads[mask]
+    return zeros[mask].real
 
 def solve_linear(coeffs):
     """Finds the roots when the coeffs are **all** linear.
@@ -603,7 +599,7 @@ def getAbsApproxTol(func, deg, a, b):
     numSpots = (deg*2)**len(a) - (deg)**len(a)
     return np.max(tols)*10 / numSpots
 
-def subdivision_solve_nd(method,funcs,a,b,deg,target_deg,interval_data,root_tracker,tols,max_level,good_degs=None,level=0):
+def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tols,max_level,good_degs=None,level=0, method='svd'):
     """Finds the common zeros of the given functions.
 
     All the zeros will be stored in root_tracker.
@@ -632,6 +628,9 @@ def subdivision_solve_nd(method,funcs,a,b,deg,target_deg,interval_data,root_trac
         Interpoation degrees that are guaranteed to give an approximation valid to within approx_tol.
     level : int
         The current level of the recursion.
+    method : str (optional)
+        The method to use when reducing the Macaulay matrix. Valid options are
+        svd, tvb, and qrt.
     """
     if level >= max_level:
         # TODO Refine case where there may be a root and it goes too deep.
@@ -663,7 +662,7 @@ def subdivision_solve_nd(method,funcs,a,b,deg,target_deg,interval_data,root_trac
         if coeff is None:
             intervals = get_subintervals(a,b,change_sign,None,None,None,approx_errors)
             for new_a, new_b in intervals:
-                subdivision_solve_nd(method,funcs,new_a,new_b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=level+1)
+                subdivision_solve_nd(funcs,new_a,new_b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=level+1, method=method)
             return
         else:
             #if the function changes sign on at least one subinterval, skip the checks
@@ -686,15 +685,15 @@ def subdivision_solve_nd(method,funcs,a,b,deg,target_deg,interval_data,root_trac
     #Check if everything is linear
     if np.all(np.array([coeff.shape[0] for coeff in coeffs]) == 2):
         if deg != 2:
-            subdivision_solve_nd(method,funcs,a,b,2,target_deg,interval_data,root_tracker,tols,max_level,good_degs,level)
+            subdivision_solve_nd(funcs,a,b,2,target_deg,interval_data,root_tracker,tols,max_level,good_degs,level, method=method)
             return
         zero, cond = solve_linear(coeffs)
         grad = [MultiCheb(c).grad(zero) for c in coeffs]
         #Store the information and exit
-        zero, cond, grad = good_zeros_nd(zero,cond,grad,good_zeros_tol,good_zeros_tol)
+        zero = good_zeros_nd(zero,good_zeros_tol,good_zeros_tol)
         zero = transform(zero,a,b)
         interval_data.track_interval("Base Case", [a,b])
-        root_tracker.add_roots(zero, cond, grad, a, b, "Base Case")
+        root_tracker.add_roots(zero, a, b, "Base Case")
 
     #Check if anything is linear
 #     elif np.any(np.array([coeff.shape[0] for coeff in coeffs]) == 2):
@@ -707,25 +706,23 @@ def subdivision_solve_nd(method,funcs,a,b,deg,target_deg,interval_data,root_trac
     elif np.any(np.array([coeff.shape[0] for coeff in coeffs]) > target_deg) or not good_approx:
         intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
         for new_a, new_b in intervals:
-            subdivision_solve_nd(method,funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1)
+            subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method)
 
     #Solve using spectral methods if stable.
     else:
         polys = [MultiCheb(coeff, lead_term = [coeff.shape[0]-1], clean_zeros = False) for coeff in coeffs]
         try:
-            zeros,cond,backcond,cond_eig = multiplication(polys, max_cond_num=tols.max_cond_num, method=method)
+            zeros = multiplication(polys, max_cond_num=tols.max_cond_num, method=method)
             grad = [[poly.grad(z) for poly in polys] for z in zeros]
-            interval_data.cond     =  max(cond,    interval_data.cond)
-            interval_data.backcond =  max(backcond,interval_data.backcond)
-            zeros,cond_eig,grad = good_zeros_nd(zeros,cond_eig,grad,good_zeros_tol,good_zeros_tol)
+            zeros = good_zeros_nd(zeros,good_zeros_tol,good_zeros_tol)
             zeros = transform(zeros,a,b)
-            interval_data.track_interval("Spectral", [a,b])
-            root_tracker.add_roots(zeros,cond_eig,grad, a, b, "Spectral")
-        except ConditioningError as e:
+            interval_data.track_interval("Macaulay", [a,b])
+            root_tracker.add_roots(zeros, a, b, "Macaulay")
+        except (ConditioningError, TooManyRoots) as e:
             #Subdivide but run some checks on the intervals first
             intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
             for new_a, new_b in intervals:
-                subdivision_solve_nd(method,funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1)
+                subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method)
 
 def trim_coeffs(coeffs, abs_approx_tol, rel_approx_tol, inf_norms, errors):
     """Trim the coefficient matrices so they are stable and choose a direction to divide in.
@@ -890,7 +887,7 @@ def good_zeros_1d(zeros, imag_tol, real_tol):
     zeros = zeros[np.where(np.abs(zeros.imag) < imag_tol)]
     return zeros.real
 
-def subdivision_solve_1d(f,a,b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=0):
+def subdivision_solve_1d(f,a,b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=0,method='svd'):
     """Finds the roots of a one-dimensional function using subdivision and chebyshev approximation.
 
     Parameters
@@ -946,7 +943,7 @@ def subdivision_solve_1d(f,a,b,deg,target_deg,interval_data,root_tracker,tols,ma
             zeros = transform(good_zeros_1d(multCheb(coeff),good_zeros_tol,good_zeros_tol),a,b)
             interval_data.track_interval("Macaulay", [a,b])
             root_tracker.add_roots(zeros, a, b, "Macaulay")
-        except ConditioningError as e:
+        except (ConditioningError, TooManyRoots) as e:
             div_spot = a + (b-a)*RAND
             subdivision_solve_1d(f,a,div_spot,deg, target_deg,interval_data,root_tracker,tols,max_level,level+1)
             subdivision_solve_1d(f,div_spot,b,deg, target_deg,interval_data,root_tracker,tols,max_level,level+1)

@@ -7,11 +7,12 @@ from yroots.MacaulayReduce import reduce_macaulay_qrt, find_degree, \
                               add_polys, reduce_macaulay_tvb, reduce_macaulay_svd
 from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list, \
                               mon_combos, mon_combosHighest, sort_polys_by_degree, \
-                              deg_d_polys, all_permutations_cheb, ConditioningError, newton_polish, condeigs
+                              deg_d_polys, all_permutations_cheb, ConditioningError,\
+                              newton_polish, condeigs, TooManyRoots
 import warnings
 from scipy.stats import ortho_group
 
-def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,method='qrt'):
+def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,method='svd'):
     '''
     Finds the roots of the given list of multidimensional polynomials using a multiplication matrix.
 
@@ -32,6 +33,7 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
     Raises
     ------
     ConditioningError if reduce_macaulay() raises a ConditioningError.
+    TooManyRoots if the macaulay matrix returns more roots than the Bezout bound.
     '''
     #We don't want to use Linear Projection right now
 #    polys, transform, is_projected = polys, lambda x:x, False
@@ -83,12 +85,13 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
     roots,cond_eig = msroots(M)
 
     # Check if too many roots
-    assert roots.shape[0] <= max_number_of_roots,"Found too many roots,{}/{}/{}:{}".format(roots.shape,max_number_of_roots, degrees,roots)
+    if roots.shape[0] > max_number_of_roots:
+        raise TooManyRoots("Found too many roots,{}/{}/{}:{}".format(roots.shape,max_number_of_roots, degrees,roots))
     if return_all_roots:
-        return roots,cond,cond_back,cond_eig
+        return roots
     else:
         # only return roots in the unit complex hyperbox
-        return roots[np.all(np.abs(roots) <= 1,axis = 0)],cond,cond_back,cond_eig
+        return roots[np.all(np.abs(roots) <= 1,axis = 0)]
 
 def indexarray(matrix_terms,m,var):
     """Compute the array mapping monomials under multiplication by x_var

@@ -60,7 +60,7 @@ class RootTracker:
         self.conds = []
         self.grads = []
 
-    def add_roots(self, zeros, conds, grads, a, b, method):
+    def add_roots(self, zeros, a, b, method):
         ''' Store the roots that were found, along with the interval they were found in and the method used.
 
         Parameters
@@ -76,7 +76,7 @@ class RootTracker:
         '''
         for i,zero in enumerate(zeros):
             if rootInBox(zero, a, b):
-                self.add_root(zero, conds[i], grads[i], a, b, method)
+                self.add_root(zero, a, b, method)
             else:
                 found = False
                 for a_,b_ in self.intervals:
@@ -112,7 +112,7 @@ class RootTracker:
 #         self.intervals += [(a,b)]*len(zeros)
 #         self.methods += [method]*len(zeros)
 
-    def add_root(self, zero, cond, grad, a, b, method):
+    def add_root(self, zero, a, b, method):
         ''' Store the root that was found, along with the interval it was found in and the method used.
 
         Parameters
@@ -135,11 +135,8 @@ class RootTracker:
                 self.roots = np.zeros([0])
             else:
                 self.roots = np.zeros([0,dim])
-                self.conds.append(cond)
         if dim > 1:
             self.roots = np.vstack([self.roots, zero])
-            self.conds.append(cond)
-            self.grads.append(grad)
         else:
             self.roots = np.hstack([self.roots, zero])
         self.intervals += [(a,b)]
@@ -198,5 +195,5 @@ class RootTracker:
         '''
         for zero, a, b, method in self.possible_duplicates:
             # Pass in None for the condition number since we don't have it
-            self.add_root(zero, None, None, a, b, method)
+            self.add_root(zero, a, b, method)
         self.possible_duplicates = []

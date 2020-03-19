@@ -189,7 +189,7 @@ class IntervalData:
         Parameters
         ----------
         name : string
-            The name of the check or process (Spectral, Base Case, Too Deep) that solved this interval
+            The name of the check or process (Macaulay, Base Case, Too Deep) that solved this interval
         interval: list
             [a,b] where a and b are the lower and upper bound of the interval to track.
         '''

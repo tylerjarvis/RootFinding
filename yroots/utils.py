@@ -24,6 +24,19 @@ class ConditioningError(Exception):
     def __init__(self, message):
         self.message = message
 
+class TooManyRoots(Exception):
+    """Raised when the number of roots found by the Macaulay matrix exceeds the
+    Bezout bound.
+    
+    Attributes
+    ----------
+    message : str
+        A message describing the error that occurred.
+    """
+
+    def __init__(self, message):
+        self.message = message
+
 class Term(object):
     '''
     Terms are just tuples of exponents with the grevlex ordering
