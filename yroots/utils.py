@@ -1,7 +1,7 @@
 # A collection of functions used in the F4 Macaulay and TVB solvers
 import numpy as np
 import itertools
-from scipy.linalg import qr, solve_triangular
+from scipy.linalg import qr, solve_triangular, svd, norm, eig
 from scipy.special import comb
 import time
 
@@ -1320,3 +1320,41 @@ class Tolerances:
             for name, val in zip(names, vals):
                 self.__setattr__(name, val)
             return True
+
+### Eigenvalue/vector conditioning ###
+def condeig(A,eig,x,condvec=False):
+    """Estimates the condition number of an eigenvalue of A. Optionally
+    estimates the condition number of the eigenvector.
+    """
+    n = A.shape[0]
+    Q = householder(x)
+    B = ((Q.conj().T)@A@Q)
+    R = qr(B[1:,1:]-eig*np.eye(n-1),mode='r')[0]
+    v = solve_triangular(R,-B[0,1:],trans=2)
+    if condvec:
+        return (1+norm(v))**.5,1/(svd(R,compute_uv=False)[-1])
+    else:
+        return (1+norm(v))**.5
+
+def condeigs(A,w,v,condvec=False):
+    """Estimates the condition numbers of the eigenvalues of A. Optionally
+    estimates the condition numbers of the eigenvectors."""
+    n = A.shape[0]
+
+    if condvec: cond = np.empty((n,2))
+    else: cond = np.empty(n)
+
+    for i in range(n):
+        cond[i] = condeig(A,w[i],v[:,i],condvec)
+
+    if condvec: return cond[:,0],cond[:,1]
+    else: return cond
+
+def householder(x):
+    """Given a vector x, computes a Householder reflector Q such that the first
+    column of (Q^H)AQ is a multiple of e_1, whenever x is an eigenvector of A.
+    """
+    u = x.copy().astype('complex')
+    u[0] += np.exp(1j*np.angle(x[0]))*norm(x)
+    u = u/norm(u)
+    return np.eye(len(u)) - 2*np.outer(u,u.conj())

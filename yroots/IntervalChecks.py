@@ -95,6 +95,10 @@ class IntervalData:
         self.polish_interval_num = -1
         self.polish_a = np.array([])
         self.polish_b = np.array([])
+        
+        #for keeping track of condition numbers
+        self.cond = 0
+        self.backcond = 0
 
     def add_polish_intervals(self, polish_intervals):
         ''' Add the intervals that polishing will be run on.
@@ -214,6 +218,7 @@ class IntervalData:
         '''
         results_numbers = np.array([len(self.interval_results[name]) for name in self.interval_results])
         total_intervals = sum(results_numbers)
+        self.total_intervals = total_intervals
         checkers = [name for name in self.interval_results]
         print("Total intervals checked was {}".format(total_intervals))
         print("Methods used were {}".format(checkers))
@@ -290,8 +295,8 @@ class IntervalData:
                  zorder=22)        
         
 #         plt.plot(0.41589487873818587, -0.2682102425236283,'o',color='k',markeredgecolor='k',markersize=3,
-#                  zorder=22) 
-        
+#                  zorder=22)
+
         if print_plot:
             plt.savefig('intervals.pdf', bbox_inches='tight')
         plt.show()
