@@ -165,7 +165,7 @@ def reduce_macaulay_tvb(M, cut, max_cond=1e6):
     # Check condition number before first QR
     cond_num = np.linalg.cond(M[:,:cut])
     if cond_num > max_cond:
-        raise ConditioningError(f"Condition number of the Macaulay high-degree columns is {cond_num}")
+        raise ConditioningError("Condition number of the Macaulay high-degree columns is {}".format(cond_num))
 
     # QR reduce the highest-degree columns
     Q,M[:,:cut] = qr(M[:,:cut])
@@ -187,7 +187,7 @@ def reduce_macaulay_tvb(M, cut, max_cond=1e6):
     # Check condition number before backsolve
     cond_num_back = np.linalg.cond(M[:,:rank])
     if cond_num_back > max_cond:
-        raise ConditioningError(f"Condition number of the Macaulay primary submatrix is {cond_num_back}")
+        raise ConditioningError("Condition number of the Macaulay primary submatrix is {}".format(cond_num_back))
 
     return solve_triangular(M[:rank,:rank],M[:rank,rank:]),P, cond_num, cond_num_back
 
@@ -195,7 +195,7 @@ def reduce_macaulay_p(M, cut, P, max_cond=1e6):
     # Check condition number before first QR
     cond_num = np.linalg.cond(M[:,:cut])
     if cond_num > max_cond:
-        raise ConditioningError(f"Condition number of the Macaulay high-degree columns is {cond_num}")
+        raise ConditioningError("Condition number of the Macaulay high-degree columns is {}".format(cond_num))
 
     # QR reduce the highest-degree columns
     Q,M[:,:cut] = qr(M[:,:cut])
@@ -216,7 +216,7 @@ def reduce_macaulay_p(M, cut, P, max_cond=1e6):
     # Check condition number before backsolve
     cond_num_back = np.linalg.cond(M[:,:cut])
     if cond_num_back > max_cond:
-        raise ConditioningError(f"Condition number of the Macaulay primary submatrix is {cond_num}")
+        raise ConditioningError("Condition number of the Macaulay primary submatrix is {}".format(cond_num))
 
     return solve_triangular(M[:rank,:rank],M[:rank,rank:]),P, cond_num, cond_num_back
 
