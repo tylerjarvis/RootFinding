@@ -33,13 +33,13 @@ def solve(method, tol_set, funcs, a, b, plot=False):
         TimeoutError if the solver takes more than a minute to solve. Returns -1 in this case.
     """
     rel_approx_tol, abs_approx_tol, max_cond_num, min_good_zeros_tol, \
-    good_zeros_factor, deg = tol_set
+    good_zeros_factor, deg, target_deg = tol_set
     return yr.solve(method, funcs, a, b, rel_approx_tol=rel_approx_tol,
                     abs_approx_tol=abs_approx_tol,
                     max_cond_num=max_cond_num, #trim_zero_tol=trim_zero_tol,
                     min_good_zeros_tol=min_good_zeros_tol,
                     good_zeros_factor=good_zeros_factor, plot=plot,
-                    deg=deg, target_deg=deg, check_eval_error=False)
+                    deg=deg, target_deg=target_deg, check_eval_error=False)
 
 def timeIt(method, tol_set, funcs, a=np.array([-1,-1]), b=np.array([1,1]), trials=5):
         """ Runs the test multiple times and takes the average of the times.
@@ -510,31 +510,23 @@ if __name__ == "__main__":
     max_cond_num = [10.**i for i in [3,5,7,9]] # 3
     good_zeros_tol = [10.**-i for i in range(5,6)] # 1
     # deg = [9, 16] # 2
-    # target_deg = [5, 9] # 2
-
-    #deg = list()
+    target_deg = [1, 2, 3, 4, 5] # 2
 
     # Choose what degree based on what's passed in.
     deg = [int(sys.argv[2])]
-    #if sys.argv[2] == '1':
-    #    deg = [3, 5]
-    #elif sys.argv[2] == '2':
-    #    deg = [9, 12, 16]
-    #elif sys.argv[2] == '3':
-    #    deg = [20, 25]
 
     good_zero_factor = [100] # 1
 
     tols_to_test = [rel_approx_tol, abs_approx_tol, #trim_zero_tol,
                     max_cond_num, good_zeros_tol,
-                    good_zero_factor, deg]
+                    good_zero_factor, deg, target_deg]
 
     total_tols_to_test = np.prod([len(t) for t in tols_to_test])
     print('Testing ' + str(total_tols_to_test) + ' tolerances')
 
     possible_tols = list(product(rel_approx_tol, abs_approx_tol, #trim_zero_tol,
                         max_cond_num, good_zeros_tol,
-                        good_zero_factor, deg))
+                        good_zero_factor, deg, target_deg))
 
     results_dict = {n:dict() for n in range(len(possible_tols))}
     for n, tol_set in enumerate(possible_tols):
