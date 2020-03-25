@@ -24,9 +24,9 @@ import time
 import warnings
 
 def solve(method, funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
-          max_cond_num=1e5, good_zeros_factor=100, min_good_zeros_tol=1e-5,
+          max_cond_num=1e3, good_zeros_factor=100, min_good_zeros_tol=1e-5,
           check_eval_error=True, check_eval_freq=1, plot=False,
-          plot_intervals=False, deg=None, target_deg=None, max_level=999,
+          plot_intervals=False, approx_deg=25, target_deg=3, max_level=999,
           return_potentials=False):
     '''
     Finds the real roots of the given list of functions on a given interval.
@@ -107,17 +107,17 @@ def solve(method, funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
     b = np.float64(b)
 
     # Choose an appropriate max degree for the given dimension if none is specified.
-    if deg is None:
+    if approx_deg is None:
         deg_dim = {1: 50, 2:9, 3:5, 4:3}
         if dim > 4:
-            deg = 2
+            approx_deg = 2
         else:
-            deg = deg_dim[dim]
+            approx_deg = deg_dim[dim]
 
     # Choose an appropriate target degree if none is specified
     if target_deg is None:
         if dim != 2:
-            target_deg = deg
+            target_deg = approx_deg
         else:
             target_deg = 5
 
@@ -143,7 +143,7 @@ def solve(method, funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
         solve_func = subdivision_solve_nd
 
     #Initial Solve
-    solve_func(method, funcs, a, b, deg, target_deg, interval_data, \
+    solve_func(method, funcs, a, b, approx_deg, target_deg, interval_data, \
               root_tracker, tols, max_level)
     root_tracker.keep_possible_duplicates()
 
@@ -153,7 +153,7 @@ def solve(method, funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
         interval_data.add_polish_intervals(polish_intervals)
         for new_a, new_b in polish_intervals:
             interval_data.start_polish_interval()
-            solve_func(method,funcs,new_a,new_b,deg,interval_data,root_tracker,tols,max_level)
+            solve_func(method,funcs,new_a,new_b,approx_deg,interval_data,root_tracker,tols,max_level)
             root_tracker.keep_possible_duplicates()
     print("\rPercent Finished: 100%{}".format(' '*50))
 
@@ -728,7 +728,9 @@ def subdivision_solve_nd(method,funcs,a,b,deg,target_deg,interval_data,root_trac
                 subdivision_solve_nd(method,funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1)
 
 def trim_coeffs(coeffs, abs_approx_tol, rel_approx_tol, inf_norms, errors):
-    """Trim the coefficient matrices so they are stable and choose a direction to divide in.
+    """ Trim the coefficients of the Chebyshev approximations so that the tensor
+    is 'triangular'; that is, the total degree is equal to approx_deg and not
+    n*approx_deg.
 
     Parameters
     ----------

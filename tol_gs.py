@@ -33,13 +33,13 @@ def solve(method, tol_set, funcs, a, b, plot=False):
         TimeoutError if the solver takes more than a minute to solve. Returns -1 in this case.
     """
     rel_approx_tol, abs_approx_tol, max_cond_num, min_good_zeros_tol, \
-    good_zeros_factor, deg, target_deg = tol_set
+    good_zeros_factor, approx_deg, target_deg = tol_set
     return yr.solve(method, funcs, a, b, rel_approx_tol=rel_approx_tol,
                     abs_approx_tol=abs_approx_tol,
                     max_cond_num=max_cond_num, #trim_zero_tol=trim_zero_tol,
                     min_good_zeros_tol=min_good_zeros_tol,
                     good_zeros_factor=good_zeros_factor, plot=plot,
-                    deg=deg, target_deg=target_deg, check_eval_error=False)
+                    approx_deg=approx_deg, target_deg=target_deg, check_eval_error=True)
 
 def timeIt(method, tol_set, funcs, a=np.array([-1,-1]), b=np.array([1,1]), trials=5):
         """ Runs the test multiple times and takes the average of the times.
@@ -512,21 +512,21 @@ if __name__ == "__main__":
     # deg = [9, 16] # 2
     target_deg = [1, 2, 3, 4, 5] # 2
 
-    # Choose what degree based on what's passed in.
-    deg = [int(sys.argv[2])]
+    # Choose what approx_degree based on what's passed in.
+    approx_deg = [int(sys.argv[2])]
 
     good_zero_factor = [100] # 1
 
     tols_to_test = [rel_approx_tol, abs_approx_tol, #trim_zero_tol,
                     max_cond_num, good_zeros_tol,
-                    good_zero_factor, deg, target_deg]
+                    good_zero_factor, approx_deg, target_deg]
 
     total_tols_to_test = np.prod([len(t) for t in tols_to_test])
     print('Testing ' + str(total_tols_to_test) + ' tolerances')
 
     possible_tols = list(product(rel_approx_tol, abs_approx_tol, #trim_zero_tol,
                         max_cond_num, good_zeros_tol,
-                        good_zero_factor, deg, target_deg))
+                        good_zero_factor, approx_deg, target_deg))
 
     results_dict = {n:dict() for n in range(len(possible_tols))}
     for n, tol_set in enumerate(possible_tols):
