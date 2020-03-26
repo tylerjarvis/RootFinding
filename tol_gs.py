@@ -505,13 +505,12 @@ if __name__ == "__main__":
     test_num_dict = {n+1:test_nums[n] for n in range(num_tests)}
 
     # Define all the tolerances to try
-    rel_approx_tol = [10.**-i for i in [12]]
-    abs_approx_tol = [10.**-12]
+    rel_approx_tol = [1e-8]
+    abs_approx_tol = [1e-12]
     max_cond_num = [10.**i for i in [7,9]]
-    good_zeros_tol = [10.**-5] 
+    good_zeros_tol = [1e-5] 
     good_zero_factor = [100]
-    # target_deg = [1, 2, 3, 4, 5] 
-    target_deg = [3]
+    target_deg = [1, 2, 3, 4, 5] 
 
     # Choose what approx_degree based on what's passed in.
     approx_deg = [int(sys.argv[2])]
