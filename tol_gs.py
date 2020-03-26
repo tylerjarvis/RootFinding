@@ -36,10 +36,11 @@ def solve(method, tol_set, funcs, a, b, plot=False):
     good_zeros_factor, approx_deg, target_deg = tol_set
     return yr.solve(method, funcs, a, b, rel_approx_tol=rel_approx_tol,
                     abs_approx_tol=abs_approx_tol,
-                    max_cond_num=max_cond_num, #trim_zero_tol=trim_zero_tol,
+                    max_cond_num=max_cond_num,
                     min_good_zeros_tol=min_good_zeros_tol,
                     good_zeros_factor=good_zeros_factor, plot=plot,
-                    approx_deg=approx_deg, target_deg=target_deg, check_eval_error=True)
+                    approx_deg=approx_deg, target_deg=target_deg, 
+                    check_eval_error=True)
 
 def timeIt(method, tol_set, funcs, a=np.array([-1,-1]), b=np.array([1,1]), trials=5):
         """ Runs the test multiple times and takes the average of the times.
@@ -471,7 +472,7 @@ def test_roots_10(method, tol_set):
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("The script requires 2 arguments: method (Macaulay reduction method) and 1, 2, or 3 to determine which range of degrees to test.")
+        print("The script requires 2 arguments: method (Macaulay reduction method) and the approx_degree to test.")
     method = sys.argv[1]
     # Put all the tests in a list
     tests = [test_roots_1_1,test_roots_1_2,test_roots_1_3,
@@ -487,7 +488,7 @@ if __name__ == "__main__":
             test_roots_9_1,test_roots_9_2,
             test_roots_10]
 
-    test_nums =[1.1, 1.2, 1.3, 1.4,1.5,
+    test_nums =[1.1, 1.2, 1.3, 1.4, 1.5,
                 2.1, 2.2, 2.3, 2.4, 2.5,
                 3.1, 3.2,
                 4.1, 4.2,
@@ -504,27 +505,26 @@ if __name__ == "__main__":
     test_num_dict = {n+1:test_nums[n] for n in range(num_tests)}
 
     # Define all the tolerances to try
-    rel_approx_tol = [10.**-i for i in [8, 12, 15]] # 2
-    abs_approx_tol = [10.**-12] #[10.**-i for i in [12, 15]] # 2
-    # trim_zero_tol = [10.**-i for i in range(10,11)] # 1
-    max_cond_num = [10.**i for i in [3,5,7,9]] # 3
-    good_zeros_tol = [10.**-i for i in range(5,6)] # 1
-    # deg = [9, 16] # 2
-    target_deg = [1, 2, 3, 4, 5] # 2
+    rel_approx_tol = [10.**-i for i in [12]]
+    abs_approx_tol = [10.**-12]
+    max_cond_num = [10.**i for i in [7,9]]
+    good_zeros_tol = [10.**-5] 
+    good_zero_factor = [100]
+    # target_deg = [1, 2, 3, 4, 5] 
+    target_deg = [3]
 
     # Choose what approx_degree based on what's passed in.
     approx_deg = [int(sys.argv[2])]
 
-    good_zero_factor = [100] # 1
-
-    tols_to_test = [rel_approx_tol, abs_approx_tol, #trim_zero_tol,
+    tols_to_test = [rel_approx_tol, abs_approx_tol,
                     max_cond_num, good_zeros_tol,
-                    good_zero_factor, approx_deg, target_deg]
+                    good_zero_factor, approx_deg, 
+                    target_deg]
 
     total_tols_to_test = np.prod([len(t) for t in tols_to_test])
     print('Testing ' + str(total_tols_to_test) + ' tolerances')
 
-    possible_tols = list(product(rel_approx_tol, abs_approx_tol, #trim_zero_tol,
+    possible_tols = list(product(rel_approx_tol, abs_approx_tol,
                         max_cond_num, good_zeros_tol,
                         good_zero_factor, approx_deg, target_deg))
 
