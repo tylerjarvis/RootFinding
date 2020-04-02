@@ -23,10 +23,10 @@ import itertools
 import time
 import warnings
 
-def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
+def solve(funcs, a, b, rel_approx_tol=1.e-12, abs_approx_tol=1.e-8,
           max_cond_num=1e7, good_zeros_factor=100, min_good_zeros_tol=1e-5,
           check_eval_error=True, check_eval_freq=1, plot=False,
-          plot_intervals=False, deg=25, target_deg=3, max_level=999,
+          plot_intervals=False, deg=9, target_deg=5, max_level=999,
           return_potentials=False, method='svd'):
     '''
     Finds the real roots of the given list of functions on a given interval.
