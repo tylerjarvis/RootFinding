@@ -23,10 +23,10 @@ import itertools
 import time
 import warnings
 
-def solve(funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
-          max_cond_num=1e5, good_zeros_factor=100, min_good_zeros_tol=1e-5,
+def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
+          max_cond_num=1e7, good_zeros_factor=100, min_good_zeros_tol=1e-5,
           check_eval_error=True, check_eval_freq=1, plot=False,
-          plot_intervals=False, deg=None, target_deg=None, max_level=999,
+          plot_intervals=False, deg=25, target_deg=3, max_level=999,
           return_potentials=False, method='svd'):
     '''
     Finds the real roots of the given list of functions on a given interval.
@@ -156,8 +156,8 @@ def solve(funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-12,
         interval_data.add_polish_intervals(polish_intervals)
         for new_a, new_b in polish_intervals:
             interval_data.start_polish_interval()
-            solve_func(funcs,new_a,new_b,deg,interval_data,root_tracker,tols,max_level,method=method)
-            root_tracker.keep_possible_duplicates()
+            solve_func(funcs,new_a,new_b,deg,target_deg,interval_data,root_tracker,tols,max_level,method=method)
+            root_tracker.keep_possible_duplicates(), 
     print("\rPercent Finished: 100%{}".format(' '*50))
 
     #Print results
