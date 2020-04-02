@@ -74,7 +74,7 @@ class RootTracker:
         method : string
             The method used to find the roots
         '''
-        for i,zero in enumerate(zeros):
+        for zero in zeros:
             if rootInBox(zero, a, b):
                 self.add_root(zero, a, b, method)
             else:
