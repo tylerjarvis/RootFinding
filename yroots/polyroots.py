@@ -6,7 +6,7 @@ from yroots.Division import division
 from yroots.Multiplication import multiplication
 from yroots.utils import Term, get_var_list, divides, MacaulayError, InstabilityWarning, match_size, match_poly_dimensions
 
-def solve(polys,MSmatrix=0, eigvals=True, verbose=False, return_all_roots=True, max_cond_num=1.e6, macaulay_zero_tol=1.e-12):
+def solve(polys,MSmatrix=0, eigvals=True, verbose=False, return_all_roots=True, max_cond_num=1.e6, macaulay_zero_tol=1.e-12,method='svd'):
     '''
     Finds the roots of the given list of polynomials.
 
@@ -65,7 +65,4 @@ def solve(polys,MSmatrix=0, eigvals=True, verbose=False, return_all_roots=True, 
                 zeros = common
             return zeros
     else:
-        if MSmatrix < 0:
-            return division(polys, verbose=verbose, divisor_var=-MSmatrix-1, return_all_roots=return_all_roots, max_cond_num=max_cond_num, macaulay_zero_tol=macaulay_zero_tol)
-        else:
-            return multiplication(polys, verbose=verbose, MSmatrix=MSmatrix, return_all_roots=return_all_roots, max_cond_num=max_cond_num, macaulay_zero_tol=macaulay_zero_tol)
+        return multiplication(polys, max_cond_num=max_cond_num, verbose=verbose, return_all_roots=return_all_roots,method=method)

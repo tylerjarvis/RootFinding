@@ -8,26 +8,25 @@ import time
 
 from numba import jit
 
-@jit(cache=True)
+# @jit(cache=True)
 def polyval(x, cc): #pragma: no cover
     c0 = cc[-1]
     for i in range(2, len(cc) + 1):
         c0 = cc[-i] + c0*x
     return c0
 
-@jit(cache=True)
+# @jit(cache=True)
 def polyval2(x, cc): #pragma: no cover
-    cc = cc.reshape(cc.shape + (1,)*x.ndim)
     c0 = cc[-1]
     for i in range(2, len(cc) + 1):
         c0 = cc[-i] + c0*x
     return c0
 
-@jit(cache=True)
+# @jit(cache=True)
 def chebval(x, cc): #pragma: no cover
     if len(cc) == 1:
         c0 = cc[0]
-        c1 = 0
+        c1 = np.zeros_like(c0)
     elif len(cc) == 2:
         c0 = cc[0]
         c1 = cc[1]
@@ -41,12 +40,11 @@ def chebval(x, cc): #pragma: no cover
             c1 = tmp + c1*x2
     return c0 + c1*x
 
-@jit(cache=True)
+# @jit(cache=True)
 def chebval2(x, cc): #pragma: no cover
-    cc = cc.reshape(cc.shape + (1,)*x.ndim)
     if len(cc) == 1:
         c0 = cc[0]
-        c1 = 0
+        c1 = np.zeros_like(c0)
     elif len(cc) == 2:
         c0 = cc[0]
         c1 = cc[1]
@@ -60,7 +58,7 @@ def chebval2(x, cc): #pragma: no cover
             c1 = tmp + c1*x2
     return c0 + c1*x
 
-def getPoly(deg,dim,power):
+def getPoly(deg,dim,power,pcnt_sparse=None,integer=False,maxint=10):
     '''
     A helper function for testing. Returns a random upper triangular polynomial of the given dimension and degree.
     power is a boolean indicating whether or not the polynomial should be MultiPower.
@@ -68,7 +66,14 @@ def getPoly(deg,dim,power):
     deg += 1
     # ACoeff = np.random.random_sample(deg*np.ones(dim, dtype = int))
     dimensions = (deg,)*dim
-    ACoeff = np.random.randn(*dimensions)
+    if integer:
+        ACoeff = np.random.randint(0,maxint,size=dimensions)
+    else:
+        ACoeff = np.random.randn(*dimensions)
+    if pcnt_sparse is not None:
+        idx = np.random.choice(np.arange(ACoeff.size),replace=False,size=int(ACoeff.size * pcnt_sparse))
+        idx = np.unravel_index(idx,dimensions)
+        ACoeff[idx] = 0
     for i,j in np.ndenumerate(ACoeff):
         if np.sum(i) >= deg:
             ACoeff[i] = 0
@@ -138,6 +143,11 @@ class Polynomial(object):
         '''
         if isinstance(coeff,np.ndarray):
             self.coeff = coeff
+            # If coeff has integer coefficients, 
+            # cast as numpy floats for jit compilation
+            if coeff.dtype == np.int32 or coeff.dtype == np.int64:
+                coeff = coeff.astype(np.float64)
+        
         elif isinstance(coeff,str):
             self.coeff = makePolyCoeffMatrix(coeff)
         elif isinstance(coeff, tuple):
@@ -514,7 +524,8 @@ class MultiCheb(Polynomial):
 
         c = self.coeff
         n = c.ndim
-        c = chebval2(points[:,0],c)
+        cc = c.reshape(c.shape + (1,)*points.ndim)
+        c = chebval2(points[:,0],cc)
         for i in range(1,n):
             c = chebval(points[:,i],c)
         if len(c) == 1:
@@ -543,7 +554,8 @@ class MultiCheb(Polynomial):
 
         c = self.coeff
         for i in range(xyz.shape[1]):
-            c = chebval2(xyz[:,i] ,c)
+            cc = c.reshape(c.shape + (1,)*xyz[:,i].ndim)
+            c = chebval2(xyz[:,i] ,cc)
 
         if np.product(c.shape)==1:
             return c[0]
@@ -775,7 +787,8 @@ class MultiPower(Polynomial):
 
         c = self.coeff
         n = c.ndim
-        c = polyval2(points[:,0],c)
+        cc = c.reshape(c.shape + (1,)*points.ndim)
+        c = polyval2(points[:,0],cc)
         for i in range(1,n):
             c = polyval(points[:,i],c)
         if len(c) == 1:
@@ -804,7 +817,8 @@ class MultiPower(Polynomial):
 
         c = self.coeff
         for i in range(xyz.shape[1]):
-            c = polyval2(xyz[:,i] ,c)
+            cc = c.reshape(c.shape + (1,)*xyz[:,i].ndim)
+            c = polyval2(xyz[:,i] ,cc)
 
         if np.product(c.shape)==1:
             return c[0]

@@ -82,7 +82,7 @@ class IntervalData:
         for check in self.subinterval_checks:
             self.interval_results[check.__name__] = []
         self.interval_results["Base Case"] = []
-        self.interval_results["Spectral"] = []
+        self.interval_results["Macaulay"] = []
         self.interval_results["Too Deep"] = []
         self.total_area = np.prod(self.b-self.a)
         self.current_area = 0.
@@ -95,6 +95,10 @@ class IntervalData:
         self.polish_interval_num = -1
         self.polish_a = np.array([])
         self.polish_b = np.array([])
+        
+        #for keeping track of condition numbers
+        self.cond = 0
+        self.backcond = 0
 
     def add_polish_intervals(self, polish_intervals):
         ''' Add the intervals that polishing will be run on.
@@ -185,7 +189,7 @@ class IntervalData:
         Parameters
         ----------
         name : string
-            The name of the check or process (Spectral, Base Case, Too Deep) that solved this interval
+            The name of the check or process (Macaulay, Base Case, Too Deep) that solved this interval
         interval: list
             [a,b] where a and b are the lower and upper bound of the interval to track.
         '''
@@ -214,6 +218,7 @@ class IntervalData:
         '''
         results_numbers = np.array([len(self.interval_results[name]) for name in self.interval_results])
         total_intervals = sum(results_numbers)
+        self.total_intervals = total_intervals
         checkers = [name for name in self.interval_results]
         print("Total intervals checked was {}".format(total_intervals))
         print("Methods used were {}".format(checkers))
@@ -286,12 +291,12 @@ class IntervalData:
 
         #Plot the zeros
         if len(zeros) > 0:
-            plt.plot(np.real(zeros[:,0]), np.real(zeros[:,1]),'o',color='#ffff00',markeredgecolor='#ffff00',markersize=3,
+            plt.plot(np.real(zeros[:,0]), np.real(zeros[:,1]),'o',color='#ff0000',markeredgecolor='#ff0000',markersize=3,
                  zorder=22)        
         
 #         plt.plot(0.41589487873818587, -0.2682102425236283,'o',color='k',markeredgecolor='k',markersize=3,
-#                  zorder=22) 
-        
+#                  zorder=22)
+
         if print_plot:
             plt.savefig('intervals.pdf', bbox_inches='tight')
         plt.show()
