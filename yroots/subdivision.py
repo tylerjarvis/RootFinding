@@ -27,7 +27,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-8,
           max_cond_num=1e7, good_zeros_factor=100, min_good_zeros_tol=1e-5,
           check_eval_error=True, check_eval_freq=1, plot=False,
           plot_intervals=False, deg=25, target_deg=4, max_level=999,
-          return_potentials=False, method='svd'):
+          return_potentials=False, method='svd', target_tol=1e-15):
     '''
     Finds the real roots of the given list of functions on a given interval.
 
@@ -131,7 +131,8 @@ def solve(funcs, a, b, rel_approx_tol=1.e-8, abs_approx_tol=1.e-8,
                       good_zeros_factor=good_zeros_factor,
                       min_good_zeros_tol=min_good_zeros_tol,
                       check_eval_error=check_eval_error,
-                      check_eval_freq=check_eval_freq)
+                      check_eval_freq=check_eval_freq,
+                      target_tol=target_tol)
     tols.nextTols()
 
     #Set up the interval data and root tracker classes
@@ -599,7 +600,7 @@ def getAbsApproxTol(func, deg, a, b):
     numSpots = (deg*2)**len(a) - (deg)**len(a)
     return np.max(tols)*10 / numSpots
 
-def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tols,max_level,good_degs=None,level=0, method='svd'):
+def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tols,max_level,good_degs=None,level=0, method='svd', use_target_tol=False):
     """Finds the common zeros of the given functions.
 
     All the zeros will be stored in root_tracker.
@@ -655,7 +656,10 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
     approx_errors = []
     #Get the chebyshev approximations
     for func, good_deg in zip(funcs, good_degs):
-        coeff,change_sign,inf_norm,approx_error = full_cheb_approximate(func,a,b,deg,tols.abs_approx_tol,tols.rel_approx_tol, good_deg)
+        if use_target_tol:
+            coeff,change_sign,inf_norm,approx_error = full_cheb_approximate(func,a,b,deg,tols.target_tol,tols.target_tol, good_deg)
+        else:
+            coeff,change_sign,inf_norm,approx_error = full_cheb_approximate(func,a,b,deg,tols.abs_approx_tol,tols.rel_approx_tol, good_deg)
         inf_norms.append(inf_norm)
         approx_errors.append(approx_error)
         #Subdivides if a bad approximation
@@ -721,7 +725,7 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
     elif np.any(np.array([coeff.shape[0] for coeff in coeffs]) > target_deg) or not good_approx:
         intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
         for new_a, new_b in intervals:
-            subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method)
+            subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, use_target_tol=True)
 
     #Solve using spectral methods if stable.
     else:
