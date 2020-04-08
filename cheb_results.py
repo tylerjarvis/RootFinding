@@ -48,7 +48,7 @@ def residuals(func, roots):
             The residuals of the function.
 
     """
-    return np.abs(func(roots[:,0],roots[:,1]))
+    return [np.abs(func(*root)) for root in roots]
 
 
 def residuals_pass_or_fail(funcs, roots, tol=2.220446049250313e-13):
