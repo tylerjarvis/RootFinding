@@ -162,9 +162,9 @@ def test_subdivision_solve_with_transform():
     correctZeros([A,B,C], a, b)
 
 def test_subdivision_solve_with_transform_1d():
-    #Case 6 - One MultiPower 1D of degrees 10
+    #Case 6 - One MultiCheb 1D of degree 10
     #choose a seed that has a zero like ?
-    np.random.seed(2)
+    np.random.seed(1)
     a = -1.1*np.ones(1);b = 1.1*np.ones(1)
     A = getPoly(20,1,False)
     correctZeros([A], a, b)
