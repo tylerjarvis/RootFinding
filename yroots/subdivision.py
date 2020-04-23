@@ -954,14 +954,7 @@ def subdivision_solve_1d(f,a,b,deg,target_deg,interval_data,root_tracker,tols,ma
     good_deg = max(len(coeff) - 1, 1)
 
     # coeff, inf_norm = interval_approximate_1d(f,a,b,good_deg)
-    coeff2, inf_norm, sign_change = interval_approximate_1d(f,a,b,good_deg*2,inf_norm, return_bools=True)
-
-    # The function doesn't change signs on the [a,b], so no zeros can be in it.
-    # This is determined by whether or not the function at the chebyshev nodes
-    # are all the same sign (sign_change == False), this is a good(?) heuristic
-    # that works in most (not pathological) cases.
-    if not sign_change:
-        return
+    coeff2, inf_norm = interval_approximate_1d(f,a,b,good_deg*2,inf_norm)
 
     coeff2[slice_top(coeff)] -= coeff
 
