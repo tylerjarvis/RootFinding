@@ -91,7 +91,7 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
         return roots
     else:
         # only return roots in the unit complex hyperbox
-        return roots[np.all(np.abs(roots) <= 1,axis = 0)]
+        return roots[[np.all(np.abs(root) <= 1) for root in roots]]
 
 def indexarray(matrix_terms,m,var):
     """Compute the array mapping monomials under multiplication by x_var
