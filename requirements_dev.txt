@@ -7,13 +7,14 @@ tox==2.9.1
 coverage==4.5.1
 Sphinx==1.7.1
 twine==1.10.0
-numpy==1.14.2
-scipy==1.0.1
-numba==0.37.0
-sympy==1.1.1
+numpy==1.18.1
+scipy==1.4.1
+llvmlite==0.31.0
+numba==0.47.0
+sympy==1.5.1
 matplotlib==2.2.2
 
-pytest==3.7.2
-pytest-cov==2.5.1
+pytest==5.4.1
+pytest-cov==2.7.1
 pytest-runner==2.11.1
 codecov==2.0.15
