@@ -602,7 +602,7 @@ def sorted_matrix_terms(degree, dim, varsToRemove):
     #normal case
     else:
         matrix_terms = np.reshape(highest_mons+other_mons+xs_mons, (len(highest_mons+other_mons+xs_mons),dim))
-        cut = len(highest_mons)
+        cuts = len(highest_mons)
 
     # for var in varsToRemove:
     #     B = matrix_terms[cuts[0]:]
@@ -610,7 +610,7 @@ def sorted_matrix_terms(degree, dim, varsToRemove):
     #     matrix_terms[cuts[0]:] = np.vstack([B[mask], B[~mask]])
     #     cuts = tuple([cuts[0] + np.sum(mask), cuts[1]+1])
 
-    return matrix_terms, cut
+    return matrix_terms, cuts
 
 def _random_poly(_type, dim):
     '''
