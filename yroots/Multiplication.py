@@ -8,7 +8,7 @@ from yroots.MacaulayReduce import reduce_macaulay_qrt, find_degree, \
 from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list, \
                               mon_combos, mon_combosHighest, sort_polys_by_degree, \
                               deg_d_polys, all_permutations_cheb, ConditioningError,\
-                              newton_polish, condeigs, TooManyRoots
+                              newton_polish, condeigs, TooManyRoots, solve_linear
 import warnings
 from scipy.stats import ortho_group
 
@@ -50,39 +50,48 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
 
     matrix, matrix_terms, cut = build_macaulay(polys, verbose)
 
-    # Attempt to reduce the Macaulay matrix
-    if method == 'qrt':
-        try:
-            E,Q,cond,cond_back = reduce_macaulay_qrt(matrix,cut,max_cond_num)
-        except ConditioningError as e:
-            raise e
-    elif method == 'tvb':
-        try:
-            E,Q,cond,cond_back = reduce_macaulay_tvb(matrix,cut,max_cond_num)
-        except ConditioningError as e:
-            raise e
-    elif method == 'svd':
-        try:
-            E,Q,cond,cond_back = reduce_macaulay_svd(matrix,cut,max_cond_num)
-        except ConditioningError as e:
-            raise e
+    roots = np.array([])
 
-    # Construct the Möller-Stetter matrices
-    # M is a 3d array containing the multiplication-by-x_i matrix in M[...,i]
-    if poly_type == "MultiCheb":
-        if method == 'qrt' or method == 'svd':
-            M = ms_matrices_cheb(E,Q,matrix_terms,dim)
-        elif method == 'tvb':
-            M = ms_matrices_p_cheb(E,Q,matrix_terms,dim,cut)
-
+    # If cut is zero, then all the polynomials are linear and we solve
+    # using solve_linear.
+    if cut == 0:
+        roots, cond = solve_linear([p.coeff for p in polys])
+        # Make sure roots is a 2D array.
+        roots = np.array([roots])
     else:
-        if method == 'qrt' or method == 'svd':
-            M = ms_matrices(E,Q,matrix_terms,dim)
+        # Attempt to reduce the Macaulay matrix
+        if method == 'qrt':
+            try:
+                E,Q,cond,cond_back = reduce_macaulay_qrt(matrix,cut,max_cond_num)
+            except ConditioningError as e:
+                raise e
         elif method == 'tvb':
-            M = ms_matrices_p(E,Q,matrix_terms,dim,cut)
+            try:
+                E,Q,cond,cond_back = reduce_macaulay_tvb(matrix,cut,max_cond_num)
+            except ConditioningError as e:
+                raise e
+        elif method == 'svd':
+            try:
+                E,Q,cond,cond_back = reduce_macaulay_svd(matrix,cut,max_cond_num)
+            except ConditioningError as e:
+                raise e
 
-    # Compute the roots using eigenvalues of the Möller-Stetter matrices
-    roots,cond_eig = msroots(M)
+        # Construct the Möller-Stetter matrices
+        # M is a 3d array containing the multiplication-by-x_i matrix in M[...,i]
+        if poly_type == "MultiCheb":
+            if method == 'qrt' or method == 'svd':
+                M = ms_matrices_cheb(E,Q,matrix_terms,dim)
+            elif method == 'tvb':
+                M = ms_matrices_p_cheb(E,Q,matrix_terms,dim,cut)
+
+        else:
+            if method == 'qrt' or method == 'svd':
+                M = ms_matrices(E,Q,matrix_terms,dim)
+            elif method == 'tvb':
+                M = ms_matrices_p(E,Q,matrix_terms,dim,cut)
+
+        # Compute the roots using eigenvalues of the Möller-Stetter matrices
+        roots,cond_eig = msroots(M)
 
     # Check if too many roots
     if roots.shape[0] > max_number_of_roots:

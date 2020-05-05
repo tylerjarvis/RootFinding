@@ -12,7 +12,8 @@ from yroots.OneDimension import divCheb,divPower,multCheb,multPower,solve
 from yroots.Division import division
 from yroots.Multiplication import multiplication
 from yroots.utils import clean_zeros_from_matrix, slice_top, MacaulayError, \
-                        get_var_list, ConditioningError, TooManyRoots, Tolerances
+                        get_var_list, ConditioningError, TooManyRoots, Tolerances, \
+                        solve_linear
 from yroots.polynomial import MultiCheb
 from yroots.IntervalChecks import IntervalData
 from yroots.RootTracker import RootTracker
@@ -157,7 +158,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-12, abs_approx_tol=1.e-8,
         for new_a, new_b in polish_intervals:
             interval_data.start_polish_interval()
             solve_func(funcs,new_a,new_b,deg,target_deg,interval_data,root_tracker,tols,max_level,method=method)
-            root_tracker.keep_possible_duplicates(), 
+            root_tracker.keep_possible_duplicates(),
     print("\rPercent Finished: 100%{}".format(' '*50))
 
     #Print results
@@ -516,51 +517,6 @@ def good_zeros_nd(zeros, imag_tol, real_tol):
         mask *= np.all(np.abs(zeros) <= 1 + real_tol,axis = 1)
 
     return zeros[mask].real
-
-def solve_linear(coeffs):
-    """Finds the roots when the coeffs are **all** linear.
-
-    Parameters
-    ----------
-    coeffs : list
-        A list of the coefficient arrays. They should all be linear.
-
-    Returns
-    -------
-    solve_linear : numpy array
-        The root, if any.
-    """
-    dim = len(coeffs[0].shape)
-    A = np.zeros([dim,dim])
-    B = np.zeros(dim)
-    for row in range(dim):
-        coeff = coeffs[row]
-        spot = tuple([0]*dim)
-        B[row] = coeff[spot]
-        var_list = get_var_list(dim)
-        for col in range(dim):
-            if coeff.shape[0] == 1:
-                A[row,col] = 0
-            else:
-                A[row,col] = coeff[var_list[col]]
-    #solve the system
-    try:
-        return np.linalg.solve(A,-B), np.nan
-    except np.linalg.LinAlgError as e:
-        if str(e) == 'Singular matrix':
-            #if the system is dependent, then there are infinitely many roots
-            #if the system is inconsistent, there are no roots
-            #TODO: this should be more airtight than raising a warning
-
-            #if the rightmost column of U from LU decomposition
-            # is a pivot column, system is inconsistent
-            # otherwise, it's dependent
-            U = lu(np.hstack((A,B.reshape(-1,1))))[2]
-            pivot_columns = [np.flatnonzero(U[i, :])[0] for i in range(U.shape[0]) if np.flatnonzero(U[i, :]).shape[0]>0]
-            if not (U.shape[1]-1 in pivot_columns):
-                #independent
-                warnings.warn('System potentially has infinitely many roots')
-            return np.zeros([0,dim]), np.zeros([0,dim])
 
 def getAbsApproxTol(func, deg, a, b):
     """ Gets an absolute approximation tolerance based on the assumption that

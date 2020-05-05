@@ -146,6 +146,13 @@ def test_power_roots_mult():
     correctZeros([A,B,C], 2)
     correctZeros([A,B,C], 3)
 
+    # Case 6 - Two MultiPower 2D degree 1 polynomials.
+    A = getPoly(1, 2, True)
+    B = getPoly(1, 2, True)
+    correctZeros([A, B], 1)
+    correctZeros([A, B], 2)
+    correctZeros([A, B], 3)
+
 def test_cheb_roots_mult():
     '''
     The following tests will run polyroots on relatively small random upper trianguler MultiCheb.
@@ -191,6 +198,13 @@ def test_cheb_roots_mult():
     correctZeros([A,B,C], 1)
     correctZeros([A,B,C], 2)
     correctZeros([A,B,C], 3)
+
+    # Case 6 - Two MultiCheb 2D degree 1 polynomials.
+    A = getPoly(1, 2, False)
+    B = getPoly(1, 2, False)
+    correctZeros([A, B], 1)
+    correctZeros([A, B], 2)
+    correctZeros([A, B], 3)
 
 def test_power_roots_multrand():
     '''
