@@ -27,7 +27,7 @@ class ConditioningError(Exception):
 class TooManyRoots(Exception):
     """Raised when the number of roots found by the Macaulay matrix exceeds the
     Bezout bound.
-    
+
     Attributes
     ----------
     message : str
@@ -363,6 +363,51 @@ def triangular_solve(matrix):
     else:
     # The case where the matrix passed in is a square matrix
         return np.eye(m)
+
+def solve_linear(coeffs):
+    """Finds the roots when the coeffs are **all** linear.
+
+    Parameters
+    ----------
+    coeffs : list
+        A list of the coefficient arrays. They should all be linear.
+
+    Returns
+    -------
+    solve_linear : numpy array
+        The root, if any.
+    """
+    dim = len(coeffs[0].shape)
+    A = np.zeros([dim,dim])
+    B = np.zeros(dim)
+    for row in range(dim):
+        coeff = coeffs[row]
+        spot = tuple([0]*dim)
+        B[row] = coeff[spot]
+        var_list = get_var_list(dim)
+        for col in range(dim):
+            if coeff.shape[0] == 1:
+                A[row,col] = 0
+            else:
+                A[row,col] = coeff[var_list[col]]
+    #solve the system
+    try:
+        return np.linalg.solve(A,-B), np.nan
+    except np.linalg.LinAlgError as e:
+        if str(e) == 'Singular matrix':
+            #if the system is dependent, then there are infinitely many roots
+            #if the system is inconsistent, there are no roots
+            #TODO: this should be more airtight than raising a warning
+
+            #if the rightmost column of U from LU decomposition
+            # is a pivot column, system is inconsistent
+            # otherwise, it's dependent
+            U = lu(np.hstack((A,B.reshape(-1,1))))[2]
+            pivot_columns = [np.flatnonzero(U[i, :])[0] for i in range(U.shape[0]) if np.flatnonzero(U[i, :]).shape[0]>0]
+            if not (U.shape[1]-1 in pivot_columns):
+                #independent
+                warnings.warn('System potentially has infinitely many roots')
+            return np.zeros([0,dim]), np.zeros([0,dim])
 
 def first_x(string):
     '''
