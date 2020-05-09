@@ -672,7 +672,7 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
         for new_a, new_b in intervals:
             subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, use_target_tol=True)
 
-    # Check if any approx error is greater than target_tol for Macaualy method
+    # Check if any approx error is greater than target_tol for Macaulay method
     elif np.any(np.array(approx_errors) > tols.target_tol):
         intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
         for new_a, new_b in intervals:
