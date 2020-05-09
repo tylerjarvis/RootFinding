@@ -28,7 +28,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
           max_cond_num=1e5, good_zeros_factor=100, min_good_zeros_tol=1e-5,
           check_eval_error=True, check_eval_freq=1, plot=False,
           plot_intervals=False, deg=20, target_deg=3, max_level=999,
-          return_potentials=False, method='svd', target_tol=0):
+          return_potentials=False, method='svd', target_tol=5.e-15):
     '''
     Finds the real roots of the given list of functions on a given interval.
 
@@ -624,7 +624,7 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
     #Get the chebyshev approximations
     for func, good_deg in zip(funcs, good_degs):
         if use_target_tol:
-            coeff,change_sign,inf_norm,approx_error = full_cheb_approximate(func,a,b,deg,tols.target_tol,tols.target_tol, good_deg)
+            coeff,change_sign,inf_norm,approx_error = full_cheb_approximate(func,a,b,deg,tols.target_tol,tols.rel_approx_tol, good_deg)
         else:
             coeff,change_sign,inf_norm,approx_error = full_cheb_approximate(func,a,b,deg,tols.abs_approx_tol,tols.rel_approx_tol, good_deg)
         inf_norms.append(inf_norm)
@@ -656,7 +656,7 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
     #Check if everything is linear
     if np.all(np.array([coeff.shape[0] for coeff in coeffs]) == 2):
         if deg != 2:
-            subdivision_solve_nd(funcs,a,b,2,target_deg,interval_data,root_tracker,tols,max_level,good_degs,level, method=method)
+            subdivision_solve_nd(funcs,a,b,2,target_deg,interval_data,root_tracker,tols,max_level,good_degs,level, method=method, use_target_tol=True)
             return
         zero, cond = solve_linear(coeffs)
         grad = [MultiCheb(c).grad(zero) for c in coeffs]
@@ -665,21 +665,20 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
         zero = transform(zero,a,b)
         interval_data.track_interval("Base Case", [a,b])
         root_tracker.add_roots(zero, a, b, "Base Case")
-
-    #Check if anything is linear
-#     elif np.any(np.array([coeff.shape[0] for coeff in coeffs]) == 2):
-#         #Subdivide but run some checks on the intervals first
-#         intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
-#         for new_a, new_b in intervals:
-#             subdivision_solve_nd(method,funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1)
-
-    #Runs the same things as above, but we want to get rid of that eventually so keep them seperate.
+        
+    # Runs the same things as above, but we want to get rid of that eventually so keep them seperate.
     elif np.any(np.array([coeff.shape[0] for coeff in coeffs]) > target_deg) or not good_approx:
         intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
         for new_a, new_b in intervals:
             subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, use_target_tol=True)
 
-    #Solve using spectral methods if stable.
+    # Check if any approx error is greater than target_tol for Macaualy method
+    elif np.any(np.array(approx_errors) > tols.target_tol):
+        intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
+        for new_a, new_b in intervals:
+            subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, use_target_tol=True)
+
+    # Solve using spectral methods if stable.
     else:
         polys = [MultiCheb(coeff, lead_term = [coeff.shape[0]-1], clean_zeros = False) for coeff in coeffs]
         try:
