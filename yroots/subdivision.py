@@ -27,7 +27,7 @@ import warnings
 def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
           max_cond_num=1e5, good_zeros_factor=100, min_good_zeros_tol=1e-5,
           check_eval_error=True, check_eval_freq=1, plot=False,
-          plot_intervals=False, deg=20, target_deg=3, max_level=999,
+          plot_intervals=False, deg=None, target_deg=None, max_level=999,
           return_potentials=False, method='svd', target_tol=5.e-15):
     '''
     Finds the real roots of the given list of functions on a given interval.
@@ -112,7 +112,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
 
     # Choose an appropriate max degree for the given dimension if none is specified.
     if deg is None:
-        deg_dim = {1: 50, 2:9, 3:5, 4:3}
+        deg_dim = {1: 100, 2:20, 3:9, 4:9}
         if dim > 4:
             deg = 2
         else:
@@ -120,10 +120,10 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
 
     # Choose an appropriate target degree if none is specified
     if target_deg is None:
-        if dim != 2:
-            target_deg = deg
-        else:
+        if dim > 4:
             target_deg = 2
+        else:
+            target_deg = 3
 
     #Sets up the tolerances.
     tols = Tolerances(rel_approx_tol=rel_approx_tol,
@@ -142,8 +142,6 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
 
     if dim == 1:
         solve_func = subdivision_solve_1d
-        deg = 100
-        target_deg = 100 # Target degree doesn't mean anything in 1D.
         if isinstance(funcs,list):
             funcs = funcs[0]
     else:
