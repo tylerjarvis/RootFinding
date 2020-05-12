@@ -29,7 +29,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
           check_eval_error=True, check_eval_freq=1, plot=False,
           plot_intervals=False, deg=None, target_deg=None, max_level=999,
           return_potentials=False, method='svd', target_tol=1.e-15):
-    '''
+    """
     Finds the real roots of the given list of functions on a given interval.
 
     All of the tolerances can be passed in as numbers of iterable types. If
@@ -99,7 +99,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
     -------
     zeros : numpy array
         The common zeros of the polynomials. Each row is a root.
-    '''
+    """
     # Detect the dimension
     if not isinstance(funcs,list):
         dim = 1
@@ -212,7 +212,7 @@ def chebyshev_block_copy(values_block):
     ----------
     values_block : numpy array
       block of values from function evaluation
-
+interval_approximate_ndinterval_approximate_nd
     Returns
     -------
     values_cheb : numpy array
@@ -552,7 +552,7 @@ def get_abs_approx_tol(func, deg, a, b):
     """
     tols = []
     np.random.seed(0)
-    for i in range(10):
+    for i in range(5):
         x = transform(np.random.rand(len(a))*2-1, a, b)
         linearization_size = 2.220446049250313e-14
         a2 = np.array(x - linearization_size)
@@ -563,7 +563,7 @@ def get_abs_approx_tol(func, deg, a, b):
         tols.append(abs_approx_tol)
     tols = np.array(tols)
     numSpots = (deg*2)**len(a) - (deg)**len(a)
-    return np.max(tols)*10 / numSpots
+    return np.max(tols)*5 / numSpots
 
 def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tols,max_level,good_degs=None,level=0, method='svd', use_target_tol=False):
     """Finds the common zeros of the given functions.
@@ -788,7 +788,7 @@ def trim_coeffs(coeffs, abs_approx_tol, rel_approx_tol, inf_norms, errors):
 
 @Memoize
 def mon_combos_limited_wrap(deg, dim, shape):
-    '''A wrapper for mon_combos_limited to memoize.
+    """A wrapper for mon_combos_limited to memoize.
 
     Parameters
     --------
@@ -803,11 +803,11 @@ def mon_combos_limited_wrap(deg, dim, shape):
     -----------
     mon_combo_limited_wrap : list
         A list of all the monomials.
-    '''
+    """
     return mon_combos_limited([0]*dim,deg,shape)
 
 def mon_combos_limited(mon, remaining_degrees, shape, cur_dim = 0):
-    '''Finds all the monomials of a given degree that fits in a given shape and returns them. Works recursively.
+    """Finds all the monomials of a given degree that fits in a given shape and returns them. Works recursively.
 
     Very similar to mon_combos, but only returns the monomials of the desired degree.
 
@@ -828,7 +828,7 @@ def mon_combos_limited(mon, remaining_degrees, shape, cur_dim = 0):
     -----------
     answers : list
         A list of all the monomials.
-    '''
+    """
     answers = []
     if len(mon) == cur_dim+1: # We are at the end of mon, no more recursion.
         if remaining_degrees < shape[cur_dim]:
