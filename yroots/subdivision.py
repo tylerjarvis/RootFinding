@@ -141,6 +141,8 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
     root_tracker = RootTracker()
 
     if dim == 1:
+        # In one dimension, we don't use target_deg; it's the same as deg
+        target_deg = deg
         solve_func = subdivision_solve_1d
         if isinstance(funcs,list):
             funcs = funcs[0]
@@ -212,7 +214,6 @@ def chebyshev_block_copy(values_block):
     ----------
     values_block : numpy array
       block of values from function evaluation
-interval_approximate_ndinterval_approximate_nd
     Returns
     -------
     values_cheb : numpy array
@@ -657,14 +658,14 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
 
             cheb_approx_list.append(coeff)
 
-    # Make the system stable to solve
+    # Reduce the degree of the approximations while not introducing too much error
     coeffs, good_approx, approx_errors = trim_coeffs(cheb_approx_list, tols.abs_approx_tol, tols.rel_approx_tol, inf_norms, approx_errors)
 
     # Used if subdividing further.
     good_degs = [coeff.shape[0] - 1 for coeff in coeffs]
     good_zeros_tol = max(tols.min_good_zeros_tol, np.sum(np.abs(approx_errors))*tols.good_zeros_factor)
         
-    # Runs the same things as above, but we want to get rid of that eventually so keep them seperate.
+    # Check if the degree is small enough or if trim_coeffs introduced too much error
     if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > target_deg) or not good_approx:
         intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
         for new_a, new_b in intervals:
@@ -704,7 +705,8 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
                 subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, use_target_tol=True)
 
 def trim_coeffs(coeffs, abs_approx_tol, rel_approx_tol, inf_norms, errors):
-    """Trim the coefficient matrices so they are stable and choose a direction to divide in.
+    """Trim the coefficient matrices to reduce the degree by zeroing out any
+    entries in the coefficient matrix above a certain degree.
 
     Parameters
     ----------
@@ -727,17 +729,13 @@ def trim_coeffs(coeffs, abs_approx_tol, rel_approx_tol, inf_norms, errors):
     good_approx : bool
         Whether all the approximations were good
     """
-    # we start with good approximations
+    # Assume we start with good approximations
     good_approx = True
     for num, coeff in enumerate(coeffs):
-        # get the error inherent in the approximation
+        # Get the error inherent in the approximation
         error = errors[num]
-        # zero out small spots in the coefficient matrix; increment the error accordingly
-        # spot = np.abs(coeff) < trim_zero_tol*np.max(np.abs(coeff))
-        # error += np.sum(np.abs(coeff[spot]))
-        # coeff[spot] = 0
 
-        # try to zero out everything below the lower-reverse-hyperdiagonal
+        # Try to zero out everything below the lower-reverse-hyperdiagonal
         # that's a fancy way of saying monomials that are more than the specified degree
         dim = coeff.ndim
         deg = np.sum(coeff.shape) - dim
