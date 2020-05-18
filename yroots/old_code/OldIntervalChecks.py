@@ -23,7 +23,7 @@ removed most of the regions that linear_check removed plus some more. Experiment
 it wasn't worth the time in 2D to run the linear check before the quadratic check because
 quadratic check would throw out the region anyway.
 **Because the nd-quadratic check is slow, it's quite possible that this check could be
-useful in dimensions 4+***
+useful in dimensions 4+ ***
 """
 def linear_check(test_coeff, intervals, change_sign, tol):
     """One of subinterval_checks
@@ -363,7 +363,9 @@ to determine the range of the polynomial over the specified domain.
 Like the other checks in this graveyard, it wasn't fast enough to use.
 We've had issues with the first import statement in this check preventing
 installation of yroots, so since this code is no longer used, the import
-is currently commented out.
+is currently commented out. If you decide to include this check, it's a
+good idea to add it back into the unit test as well, since currently
+it's not being tested due to this import error.
 TODO BETTER EXPLANATION
 """
 # from mpmath import iv

@@ -11,6 +11,7 @@ from yroots.polynomial import MultiCheb
 from matplotlib import pyplot as plt
 from yroots.polynomial import MultiCheb, Polynomial
 from matplotlib import patches
+from scipy import linalg as la
 
 class IntervalData:
     '''
@@ -801,7 +802,7 @@ def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
                 if np.linalg.matrix_rank(A) < A.shape[0]:
                     #no interior critical point
                     continue
-                X = la.solve(A, -B, assume_a=‘sym’)
+                X = la.solve(A, -B, assume_a='sym')
                 #make sure it's in the domain
                 if np.all([interval[0][i] <= X[i] <= interval[1][i] for i in range(dim)]):
                     extreme_points.append(quad_poly(X))
@@ -823,7 +824,7 @@ def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
 
                 for side in itertools.product([0,1],repeat=len(fixed)):
                     X0 = np.array([interval[j][i] for i,j in enumerate(side)])
-                    X_ = la.solve(A_, -B_-fixed_A@X0, assume_a=‘sym’)
+                    X_ = la.solve(A_, -B_-fixed_A@X0, assume_a='sym')
                     X = np.zeros(dim)
                     X[fixed] = X0
                     X[unfixed] = X_
