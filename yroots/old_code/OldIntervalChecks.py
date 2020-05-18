@@ -4,7 +4,7 @@ not being used as of May 2020. This functions may be revamped in the future, but
 in their current implementations they are not fast enough to be useful. If these
 functions were carefully optimized, it's possible they could become useful, and
 the ideas behind the checks could be used to develop better checks in the future.
-Whenever possible a general description of the check is provided.
+A general description of each check is provided.
 """
 import numpy as np
 from itertools import product
@@ -20,8 +20,10 @@ This is a fast and simple check. It compares the minimum of the linear terms to
 the sum of the other coefficients. If the minimum is greater, there cannot be any roots.
 Although this check is very efficient, we found that quadractic_check in IntervalChecks.py
 removed most of the regions that linear_check removed plus some more. Experimentally,
-it wasn't worth the time to run the linear check before the quadratic check because
-quadratic check would throw out the region anyway almost as fast.
+it wasn't worth the time in 2D to run the linear check before the quadratic check because
+quadratic check would throw out the region anyway.
+**Because the nd-quadratic check is slow, it's quite possible that this check could be
+useful in dimensions 4+***
 """
 def linear_check(test_coeff, intervals, change_sign, tol):
     """One of subinterval_checks
@@ -358,9 +360,11 @@ def full_cubic_check(test_coeff, tol):
 """
 This check uses interval arithmetic and the curvature of the polynomial
 to determine the range of the polynomial over the specified domain.
+Like the other checks in this graveyard, it wasn't fast enough to use.
 We've had issues with the first import statement in this check preventing
 installation of yroots, so since this code is no longer used, the import
 is currently commented out.
+TODO BETTER EXPLANATION
 """
 # from mpmath import iv
 from itertools import product
