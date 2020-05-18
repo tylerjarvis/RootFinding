@@ -24,11 +24,12 @@ class IntervalData:
         A list of functions. Each function accepts a coefficient matrix and a tolerance,
         and returns whether the Chebyshev Polynomial represented by that matrix, and
         accurate to within that tolerance, can ever be zero on the n dimensional interval [-1,1].
-    subinterval_checks:list
-        A list of functions. Each function accepts a coefficient matrix, a list of intervals, a list of
-        sign changes,and a tolerance. It then returns a list of booleans whether the Chebyshev Polynomial
-        represented by that matrix, and accurate to within that tolerance, can ever be zero on the given intervals.
-        The list of sign changes represents if we already know the function changes sign on a given interval.
+    subinterval_checks: list
+        A list of functions. Each function accepts a coefficient matrix, a list of subintervals, a list of
+        sign changes, and a tolerance. It then returns a list of booleans whether the Chebyshev Polynomial
+        represented by that matrix, and accurate to within that tolerance, can ever be zero on the given subintervals.
+        Before the checks can be run the subintervals must be rescaled to subintervals of [-1,1]
+        The list of sign changes represents if we already know the function changes sign on a given subinterval.
     a: numpy array
         The lower bounds of the overall interval to solve on.
     b: numpy array
@@ -149,14 +150,14 @@ class IntervalData:
         return False
 
     def check_subintervals(self, subintervals, scaled_subintervals, polys, change_sign, errors):
-        ''' Runs the subinterval checks on the given intervals
+        ''' Runs the subinterval checks on the given subintervals of [-1,1]
 
         Parameters
         ----------
         subintervals : list
             A list of the intervals to check.
         scaled_subintervals: list
-            A list of the intervals to check, scaled to the unit box that the approxiations are valid on.
+            A list of the subintervals to check, scaled to be within the unit box that the approxiations are valid on.
         polys: list
             The MultiCheb polynomials that approximate the functions on these intervals.
         change_sign: list
