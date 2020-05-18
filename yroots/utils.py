@@ -1,9 +1,10 @@
 # A collection of functions used in the F4 Macaulay and TVB solvers
 import numpy as np
 import itertools
-from scipy.linalg import qr, solve_triangular, svd, norm, eig
+from scipy.linalg import qr, solve_triangular, svd, norm, eig, lu
 from scipy.special import comb
 import time
+import warnings
 
 class InstabilityWarning(Warning):
     pass
