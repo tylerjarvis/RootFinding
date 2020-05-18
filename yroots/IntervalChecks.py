@@ -11,6 +11,7 @@ from yroots.polynomial import MultiCheb
 from matplotlib import pyplot as plt
 from yroots.polynomial import MultiCheb, Polynomial
 from matplotlib import patches
+from scipy import linalg as la
 
 class IntervalData:
     '''
@@ -95,7 +96,7 @@ class IntervalData:
         self.polish_interval_num = -1
         self.polish_a = np.array([])
         self.polish_b = np.array([])
-        
+
         #for keeping track of condition numbers
         self.cond = 0
         self.backcond = 0
@@ -292,95 +293,11 @@ class IntervalData:
         #Plot the zeros
         if len(zeros) > 0:
             plt.plot(np.real(zeros[:,0]), np.real(zeros[:,1]),'o',color='#ff0000',markeredgecolor='#ff0000',markersize=3,
-                 zorder=22)        
-        
-#         plt.plot(0.41589487873818587, -0.2682102425236283,'o',color='k',markeredgecolor='k',markersize=3,
-#                  zorder=22)
+                 zorder=22)
 
         if print_plot:
             plt.savefig('intervals.pdf', bbox_inches='tight')
         plt.show()
-
-def extreme_val3(test_coeff, maxx = True):
-    ''' Finds the extreme value of test_coeff on -1 to 1, used by quad_check
-
-    test_coeff is [a,b,c] and represents the funciton a + bx + c(2x^2 - 1).
-    Basic calculus can be used to find the extreme values.
-
-    Parameters
-    ----------
-    test_coeff : numpy array
-        Array representing [a,b,c]
-    maxx: bool
-        If true returns the absolute value of the max of the funciton, otherwise returns
-        the absolute value of the min of the function.
-    Returns
-    -------
-    extreme_val3 : float
-        The extreme value (max or min) of the absolute value of a + bx + c(2x^2 - 1).
-    '''
-    a,b,c = test_coeff
-    if np.abs(c) < 1.e-10:
-        if maxx:
-            return abs(a) + abs(b)
-        else:
-            if abs(b) > abs(a):
-                return 0
-            else:
-                return abs(a) - abs(b)
-    else:
-        vals = [a - b + c, a + b + c] #at +-1
-        if np.abs(b/c) < 4:
-            vals.append(a - b**2/(8*c) - c) #at -b/(4c)
-        if maxx:
-            return max(np.abs(vals))
-        else:
-            vals = np.array(vals)
-            if np.any(vals > 0) and np.any(vals < 0):
-                return 0
-            else:
-                return min(np.abs(vals))
-
-def extreme_val4(test_coeff, maxx = True):
-    ''' Finds the extreme value of test_coeff on -1 to 1, used by cubic_check
-
-    test_coeff is [a,b,c,d] and represents the funciton a + bx + c(2x^2 - 1) + d*(4x^3 - 3x).
-    Basic calculus can be used to find the extreme values.
-
-    Parameters
-    ----------
-    test_coeff : numpy array
-        Array representing [a,b,c,d]
-    maxx: bool
-        If true returns the absolute value of the max of the funciton, otherwise returns
-        the absolute value of the min of the function.
-    Returns
-    -------
-    extreme_val4 : float
-        The extreme value (max or min) of the absolute value of a + bx + c(2x^2 - 1) + d*(4x^3 - 3x).
-    '''
-    a,b,c,d = test_coeff
-    if np.abs(d) < 1.e-10:
-        return extreme_val3([a,b,c], maxx = maxx)
-    else:
-        vals = [a - b + c - d, a + b + c + d] #at +-1
-
-        #The quadratic roots
-        if 16*c**2 >= 48*d*(b-3*d):
-            x1 = (-4*c + np.sqrt(16*c**2 - 48*d*(b-3*d))) / (24*d)
-            x2 = (-4*c - np.sqrt(16*c**2 - 48*d*(b-3*d))) / (24*d)
-            if np.abs(x1) < 1:
-                vals.append(a + b*x1 + c*(2*x1**2 - 1) + d*(4*x1**3 - 3*x1))
-            if np.abs(x2) < 1:
-                vals.append(a + b*x2 + c*(2*x2**2 - 1) + d*(4*x2**3 - 3*x2))
-        if maxx:
-            return max(np.abs(vals))
-        else:
-            vals = np.array(vals)
-            if np.any(vals > 0) and np.any(vals < 0):
-                return 0
-            else:
-                return min(np.abs(vals))
 
 def constant_term_check(test_coeff, tol):
     """One of interval_checks
@@ -405,241 +322,6 @@ def constant_term_check(test_coeff, tol):
         return False
     else:
         return True
-
-def quad_check(test_coeff, tol):
-    """One of interval_checks
-
-    Like the constant term check, but splits the coefficient matrix into a one dimensional
-    quadratics and uses the extreme values of those to get a better bound.
-
-    Parameters
-    ----------
-    test_coeff : numpy array
-        The coefficient matrix of the polynomial to check
-    tol: float
-        The bound of the sup norm error of the chebyshev approximation.
-
-    Returns
-    -------
-    quad_check : bool
-        False if the function is guarenteed to never be zero in the unit box, True otherwise
-    """
-    #The check fails if the test_coeff isn't at least quadratic
-    if np.any(np.array(test_coeff.shape) < 3):
-        return True
-    dim = test_coeff.ndim
-    slices = []
-    slices.append(slice(0,3))
-    slice_direc = 0
-    for i in range(dim-1):
-        slices.append(0)
-
-    #Get the min of the quadratic including the constant term
-    start = extreme_val3(test_coeff[tuple(slices)], maxx = False)
-    rest = 0
-
-    #Get the max's of the other quadratics
-    shape = list(test_coeff.shape)
-    shape[slice_direc] = 1
-    for spots in itertools.product(*[np.arange(i) for i in shape]):
-        if sum(spots) > 0:
-            for i in range(1, dim):
-                slices[i] = spots[i]
-            rest += extreme_val3(test_coeff[tuple(slices)])
-
-    #Tries the one-dimensional slices in other directions
-    while slice_direc < dim - 1:
-        slice_direc += 1
-        slices[slice_direc] = slice(0,3)
-
-        shape = np.array(test_coeff.shape)
-        shape[slice_direc] = 1
-        shape_diff = np.zeros_like(shape)
-        for i in range(slice_direc):
-            shape_diff[i] = 3
-        shape -= shape_diff
-        for spots in itertools.product(*[np.arange(i) for i in shape]):
-            spots += shape_diff
-            for i in range(dim):
-                if i != slice_direc:
-                    slices[i] = spots[i]
-            rest += extreme_val3(test_coeff[tuple(slices)])
-
-    if start > rest + tol:
-        return False
-    else:
-        return True
-
-def cubic_check(test_coeff, tol):
-    """One of interval_checks
-
-    Like the constant_term, but splits the coefficient matrix into a one dimensional
-    cubics and uses the extreme values of those to get a better bound.
-
-    Parameters
-    ----------
-    test_coeff : numpy array
-        The coefficient matrix of the polynomial to check
-    tol: float
-        The bound of the sup norm error of the chebyshev approximation.
-
-    Returns
-    -------
-    cubic_check : bool
-        False if the function is guarenteed to never be zero in the unit box, True otherwise
-    """
-    #The check fails if the test_coeff isn't at least cubic
-    if np.any(np.array(test_coeff.shape) < 4):
-        return True
-    dim = test_coeff.ndim
-    slices = []
-    slices.append(slice(0,4))
-    slice_direc = 0
-    for i in range(dim-1):
-        slices.append(0)
-
-    #Get the min of the cubic including the constant term
-    start = extreme_val4(test_coeff[tuple(slices)], maxx = False)
-    rest = 0
-
-    #Get the max's of the other cubics
-    shape = list(test_coeff.shape)
-    shape[slice_direc] = 1
-    for spots in itertools.product(*[np.arange(i) for i in shape]):
-        if sum(spots) > 0:
-            for i in range(1, dim):
-                slices[i] = spots[i]
-            rest += extreme_val4(test_coeff[tuple(slices)])
-
-    #Tries the one-dimensional slices in other directions
-    while slice_direc < dim - 1:
-        slice_direc += 1
-        slices[slice_direc] = slice(0,4)
-
-        shape = np.array(test_coeff.shape)
-        shape[slice_direc] = 1
-        shape_diff = np.zeros_like(shape)
-        for i in range(slice_direc):
-            shape_diff[i] = 4
-        shape -= shape_diff
-        for spots in itertools.product(*[np.arange(i) for i in shape]):
-            spots += shape_diff
-            for i in range(dim):
-                if i != slice_direc:
-                    slices[i] = spots[i]
-            rest += extreme_val4(test_coeff[tuple(slices)])
-
-    if start > rest + tol:
-        return False
-    else:
-        return True
-
-def full_quad_check(test_coeff, tol):
-    """One of interval_checks
-
-    Runs the quad_check in each possible direction to get as much out of it as possible.
-
-    Parameters
-    ----------
-    test_coeff : numpy array
-        The coefficient matrix of the polynomial to check
-    tol: float
-        The bound of the sup norm error of the chebyshev approximation.
-
-    Returns
-    -------
-    full_quad_check : bool
-        False if the function is guarenteed to never be zero in the unit box, True otherwise
-    """
-    for perm in itertools.permutations(np.arange(test_coeff.ndim)):
-        if not quad_check(test_coeff.transpose(perm), tol):
-            return False
-    return True
-
-def full_cubic_check(test_coeff, tol):
-    """One of interval_checks
-
-    Runs the cubic_check in each possible direction to get as much out of it as possible.
-
-    Parameters
-    ----------
-    test_coeff : numpy array
-        The coefficient matrix of the polynomial to check
-    tol: float
-        The bound of the sup norm error of the chebyshev approximation.
-
-    Returns
-    -------
-    full_cubic_check : bool
-        False if the function is guarenteed to never be zero in the unit box, True otherwise
-    """
-    for perm in itertools.permutations(np.arange(test_coeff.ndim)):
-        if not cubic_check(test_coeff.transpose(perm), tol):
-            return False
-    return True
-
-def linear_check(test_coeff, intervals, change_sign, tol):
-    """One of subinterval_checks
-
-    Checks the max of the linear part of the approximation and compares to the sum of the other terms.
-
-    Parameters
-    ----------
-    test_coeff : numpy array
-        The coefficient matrix of the polynomial to check
-    intervals : list
-        A list of the intervals to check.
-    change_sign: list
-        A list of bools of whether we know the functions can change sign on the subintervals.
-    tol: float
-        The bound of the sup norm error of the chebyshev approximation.
-
-    Returns
-    -------
-    mask : list
-        A list of the results of each interval. False if the function is guarenteed to never be zero
-        in the unit box, True otherwise
-    """
-    dim = test_coeff.ndim
-    coeff_abs_sum = np.sum(np.abs(test_coeff))
-
-    #Get the linear and constant terms
-    idx = [0]*dim
-    const = test_coeff[tuple(idx)]
-    lin_coeff = np.zeros(dim)
-    for cur_dim in range(dim):
-        if test_coeff.shape[cur_dim] < 2:
-            continue
-        idx[cur_dim] = 1
-        lin_coeff[cur_dim] = test_coeff[tuple(idx)]
-        idx[cur_dim] = 0
-
-    coeff_abs_sum -= np.sum(np.abs(lin_coeff))
-    mask = []
-
-    for i, interval in enumerate(intervals):
-        if change_sign[i]:
-            mask.append(True)
-            continue
-
-        corner_vals = []
-        for ints in product(interval, repeat = dim):
-            corner_vals.append(const + np.array([ints[i][i] for i in range(dim)])@lin_coeff)
-        corner_vals = np.array(corner_vals)
-
-        # check if corners have mixed signs
-        if (corner_vals.min() < 0 < corner_vals.max()):
-            mask.append(True)
-            continue
-
-        abs_smallest_corner = np.min(np.abs(corner_vals))
-        if abs_smallest_corner > coeff_abs_sum + tol:
-            # case: corner is far enough from 0
-            mask.append(False)
-        else:
-            mask.append(True)
-
-    return mask
 
 def quadratic_check(test_coeff, intervals,change_sign,tol):
     """One of subinterval_checks
@@ -698,6 +380,8 @@ def quadratic_check_2D(test_coeff, intervals, change_sign, tol):
     if test_coeff.ndim != 2:
         return [True]*len(intervals)
 
+    #Get the coefficients of the quadratic part
+    #Need to account for when certain coefs are zero.
     #Padding is slow, so check the shape instead.
     shape = test_coeff.shape
     c0 = test_coeff[0,0]
@@ -722,7 +406,7 @@ def quadratic_check_2D(test_coeff, intervals, change_sign, tol):
     else:
         c5 = 0
 
-    #The sum of the absolute values of everything else
+    #The sum of the absolute values of the other coefs
     other_sum = np.sum(np.abs(test_coeff)) - np.sum(np.abs([c0,c1,c2,c3,c4,c5]))
 
     #function for evaluating c0 + c1x + c2y +c3x^2 + c4xy + c5y^2 (note these are chebyshev monomials)
@@ -736,9 +420,8 @@ def quadratic_check_2D(test_coeff, intervals, change_sign, tol):
     if det != 0:
         int_x = (c2*c4 - 4*c1*c5)/det
         int_y = (c1*c4 - 4*c2*c3)/det
-    else:#Something outside the unit box
-        int_x = 100
-        int_y = 100
+    else:
+        int_x = None
 
     mask = []
     for i, interval in enumerate(intervals):
@@ -780,20 +463,14 @@ def quadratic_check_2D(test_coeff, intervals, change_sign, tol):
                 extreme_points.append(eval_func(x,y))
 
         #Add the interior value
-        if interval[0][0] < int_x < interval[1][0] and interval[0][1] < int_y < interval[1][1]:
+        if int_x is not None and interval[0][0] < int_x < interval[1][0] and interval[0][1] < int_y < interval[1][1]:
             extreme_points.append(eval_func(int_x,int_y))
 
-        extreme_points = np.array(extreme_points)
-
-        #If sign change, True
-        if not np.all(extreme_points > 0) and not np.all(extreme_points < 0):
-            mask.append(True)
-            continue
-
-        if np.min(np.abs(extreme_points)) - tol > other_sum:
-            mask.append(False)
-        else:
-            mask.append(True)
+        #No root if min(extreme_points) > (other_sum + tol)
+        # OR max(extreme_points) < -(other_sum+tol)
+        #Logical negation gives the boolean we want
+        mask.append(np.min(extreme_points) < (other_sum + tol)
+                and np.max(extreme_points) > -(other_sum+tol))
 
     return mask
 
@@ -881,10 +558,8 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
         int_x = (c1*(c6**2-16*c8*c9) + c2*(4*c4*c9-c5*c6)  + c3*(4*c5*c8-c4*c6))/det
         int_y = (c1*(4*c4*c9-c5*c6)  + c2*(c5**2-16*c7*c9) + c3*(4*c6*c7-c4*c5))/det
         int_z = (c1*(4*c5*c8-c4*c6)  + c2*(4*c6*c7-c4*c5)  + c3*(c4**2-16*c7*c8))/det
-    else:#Something outside the unit box
-        int_x = 100
-        int_y = 100
-        int_z = 100
+    else:
+        int_x = None
 
     mask = []
     for interval_num, interval in enumerate(intervals):
@@ -1030,21 +705,15 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
                 extreme_points.append(eval_func(x,y,z))
 
         #Add the interior value
-        if interval[0][0] < int_x < interval[1][0] and interval[0][1] < int_y < interval[1][1] and\
+        if int_x is not None and interval[0][0] < int_x < interval[1][0] and interval[0][1] < int_y < interval[1][1] and\
                 interval[0][2] < int_z < interval[1][2]:
             extreme_points.append(eval_func(int_x,int_y,int_z))
 
-        extreme_points = np.array(extreme_points)
-
-        #If sign change, True
-        if not np.all(extreme_points > 0) and not np.all(extreme_points < 0):
-            mask.append(True)
-            continue
-
-        if np.min(np.abs(extreme_points)) - tol > other_sum:
-            mask.append(False)
-        else:
-            mask.append(True)
+        #No root if min(extreme_points) > (other_sum + tol)
+        # OR max(extreme_points) < -(other_sum+tol)
+        #Logical negation gives the boolean we want
+        mask.append(np.min(extreme_points) < (other_sum + tol)
+                and np.max(extreme_points) > -(other_sum+tol))
 
     return mask
 
@@ -1071,205 +740,101 @@ def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
         A list of the results of each interval. False if the function is guarenteed to never be zero
         in the unit box, True otherwise
     """
+    #get the dimension and make sure the coeff tensor has all the right
+    # quadratic coeff spots, set to zero if necessary
     dim = test_coeff.ndim
     padding = [(0,max(0,3-i)) for i in test_coeff.shape]
     test_coeff = np.pad(test_coeff.copy(), padding, mode='constant')
 
+    #Possible extrema of qudaratic part are where D_xk = 0 for some subset of the variables xk
+    # with the other variables are fixed to a boundary value
+    #Dxk = c[0,...,0,1,0,...0] (k-spot is 1) + 4c[0,...,0,2,0,...0] xk (k-spot is 2)
+    #       + \Sum_{j\neq k} xj c[0,...,0,1,0,...,0,1,0,...0] (k and j spot are 1)
+    #This gives a symmetric system of equations AX+B = 0
+    #We will fix different columns of X each time, resulting in slightly different
+    #systems, but storing A and B now will be helpful later
+
+    #pull out coefficients we care about
+    quad_coeff = np.zeros([3]*dim)
     A = np.zeros([dim,dim])
     B = np.zeros(dim)
-    quad_coeff = np.zeros([3]*dim)
     for spot in itertools.product(np.arange(3),repeat=dim):
         if np.sum(spot) < 3:
             spot_array = np.array(spot)
             if np.sum(spot_array != 0) == 2:
+                #coef of cross terms
                 i,j = np.where(spot_array != 0)[0]
                 A[i,j] = test_coeff[spot].copy()
                 A[j,i] = test_coeff[spot].copy()
             elif np.any(spot_array == 2):
+                #coef of pure quadratic terms
                 i = np.where(spot_array != 0)[0][0]
                 A[i,i] = 4*test_coeff[spot].copy()
             elif np.any(spot_array == 1):
+                #coef of linear terms
                 i = np.where(spot_array != 0)[0][0]
                 B[i] = test_coeff[spot].copy()
             quad_coeff[spot] = test_coeff[spot]
             test_coeff[spot] = 0
 
+    #create a poly object for evaluations
     quad_poly = MultiCheb(quad_coeff)
 
     #The sum of the absolute values of everything else
     other_sum = np.sum(np.abs(test_coeff))
 
+    def powerset(iterable):
+        "powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
+        s = list(iterable)
+        return itertools.chain.from_iterable(itertools.combinations(s, r)\
+                                                     for r in range(len(s)+1))
     mask = []
     for interval_num, interval in enumerate(intervals):
         if change_sign[interval_num]:
             mask.append(True)
             continue
 
-        def powerset(iterable):
-            "powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
-            s = list(iterable)
-            return itertools.chain.from_iterable(itertools.combinations(s, r)\
-                                                 for r in range(len(s)+1))
-
         extreme_points = []
         for fixed in powerset(np.arange(dim)):
             fixed = np.array(fixed)
             if len(fixed) == 0:
-                others = np.arange(dim)
+                #fix no vars--> interior
                 if np.linalg.matrix_rank(A) < A.shape[0]:
+                    #no interior critical point
                     continue
-                X = np.linalg.solve(A, -B)
-                if np.all([interval[0][i] <= X[i] <= interval[1][0] for i in range(dim)]):
+                X = la.solve(A, -B, assume_a='sym')
+                #make sure it's in the domain
+                if np.all([interval[0][i] <= X[i] <= interval[1][i] for i in range(dim)]):
                     extreme_points.append(quad_poly(X))
             elif len(fixed) == dim:
+                #fix all variables--> corners
                 for corner in itertools.product([0,1],repeat=dim):
+                    #j picks if upper/lower bound. i is which var
                     extreme_points.append(quad_poly([interval[j][i] for i,j in enumerate(corner)]))
             else:
-                others = np.delete(np.arange(dim), fixed)
-                A_ = A[others][:,others]
+                #fixed some variables --> "sides"
+                #we only care about the equations from the unfixed variables
+                unfixed = np.delete(np.arange(dim), fixed)
+                A_ = A[unfixed][:,unfixed]
                 if np.linalg.matrix_rank(A_) < A_.shape[0]:
+                    #no solutions
                     continue
-                fixed_A = A[others][:,fixed]
-                B_ = B[others]
+                fixed_A = A[unfixed][:,fixed]
+                B_ = B[unfixed]
 
-                for corner in itertools.product([0,1],repeat=len(fixed)):
-                    X0 = np.array([interval[j][i] for i,j in enumerate(corner)])
-                    X_ = np.linalg.solve(A_, -B_-fixed_A@X0)
+                for side in itertools.product([0,1],repeat=len(fixed)):
+                    X0 = np.array([interval[j][i] for i,j in enumerate(side)])
+                    X_ = la.solve(A_, -B_-fixed_A@X0, assume_a='sym')
                     X = np.zeros(dim)
                     X[fixed] = X0
-                    X[others] = X_
-                    if np.all([interval[0][i] <= X[i] <= interval[1][0] for i in range(dim)]):
+                    X[unfixed] = X_
+                    if np.all([interval[0][i] <= X[i] <= interval[1][i] for i in range(dim)]):
                         extreme_points.append(quad_poly(X))
 
-        extreme_points = np.array(extreme_points)
-
-        #If sign change, True
-        if not np.all(extreme_points > 0) and not np.all(extreme_points < 0):
-            mask.append(True)
-            continue
-
-        if np.min(np.abs(extreme_points)) - tol > other_sum:
-            mask.append(False)
-        else:
-            mask.append(True)
+        #No root if min(extreme_points) > (other_sum + tol)
+        # OR max(extreme_points) < -(other_sum+tol)
+        #Logical negation gives the boolean we want
+        mask.append(np.min(extreme_points) < (other_sum + tol)
+                and np.max(extreme_points) > -(other_sum+tol))
 
     return mask
-
-#This is all for Tyler's new function
-from mpmath import iv
-from itertools import product
-from copy import copy
-def lambda_s(a):
-    return sum(iv.mpf([0,1])*max(ai.a**2,ai.b**2) for ai in a)
-
-def beta(a,b):
-    return iv.mpf([-1,1])*iv.sqrt(lambda_s(a)*lambda_s(b))
-
-def lambda_t(a,b):
-    return beta(a,b) + np.dot(a,b)
-
-class TabularCompute:
-    def __init__(self,a,b,dim=False,index=None):
-        """Class for estimating the maximum curvature.
-        Parameters
-        ----------
-            a (int) - the starting value of the interval
-            b (int) - the ending value of the interval
-            dim (bool or int) - False if this is not an interval for a dimension
-                                integer indicating the number of dimensions
-            index (int) - defines which dimension this interval corresponds to
-
-        """
-        self.iv = iv.mpf([a,b])
-        self.iv_lambda = iv.mpf([0,0])
-        if dim:
-            assert isinstance(dim, int)
-            assert isinstance(index, int) and 0<=index<dim
-            self.iv_prime = np.array([iv.mpf([0,0]) for _ in range(dim)])
-            self.iv_prime[index] = iv.mpf([1,1])
-        else:
-            self.iv_prime = iv.mpf([0,0])
-
-    def copy(self):
-        new_copy = TabularCompute(0,0)
-        new_copy.iv = copy(self.iv)
-        new_copy.iv_prime = copy(self.iv_prime)
-        new_copy.iv_lambda = copy(self.iv_lambda)
-        return new_copy
-
-    def __add__(self, other):
-        new = self.copy()
-        if isinstance(other, TabularCompute):
-            new.iv += other.iv
-            new.iv_prime += other.iv_prime
-            new.iv_lambda += other.iv_lambda
-        else:
-            new.iv += other
-        return new
-
-    def __mul__(self, other):
-        new = TabularCompute(0,0)
-        if isinstance(other, TabularCompute):
-            new.iv = self.iv*other.iv
-            tmp1 = np.array([self.iv])*other.iv_prime
-            tmp2 = np.array([other.iv])*self.iv_prime
-            new.iv_prime = tmp1 + tmp2
-            new.iv_lambda = (self.iv*other.iv_lambda
-                            + other.iv*self.iv_lambda
-                            + lambda_t(self.iv_prime, other.iv_prime))
-        else:
-            new.iv = self.iv*other
-            new.iv_prime = self.iv_prime*other
-            new.iv_lambda = self.iv_lambda*other
-        return new
-    def __sub__(self, other):
-        return self + (-1*other)
-    def __rmul__(self, other):
-        return self*other
-    def __radd__(self, other):
-        return self + other
-    def __rsub__(self, other):
-        return (-1*self) + other
-    def __str__(self):
-        return "{}\n{}\n{}".format(self.iv,self.iv_prime,self.iv_lambda)
-    def __repr__(self):
-        return str(self)
-
-chebval = np.polynomial.chebyshev.chebval
-def chebvalnd(intervals, poly):
-    n = poly.dim
-    c = poly.coeff
-    c = chebval(intervals[0],c, tensor=True)
-    for i in range(1,n):
-        c = chebval(intervals[i],c, tensor=False)
-    if len(poly.coeff) == 1:
-        return c[0]
-    else:
-        return c
-
-def can_eliminate(poly, a, b, tol):
-    assert len(a)==len(b)==poly.dim
-    n = poly.dim
-    h = (b-a)[0]
-    assert np.allclose(b-a, h)
-
-    corners = poly(list(product(*zip(a,b))))
-    if not (all(corners>0) or all(corners<0)):
-        return False
-
-    min_corner = abs(min(corners))
-
-    x = []
-    n = len(a)
-    for i,(ai,bi) in enumerate(zip(a,b)):
-        x.append(TabularCompute(ai,bi,dim=n,index=i))
-    x = np.array(x)
-
-    max_curve = abs(chebvalnd(x, poly).iv_lambda)
-    return min_corner > max_curve * n * h**2/8 + tol
-
-def curvature_check(coeff, tol):
-    poly = MultiCheb(coeff)
-    a = np.array([-1.]*poly.dim)
-    b = np.array([1.]*poly.dim)
-    return not can_eliminate(poly, a, b, tol)
