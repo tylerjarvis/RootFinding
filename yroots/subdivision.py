@@ -272,7 +272,7 @@ def interval_approximate_1d(f,a,b,deg,inf_norm=None, return_bools=False):
     coeffs[deg]/=2
 
     if return_bools:
-        sign_change = not(np.all(values > 0) or np.all(values < 0))
+        sign_change = not(np.all(values > 0)) or not((np.all(values < 0)))
         return coeffs[:deg+1], inf_norm, sign_change
 
     return coeffs[:deg+1], inf_norm
@@ -911,7 +911,7 @@ def subdivision_solve_1d(f,a,b,deg,target_deg,interval_data,root_tracker,tols,ma
     # Trim the coefficient array (reduce the degree) as much as we can.
     # This identifies a 'good degree' with which to approximate the function
     # if it is less than the given approx degree.
-    while np.isclose(0, coeff[-1]):
+    while np.isclose(0, coeff[-1], atol=tols.abs_approx_tol, rtol=tols.rel_approx_tol):
         if len(coeff) == 1:
             break
         coeff = coeff[:-1]
@@ -920,7 +920,7 @@ def subdivision_solve_1d(f,a,b,deg,target_deg,interval_data,root_tracker,tols,ma
     good_deg = max(len(coeff) - 1, 1)
 
     # coeff, inf_norm = interval_approximate_1d(f,a,b,good_deg)
-    coeff2, inf_norm = interval_approximate_1d(f,a,b,good_deg*2,inf_norm)
+    coeff2, inf_norm, sign_change = interval_approximate_1d(f,a,b,good_deg*2,inf_norm, return_bools=True)
 
     coeff2[slice_top(coeff)] -= coeff
 
@@ -935,7 +935,7 @@ def subdivision_solve_1d(f,a,b,deg,target_deg,interval_data,root_tracker,tols,ma
     else:
         
         # Run interval checks to eliminate regions
-        if interval_data.check_interval(coeff, error, a, b):
+        if not sign_change or interval_data.check_interval(coeff, error, a, b):
             return
 
         try:
