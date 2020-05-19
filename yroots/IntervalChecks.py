@@ -971,7 +971,7 @@ def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
             quad_coeff[spot] = test_coeff[spot]
             test_coeff[spot] = 0
 
-    #create a poly object for evaluations
+    #create a poly object for evals
     quad_poly = MultiCheb(quad_coeff)
 
     #The sum of the absolute values of everything else
@@ -981,54 +981,83 @@ def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
         "powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
         s = list(iterable)
         return itertools.chain.from_iterable(itertools.combinations(s, r)\
-                                                     for r in range(len(s)+1))
+                                                     for r in range(len(s)+1,-1,-1))
+     #No root if min(extreme_values) > other_sum
+     # OR max(extreme_values) < -other_sum
+     #Logical negation--> could be roots
+     # if min(extreme_values) < other_sum
+     # AND max(extreme_values) > -other_sum
+     #Defn of min/max --> as soon as
+     # one value is < other_sum AND
+     # one value is > other_sum
+     # there can be a root
     mask = []
     for interval_num, interval in enumerate(intervals):
         if change_sign[interval_num]:
             mask.append(True)
             continue
-
-        extreme_points = []
+        Done = False
+        min_satisfied, max_satisfied = False,False
         for fixed in powerset(np.arange(dim)):
-            fixed = np.array(fixed)
-            if len(fixed) == 0:
-                #fix no vars--> interior
-                if np.linalg.matrix_rank(A) < A.shape[0]:
-                    #no interior critical point
-                    continue
-                X = la.solve(A, -B, assume_a='sym')
-                #make sure it's in the domain
-                if np.all([interval[0][i] <= X[i] <= interval[1][i] for i in range(dim)]):
-                    extreme_points.append(quad_poly(X))
-            elif len(fixed) == dim:
-                #fix all variables--> corners
-                for corner in itertools.product([0,1],repeat=dim):
-                    #j picks if upper/lower bound. i is which var
-                    extreme_points.append(quad_poly([interval[j][i] for i,j in enumerate(corner)]))
+            print('fixed:',fixed,'Done:',Done)
+            if Done:
+                break
             else:
-                #fixed some variables --> "sides"
-                #we only care about the equations from the unfixed variables
-                unfixed = np.delete(np.arange(dim), fixed)
-                A_ = A[unfixed][:,unfixed]
-                if np.linalg.matrix_rank(A_) < A_.shape[0]:
-                    #no solutions
-                    continue
-                fixed_A = A[unfixed][:,fixed]
-                B_ = B[unfixed]
-
-                for side in itertools.product([0,1],repeat=len(fixed)):
-                    X0 = np.array([interval[j][i] for i,j in enumerate(side)])
-                    X_ = la.solve(A_, -B_-fixed_A@X0, assume_a='sym')
-                    X = np.zeros(dim)
-                    X[fixed] = X0
-                    X[unfixed] = X_
+                fixed = np.array(fixed)
+                if len(fixed) == 0:
+                    #fix no vars--> interior
+                    if np.linalg.matrix_rank(A) < A.shape[0]:
+                        #no interior critical point
+                        continue
+                    X = la.solve(A, -B, assume_a='sym')
+                    #make sure it's in the domain
                     if np.all([interval[0][i] <= X[i] <= interval[1][i] for i in range(dim)]):
-                        extreme_points.append(quad_poly(X))
+                        eval = quad_poly(X)
+                        min_satisfied = min_satisfied or eval < other_sum
+                        max_satisfied = max_satisfied or eval > -other_sum
+                        if min_satisfied and max_satisfied:
+                            mask.append(True)
+                            Done = True
+                elif len(fixed) == dim:
+                    #fix all variables--> corners
+                    for corner in itertools.product([0,1],repeat=dim):
+                        if Done:
+                            break
+                        #j picks if upper/lower bound. i is which var
+                        eval = quad_poly([interval[j][i] for i,j in enumerate(corner)])
+                        min_satisfied = min_satisfied or eval < other_sum
+                        max_satisfied = max_satisfied or eval > -other_sum
+                        if min_satisfied and max_satisfied:
+                            mask.append(True)
+                            Done = True
+                else:
+                    #fixed some variables --> "sides"
+                    #we only care about the equations from the unfixed variables
+                    unfixed = np.delete(np.arange(dim), fixed)
+                    A_ = A[unfixed][:,unfixed]
+                    if np.linalg.matrix_rank(A_) < A_.shape[0]:
+                        #no solutions
+                        continue
+                    fixed_A = A[unfixed][:,fixed]
+                    B_ = B[unfixed]
 
-        #No root if min(extreme_points) > (other_sum + tol)
-        # OR max(extreme_points) < -(other_sum+tol)
-        #Logical negation gives the boolean we want
-        mask.append(np.min(extreme_points) < (other_sum + tol)
-                and np.max(extreme_points) > -(other_sum+tol))
+                    for side in itertools.product([0,1],repeat=len(fixed)):
+                        if Done:
+                            break
+                        X0 = np.array([interval[j][i] for i,j in enumerate(side)])
+                        X_ = la.solve(A_, -B_-fixed_A@X0, assume_a='sym')
+                        X = np.zeros(dim)
+                        X[fixed] = X0
+                        X[unfixed] = X_
+                        if np.all([interval[0][i] <= X[i] <= interval[1][i] for i in range(dim)]):
+                            eval = quad_poly(X)
+                            min_satisfied = min_satisfied or eval < other_sum
+                            max_satisfied = max_satisfied or eval > -other_sum
+                            if min_satisfied and max_satisfied:
+                                mask.append(True)
+                                Done = True
+        #no root
+        if not Done:
+            mask.append(False)
 
     return mask
