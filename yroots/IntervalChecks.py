@@ -598,7 +598,7 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
                                     c7*(2*x**2-1) + c8*(2*y**2-1) + c9*(2*z**2-1)
 
     #The sum of the absolute values of everything else
-    other_sum = np.sum(np.abs(test_coeff)) - np.sum(np.abs([c0,c1,c2,c3,c4,c5,c6,c7,c8,c9]))
+    other_sum = np.sum(np.abs(test_coeff)) - np.sum(np.abs([c0,c1,c2,c3,c4,c5,c6,c7,c8,c9])) + tol
 
     #The interior min
     #Comes from solving dx, dy, dz = 0
@@ -975,7 +975,7 @@ def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
     quad_poly = MultiCheb(quad_coeff)
 
     #The sum of the absolute values of everything else
-    other_sum = np.sum(np.abs(test_coeff))
+    other_sum = np.sum(np.abs(test_coeff)) + tol
 
     def powerset(iterable):
         "powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
@@ -999,7 +999,6 @@ def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
         Done = False
         min_satisfied, max_satisfied = False,False
         for fixed in powerset(np.arange(dim)):
-            print('fixed:',fixed,'Done:',Done)
             if Done:
                 break
             else:
