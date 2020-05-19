@@ -407,8 +407,8 @@ def quadratic_check_2D(test_coeff, intervals, change_sign, tol):
     else:
         c5 = 0
 
-    #The sum of the absolute values of the other coefs
-    other_sum = np.sum(np.abs(test_coeff)) - np.sum(np.abs([c0,c1,c2,c3,c4,c5]))
+    #The sum of the absolute values of the other coefs plus the error in the approximation
+    other_sum = np.sum(np.abs(test_coeff)) - np.sum(np.abs([c0,c1,c2,c3,c4,c5])) + tol
 
     #function for evaluating c0 + c1x + c2y +c3x^2 + c4xy + c5y^2 (note these are chebyshev monomials)
     eval_func = lambda x,y: c0 + c1*x + c2*y + c3*(2*x**2-1) + c4*x*y + c5*(2*y**2-1)
@@ -424,18 +424,47 @@ def quadratic_check_2D(test_coeff, intervals, change_sign, tol):
     else:
         int_x = None
 
+    #No root if min(extreme_values) > other_sum
+    # OR max(extreme_values) < -other_sum
+    #Logical negation--> could be roots
+    # if min(extreme_values) < other_sum
+    # AND max(extreme_values) > -other_sum
+    #Defn of min/max --> as soon as
+    # one value is < other_sum AND
+    # one value is > other_sum
+    # there can be a root
     mask = []
     for i, interval in enumerate(intervals):
         if change_sign[i]:
             mask.append(True)
             continue
 
-        extreme_points = []
+        min_satisfied, max_satisfied = False,False
         #Add all the corners
-        extreme_points.append(eval_func(interval[0][0], interval[0][1]))
-        extreme_points.append(eval_func(interval[1][0], interval[0][1]))
-        extreme_points.append(eval_func(interval[0][0], interval[1][1]))
-        extreme_points.append(eval_func(interval[1][0], interval[1][1]))
+        eval = eval_func(interval[0][0], interval[0][1])
+        min_satisfied = min_satisfied or eval < other_sum
+        max_satisfied = max_satisfied or eval > -other_sum
+        if min_satisfied and max_satisfied:
+            mask.append(True)
+            continue
+        eval = eval_func(interval[1][0], interval[0][1])
+        min_satisfied = min_satisfied or eval < other_sum
+        max_satisfied = max_satisfied or eval > -other_sum
+        if min_satisfied and max_satisfied:
+            mask.append(True)
+            continue
+        eval = eval_func(interval[0][0], interval[1][1])
+        min_satisfied = min_satisfied or eval < other_sum
+        max_satisfied = max_satisfied or eval > -other_sum
+        if min_satisfied and max_satisfied:
+            mask.append(True)
+            continue
+        eval = eval_func(interval[1][0], interval[1][1])
+        min_satisfied = min_satisfied or eval < other_sum
+        max_satisfied = max_satisfied or eval > -other_sum
+        if min_satisfied and max_satisfied:
+            mask.append(True)
+            continue
 
         #Add the x constant boundaries
         #The partial with respect to y is zero
@@ -444,11 +473,21 @@ def quadratic_check_2D(test_coeff, intervals, change_sign, tol):
             x = interval[0][0]
             y = -(c2 + c4*x)/(4*c5)
             if interval[0][1] < y < interval[1][1]:
-                extreme_points.append(eval_func(x,y))
+                eval = eval_func(x,y)
+                min_satisfied = min_satisfied or eval < other_sum
+                max_satisfied = max_satisfied or eval > -other_sum
+                if min_satisfied and max_satisfied:
+                    mask.append(True)
+                    continue
             x = interval[1][0]
             y = -(c2 + c4*x)/(4*c5)
             if interval[0][1] < y < interval[1][1]:
-                extreme_points.append(eval_func(x,y))
+                eval = eval_func(x,y)
+                min_satisfied = min_satisfied or eval < other_sum
+                max_satisfied = max_satisfied or eval > -other_sum
+                if min_satisfied and max_satisfied:
+                    mask.append(True)
+                    continue
 
         #Add the y constant boundaries
         #The partial with respect to x is zero
@@ -457,21 +496,33 @@ def quadratic_check_2D(test_coeff, intervals, change_sign, tol):
             y = interval[0][1]
             x = -(c1 + c4*y)/(4*c3)
             if interval[0][0] < x < interval[1][0]:
-                extreme_points.append(eval_func(x,y))
+                eval = eval_func(x,y)
+                min_satisfied = min_satisfied or eval < other_sum
+                max_satisfied = max_satisfied or eval > -other_sum
+                if min_satisfied and max_satisfied:
+                    mask.append(True)
+                    continue
             y = interval[1][1]
             x = -(c1 + c4*y)/(4*c3)
             if interval[0][0] < x < interval[1][0]:
-                extreme_points.append(eval_func(x,y))
+                eval = eval_func(x,y)
+                min_satisfied = min_satisfied or eval < other_sum
+                max_satisfied = max_satisfied or eval > -other_sum
+                if min_satisfied and max_satisfied:
+                    mask.append(True)
+                    continue
 
         #Add the interior value
         if int_x is not None and interval[0][0] < int_x < interval[1][0] and interval[0][1] < int_y < interval[1][1]:
-            extreme_points.append(eval_func(int_x,int_y))
+            eval = eval_func(int_x,int_y)
+            min_satisfied = min_satisfied or eval < other_sum
+            max_satisfied = max_satisfied or eval > -other_sum
+            if min_satisfied and max_satisfied:
+                mask.append(True)
+                continue
 
-        #No root if min(extreme_points) > (other_sum + tol)
-        # OR max(extreme_points) < -(other_sum+tol)
-        #Logical negation gives the boolean we want
-        mask.append(np.min(extreme_points) < (other_sum + tol)
-                and np.max(extreme_points) > -(other_sum+tol))
+        #no root
+        mask.append(False)
 
     return mask
 
@@ -562,22 +613,72 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
     else:
         int_x = None
 
+
+    #No root if min(extreme_values) > other_sum
+    # OR max(extreme_values) < -other_sum
+    #Logical negation--> could be roots
+    # if min(extreme_values) < other_sum
+    # AND max(extreme_values) > -other_sum
+    #Defn of min/max --> as soon as
+    # one value is < other_sum AND
+    # one value is > other_sum
+    # there can be a root
     mask = []
     for interval_num, interval in enumerate(intervals):
         if change_sign[interval_num]:
             mask.append(True)
             continue
 
-        extreme_points = []
+        min_satisfied, max_satisfied = False,False
         #Add all the corners
-        extreme_points.append(eval_func(interval[0][0], interval[0][1], interval[0][2]))
-        extreme_points.append(eval_func(interval[1][0], interval[0][1], interval[0][2]))
-        extreme_points.append(eval_func(interval[0][0], interval[1][1], interval[0][2]))
-        extreme_points.append(eval_func(interval[0][0], interval[0][1], interval[1][2]))
-        extreme_points.append(eval_func(interval[1][0], interval[1][1], interval[0][2]))
-        extreme_points.append(eval_func(interval[1][0], interval[0][1], interval[1][2]))
-        extreme_points.append(eval_func(interval[0][0], interval[1][1], interval[1][2]))
-        extreme_points.append(eval_func(interval[1][0], interval[1][1], interval[1][2]))
+        eval = eval_func(interval[0][0], interval[0][1], interval[0][2])
+        min_satisfied = min_satisfied or eval < other_sum
+        max_satisfied = max_satisfied or eval > -other_sum
+        if min_satisfied and max_satisfied:
+            mask.append(True)
+            continue
+        eval = eval_func(interval[1][0], interval[0][1], interval[0][2])
+        min_satisfied = min_satisfied or eval < other_sum
+        max_satisfied = max_satisfied or eval > -other_sum
+        if min_satisfied and max_satisfied:
+            mask.append(True)
+            continue
+        eval = eval_func(interval[0][0], interval[1][1], interval[0][2])
+        min_satisfied = min_satisfied or eval < other_sum
+        max_satisfied = max_satisfied or eval > -other_sum
+        if min_satisfied and max_satisfied:
+            mask.append(True)
+            continue
+        eval = eval_func(interval[0][0], interval[0][1], interval[1][2])
+        min_satisfied = min_satisfied or eval < other_sum
+        max_satisfied = max_satisfied or eval > -other_sum
+        if min_satisfied and max_satisfied:
+            mask.append(True)
+            continue
+        eval = eval_func(interval[1][0], interval[1][1], interval[0][2])
+        min_satisfied = min_satisfied or eval < other_sum
+        max_satisfied = max_satisfied or eval > -other_sum
+        if min_satisfied and max_satisfied:
+            mask.append(True)
+            continue
+        eval = eval_func(interval[1][0], interval[0][1], interval[1][2])
+        min_satisfied = min_satisfied or eval < other_sum
+        max_satisfied = max_satisfied or eval > -other_sum
+        if min_satisfied and max_satisfied:
+            mask.append(True)
+            continue
+        eval = eval_func(interval[0][0], interval[1][1], interval[1][2])
+        min_satisfied = min_satisfied or eval < other_sum
+        max_satisfied = max_satisfied or eval > -other_sum
+        if min_satisfied and max_satisfied:
+            mask.append(True)
+            continue
+        eval = eval_func(interval[1][0], interval[1][1], interval[1][2])
+        min_satisfied = min_satisfied or eval < other_sum
+        max_satisfied = max_satisfied or eval > -other_sum
+        if min_satisfied and max_satisfied:
+            mask.append(True)
+            continue
 
         #Adds the x and y constant boundaries
         #The partial with respect to z is zero
@@ -587,22 +688,42 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
             y = interval[0][1]
             z = -(c3+c5*x+c6*y)/(4*c9)
             if interval[0][2] < z < interval[1][2]:
-                extreme_points.append(eval_func(x,y,z))
+                eval = eval_func(x,y,z)
+                min_satisfied = min_satisfied or eval < other_sum
+                max_satisfied = max_satisfied or eval > -other_sum
+                if min_satisfied and max_satisfied:
+                    mask.append(True)
+                    continue
             x = interval[1][0]
             y = interval[0][1]
             z = -(c3+c5*x+c6*y)/(4*c9)
             if interval[0][2] < z < interval[1][2]:
-                extreme_points.append(eval_func(x,y,z))
+                eval = eval_func(x,y,z)
+                min_satisfied = min_satisfied or eval < other_sum
+                max_satisfied = max_satisfied or eval > -other_sum
+                if min_satisfied and max_satisfied:
+                    mask.append(True)
+                    continue
             x = interval[0][0]
             y = interval[1][1]
             z = -(c3+c5*x+c6*y)/(4*c9)
             if interval[0][2] < z < interval[1][2]:
-                extreme_points.append(eval_func(x,y,z))
+                eval = eval_func(x,y,z)
+                min_satisfied = min_satisfied or eval < other_sum
+                max_satisfied = max_satisfied or eval > -other_sum
+                if min_satisfied and max_satisfied:
+                    mask.append(True)
+                    continue
             x = interval[1][0]
             y = interval[1][1]
             z = -(c3+c5*x+c6*y)/(4*c9)
             if interval[0][2] < z < interval[1][2]:
-                extreme_points.append(eval_func(x,y,z))
+                eval = eval_func(x,y,z)
+                min_satisfied = min_satisfied or eval < other_sum
+                max_satisfied = max_satisfied or eval > -other_sum
+                if min_satisfied and max_satisfied:
+                    mask.append(True)
+                    continue
 
         #Adds the x and z constant boundaries
         #The partial with respect to y is zero
@@ -612,22 +733,42 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
             z = interval[0][2]
             y = -(c2+c4*x+c6*z)/(4*c8)
             if interval[0][1] < y < interval[1][1]:
-                extreme_points.append(eval_func(x,y,z))
+                eval = eval_func(x,y,z)
+                min_satisfied = min_satisfied or eval < other_sum
+                max_satisfied = max_satisfied or eval > -other_sum
+                if min_satisfied and max_satisfied:
+                    mask.append(True)
+                    continue
             x = interval[1][0]
             z = interval[0][2]
             y = -(c2+c4*x+c6*z)/(4*c8)
             if interval[0][1] < y < interval[1][1]:
-                extreme_points.append(eval_func(x,y,z))
+                eval = eval_func(x,y,z)
+                min_satisfied = min_satisfied or eval < other_sum
+                max_satisfied = max_satisfied or eval > -other_sum
+                if min_satisfied and max_satisfied:
+                    mask.append(True)
+                    continue
             x = interval[0][0]
             z = interval[1][2]
             y = -(c2+c4*x+c6*z)/(4*c8)
             if interval[0][1] < y < interval[1][1]:
-                extreme_points.append(eval_func(x,y,z))
+                eval = eval_func(x,y,z)
+                min_satisfied = min_satisfied or eval < other_sum
+                max_satisfied = max_satisfied or eval > -other_sum
+                if min_satisfied and max_satisfied:
+                    mask.append(True)
+                    continue
             x = interval[1][0]
             z = interval[1][2]
             y = -(c2+c4*x+c6*z)/(4*c8)
             if interval[0][1] < y < interval[1][1]:
-                extreme_points.append(eval_func(x,y,z))
+                eval = eval_func(x,y,z)
+                min_satisfied = min_satisfied or eval < other_sum
+                max_satisfied = max_satisfied or eval > -other_sum
+                if min_satisfied and max_satisfied:
+                    mask.append(True)
+                    continue
 
         #Adds the y and z constant boundaries
         #The partial with respect to x is zero
@@ -637,22 +778,42 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
             z = interval[0][2]
             x = -(c1+c4*y+c5*z)/(4*c7)
             if interval[0][0] < x < interval[1][0]:
-                extreme_points.append(eval_func(x,y,z))
+                eval = eval_func(x,y,z)
+                min_satisfied = min_satisfied or eval < other_sum
+                max_satisfied = max_satisfied or eval > -other_sum
+                if min_satisfied and max_satisfied:
+                    mask.append(True)
+                    continue
             y = interval[1][1]
             z = interval[0][2]
             x = -(c1+c4*y+c5*z)/(4*c7)
             if interval[0][0] < x < interval[1][0]:
-                extreme_points.append(eval_func(x,y,z))
+                eval = eval_func(x,y,z)
+                min_satisfied = min_satisfied or eval < other_sum
+                max_satisfied = max_satisfied or eval > -other_sum
+                if min_satisfied and max_satisfied:
+                    mask.append(True)
+                    continue
             y = interval[0][1]
             z = interval[1][2]
             x = -(c1+c4*y+c5*z)/(4*c7)
             if interval[0][0] < x < interval[1][0]:
-                extreme_points.append(eval_func(x,y,z))
+                eval = eval_func(x,y,z)
+                min_satisfied = min_satisfied or eval < other_sum
+                max_satisfied = max_satisfied or eval > -other_sum
+                if min_satisfied and max_satisfied:
+                    mask.append(True)
+                    continue
             y = interval[1][1]
             z = interval[1][2]
             x = -(c1+c4*y+c5*z)/(4*c7)
             if interval[0][0] < x < interval[1][0]:
-                extreme_points.append(eval_func(x,y,z))
+                eval = eval_func(x,y,z)
+                min_satisfied = min_satisfied or eval < other_sum
+                max_satisfied = max_satisfied or eval > -other_sum
+                if min_satisfied and max_satisfied:
+                    mask.append(True)
+                    continue
 
         #Add the x constant boundaries
         #The partials with respect to y and z are zero
@@ -664,12 +825,22 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
             y = (-4*c9*(c2+c4*x) +   c6*(c3+c5*x))/det
             z = (c6*(c2+c4*x)    - 4*c8*(c3+c5*x))/det
             if interval[0][1] < y < interval[1][1] and interval[0][2] < z < interval[1][2]:
-                extreme_points.append(eval_func(x,y,z))
+                eval = eval_func(x,y,z)
+                min_satisfied = min_satisfied or eval < other_sum
+                max_satisfied = max_satisfied or eval > -other_sum
+                if min_satisfied and max_satisfied:
+                    mask.append(True)
+                    continue
             x = interval[1][0]
             y = (-4*c9*(c2+c4*x) +   c6*(c3+c5*x))/det
             z = (c6*(c2+c4*x)    - 4*c8*(c3+c5*x))/det
             if interval[0][1] < y < interval[1][1] and interval[0][2] < z < interval[1][2]:
-                extreme_points.append(eval_func(x,y,z))
+                eval = eval_func(x,y,z)
+                min_satisfied = min_satisfied or eval < other_sum
+                max_satisfied = max_satisfied or eval > -other_sum
+                if min_satisfied and max_satisfied:
+                    mask.append(True)
+                    continue
 
         #Add the y constant boundaries
         #The partials with respect to x and z are zero
@@ -681,12 +852,22 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
             x = (-4*c9*(c1+c4*y) +   c5*(c3+c6*y))/det
             z = (c5*(c1+c4*y)    - 4*c7*(c3+c6*y))/det
             if interval[0][0] < x < interval[1][0] and interval[0][2] < z < interval[1][2]:
-                extreme_points.append(eval_func(x,y,z))
+                eval = eval_func(x,y,z)
+                min_satisfied = min_satisfied or eval < other_sum
+                max_satisfied = max_satisfied or eval > -other_sum
+                if min_satisfied and max_satisfied:
+                    mask.append(True)
+                    continue
             y = interval[1][1]
             x = (-4*c9*(c1+c4*y) +   c5*(c3+c6*y))/det
             z = (c5*(c1+c4*y)    - 4*c7*(c3+c6*y))/det
             if interval[0][0] < x < interval[1][0] and interval[0][2] < z < interval[1][2]:
-                extreme_points.append(eval_func(x,y,z))
+                eval = eval_func(x,y,z)
+                min_satisfied = min_satisfied or eval < other_sum
+                max_satisfied = max_satisfied or eval > -other_sum
+                if min_satisfied and max_satisfied:
+                    mask.append(True)
+                    continue
 
         #Add the z constant boundaries
         #The partials with respect to x and y are zero
@@ -698,23 +879,35 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
             x = (-4*c8*(c1+c5*z) +   c4*(c2+c6*z))/det
             y = (c4*(c1+c5*z)    - 4*c7*(c2+c6*z))/det
             if interval[0][0] < x < interval[1][0] and interval[0][1] < y < interval[1][1]:
-                extreme_points.append(eval_func(x,y,z))
+                eval = eval_func(x,y,z)
+                min_satisfied = min_satisfied or eval < other_sum
+                max_satisfied = max_satisfied or eval > -other_sum
+                if min_satisfied and max_satisfied:
+                    mask.append(True)
+                    continue
             z = interval[1][2]
             x = (-4*c8*(c1+c5*z) +   c4*(c2+c6*z))/det
             y = (c4*(c1+c5*z)    - 4*c7*(c2+c6*z))/det
             if interval[0][0] < x < interval[1][0] and interval[0][1] < y < interval[1][1]:
-                extreme_points.append(eval_func(x,y,z))
+                eval = eval_func(x,y,z)
+                min_satisfied = min_satisfied or eval < other_sum
+                max_satisfied = max_satisfied or eval > -other_sum
+                if min_satisfied and max_satisfied:
+                    mask.append(True)
+                    continue
 
         #Add the interior value
         if int_x is not None and interval[0][0] < int_x < interval[1][0] and interval[0][1] < int_y < interval[1][1] and\
                 interval[0][2] < int_z < interval[1][2]:
-            extreme_points.append(eval_func(int_x,int_y,int_z))
+            eval = eval_func(int_x,int_y,int_z)
+            min_satisfied = min_satisfied or eval < other_sum
+            max_satisfied = max_satisfied or eval > -other_sum
+            if min_satisfied and max_satisfied:
+                mask.append(True)
+                continue
 
-        #No root if min(extreme_points) > (other_sum + tol)
-        # OR max(extreme_points) < -(other_sum+tol)
-        #Logical negation gives the boolean we want
-        mask.append(np.min(extreme_points) < (other_sum + tol)
-                and np.max(extreme_points) > -(other_sum+tol))
+        #no root
+        mask.append(False)
 
     return mask
 
