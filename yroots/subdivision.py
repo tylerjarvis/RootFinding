@@ -935,8 +935,9 @@ def subdivision_solve_1d(f,a,b,deg,target_deg,interval_data,root_tracker,tols,ma
     else:
         
         # Run interval checks to eliminate regions
-        if not sign_change or interval_data.check_interval(coeff, error, a, b):
-            return
+        if not sign_change:
+            if interval_data.check_interval(coeff, error, a, b):
+                return
 
         try:
             good_zeros_tol = max(tols.min_good_zeros_tol, error*tols.good_zeros_factor)
