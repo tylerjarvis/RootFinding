@@ -272,7 +272,8 @@ def interval_approximate_1d(f,a,b,deg,inf_norm=None, return_bools=False):
     coeffs[deg]/=2
 
     if return_bools:
-        sign_change = not(np.all(values > 0)) or not((np.all(values < 0)))
+        # Check to see if the sign changes on the interval
+        sign_change = np.abs(np.sum(np.sign(values))) != 2*deg
         return coeffs[:deg+1], inf_norm, sign_change
 
     return coeffs[:deg+1], inf_norm
@@ -348,8 +349,8 @@ def interval_approximate_nd(f,a,b,deg,return_bools=False,inf_norm=None):
     dim = len(a)
 
     if hasattr(f,"evaluate_grid"):
-        xyz = transform(get_cheb_grid(deg, dim, True), a, b)
-        values_block = f.evaluate_grid(xyz)
+        cheb_points = transform(get_cheb_grid(deg, dim, True), a, b)
+        values_block = f.evaluate_grid(cheb_points)
     else:
         cheb_points = transform(get_cheb_grid(deg, dim, False), a, b)
         cheb_points = [cheb_points[:,i] for i in range(dim)]
@@ -358,6 +359,16 @@ def interval_approximate_nd(f,a,b,deg,return_bools=False,inf_norm=None):
     # figure out on which subintervals the function changes sign
     if return_bools:
         change_sign = np.zeros(2**dim, dtype=bool)
+        signs = np.sign(values_block)
+        # 2 Dimensional implementation
+        if dim == 2:
+            # Avoid dividing by 2 several times
+            div_deg = deg//2
+            change_sign[0] = np.abs(np.sum(signs[:div_deg, :div_deg])) != div_deg**2
+            change_sign[1] = np.abs(np.sum(signs[:div_deg, div_deg:])) != div_deg*(div_deg + 1)
+            change_sign[2] = np.abs(np.sum(signs[div_deg:, :div_deg])) != div_deg*(div_deg + 1)
+            change_sign[3] = np.abs(np.sum(signs[div_deg:, div_deg:])) != (div_deg + 1)**2
+
 
     values = chebyshev_block_copy(values_block)
 
@@ -935,7 +946,7 @@ def subdivision_solve_1d(f,a,b,deg,target_deg,interval_data,root_tracker,tols,ma
     else:
         
         # Run interval checks to eliminate regions
-        if not sign_change:
+        if not sign_change: # Skip checks if there is a sign change
             if interval_data.check_interval(coeff, error, a, b):
                 return
 
