@@ -20,7 +20,6 @@ from yroots.RootTracker import RootTracker
 from itertools import product
 from matplotlib import pyplot as plt
 from scipy.linalg import lu
-import itertools
 import time
 import warnings
 
@@ -359,15 +358,17 @@ def interval_approximate_nd(f,a,b,deg,return_bools=False,inf_norm=None):
     # figure out on which subintervals the function changes sign
     if return_bools:
         change_sign = np.zeros(2**dim, dtype=bool)
-        signs = np.sign(values_block)
-        # 2 Dimensional implementation
-        if dim == 2:
-            # Avoid dividing by 2 several times
-            div_deg = deg//2
-            change_sign[0] = np.abs(np.sum(signs[:div_deg, :div_deg])) != div_deg**2
-            change_sign[1] = np.abs(np.sum(signs[:div_deg, div_deg:])) != div_deg*(div_deg + 1)
-            change_sign[2] = np.abs(np.sum(signs[div_deg:, :div_deg])) != div_deg*(div_deg + 1)
-            change_sign[3] = np.abs(np.sum(signs[div_deg:, div_deg:])) != (div_deg + 1)**2
+        # This slows the code down with little improvement. It appears that it
+        # takes the time it usually takes in interval_approximate_nd multiplied
+        # by the dimension.
+        # signs = np.sign(values_block)
+        
+        # slice1 = slice(0, deg//2, 1)
+        # slice2 = slice(deg//2, deg + 1, 1)
+
+        # for i, s in enumerate(product([slice1, slice2], repeat=dim)):
+        #     # The signs are not all the same each slice
+        #     change_sign[i] = np.any(signs[s] != 1) and np.any(signs[s] != -1)
 
 
     values = chebyshev_block_copy(values_block)
