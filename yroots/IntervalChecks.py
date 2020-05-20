@@ -1005,6 +1005,10 @@ def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
                 fixed = np.array(fixed)
                 if len(fixed) == 0:
                     #fix no vars--> interior
+                    #if diagonal entries change sign, can't be definite
+                    diag_signs = np.diag(A)>0
+                    if np.any(diag_signs[0] != diag_signs[1:]):
+                        continue
                     if np.linalg.matrix_rank(A) < A.shape[0]:
                         #no interior critical point
                         continue
@@ -1034,6 +1038,10 @@ def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
                     #we only care about the equations from the unfixed variables
                     unfixed = np.delete(np.arange(dim), fixed)
                     A_ = A[unfixed][:,unfixed]
+                    #if diagonal entries change sign, can't be definite
+                    diag_signs = np.diag(A_)>0
+                    if np.any(diag_signs[0] != diag_signs[1:]):
+                        continue
                     if np.linalg.matrix_rank(A_) < A_.shape[0]:
                         #no solutions
                         continue
