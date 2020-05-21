@@ -16,14 +16,17 @@ from matplotlib import patches
 
 """
 LINEAR CHECK
-This is a fast and simple check. It compares the minimum of the linear terms to
-the sum of the other coefficients. If the minimum is greater, there cannot be any roots.
+This is a fast and simple check. It compares the range of the linear terms on
+the intervals to the sum of the absolute values of the other coefficients.
+If min(linear-part) > other-coef-sum or max(linear-part) < -other-coef-sum,
+there cannot be any roots.
 Although this check is very efficient, we found that quadractic_check in IntervalChecks.py
 removed most of the regions that linear_check removed plus some more. Experimentally,
 it wasn't worth the time in 2D to run the linear check before the quadratic check because
 quadratic check would throw out the region anyway.
 **Because the nd-quadratic check is slow, it's quite possible that this check could be
-useful in dimensions 4+ ***
+useful in dimensions 3+ ***
+Originally a subinterval check
 """
 def linear_check(test_coeff, intervals, change_sign, tol):
     """One of subinterval_checks
@@ -90,13 +93,17 @@ def linear_check(test_coeff, intervals, change_sign, tol):
 """
 QUAD CHECK
 Although it's confusingly named, the quad_check is NOT the same
-as the quadratic_check. This function splits up the coefficient tensor into
-smaller chunks. The chunks are chosen to be 3 spots long in one variable dimension
-(e.g. a 3 x 1 x ... x 1 array or a 1 x ... x 1 x 3 x 1 ... x 1 array). Thus, every
-part represents a one-dimensional quadratic and uses the extreme values of those
-quadratics to get a better bound. You can do this wrt any variable, so full_quad_check
-runs this wrt each variable.
-TODO BETTER EXPLANATION HERE
+as the quadratic_check. This function splits up the polynomial into
+smaller chunks--polynomials with fewer terms, each of which is quadratic in one variable.
+There cannot be a root if the minimum of the absolute value of the first chunk is greater
+than the sum of the maximums of the absolute values of the other chunks.
+Warning: this has quite a few issues. This check needs to be more mathematically
+rigorous to be functional. There are coefficients that are ignored right now, which
+must be added in if this check is to be airtight. The mathematical basis of how
+extreme_val_3 is used on monomial multiples of quadratics should be explored
+before using this check. For now, print statements are included to give some intuition
+on how the chunks are made.
+Originally an interval check
 """
 def extreme_val3(test_coeff, maxx = True):
     ''' Finds the extreme value of test_coeff on -1 to 1, used by quad_check
@@ -109,14 +116,15 @@ def extreme_val3(test_coeff, maxx = True):
     test_coeff : numpy array
         Array representing [a,b,c]
     maxx: bool
-        If true returns the absolute value of the max of the funciton, otherwise returns
-        the absolute value of the min of the function.
+        If true returns the max of the absolute value of the funciton, otherwise returns
+        the min of the absolute value of the function.
     Returns
     -------
     extreme_val3 : float
         The extreme value (max or min) of the absolute value of a + bx + c(2x^2 - 1).
     '''
     a,b,c = test_coeff
+    #CAREFUL: There's a hard coded tolerance here...
     if np.abs(c) < 1.e-10:
         if maxx:
             return abs(a) + abs(b)
@@ -166,8 +174,11 @@ def quad_check(test_coeff, tol):
     for i in range(dim-1):
         slices.append(0)
 
+    print('coef:',np.round(test_coeff,2),sep='\n')
+    print('start coef:',test_coeff[tuple(slices)],sep='\n')
     #Get the min of the quadratic including the constant term
     start = extreme_val3(test_coeff[tuple(slices)], maxx = False)
+    print('start coef min:',start,sep='\n')
     rest = 0
 
     #Get the max's of the other quadratics
@@ -178,6 +189,8 @@ def quad_check(test_coeff, tol):
             for i in range(1, dim):
                 slices[i] = spots[i]
             rest += extreme_val3(test_coeff[tuple(slices)])
+            print('chunk coef:',test_coeff[tuple(slices)],sep='\n')
+            print('chunk coef min:',extreme_val3(test_coeff[tuple(slices)]),'rest:',rest)
 
     #Tries the one-dimensional slices in other directions
     while slice_direc < dim - 1:
@@ -196,6 +209,8 @@ def quad_check(test_coeff, tol):
                 if i != slice_direc:
                     slices[i] = spots[i]
             rest += extreme_val3(test_coeff[tuple(slices)])
+            print('chunk coef:',test_coeff[tuple(slices)],sep='\n')
+            print('chunk coef min:',extreme_val3(test_coeff[tuple(slices)]),'rest:',rest)
 
     if start > rest + tol:
         return False
@@ -226,10 +241,17 @@ def full_quad_check(test_coeff, tol):
 
 """
 CUBIC CHECK
-Although it's confusingly named, the cubic_check does NOT compare the cubic parts
-of the polynomial to the noncubic parts. This function splits up the coefficient tensor into
-one-dimensional cubics and uses the extreme values of those to get a better bound.
-TODO BETTER EXPLANATION HERE
+Although it's confusingly named, the cubic_check is more similar to quad_check than
+to any of the quadratic_check functions. This function splits up the polynomial into
+smaller chunks--polynomials with fewer terms, each of which is cubic in one variable.
+There cannot be a root if the minimum of the absolute value of the first chunk is greater
+than the sum of the maximums of the absolute values of the other chunks.
+Warning: this has quite a few issues. This check needs to be more mathematically
+rigorous to be functional. There are coefficients that are ignored right now, which
+must be added in if this check is to be airtight. The mathematical basis of how
+extreme_val_3 is used on monomial multiples of quadratics should be explored
+before using this check.
+Originally an interval check
 """
 def extreme_val4(test_coeff, maxx = True):
     ''' Finds the extreme value of test_coeff on -1 to 1, used by cubic_check
@@ -358,7 +380,7 @@ def full_cubic_check(test_coeff, tol):
             return False
     return True
 """
-This check uses interval arithmetic and the curvature of the polynomial
+This check uses the curvature of the polynomial and interval arithmetic
 to determine the range of the polynomial over the specified domain.
 Like the other checks in this graveyard, it wasn't fast enough to use.
 We've had issues with the first import statement in this check preventing
@@ -366,7 +388,7 @@ installation of yroots, so since this code is no longer used, the import
 is currently commented out. If you decide to include this check, it's a
 good idea to add it back into the unit test as well, since currently
 it's not being tested due to this import error.
-TODO BETTER EXPLANATION
+Originally an interval check
 """
 # from mpmath import iv
 from itertools import product
