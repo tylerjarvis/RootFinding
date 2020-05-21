@@ -13,6 +13,7 @@ from yroots.polynomial import MultiCheb, Polynomial
 from matplotlib import patches
 from scipy import linalg as la
 from math import fabs                      # faster than np.abs for small arrays
+from numba import jit
 
 class IntervalData:
     '''
