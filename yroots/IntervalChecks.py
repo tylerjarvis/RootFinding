@@ -433,7 +433,7 @@ def quadratic_check_2D(test_coeff, intervals, change_sign, tol):
 
     for i, interval in enumerate(intervals):
 
-        if chnge_sign[i]:   # If change_sign true for this interval, then
+        if change_sign[i]:   # If change_sign true for this interval, then
             continue        # move to next interval (mask is already True).
 
         extreme_points = []
