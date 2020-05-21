@@ -56,6 +56,9 @@ class RootTracker:
         self.potential_roots = np.array([])
         self.intervals = []
         self.methods = []
+        #for tracking condition numbers and gradients
+        self.conds = []
+        self.grads = []
 
     def add_roots(self, zeros, a, b, method):
         ''' Store the roots that were found, along with the interval they were found in and the method used.
@@ -82,7 +85,7 @@ class RootTracker:
                         break
                 if not found:
                     self.possible_duplicates.append([zero, a, b, method])
-        
+
         temp = []
         for zero, a_, b_, method in self.possible_duplicates:
             if rootInBox(zero, a, b):
@@ -90,8 +93,8 @@ class RootTracker:
             else:
                 temp.append([zero, a_, b_, method])
         self.possible_duplicates = temp
-                
-        
+
+
 #         if not isinstance(a, np.ndarray):
 #             dim = 1
 #         else:
@@ -108,7 +111,7 @@ class RootTracker:
 #             self.roots = np.hstack([self.roots, zeros])
 #         self.intervals += [(a,b)]*len(zeros)
 #         self.methods += [method]*len(zeros)
-        
+
     def add_root(self, zero, a, b, method):
         ''' Store the root that was found, along with the interval it was found in and the method used.
 
@@ -132,7 +135,6 @@ class RootTracker:
                 self.roots = np.zeros([0])
             else:
                 self.roots = np.zeros([0,dim])
-
         if dim > 1:
             self.roots = np.vstack([self.roots, zero])
         else:
@@ -141,7 +143,7 @@ class RootTracker:
         self.methods += [method]
 
     def add_potential_roots(self, potentials, a, b, method):
-        ''' Store the potential roots that were found, along with the interval 
+        ''' Store the potential roots that were found, along with the interval
         they were found in and the method used.
 
         Parameters
@@ -192,5 +194,6 @@ class RootTracker:
         ''' Adds the possible duplicate roots to the roots
         '''
         for zero, a, b, method in self.possible_duplicates:
+            # Pass in None for the condition number since we don't have it
             self.add_root(zero, a, b, method)
         self.possible_duplicates = []

@@ -243,7 +243,7 @@ def nullspace(linear_polys):
     dim = linear_polys[0].dim
     A = np.zeros((len(linear_polys),dim+1))
     for i,p in enumerate(linear_polys):
-        A[i,:-1] = p.coeff[get_var_list(dim)]
+        A[i,:-1] = p.coeff[tuple(get_var_list(dim))]
         A[i,-1]  = p.coeff[tuple([0]*dim)]
 
     return rref(A)
