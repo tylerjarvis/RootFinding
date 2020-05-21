@@ -12,6 +12,7 @@ from matplotlib import pyplot as plt
 from yroots.polynomial import MultiCheb, Polynomial
 from matplotlib import patches
 from scipy import linalg as la
+from math import fabs                      # faster than np.abs for small arrays
 
 class IntervalData:
     '''
@@ -378,151 +379,146 @@ def quadratic_check_2D(test_coeff, intervals, change_sign, tol):
         A list of the results of each interval. False if the function is guarenteed to never be zero
         in the unit box, True otherwise
     """
+
+    mask = [True]*len(intervals)
+
     if test_coeff.ndim != 2:
-        return [True]*len(intervals)
+        return mask
 
     #Get the coefficients of the quadratic part
     #Need to account for when certain coefs are zero.
     #Padding is slow, so check the shape instead.
+    c = [0]*6
     shape = test_coeff.shape
-    c0 = test_coeff[0,0]
+    c[0] = test_coeff[0,0]
     if shape[0] > 1:
-        c1 = test_coeff[1,0]
-    else:
-        c1 = 0
+        c[1] = test_coeff[1,0]
     if shape[1] > 1:
-        c2 = test_coeff[0,1]
-    else:
-        c2 = 0
+        c[2] = test_coeff[0,1]
     if shape[0] > 2:
-        c3 = test_coeff[2,0]
-    else:
-        c3 = 0
+        c[3] = test_coeff[2,0]
     if shape[0] > 1 and shape[1] > 1:
-        c4 = test_coeff[1,1]
-    else:
-        c4 = 0
+        c[4] = test_coeff[1,1]
     if shape[1] > 2:
-        c5 = test_coeff[0,2]
-    else:
-        c5 = 0
+        c[5] = test_coeff[0,2]
 
-    #The sum of the absolute values of the other coefs plus the error in the approximation
-    other_sum = np.sum(np.abs(test_coeff)) - np.sum(np.abs([c0,c1,c2,c3,c4,c5])) + tol
+    # The sum of the absolute values of the other coefs
+    # Note: Overhead for instantiating a NumPy array is too costly for
+    #  small arrays, so the second sum here is faster than using numpy
+    other_sum = np.sum(np.abs(test_coeff)) - sum([fabs(coeff) for coeff in c]) + tol
 
-    #function for evaluating c0 + c1x + c2y +c3x^2 + c4xy + c5y^2 (note these are chebyshev monomials)
-    eval_func = lambda x,y: c0 + c1*x + c2*y + c3*(2*x**2-1) + c4*x*y + c5*(2*y**2-1)
 
+    # Function for evaluating c0 + c1 T_1(x) + c2 T_1(y) +c3 T_2(x) + c4 T_1(x)T_1(y) + c5 T_2(y)
+    # Use the Horner form because it is much faster, also do any repeated computatons in advance
+    k0 = c[0]-c[3]-c[5]
+    k3 = 2*c[3]
+    k5 = 2*c[5]
+
+    def eval_func(x,y):
+        return k0 + (c[1] + k3 * x + c[4] * y) * x  + (c[2] + k5 * y) * y
     #The interior min
     #Comes from solving dx, dy = 0
     #Dx: 4c3x +  c4y = -c1    Matrix inverse is  [4c5  -c4]
     #Dy:  c4x + 4c5y = -c2                       [-c4  4c3]
-    det = 16*c3*c5 - c4**2
+    # This computation is the same for all subintevals, so do it first
+
+    det = 16 * c[3] * c[5] - c[4]**2
     if det != 0:
-        int_x = (c2*c4 - 4*c1*c5)/det
-        int_y = (c1*c4 - 4*c2*c3)/det
-    else:
-        int_x = None
+        int_x = (c[2] * c[4] - 4 * c[1] * c[5]) / det
+        int_y = (c[1] * c[4] - 4 * c[2] * c[3]) / det
+    else:                      # det is zero,
+        int_x = np.inf
+        int_y = np.inf
 
-    #No root if min(extreme_values) > other_sum
-    # OR max(extreme_values) < -other_sum
-    #Logical negation--> could be roots
-    # if min(extreme_values) < other_sum
-    # AND max(extreme_values) > -other_sum
-    #Defn of min/max --> as soon as
-    # one value is < other_sum AND
-    # one value is > other_sum
-    # there can be a root
-    mask = []
+
     for i, interval in enumerate(intervals):
-        if change_sign[i]:
-            mask.append(True)
-            continue
 
+        if change_sign[i]:   # If change_sign true for this interval, then
+            continue        # move to next interval (mask is already True).
+
+        extreme_points = []
         min_satisfied, max_satisfied = False,False
-        #Add all the corners
+
+        #Check all the corners
         eval = eval_func(interval[0][0], interval[0][1])
         min_satisfied = min_satisfied or eval < other_sum
         max_satisfied = max_satisfied or eval > -other_sum
         if min_satisfied and max_satisfied:
-            mask.append(True)
             continue
+
         eval = eval_func(interval[1][0], interval[0][1])
         min_satisfied = min_satisfied or eval < other_sum
         max_satisfied = max_satisfied or eval > -other_sum
         if min_satisfied and max_satisfied:
-            mask.append(True)
             continue
+
         eval = eval_func(interval[0][0], interval[1][1])
         min_satisfied = min_satisfied or eval < other_sum
         max_satisfied = max_satisfied or eval > -other_sum
         if min_satisfied and max_satisfied:
-            mask.append(True)
             continue
+
         eval = eval_func(interval[1][0], interval[1][1])
         min_satisfied = min_satisfied or eval < other_sum
         max_satisfied = max_satisfied or eval > -other_sum
         if min_satisfied and max_satisfied:
-            mask.append(True)
             continue
 
-        #Add the x constant boundaries
+        #Check the x constant boundaries
         #The partial with respect to y is zero
         #Dy:  c4x + 4c5y = -c2 =>   y = (-c2-c4x)/(4c5)
-        if c5 != 0:
+        if c[5] != 0:
+            cc5 = 4 * c[5]
             x = interval[0][0]
-            y = -(c2 + c4*x)/(4*c5)
+            y = -(c[2] + c[4]*x)/cc5
             if interval[0][1] < y < interval[1][1]:
                 eval = eval_func(x,y)
                 min_satisfied = min_satisfied or eval < other_sum
                 max_satisfied = max_satisfied or eval > -other_sum
                 if min_satisfied and max_satisfied:
-                    mask.append(True)
                     continue
             x = interval[1][0]
-            y = -(c2 + c4*x)/(4*c5)
+            y = -(c[2] + c[4]*x)/cc5
             if interval[0][1] < y < interval[1][1]:
                 eval = eval_func(x,y)
                 min_satisfied = min_satisfied or eval < other_sum
                 max_satisfied = max_satisfied or eval > -other_sum
                 if min_satisfied and max_satisfied:
-                    mask.append(True)
                     continue
 
-        #Add the y constant boundaries
+        #Check the y constant boundaries
         #The partial with respect to x is zero
         #Dx: 4c3x +  c4y = -c1  =>  x = (-c1-c4y)/(4c3)
-        if c3 != 0:
+        if c[3] != 0:
+            cc3 = 4*c[3]
             y = interval[0][1]
-            x = -(c1 + c4*y)/(4*c3)
+            x = -(c[1] + c[4]*y)/cc3
             if interval[0][0] < x < interval[1][0]:
                 eval = eval_func(x,y)
                 min_satisfied = min_satisfied or eval < other_sum
                 max_satisfied = max_satisfied or eval > -other_sum
                 if min_satisfied and max_satisfied:
-                    mask.append(True)
-                    continue
-            y = interval[1][1]
-            x = -(c1 + c4*y)/(4*c3)
-            if interval[0][0] < x < interval[1][0]:
-                eval = eval_func(x,y)
-                min_satisfied = min_satisfied or eval < other_sum
-                max_satisfied = max_satisfied or eval > -other_sum
-                if min_satisfied and max_satisfied:
-                    mask.append(True)
                     continue
 
-        #Add the interior value
-        if int_x is not None and interval[0][0] < int_x < interval[1][0] and interval[0][1] < int_y < interval[1][1]:
+            y = interval[1][1]
+            x = -(c[1] + c[4]*y)/cc3
+            if interval[0][0] < x < interval[1][0]:
+                eval = eval_func(x,y)
+                min_satisfied = min_satisfied or eval < other_sum
+                max_satisfied = max_satisfied or eval > -other_sum
+                if min_satisfied and max_satisfied:
+                    continue
+
+        #Check the interior value
+        if interval[0][0] < int_x < interval[1][0] and interval[0][1] < int_y < interval[1][1]:
             eval = eval_func(int_x,int_y)
             min_satisfied = min_satisfied or eval < other_sum
             max_satisfied = max_satisfied or eval > -other_sum
             if min_satisfied and max_satisfied:
-                mask.append(True)
                 continue
 
-        #no root
-        mask.append(False)
+        # No root possible
+        mask[i] = False
 
     return mask
 
