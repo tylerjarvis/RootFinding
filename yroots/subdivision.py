@@ -22,6 +22,7 @@ from matplotlib import pyplot as plt
 from scipy.linalg import lu
 import time
 import warnings
+from numba import jit
 
 def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
           max_cond_num=1e5, good_zeros_factor=100, min_good_zeros_tol=1e-5,
@@ -272,7 +273,8 @@ def interval_approximate_1d(f,a,b,deg,inf_norm=None, return_bools=False):
 
     if return_bools:
         # Check to see if the sign changes on the interval
-        sign_change = np.abs(np.sum(np.sign(values))) != 2*deg
+        is_positive = (np.sign(values) + 1).astype(bool)
+        sign_change = any(is_positive) and any(~is_positive)
         return coeffs[:deg+1], inf_norm, sign_change
 
     return coeffs[:deg+1], inf_norm
@@ -352,23 +354,25 @@ def interval_approximate_nd(f,a,b,deg,return_bools=False,inf_norm=None):
         values_block = f.evaluate_grid(cheb_points)
     else:
         cheb_points = transform(get_cheb_grid(deg, dim, False), a, b)
-        cheb_points = [cheb_points[:,i] for i in range(dim)]
-        values_block = f(*cheb_points).reshape(*([deg+1]*dim))
+        # cheb_points = [cheb_points[:,i] for i in range(dim)]
+        values_block = f(*cheb_points.T).reshape([deg+1]*dim)
 
     # figure out on which subintervals the function changes sign
     if return_bools:
-        change_sign = np.zeros(2**dim, dtype=bool)
-        # This slows the code down with little improvement. It appears that it
-        # takes the time it usually takes in interval_approximate_nd multiplied
-        # by the dimension.
-        # signs = np.sign(values_block)
+        change_sign = [False]*(2**dim)
         
-        # slice1 = slice(0, deg//2, 1)
-        # slice2 = slice(deg//2, deg + 1, 1)
+        # The slices are arranged this way to match up with the array of 
+        # intervals in the subinterval checks.
+        slice1 = slice(deg//2, deg + 1, 1)
+        slice2 = slice(0, deg//2, 1)
+        
 
-        # for i, s in enumerate(product([slice1, slice2], repeat=dim)):
-        #     # The signs are not all the same each slice
-        #     change_sign[i] = np.any(signs[s] != 1) and np.any(signs[s] != -1)
+        signs = np.sign(values_block) > 0
+
+        for i, s in enumerate(product([slice1, slice2], repeat=dim)):
+            # Check if the entries are either all positive or negative
+            flat_slice = np.ravel(signs[s])
+            change_sign[i] = any(flat_slice) and any(~flat_slice)
 
 
     values = chebyshev_block_copy(values_block)
@@ -509,7 +513,7 @@ def full_cheb_approximate(f,a,b,deg,abs_approx_tol,rel_approx_tol,good_deg=None)
         # return None, np.array(div_dimensions)
 
         # for now, subdivide in every dimension
-        return None, np.arange(dim), inf_norm, error
+        return None, [i for i in range(dim)], inf_norm, error
     else:
         return coeff, bools, inf_norm, error
 
