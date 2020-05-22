@@ -1,10 +1,11 @@
 import numpy as np
-from yroots.IntervalChecks import constant_term_check, full_quad_check, full_cubic_check, curvature_check, \
-linear_check, quadratic_check
+from yroots.IntervalChecks import constant_term_check, quadratic_check
+from yroots.old_code.OldIntervalChecks import full_quad_check, full_cubic_check, curvature_check, linear_check
 from yroots.polynomial import MultiCheb,MultiPower
 
 def test_zero_check2D():
-    interval_checks = [constant_term_check,full_quad_check, curvature_check, full_cubic_check]
+    #curvature_check was causing import errors so it's not included...
+    interval_checks = [constant_term_check,full_quad_check, full_cubic_check]
     subinterval_checks = [linear_check,quadratic_check]
     a = -np.ones(2)
     b = np.ones(2)
