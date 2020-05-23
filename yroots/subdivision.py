@@ -22,6 +22,7 @@ from matplotlib import pyplot as plt
 from scipy.linalg import lu
 import time
 import warnings
+from numba import jit
 
 def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
           max_cond_num=1e5, good_zeros_factor=100, min_good_zeros_tol=1e-5,
@@ -184,6 +185,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
     else:
         return root_tracker.roots
 
+@jit
 def transform(x,a,b):
     """Transforms points from the interval [-1,1] to the interval [a,b].
 
@@ -563,20 +565,18 @@ def get_abs_approx_tol(func, deg, a, b):
                 The calculated absolute approximation tolerance based on the
                 noise of the function on the small interval.
     """
-    tols = []
     np.random.seed(0)
-    for i in range(5):
-        x = transform(np.random.rand(len(a))*2-1, a, b)
-        linearization_size = 2.220446049250313e-14
-        a2 = np.array(x - linearization_size)
-        b2 = np.array(x + linearization_size)
-        coeff = interval_approximate_nd(func,a2,b2,2*deg)[0]
-        coeff[:deg,:deg] = 0
-        abs_approx_tol = np.sum(np.abs(coeff))
-        tols.append(abs_approx_tol)
-    tols = np.array(tols)
-    numSpots = (deg*2)**len(a) - (deg)**len(a)
-    return np.max(tols)*5 / numSpots
+    dim = len(a)
+    linearization_size = 2.220446049250313e-14
+    x = transform(np.random.rand(dim)*2 - 1, a, b)
+    a2 = np.array(x - linearization_size)
+    b2 = np.array(x + linearization_size)
+    coeff = interval_approximate_nd(func,a2,b2,2*deg)[0]
+    coeff[:deg,:deg] = 0
+    abs_approx_tol = np.sum(np.abs(coeff))
+    # tols = np.array(tols)
+    numSpots = (deg*2)**dim - (deg)**dim
+    return abs_approx_tol*10 / numSpots
 
 def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tols,max_level,good_degs=None,level=0, method='svd', use_target_tol=False):
     """Finds the common zeros of the given functions.
