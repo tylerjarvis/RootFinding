@@ -359,20 +359,8 @@ def interval_approximate_nd(f,a,b,deg,return_bools=False,inf_norm=None):
 
     # figure out on which subintervals the function changes sign
     if return_bools:
-        change_sign = [False]*(2**dim)
-        
-        # The slices are arranged this way to match up with the array of 
-        # intervals in the subinterval checks.
-        slice1 = slice(deg//2, deg + 1, 1)
-        slice2 = slice(0, deg//2, 1)
-        
-
-        signs = np.sign(values_block) > 0
-
-        for i, s in enumerate(product([slice1, slice2], repeat=dim)):
-            # Check if the entries are either all positive or negative
-            flat_slice = np.ravel(signs[s])
-            change_sign[i] = any(flat_slice) and any(~flat_slice)
+        # change_sign = [False]*(2**dim)
+        change_sign = changes_sign(deg, dim, values_block)
 
 
     values = chebyshev_block_copy(values_block)
@@ -401,6 +389,42 @@ def interval_approximate_nd(f,a,b,deg,return_bools=False,inf_norm=None):
         return coeffs[tuple(slices)], change_sign, inf_norm
     else:
         return coeffs[tuple(slices)], inf_norm
+
+def changes_sign(deg, dim, values_block):
+    """Finds on what intervals the function evaluations change sign (if at all).
+
+    Parameters
+    ----------
+    deg : int 
+        The approximation degree used for Chebyshev interpolation.
+    dim : int
+        The dimension of the system.
+    values_block : ndarray
+        Function evaluations on the Chebyshev point grid of the Chebyshev
+        interpolationm.
+
+    Returns
+    -------
+    change_sign : list of bools
+        Whether or not the function changed signs on the interval. The slices
+        are set up such that change_sign[i] corresponds with intervals[i] in
+        the subinterval checks.
+    """
+    change_sign = [False]*(2**dim)
+        
+    # The slices are arranged this way to match up with the array of 
+    # intervals in the subinterval checks.
+    slice1 = slice(deg//2, deg + 1, 1)
+    slice2 = slice(0, deg//2, 1)
+    
+    is_positive = values_block > 0
+
+    for i, s in enumerate(product([slice1, slice2], repeat=dim)):
+        # Check if the entries are either all positive or negative
+        flat_slice = np.ravel(is_positive[s])
+        change_sign[i] = any(flat_slice) and any(~flat_slice)
+    
+    return change_sign
 
 def get_subintervals(a,b,dimensions,interval_data,polys,change_sign,approx_error,check_subintervals=False):
     """Gets the subintervals to divide a search interval into.
