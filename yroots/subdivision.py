@@ -567,15 +567,27 @@ def get_abs_approx_tol(func, deg, a, b):
     """
     np.random.seed(0)
     dim = len(a)
+
+    # Half the width of the smaller interval -- about 100*machine_epsilon
     linearization_size = 2.220446049250313e-14
+    
+    # Get a random small interval from [-1,1] and transform so it's 
+    # within [a,b]
     x = transform(np.random.rand(dim)*2 - 1, a, b)
     a2 = np.array(x - linearization_size)
     b2 = np.array(x + linearization_size)
+    
+    # Approximate with a low degree Chebyshev polynomial
     coeff = interval_approximate_nd(func,a2,b2,2*deg)[0]
     coeff[:deg,:deg] = 0
+    
+    # Sum up coeffieicents that are assumed to be just noise
     abs_approx_tol = np.sum(np.abs(coeff))
-    # tols = np.array(tols)
+
+    # Divide by the number of spots that were summed up.
     numSpots = (deg*2)**dim - (deg)**dim
+
+    # Multiply by 10 to give a looser tolerance (speed-up)
     return abs_approx_tol*10 / numSpots
 
 def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tols,max_level,good_degs=None,level=0, method='svd', use_target_tol=False):
