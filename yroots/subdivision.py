@@ -414,8 +414,8 @@ def changes_sign(deg, dim, values_block):
         
     # The slices are arranged this way to match up with the array of 
     # intervals in the subinterval checks.
-    slice1 = slice(deg//2, deg + 1, 1)
-    slice2 = slice(0, deg//2, 1)
+    slice1 = slice(0, deg//2, 1)
+    slice2 = slice(deg//2, deg + 1, 1)
     
     is_positive = values_block > 0
 
@@ -423,10 +423,10 @@ def changes_sign(deg, dim, values_block):
         # Check if the entries are either all positive or negative
         flat_slice = np.ravel(is_positive[s])
         change_sign[i] = any(flat_slice) and any(~flat_slice)
-    
+
     return change_sign
 
-def get_subintervals(a,b,dimensions,interval_data,polys,change_sign,approx_error,check_subintervals=False):
+def get_subintervals(a,b,dimensions,interval_data,polys,change_sign_list,approx_errors,check_subintervals=False):
     """Gets the subintervals to divide a search interval into.
 
     Parameters
@@ -442,11 +442,12 @@ def get_subintervals(a,b,dimensions,interval_data,polys,change_sign,approx_error
     polys : list
         A list of MultiCheb polynomials representing the function approximations on the
         interval to subdivide. Used in the subinterval checks.
-    change_sign : list
-        A list of bools of whether we know the functions can change sign on the subintervals.
+    change_sign_list : list of lists of bools
+        A list of lists of bools of whether we know the functions can change 
+        sign on the subintervals for each polynomial in polys.
         Used in the subinterval checks.
-    approx_error: float
-        The bound of the sup norm error of the chebyshev approximation.
+    approx_errors: list of floats
+        The bound of the sup norm error for each chebyshev approximation.
     check_subintervals : bool
         If True runs the subinterval checks to throw out intervals where the functions are never 0.
 
@@ -470,8 +471,8 @@ def get_subintervals(a,b,dimensions,interval_data,polys,change_sign,approx_error
 
     if check_subintervals:
         # get intervals -1 to 1
-        scaled_subintervals = get_subintervals(-np.ones_like(a),np.ones_like(a),dimensions,None,None,None,approx_error)
-        return interval_data.check_subintervals(subintervals, scaled_subintervals, polys, change_sign, approx_error)
+        scaled_subintervals = get_subintervals(-np.ones_like(a),np.ones_like(a),dimensions,None,None,None,approx_errors)
+        return interval_data.check_subintervals(subintervals, scaled_subintervals, polys, change_sign_list, approx_errors)
     else:
         return subintervals
 
@@ -673,6 +674,7 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
         good_degs = [None]*len(funcs)
     inf_norms = []
     approx_errors = []
+    change_sign_list = []
     # Get the chebyshev approximations
     for func, good_deg in zip(funcs, good_degs):
         if use_target_tol:
@@ -681,6 +683,7 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
             coeff,change_sign,inf_norm,approx_error = full_cheb_approximate(func,a,b,deg,tols.abs_approx_tol,tols.rel_approx_tol, good_deg)
         inf_norms.append(inf_norm)
         approx_errors.append(approx_error)
+        change_sign_list.append(change_sign)
         # Subdivides if a bad approximation
         if coeff is None:
             intervals = get_subintervals(a,b,change_sign,None,None,None,approx_errors)
@@ -707,13 +710,13 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
         
     # Check if the degree is small enough or if trim_coeffs introduced too much error
     if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > target_deg) or not good_approx:
-        intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
+        intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign_list,approx_errors,True)
         for new_a, new_b in intervals:
             subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, use_target_tol=True)
 
     # Check if any approx error is greater than target_tol for Macaulay method
     elif np.any(np.array(approx_errors) > np.array(tols.target_tol) + tols.rel_approx_tol*np.array(inf_norms)):
-        intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
+        intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign_list,approx_errors,True)
         for new_a, new_b in intervals:
             subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, use_target_tol=True)
 
@@ -740,7 +743,7 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
             root_tracker.add_roots(zeros, a, b, "Macaulay")
         except (ConditioningError, TooManyRoots) as e:
             # Subdivide but run some checks on the intervals first
-            intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
+            intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign_list,approx_errors,True)
             for new_a, new_b in intervals:
                 subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, use_target_tol=True)
 

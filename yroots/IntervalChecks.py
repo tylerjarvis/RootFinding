@@ -150,7 +150,7 @@ class IntervalData:
                 return True
         return False
 
-    def check_subintervals(self, subintervals, scaled_subintervals, polys, change_sign, errors):
+    def check_subintervals(self, subintervals, scaled_subintervals, polys, change_sign_list, errors):
         ''' Runs the subinterval checks on the given subintervals of [-1,1]
 
         Parameters
@@ -161,17 +161,20 @@ class IntervalData:
             A list of the subintervals to check, scaled to be within the unit box that the approxiations are valid on.
         polys: list
             The MultiCheb polynomials that approximate the functions on these intervals.
-        change_sign: list
-            A list of bools of whether we know the functions can change sign on the subintervals.
+        change_sign_list: list of lists of bools
+            A list of lists of bools of whether we know the functions can 
+            change sign on the subintervals for each polynomial in polys.
         errors: list
             The approximation errors of the polynomials.
+        
         Returns
         -------
-        check_interval : bool
-            True if we can throw out the interval. Otherwise False.
+        subintervals : list
+            List of subintervals that failed the checks, so there may be a root
+            in them.
         '''
         for check in self.subinterval_checks:
-            for poly,error in zip(polys, errors):
+            for poly,error,change_sign in zip(polys, errors, change_sign_list):
                 mask = check(poly, scaled_subintervals, change_sign, error)
                 new_scaled_subintervals = []
                 new_subintervals = []
