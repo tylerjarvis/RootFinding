@@ -870,7 +870,170 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
 
     return mask
 
-def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
+def quadratic_check_ndNew(test_coeff, intervals, change_sign, tol):
+    """One of subinterval_checks
+
+    Finds the min of the absolute value of the quadratic part, and compares to the sum of the
+    rest of the terms. There can't be a root if min(extreme_values) > other_sum	or if
+    max(extreme_values) < -other_sum. We can short circuit and finish
+    faster as soon as we find one value that is < other_sum and one value that > -other_sum.
+
+    Parameters
+    ----------
+    test_coeff_in : numpy array
+        The coefficient matrix of the polynomial to check
+    intervals : list
+        A list of the intervals to check.
+    change_sign: list
+        A list of bools of whether we know the functions can change sign on the subintervals.
+    tol: float
+        The bound of the sup norm error of the chebyshev approximation.
+
+    Returns
+    -------
+    mask : list
+        A list of the results of each interval. False if the function is guarenteed to never be zero
+        in the unit box, True otherwise
+    """
+    mask = [True]*len(intervals)
+    #get the dimension and make sure the coeff tensor has all the right
+    # quadratic coeff spots, set to zero if necessary
+    dim = test_coeff.ndim
+    padding = [(0,max(0,3-i)) for i in test_coeff.shape]
+    test_coeff = np.pad(test_coeff.copy(), padding, mode='constant')
+
+    #Possible extrema of qudaratic part are where D_xk = 0 for some subset of the variables xk
+    # with the other variables are fixed to a boundary value
+    #Dxk = c[0,...,0,1,0,...0] (k-spot is 1) + 4c[0,...,0,2,0,...0] xk (k-spot is 2)
+    #       + \Sum_{j\neq k} xj c[0,...,0,1,0,...,0,1,0,...0] (k and j spot are 1)
+    #This gives a symmetric system of equations AX+B = 0
+    #We will fix different columns of X each time, resulting in slightly different
+    #systems, but storing A and B now will be helpful later
+
+    #pull out coefficients we care about
+    quad_coeff = np.zeros([3]*dim)
+    A = np.zeros([dim,dim])
+    B = np.zeros(dim)
+    for spot in itertools.product(range(3),repeat=dim):
+        if sum(spot) == 1:
+            #coeff of linear terms
+            i = [idx for idx in range(dim) if spot[idx]!= 0][0]
+            B[i] = test_coeff[spot].copy()
+            quad_coeff[spot] = test_coeff[spot]
+            test_coeff[spot] = 0
+        elif sum(spot) == 0:
+            quad_coeff[spot] = test_coeff[spot]
+            test_coeff[spot] = 0
+        elif sum(spot) < 3:
+            where_nonzero = [idx for idx in range(dim) if spot[idx]!= 0]
+            if len(where_nonzero) == 2:
+                #coeff of cross terms
+                i,j = where_nonzero
+                #with symmetric matrices, we only need the upper part
+                A[i,j] = test_coeff[spot].copy()
+            else:
+                #coeff of pure quadratic terms
+                i = where_nonzero[0]
+                A[i,i] = 4*test_coeff[spot].copy()
+            quad_coeff[spot] = test_coeff[spot]
+            test_coeff[spot] = 0
+
+    #create a poly object for evals
+    def eval_func(point):
+        "fast evaluation of quadratic chebyshev polynomials using horner's algorithm"
+        _sum = k0
+        for i,coord in enumerate(point):
+            _sum += (B[i] + pure_quad_coeff_doubled[i]*coord + \
+                     sum([A[i,j]*point[j] for j in range(i+1,dim)])) * coord
+        return _sum
+
+    def quad_poly(quad_coeff):
+        '''fast evaluation of quadratic chebyshev polynomials'''
+
+    #The sum of the absolute values of everything else
+    other_sum = np.sum(np.abs(test_coeff)) + tol
+
+    def powerset(iterable):
+        "powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
+        s = list(iterable)
+        return itertools.chain.from_iterable(itertools.combinations(s, r)\
+                                                     for r in range(len(s)))
+                                                     # for r in range(len(s)+1,-1,-1))
+
+    for i, interval in enumerate(intervals):
+        if change_sign[i]:
+            continue
+        Done = False
+        min_satisfied, max_satisfied = False,False
+        for fixed in powerset(np.arange(dim)):
+            if Done:
+                break
+            else:
+                fixed = np.array(fixed)
+                if len(fixed) == 0:
+                    #fix no vars--> interior
+                    #if diagonal entries change sign, can't be definite
+                    diag_signs = np.diag(A)>0
+                    if np.any(diag_signs[0] != diag_signs[1:]):
+                        continue
+                    if np.linalg.matrix_rank(A) < A.shape[0]:
+                        #no interior critical point
+                        continue
+                    X = la.solve(A, -B, assume_a='sym')
+                    #make sure it's in the domain
+                    if np.all([interval[0][i] <= X[i] <= interval[1][i] for i in range(dim)]):
+                        eval = quad_poly(X)
+                        min_satisfied = min_satisfied or eval < other_sum
+                        max_satisfied = max_satisfied or eval > -other_sum
+                        if min_satisfied and max_satisfied:
+                            Done = True
+                elif len(fixed) == dim:
+                    #fix all variables--> corners
+                    for corner in itertools.product([0,1],repeat=dim):
+                        if Done:
+                            break
+                        #j picks if upper/lower bound. i is which var
+                        eval = quad_poly([interval[j][i] for i,j in enumerate(corner)])
+                        min_satisfied = min_satisfied or eval < other_sum
+                        max_satisfied = max_satisfied or eval > -other_sum
+                        if min_satisfied and max_satisfied:
+                            Done = True
+                else:
+                    #fixed some variables --> "sides"
+                    #we only care about the equations from the unfixed variables
+                    unfixed = np.delete(np.arange(dim), fixed)
+                    A_ = A[unfixed][:,unfixed]
+                    #if diagonal entries change sign, can't be definite
+                    diag_signs = np.diag(A_)>0
+                    if np.any(diag_signs[0] != diag_signs[1:]):
+                        continue
+                    if np.linalg.matrix_rank(A_) < A_.shape[0]:
+                        #no solutions
+                        continue
+                    fixed_A = A[unfixed][:,fixed]
+                    B_ = B[unfixed]
+
+                    for side in itertools.product([0,1],repeat=len(fixed)):
+                        if Done:
+                            break
+                        X0 = np.array([interval[j][i] for i,j in enumerate(side)])
+                        X_ = la.solve(A_, -B_-fixed_A@X0, assume_a='sym')
+                        X = np.zeros(dim)
+                        X[fixed] = X0
+                        X[unfixed] = X_
+                        if np.all([interval[0][i] <= X[i] <= interval[1][i] for i in range(dim)]):
+                            eval = quad_poly(X)
+                            min_satisfied = min_satisfied or eval < other_sum
+                            max_satisfied = max_satisfied or eval > -other_sum
+                            if min_satisfied and max_satisfied:
+                                Done = True
+        #no root
+        if not Done:
+            mask[i] = False
+
+    return mask
+
+def quadratic_check_ndOld(test_coeff, intervals, change_sign, tol):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
@@ -940,7 +1103,8 @@ def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
         "powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
         s = list(iterable)
         return itertools.chain.from_iterable(itertools.combinations(s, r)\
-                                                     for r in range(len(s)+1,-1,-1))
+                                                     for r in range(len(s)))
+                                                     # for r in range(len(s)+1,-1,-1))
      #No root if min(extreme_values) > other_sum
      # OR max(extreme_values) < -other_sum
      #Logical negation--> could be roots
