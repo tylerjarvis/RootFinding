@@ -907,6 +907,19 @@ def arrays(deg,dim,mon):
     else:
         return memoized_arrays(deg-1,dim,mon)+memoized_arrays(deg,dim-1,mon)
 
+class Memoize:
+    """
+    A Memoization class taken from Stack Overflow
+    https://stackoverflow.com/questions/1988804/what-is-memoization-and-how-can-i-use-it-in-python
+    """
+    def __init__(self, f):
+        self.f = f
+        self.memo = {}
+    def __call__(self, *args):
+        if not args in self.memo:
+            self.memo[args] = self.f(*args)
+        return self.memo[args]
+
 def memoize(function):
     cache = {}
     def decorated_function(*args):

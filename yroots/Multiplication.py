@@ -8,7 +8,7 @@ from yroots.MacaulayReduce import reduce_macaulay_qrt, find_degree, \
 from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list, \
                               mon_combos, mon_combosHighest, sort_polys_by_degree, \
                               deg_d_polys, all_permutations_cheb, ConditioningError,\
-                              newton_polish, condeigs, TooManyRoots, solve_linear
+                              newton_polish, condeigs, TooManyRoots, solve_linear, Memoize
 import warnings
 from scipy.stats import ortho_group
 
@@ -284,6 +284,13 @@ def sort_eigs(eigs,diag):
         lst.remove(i)
     return np.argsort(arr)
 
+@Memoize
+def get_Q_c(dim):
+    np.random.seed(103)
+    Q = ortho_group.rvs(dim)
+    c = np.random.randn(dim)
+    return Q,c
+
 def msroots(M):
     """Computes the roots to a system via the eigenvalues of the Möller-Stetter
     matrices. Implicitly performs a random rotation of the coordinate system
@@ -306,12 +313,11 @@ def msroots(M):
     dim = M.shape[-1]
 
     # perform a random rotation with a random orthogonal Q
-    Q = ortho_group.rvs(dim)
     M = (Q@M[...,np.newaxis])[...,0]
+    Q,c = get_Q_c(dim)
 
     eigs = np.empty((dim,M.shape[0]),dtype='complex')
     # Compute the matrix U that triangularizes a random linear combination
-    c = np.random.randn(dim)
     U = schur((M*c).sum(axis=-1),output='complex')[1]
 
     # Compute the eigenvalues of each matrix, and use the computed U to sort them
