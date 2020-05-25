@@ -286,6 +286,21 @@ def sort_eigs(eigs,diag):
 
 @Memoize
 def get_Q_c(dim):
+    """Generates a once-chosen random orthogonal matrix and a random linear combination
+    for use in the simultaneous eigenvalue compution.
+
+    Parameters
+    ----------
+    dim : int
+        Dimension of the system
+
+    Returns
+    -------
+    Q : (dim,dim) ndarray
+        Random orthogonal rotation
+    c : (dim,) ndarray
+        Random linear combination
+    """
     np.random.seed(103)
     Q = ortho_group.rvs(dim)
     c = np.random.randn(dim)
@@ -313,8 +328,8 @@ def msroots(M):
     dim = M.shape[-1]
 
     # perform a random rotation with a random orthogonal Q
-    M = (Q@M[...,np.newaxis])[...,0]
     Q,c = get_Q_c(dim)
+    M = (Q@M[...,np.newaxis])[...,0]
 
     eigs = np.empty((dim,M.shape[0]),dtype='complex')
     # Compute the matrix U that triangularizes a random linear combination
