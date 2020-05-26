@@ -272,7 +272,8 @@ def interval_approximate_1d(f,a,b,deg,inf_norm=None, return_bools=False):
 
     if return_bools:
         # Check to see if the sign changes on the interval
-        sign_change = np.abs(np.sum(np.sign(values))) != 2*deg
+        is_positive = values > 0
+        sign_change = any(is_positive) and any(~is_positive)
         return coeffs[:deg+1], inf_norm, sign_change
 
     return coeffs[:deg+1], inf_norm
