@@ -586,8 +586,6 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
                     (c[2] + k8 * y + c[6] * z) * y + \
                     (c[3] + k9 * z) * z
 
-    #TODO: fine tooth comb to avoid repeated computations
-
     #The interior min
     #Comes from solving dx, dy, dz = 0
     #Dx: 4c7x +  c4y +  c5z = -c1    Matrix inverse is  [(16c8c9-c6^2) -(4c4c9-c5c6)  (c4c6-4c5c8)]
