@@ -357,18 +357,7 @@ def interval_approximate_nd(f,a,b,deg,return_bools=False,inf_norm=None):
 
     # figure out on which subintervals the function changes sign
     if return_bools:
-        change_sign = np.zeros(2**dim, dtype=bool)
-        # This slows the code down with little improvement. It appears that it
-        # takes the time it usually takes in interval_approximate_nd multiplied
-        # by the dimension.
-        # signs = np.sign(values_block)
-        
-        # slice1 = slice(0, deg//2, 1)
-        # slice2 = slice(deg//2, deg + 1, 1)
-
-        # for i, s in enumerate(product([slice1, slice2], repeat=dim)):
-        #     # The signs are not all the same each slice
-        #     change_sign[i] = np.any(signs[s] != 1) and np.any(signs[s] != -1)
+        change_sign = [False]*(2**dim)
 
 
     values = chebyshev_block_copy(values_block)
