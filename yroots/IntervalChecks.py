@@ -13,6 +13,7 @@ from yroots.polynomial import MultiCheb, Polynomial
 from matplotlib import patches
 from scipy import linalg as la
 from math import fabs                      # faster than np.abs for small arrays
+from yroots.utils import Memoize
 
 class IntervalData:
     '''
@@ -868,7 +869,26 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
 
     return mask
 
-def quadratic_check_ndNew(test_coeff, intervals, change_sign, tol):
+@Memoize
+def get_fixed_vars(dim):
+    """Used in quadratic_check_nd to iterate through the boundaries of the domain.
+
+    Parameters
+    ----------
+    dim
+
+    Returns
+    -------
+    list of tuples
+        A list of tuples indicating which variables to fix in each iteration,
+        starting at fixing dim-1 of them and ending with fixing 1 of them. This
+        intentionally excludes combinations that correspond to the corners of the
+        domain and the interior extremum.
+    """
+    return list(itertools.chain.from_iterable(itertools.combinations(range(dim), r)\
+                                             for r in range(dim-1,0,-1)))
+
+def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
@@ -897,7 +917,6 @@ def quadratic_check_ndNew(test_coeff, intervals, change_sign, tol):
     #get the dimension and make sure the coeff tensor has all the right
     # quadratic coeff spots, set to zero if necessary
     dim = test_coeff.ndim
-    #TODO padding??
     padding = [(0,max(0,3-i)) for i in test_coeff.shape]
     test_coeff = np.pad(test_coeff.copy(), padding, mode='constant')
 
@@ -957,10 +976,8 @@ def quadratic_check_ndNew(test_coeff, intervals, change_sign, tol):
     #The sum of the absolute values of everything else
     other_sum = np.sum(np.abs(test_coeff)) + tol
 
-    #TODO memoize
     #iterator for sides
-    fixed_vars = list(itertools.chain.from_iterable(itertools.combinations(range(dim), r)\
-                                                 for r in range(dim-1,0,-1)))
+    fixed_vars = get_fixed_vars(dim)
 
     for i, interval in enumerate(intervals):
         if change_sign[i]:
@@ -988,10 +1005,10 @@ def quadratic_check_ndNew(test_coeff, intervals, change_sign, tol):
                 unfixed = np.delete(np.arange(dim), fixed)
                 A_ = A[unfixed][:,unfixed]
                 #if diagonal entries change sign, can't be definite
-                #TODO FIX
-                for i,c in enumerate(pure_quad_coeff[:-1]):
+                diag = np.diag(A_)
+                for i,c in enumerate(diag[:-1]):
                     #sign change?
-                    if c*pure_quad_coeff[i+1]<0:
+                    if c*diag[i+1]<0:
                         break
                 #if no sign change, can find extrema
                 else:
@@ -1009,7 +1026,6 @@ def quadratic_check_ndNew(test_coeff, intervals, change_sign, tol):
                                 else:
                                     break
                             else:
-                                #TODO check if faster to work with lists-- even in A??
                                 X[fixed] = X0
                                 X[unfixed] = X_
                                 eval = eval_func(X)
@@ -1205,8 +1221,6 @@ def quadratic_check_ndOld(test_coeff, intervals, change_sign, tol):
                                 mask.append(True)
                                 Done = True
         #no root
-        # if Done:
-        #     mask.append(True)
         if not Done:
             mask.append(False)
 
