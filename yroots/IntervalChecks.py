@@ -875,7 +875,8 @@ def get_fixed_vars(dim):
 
     Parameters
     ----------
-    dim
+    dim : int
+        The dimension of the domain/system.
 
     Returns
     -------
