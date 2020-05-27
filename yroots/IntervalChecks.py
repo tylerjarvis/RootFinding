@@ -1031,7 +1031,7 @@ def quadratic_check_ndNew(test_coeff, intervals, change_sign, tol):
 
     return mask
 
-def quadratic_check_ndOld(test_coeff, intervals, change_sign, tol):
+def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
