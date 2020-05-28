@@ -483,13 +483,12 @@ def full_cheb_approximate(f,a,b,deg,abs_approx_tol,rel_approx_tol,good_deg=None)
     error : float
         The approximation error
     """
-    # We know what degree we want
-    if good_deg is not None:
-        coeff, bools, inf_norm = interval_approximate_nd(f,a,b,good_deg,return_bools=True)
-        return coeff, bools, inf_norm, 0
+    # We don't know what degree we want
+    if good_deg is None:
+        good_deg = deg
     # Try degree deg and see if it's good enough
-    coeff, inf_norm = interval_approximate_nd(f,a,b,deg)
-    coeff2, bools, inf_norm = interval_approximate_nd(f,a,b,deg*2,return_bools=True, inf_norm=inf_norm)
+    coeff, inf_norm = interval_approximate_nd(f,a,b,good_deg)
+    coeff2, bools, inf_norm = interval_approximate_nd(f,a,b,good_deg*2,return_bools=True, inf_norm=inf_norm)
     coeff2[slice_top(coeff)] -= coeff
 
     error = np.sum(np.abs(coeff2))
@@ -669,8 +668,10 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
     coeffs, good_approx, approx_errors = trim_coeffs(cheb_approx_list, tols.abs_approx_tol, tols.rel_approx_tol, inf_norms, approx_errors)
 
     # Used if subdividing further.
-    good_degs = [coeff.shape[0] - 1 for coeff in coeffs]
-    good_zeros_tol = max(tols.min_good_zeros_tol, np.sum(np.abs(approx_errors))*tols.good_zeros_factor)
+    # good_degs are assumed to be 1 higher than the current approx for more
+    # accurate performance.
+    good_degs = [coeff.shape[0] for coeff in coeffs]
+    good_zeros_tol = max(tols.min_good_zeros_tol, sum(np.abs(approx_errors))*tols.good_zeros_factor)
         
     # Check if the degree is small enough or if trim_coeffs introduced too much error
     if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > target_deg) or not good_approx:
