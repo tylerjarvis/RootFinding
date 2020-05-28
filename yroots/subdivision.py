@@ -392,7 +392,7 @@ def get_subintervals(a,b,dimensions,interval_data,polys,change_sign,approx_error
     change_sign : list
         A list of bools of whether we know the functions can change sign on the subintervals.
         Used in the subinterval checks.
-    approx_error: float
+    approx_error: list of floats
         The bound of the sup norm error of the chebyshev approximation.
     check_subintervals : bool
         If True runs the subinterval checks to throw out intervals where the functions are never 0.
@@ -630,7 +630,7 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
         approx_errors.append(approx_error)
         # Subdivides if a bad approximation
         if coeff is None:
-            intervals = get_subintervals(a,b,change_sign,None,None,None,approx_errors)
+            intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
             for new_a, new_b in intervals:
                 subdivision_solve_nd(funcs,new_a,new_b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=level+1, method=method)
             return
