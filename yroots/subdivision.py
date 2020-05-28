@@ -359,7 +359,7 @@ def interval_approximate_nd(f,a,b,deg,return_bools=False,inf_norm=None):
 
     # figure out on which subintervals the function changes sign
     if return_bools:
-        change_sign = np.zeros(2**dim, dtype=bool)
+        change_sign = [False]*(2**dim)
         # This slows the code down with little improvement. It appears that it
         # takes the time it usually takes in interval_approximate_nd multiplied
         # by the dimension.
@@ -484,34 +484,17 @@ def full_cheb_approximate(f,a,b,deg,abs_approx_tol,rel_approx_tol,good_deg=None)
         The approximation error
     """
     # We know what degree we want
-#     if good_deg is not None:
-#         coeff, bools, inf_norm = interval_approximate_nd(f,a,b,good_deg,return_bools=True)
-#         return coeff, bools, inf_norm
+    if good_deg is not None:
+        coeff, bools, inf_norm = interval_approximate_nd(f,a,b,good_deg,return_bools=True)
+        return coeff, bools, inf_norm, 0
     # Try degree deg and see if it's good enough
     coeff, inf_norm = interval_approximate_nd(f,a,b,deg)
     coeff2, bools, inf_norm = interval_approximate_nd(f,a,b,deg*2,return_bools=True, inf_norm=inf_norm)
-#     print(coeff)
-#     print(coeff2)
     coeff2[slice_top(coeff)] -= coeff
 
     error = np.sum(np.abs(coeff2))
     if error > abs_approx_tol+rel_approx_tol*inf_norm:
-        # Find the directions to subdivide
-        dim = len(a)
-        # TODO: Intelligent Subdivision.
-        # div_dimensions = []
-        # slices = [slice(0,None,None)]*dim
-        # for d in range(dim):
-        #     slices[d] = slice(deg+1,None,None)
-        #     if np.sum(np.abs(coeff2[tuple(slices)])) > approx_tol/dim:
-        #         div_dimensions.append(d)
-        #     slices[d] = slice(0,None,None)
-        # if len(div_dimensions) == 0:
-        #     div_dimensions.append(0)
-        # return None, np.array(div_dimensions)
-
-        # for now, subdivide in every dimension
-        return None, np.arange(dim), inf_norm, error
+        return None, bools, inf_norm, error
     else:
         return coeff, bools, inf_norm, error
 
@@ -667,7 +650,7 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
         approx_errors.append(approx_error)
         # Subdivides if a bad approximation
         if coeff is None:
-            intervals = get_subintervals(a,b,change_sign,None,None,None,approx_errors)
+            intervals = get_subintervals(a,b,[i for i in range(dim)],None,None,None,approx_errors)
             for new_a, new_b in intervals:
                 subdivision_solve_nd(funcs,new_a,new_b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=level+1, method=method)
             return
@@ -691,13 +674,13 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
         
     # Check if the degree is small enough or if trim_coeffs introduced too much error
     if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > target_deg) or not good_approx:
-        intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
+        intervals = get_subintervals(a,b,[i for i in range(dim)],interval_data,cheb_approx_list,change_sign,approx_errors,True)
         for new_a, new_b in intervals:
             subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, use_target_tol=True)
 
     # Check if any approx error is greater than target_tol for Macaulay method
     elif np.any(np.array(approx_errors) > np.array(tols.target_tol) + tols.rel_approx_tol*np.array(inf_norms)):
-        intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
+        intervals = get_subintervals(a,b,[i for i in range(dim)],interval_data,cheb_approx_list,change_sign,approx_errors,True)
         for new_a, new_b in intervals:
             subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, use_target_tol=True)
 
@@ -724,7 +707,7 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
             root_tracker.add_roots(zeros, a, b, "Macaulay")
         except (ConditioningError, TooManyRoots) as e:
             # Subdivide but run some checks on the intervals first
-            intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
+            intervals = get_subintervals(a,b,[i for i in range(dim)],interval_data,cheb_approx_list,change_sign,approx_errors,True)
             for new_a, new_b in intervals:
                 subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, use_target_tol=True)
 
