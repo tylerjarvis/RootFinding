@@ -676,10 +676,12 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
     coeffs, good_approx, approx_errors = trim_coeffs(cheb_approx_list, tols.abs_approx_tol, tols.rel_approx_tol, inf_norms, approx_errors)
 
     # Used if subdividing further.
-    # good_degs are assumed to be 1 higher than the current approx for more
-    # accurate performance.
-    good_degs = [coeff.shape[0] for coeff in coeffs]
-    good_zeros_tol = max(tols.min_good_zeros_tol, sum(np.abs(approx_errors))*tols.good_zeros_factor)
+    # Only choose good_degs if the approximation after trim_coeffs is good.
+    if good_approx:
+        # good_degs are assumed to be 1 higher than the current approx for more
+        # accurate performance.
+        good_degs = [coeff.shape[0] for coeff in coeffs]
+        good_zeros_tol = max(tols.min_good_zeros_tol, sum(np.abs(approx_errors))*tols.good_zeros_factor)
         
     # Check if the degree is small enough or if trim_coeffs introduced too much error
     if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > target_deg) or not good_approx:
