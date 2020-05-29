@@ -1065,3 +1065,185 @@ def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
             mask.append(False)
 
     return mask
+
+def slice_check_2D(test_coeff, intervals, change_sign, tol):
+    """A check for subinterval_checks
+
+    Finds the min of the absolute value of the purely-x and purely-y slices,
+    and compares to the sum of the rest of the terms.
+
+    Parameters
+    ----------
+    test_coeff_in : numpy array
+        The coefficient matrix of the polynomial to check
+    intervals : list
+        A list of the intervals to check.
+    change_sign: list
+        A list of bools of whether we know the function can change sign (or come within `tol`
+        of changing sign) on the subintervals.
+    tol: float
+        The bound of the sup norm error of the Chebyshev approximation.
+
+    Returns
+    -------
+    mask : list
+        A list of the results of each interval. False if the function is guarenteed to never be zero
+        in the unit box, True otherwise
+    """
+
+    # TODO best way to handle change_signs is probably to not even feed intervals
+    #      to this test unless change_signs == False.
+
+    mask = [True]*len(intervals)  # Possible for zeros, given both tests.
+                                  # At the end of this test mask will be
+                                  #   = (x_mask[interval] and y_mask[interval])
+
+    if test_coeff.ndim != 2:
+        return mask
+
+    # Transpose of one-diml derivative operator, hard coded to be fast
+    # TODO: once we are confident of the max degree poly ever fed to this check,
+    #       reduce the size of this matrix to that max size.
+
+    D = np.array([[ 0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,],
+                  [ 1.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,],
+                  [ 0.,  4.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,],
+                  [ 3.,  0.,  6.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,],
+                  [ 0.,  8.,  0.,  8.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,],
+                  [ 5.,  0., 10.,  0., 10.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,],
+                  [ 0., 12.,  0., 12.,  0., 12.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,],
+                  [ 7.,  0., 14.,  0., 14.,  0., 14.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,],
+                  [ 0., 16.,  0., 16.,  0., 16.,  0., 16.,  0.,  0.,  0.,  0.,  0.,  0.,],
+                  [ 9.,  0., 18.,  0., 18.,  0., 18.,  0., 18.,  0.,  0.,  0.,  0.,  0.,],
+                  [ 0., 20.,  0., 20.,  0., 20.,  0., 20.,  0., 20.,  0.,  0.,  0.,  0.,],
+                  [11.,  0., 22.,  0., 22.,  0., 22.,  0., 22.,  0., 22.,  0.,  0.,  0.,],
+                  [ 0., 24.,  0., 24.,  0., 24.,  0., 24.,  0., 24.,  0., 24.,  0.,  0.,],
+                  [13.,  0., 26.,  0., 26.,  0., 26.,  0., 26.,  0., 26.,  0., 26.,  0.,],
+                  [ 0., 28.,  0., 28.,  0., 28.,  0., 28.,  0., 28.,  0., 28.,  0., 28.]])
+
+
+    # Test x slices
+
+    x_deg = min(test_coeff.shape[0],D.shape[0])  # max degree of the slice in x
+    x_slice = test_coeff[:x_deg,:1]
+
+    # The sum of the absolute values of the other (non-slice) coefs + tol
+    ab_sum =  np.sum(np.abs(test_coeff)) + tol
+    x_other = ab_sum - np.sum(np.abs(x_slice))
+
+
+    # Collect intervals (and initial mask value) based on their x-coordinate only:
+    x_intervals = {(interval[0][0],interval[1][0]):True for interval in intervals}
+
+    x_extremizers = None
+
+    for a,b in x_intervals:   # iterate through x_intervals, defined by their endpoints
+
+        min_satisfied, max_satisfied = False,False
+
+        # Check x-slice left endpoint
+        eval = chebval(a, x_slice)
+        min_satisfied = min_satisfied or eval < x_other
+        max_satisfied = max_satisfied or eval > -x_other
+        if min_satisfied and max_satisfied:
+            continue
+
+        # Check x-slice right endpoint
+        eval = chebval(b, x_slice)
+        min_satisfied = min_satisfied or eval < x_other
+        max_satisfied = max_satisfied or eval > -x_other
+        if min_satisfied and max_satisfied:
+            continue
+
+        # Roots of derivatives of slices: only compute this once--it's expensive
+        if x_extremizers is None:
+            # find roots of derivative of the x_slice polynomial
+            x_extremizers = multCheb(D[:x_deg,:x_deg-1].T @ x_slice)
+            # keep only good roots (real, and in the big interval [-1,1])
+            x_extremizers = good_zeros_1d(x_extremizers, tol, tol)  #TODO change tolerances?
+
+        for crit_pt in x_extremizers:
+            if a < crit_pt < b:
+                eval = chebval(b, x_slice)
+                min_satisfied = min_satisfied or eval < x_other
+                max_satisfied = max_satisfied or eval > -x_other
+                if min_satisfied and max_satisfied:
+                    break  # this test is inconclusive, stop checking crit pts and this x-interval
+
+        # set the final mask value
+        x_intervals[(a,b)] = min_satisfied and max_satisfied
+        # Done checking this x-interval
+
+    # masks for x_intervals is done.
+
+    #################
+    #  y slice test #
+    #################
+
+    # Any False x_interval result mean no roots possible, so no need to run y slice check
+
+    remaining_intervals = []
+    for i,interval in enumerate(intervals):
+        if x_intervals[interval[0][0],interval[1][0]]:
+            remaining_intervals.append(interval)
+        else:
+            mask[i] = False
+
+    # Collect intervals based on their y-coordinate only and assign initial value of True
+    y_intervals = {(interval[0][1],interval[1][1]):True for interval in remaining_intervals}
+
+    y_deg = min(test_coeff.shape[0],D.shape[0])  # max degree of the slice in y
+    y_slice = test_coeff[:1,:y_deg].reshape(y_deg)
+
+    # The sum of the absolute values of the other (non-slice) coefs + tol
+    y_other = ab_sum - np.sum(np.abs(y_slice))
+
+
+    y_extremizers = None
+
+    for a,b in y_intervals:   # iterate through y_intervals, defined by their endpoints
+
+        min_satisfied, max_satisfied = False,False
+
+        # Check y-slice left endpoint
+        eval = chebval(a, y_slice)
+        min_satisfied = min_satisfied or eval < y_other
+        max_satisfied = max_satisfied or eval > -y_other
+        if min_satisfied and max_satisfied:
+            continue
+
+        # Check y-slice right endpoint
+        eval = chebval(b, y_slice)
+        min_satisfied = min_satisfied or eval < y_other
+        max_satisfied = max_satisfied or eval > -y_other
+        if min_satisfied and max_satisfied:
+            continue
+
+        # Roots of derivatives of slices: only compute this once--it's expensive
+        if y_extremizers is None:
+            # find roots of derivative of the y_slice polynomial
+            y_extremizers = multCheb(D[:y_deg,:y_deg-1].T @ y_slice)
+            # keep only good roots (real, and in the big interval [-1,1])
+            y_extremizers = good_zeros_1d(y_extremizers, tol, tol)  #TODO change tolerances?
+
+        for crit_pt in y_extremizers:
+            if a < crit_pt < b:
+                eval = chebval(b, y_slice)
+                min_satisfied = min_satisfied or eval < y_other
+                max_satisfied = max_satisfied or eval > -y_other
+                if min_satisfied and max_satisfied:
+                    break  # this test is inconclusive, stop checking crit pts and this y-interval
+
+
+        # set the final mask value
+        y_intervals[(a,b)] = min_satisfied and max_satisfied
+        # Done checking this y-interval
+
+    # Done checking all (remaining) y intervals
+
+    # apply the y masks
+    for i,interval in enumerate(intervals):
+        if mask[i]:
+            mask[i] = y_intervals[interval[0][1],interval[1][1]]
+
+    return mask
