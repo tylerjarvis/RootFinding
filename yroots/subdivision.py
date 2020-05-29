@@ -91,6 +91,9 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
     method : str (optional)
         The method to use when reducing the Macaulay matrix. Valid options are
         svd, tvb, and qrt.
+    target_tol : float
+        The final absolute approximation tolerance to use before using any sort
+        of solver (Macaulay, linear, etc).
 
     If finding roots of a univariate function, `funcs` does not need to be a list,
     and `a` and `b` can be floats instead of arrays.
