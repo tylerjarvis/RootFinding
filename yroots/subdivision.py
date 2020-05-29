@@ -537,7 +537,6 @@ def get_abs_approx_tol(func, deg, a, b):
                 The calculated absolute approximation tolerance based on the
                 noise of the function on the small interval.
     """
-    np.random.seed(0)
     dim = len(a)
 
     # Half the width of the smaller interval -- about 100*machine_epsilon
@@ -545,7 +544,7 @@ def get_abs_approx_tol(func, deg, a, b):
     
     # Get a random small interval from [-1,1] and transform so it's 
     # within [a,b]
-    x = transform(np.random.rand(dim)*2 - 1, a, b)
+    x = transform(random_point(dim), a, b)
     a2 = np.array(x - linearization_size)
     b2 = np.array(x + linearization_size)
     
@@ -561,6 +560,25 @@ def get_abs_approx_tol(func, deg, a, b):
 
     # Multiply by 10 to give a looser tolerance (speed-up)
     return abs_approx_tol*10 / numSpots
+
+@Memoize
+def random_point(dim):
+    """Gets a random point from [-1, 1]^dim that's used for get_abs_approx_tol.
+    Since this is Memoized, subsequent calls will be a lot faster.
+    
+    Parameters
+    ----------
+        dim : int
+            The dimension of the system/how many samples to take from [0,1].
+    
+    Returns
+    -------
+        numpy array
+            The random point that haas dim entries.
+    """
+    np.random.seed(0)
+    # Scale the points so that they're each within [-1, 1]
+    return np.random.rand(dim)*2 - 1
 
 def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tols,max_level,good_degs=None,level=0, method='svd', use_target_tol=False):
     """Finds the common zeros of the given functions.
