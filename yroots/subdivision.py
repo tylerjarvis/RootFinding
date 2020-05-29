@@ -13,7 +13,7 @@ from yroots.Division import division
 from yroots.Multiplication import multiplication
 from yroots.utils import clean_zeros_from_matrix, slice_top, MacaulayError, \
                         get_var_list, ConditioningError, TooManyRoots, Tolerances, \
-                        solve_linear
+                        solve_linear, Memoize
 from yroots.polynomial import MultiCheb
 from yroots.IntervalChecks import IntervalData
 from yroots.RootTracker import RootTracker
@@ -277,19 +277,6 @@ def interval_approximate_1d(f,a,b,deg,inf_norm=None, return_bools=False):
 
     return coeffs[:deg+1], inf_norm
 
-class Memoize:
-    """
-    A Memoization class taken from Stack Overflow
-    https://stackoverflow.com/questions/1988804/what-is-memoization-and-how-can-i-use-it-in-python
-    """
-    def __init__(self, f):
-        self.f = f
-        self.memo = {}
-    def __call__(self, *args):
-        if not args in self.memo:
-            self.memo[args] = self.f(*args)
-        return self.memo[args]
-
 @Memoize
 def get_cheb_grid(deg, dim, has_eval_grid):
     """Helper function for interval_approximate_nd.
@@ -405,7 +392,7 @@ def get_subintervals(a,b,dimensions,interval_data,polys,change_sign,approx_error
     change_sign : list
         A list of bools of whether we know the functions can change sign on the subintervals.
         Used in the subinterval checks.
-    approx_error: float
+    approx_error: list of floats
         The bound of the sup norm error of the chebyshev approximation.
     check_subintervals : bool
         If True runs the subinterval checks to throw out intervals where the functions are never 0.
@@ -497,7 +484,7 @@ def full_cheb_approximate(f,a,b,deg,abs_approx_tol,rel_approx_tol,good_deg=None)
         # return None, np.array(div_dimensions)
 
         # for now, subdivide in every dimension
-        return None, np.arange(dim), inf_norm, error
+        return None, bools, inf_norm, error
     else:
         return coeff, bools, inf_norm, error
 
@@ -643,7 +630,7 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
         approx_errors.append(approx_error)
         # Subdivides if a bad approximation
         if coeff is None:
-            intervals = get_subintervals(a,b,change_sign,None,None,None,approx_errors)
+            intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
             for new_a, new_b in intervals:
                 subdivision_solve_nd(funcs,new_a,new_b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=level+1, method=method)
             return
@@ -664,7 +651,7 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
     # Used if subdividing further.
     good_degs = [coeff.shape[0] - 1 for coeff in coeffs]
     good_zeros_tol = max(tols.min_good_zeros_tol, np.sum(np.abs(approx_errors))*tols.good_zeros_factor)
-        
+
     # Check if the degree is small enough or if trim_coeffs introduced too much error
     if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > target_deg) or not good_approx:
         intervals = get_subintervals(a,b,np.arange(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
@@ -900,7 +887,7 @@ def subdivision_solve_1d(f,a,b,deg,target_deg,interval_data,root_tracker,tols,ma
         interval_data.track_interval("Too Deep", [a, b])
         return
 
-    
+
     # Determine the point at which to subdivide the interval
     RAND = 0.5139303900908738
     interval_data.print_progress()
@@ -933,7 +920,7 @@ def subdivision_solve_1d(f,a,b,deg,target_deg,interval_data,root_tracker,tols,ma
         subdivision_solve_1d(f, a, div_spot, good_deg, target_deg,interval_data,root_tracker,tols,max_level,level+1)
         subdivision_solve_1d(f, div_spot, b, good_deg, target_deg,interval_data,root_tracker,tols,max_level,level+1)
     else:
-        
+
         # Run interval checks to eliminate regions
         if interval_data.check_interval(coeff, error, a, b):
             return
