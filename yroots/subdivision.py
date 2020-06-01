@@ -896,7 +896,7 @@ def subdivision_solve_1d(f,a,b,deg,target_deg,interval_data,root_tracker,tols,ma
     coeff, inf_norm = interval_approximate_1d(f,a,b,deg)
 
     # coeff, inf_norm = interval_approximate_1d(f,a,b,good_deg)
-    coeff2, inf_norm = interval_approximate_1d(f,a,b,good_deg*2,inf_norm)
+    coeff2, inf_norm = interval_approximate_1d(f,a,b,deg*2,inf_norm)
 
     coeff2[slice_top(coeff)] -= coeff
 
@@ -907,6 +907,7 @@ def subdivision_solve_1d(f,a,b,deg,target_deg,interval_data,root_tracker,tols,ma
     if error > allowed_error:
         # Subdivide the interval and recursively call the function.
         div_spot = a + (b-a)*RAND
+        good_deg = deg
         subdivision_solve_1d(f, a, div_spot, good_deg, target_deg,interval_data,root_tracker,tols,max_level,level+1)
         subdivision_solve_1d(f, div_spot, b, good_deg, target_deg,interval_data,root_tracker,tols,max_level,level+1)
     else:
