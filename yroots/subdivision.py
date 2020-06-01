@@ -484,7 +484,7 @@ def full_cheb_approximate(f,a,b,deg,abs_approx_tol,rel_approx_tol,good_deg=None)
         # return None, np.array(div_dimensions)
 
         # for now, subdivide in every dimension
-        return None, np.arange(dim), inf_norm, error
+        return None, bools, inf_norm, error
     else:
         return coeff, bools, inf_norm, error
 
