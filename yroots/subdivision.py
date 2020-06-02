@@ -277,7 +277,8 @@ def interval_approximate_1d(f,a,b,deg,inf_norm=None, return_bools=False):
 
     if return_bools:
         # Check to see if the sign changes on the interval
-        sign_change = np.abs(np.sum(np.sign(values))) != 2*deg
+        is_positive = values > 0
+        sign_change = any(is_positive) and any(~is_positive)
         return coeffs[:deg+1], inf_norm, sign_change
 
     return coeffs[:deg+1], inf_norm
@@ -970,32 +971,35 @@ def subdivision_solve_1d(f,a,b,deg,target_deg,interval_data,root_tracker,tols,ma
 
     # Approximate the function using Chebyshev polynomials
     coeff, inf_norm = interval_approximate_1d(f,a,b,deg)
-
-    # Trim the coefficient array (reduce the degree) as much as we can.
-    # This identifies a 'good degree' with which to approximate the function
-    # if it is less than the given approx degree.
-    while np.isclose(0, coeff[-1], atol=tols.abs_approx_tol, rtol=tols.rel_approx_tol):
-        if len(coeff) == 1:
-            break
-        coeff = coeff[:-1]
-
-
-    good_deg = max(len(coeff) - 1, 1)
-
-    # coeff, inf_norm = interval_approximate_1d(f,a,b,good_deg)
-    coeff2, inf_norm, sign_change = interval_approximate_1d(f,a,b,good_deg*2,inf_norm, return_bools=True)
+    coeff2, inf_norm = interval_approximate_1d(f,a,b,deg*2,inf_norm)
 
     coeff2[slice_top(coeff)] -= coeff
 
     # Calculate the approximate error between the deg and 2*deg approximations
     error = np.sum(np.abs(coeff2))
+    allowed_error = tols.abs_approx_tol+tols.rel_approx_tol*inf_norm
 
-    if error > tols.abs_approx_tol+tols.rel_approx_tol*inf_norm:
+    if error > allowed_error:
         # Subdivide the interval and recursively call the function.
         div_spot = a + (b-a)*RAND
+        good_deg = deg
         subdivision_solve_1d(f, a, div_spot, good_deg, target_deg,interval_data,root_tracker,tols,max_level,level+1)
         subdivision_solve_1d(f, div_spot, b, good_deg, target_deg,interval_data,root_tracker,tols,max_level,level+1)
     else:
+        # Trim the coefficient array (reduce the degree) as much as we can.
+        # This identifies a 'good degree' with which to approximate the function
+        # if it is less than the given approx degree.
+        last_coeff_size = abs(coeff[-1])
+        new_error = error + last_coeff_size
+        while new_error < allowed_error:
+            if len(coeff) == 1:
+                break
+            #maybe a list pop here? idk if worth it to switch away from arrays
+            coeff = coeff[:-1]
+            last_coeff_size = abs(coeff[-1])
+            error = new_error
+            new_error = error + last_coeff_size
+        good_deg = max(len(coeff) - 1, 1)
 
         # Run interval checks to eliminate regions
         if not sign_change: # Skip checks if there is a sign change
