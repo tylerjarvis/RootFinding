@@ -20,7 +20,6 @@ from yroots.RootTracker import RootTracker
 from itertools import product
 from matplotlib import pyplot as plt
 from scipy.linalg import lu
-import itertools
 import time
 import warnings
 
@@ -272,7 +271,9 @@ def interval_approximate_1d(f,a,b,deg,inf_norm=None, return_bools=False):
     coeffs[deg]/=2
 
     if return_bools:
-        sign_change = not(np.all(values > 0) or np.all(values < 0))
+        # Check to see if the sign changes on the interval
+        is_positive = values > 0
+        sign_change = any(is_positive) and any(~is_positive)
         return coeffs[:deg+1], inf_norm, sign_change
 
     return coeffs[:deg+1], inf_norm
@@ -335,8 +336,8 @@ def interval_approximate_nd(f,a,b,deg,return_bools=False,inf_norm=None):
     dim = len(a)
 
     if hasattr(f,"evaluate_grid"):
-        xyz = transform(get_cheb_grid(deg, dim, True), a, b)
-        values_block = f.evaluate_grid(xyz)
+        cheb_points = transform(get_cheb_grid(deg, dim, True), a, b)
+        values_block = f.evaluate_grid(cheb_points)
     else:
         cheb_points = transform(get_cheb_grid(deg, dim, False), a, b)
         cheb_points = [cheb_points[:,i] for i in range(dim)]
@@ -344,7 +345,8 @@ def interval_approximate_nd(f,a,b,deg,return_bools=False,inf_norm=None):
 
     # figure out on which subintervals the function changes sign
     if return_bools:
-        change_sign = np.zeros(2**dim, dtype=bool)
+        change_sign = [False]*(2**dim)
+
 
     values = chebyshev_block_copy(values_block)
 
@@ -894,8 +896,6 @@ def subdivision_solve_1d(f,a,b,deg,target_deg,interval_data,root_tracker,tols,ma
 
     # Approximate the function using Chebyshev polynomials
     coeff, inf_norm = interval_approximate_1d(f,a,b,deg)
-
-    # coeff, inf_norm = interval_approximate_1d(f,a,b,good_deg)
     coeff2, inf_norm = interval_approximate_1d(f,a,b,deg*2,inf_norm)
 
     coeff2[slice_top(coeff)] -= coeff
@@ -927,8 +927,9 @@ def subdivision_solve_1d(f,a,b,deg,target_deg,interval_data,root_tracker,tols,ma
         good_deg = max(len(coeff) - 1, 1)
 
         # Run interval checks to eliminate regions
-        if interval_data.check_interval(coeff, error, a, b):
-            return
+        if not sign_change: # Skip checks if there is a sign change
+            if interval_data.check_interval(coeff, error, a, b):
+                return
 
         try:
             good_zeros_tol = max(tols.min_good_zeros_tol, error*tols.good_zeros_factor)

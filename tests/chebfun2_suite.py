@@ -253,7 +253,6 @@ def verbose_pass_or_fail(funcs, yroots, polished_roots, test_num, cheb_roots=Non
                 print("A different number of roots were found.")
                 print ("Yroots: " + str(len(yroots)))
                 print("Polished: " + str(len(polished_roots)))
-
     print("YRoots max residuals:")
     YR_resid = list()
     for i, func in enumerate(funcs):
@@ -322,10 +321,9 @@ def test_roots_1_2():
     yroots2 = solve([f,g],[-1,-1],[1,1], abs_approx_tol=[1e-8, 1e-12], rel_approx_tol=[1e-15, 1e-18],\
                 max_cond_num=[1e5, 1e2], good_zeros_factor=[100,100], min_good_zeros_tol=[1e-5, 1e-5],\
                 check_eval_error=[True,True], check_eval_freq=[1,2], plot=False, target_tol=[1e-13, 1e-13])
-
     actual_roots = np.load('Polished_results/polished_1.2.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_1.2.csv', delimiter=',')
-
+    
     verbose_pass_or_fail([f,g], yroots, yroots2, 1.2, cheb_roots=chebfun_roots, tol=2.220446049250313e-10)
 
 
@@ -442,7 +440,6 @@ def test_roots_3_2():
                 max_cond_num=[1e5, 1e2], good_zeros_factor=[100,100], min_good_zeros_tol=[1e-5, 1e-5],\
                 check_eval_error=[True,True], check_eval_freq=[1,1], plot=False)
 
-
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_3.2.csv', delimiter=',')
     actual_roots = chebfun_roots
 
@@ -462,7 +459,6 @@ def test_roots_4_1():
 
 def test_roots_4_2():
     # Test 4.2
-
     f = lambda x,y: ((90000*y**10 + (-1440000)*y**9 + (360000*x**4 + 720000*x**3 + 504400*x**2 + 144400*x + 9971200)*(y**8) +
                 ((-4680000)*x**4 + (-9360000)*x**3 + (-6412800)*x**2 + (-1732800)*x + (-39554400))*(y**7) + (540000*x**8 +
                 2160000*x**7 + 3817600*x**6 + 3892800*x**5 + 27577600*x**4 + 51187200*x**3 + 34257600*x**2 + 8952800*x + 100084400)*(y**6) +
@@ -607,7 +603,7 @@ def test_roots_8_2():
 
 
 def test_roots_9_1():
-    # Test 8.2
+    # Test 9.1
     f = lambda x,y: np.sin(10*x-y/10) + y
     g = lambda x,y: np.cos(10*y-x/10) - x
     yroots = solve([f,g],[-1,-1],[1,1], plot=False)
