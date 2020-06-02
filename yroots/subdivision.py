@@ -350,8 +350,8 @@ def interval_approximate_nd(f,a,b,deg,return_bools=False,inf_norm=None):
 
     # figure out on which subintervals the function changes sign
     if return_bools:
-        change_sign = [False]*(2**dim)
-        # change_sign = changes_sign(deg, dim, values_block)
+        # change_sign = [False]*(2**dim)
+        change_sign = changes_sign(deg, dim, values_block)
 
 
     values = chebyshev_block_copy(values_block)
@@ -971,7 +971,7 @@ def subdivision_solve_1d(f,a,b,deg,target_deg,interval_data,root_tracker,tols,ma
 
     # Approximate the function using Chebyshev polynomials
     coeff, inf_norm = interval_approximate_1d(f,a,b,deg)
-    coeff2, inf_norm = interval_approximate_1d(f,a,b,deg*2,inf_norm)
+    coeff2, inf_norm, sign_change = interval_approximate_1d(f,a,b,deg*2,inf_norm, return_bools=True)
 
     coeff2[slice_top(coeff)] -= coeff
 
