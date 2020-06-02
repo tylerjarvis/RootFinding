@@ -7,10 +7,9 @@ from yroots.subdivision import solve
 
 def norm_pass_or_fail(yroots, roots, tol=2.220446049250313e-13):
     """ Determines whether the roots given pass or fail the test according
-        to whether or not their norms are within tol of the norms of the 
-        "actual" roots, which are determined either by previously known 
+        to whether or not their norms are within tol of the norms of the
+        "actual" roots, which are determined either by previously known
         roots or Marching Squares roots.
-
     Parameters
     ----------
         yroots : numpy array
@@ -22,12 +21,11 @@ def norm_pass_or_fail(yroots, roots, tol=2.220446049250313e-13):
             Tolerance that determines how close the roots need to be in order
             to be considered close. Defaults to 1000*eps where eps is machine
             epsilon.
-    
+
     Returns
     -------
          bool
             Whether or not all the roots were close enough.
-
     """
     roots_sorted = np.sort(roots,axis=0)
     yroots_sorted = np.sort(yroots,axis=0)
@@ -37,19 +35,17 @@ def norm_pass_or_fail(yroots, roots, tol=2.220446049250313e-13):
 
 def residuals(func, roots):
     """ Finds the residuals of the given function at the roots.
-
     Paramters
     ---------
         func : function
             The function to find the residuals of.
         roots : numpy array
             The coordinates of the roots.
-    
+
     Returns
     -------
         numpy array
             The residuals of the function.
-
     """
     return np.abs(func(roots[:,0],roots[:,1]))
 
@@ -57,7 +53,6 @@ def residuals(func, roots):
 def residuals_pass_or_fail(funcs, roots, tol=2.220446049250313e-13):
     """ Determines whether the roots given pass or fail the test according
         to whether or not the maximal residuals are within a certain tolerance.
-
     Parameters
     ----------
         funcs : list of functions
@@ -67,24 +62,21 @@ def residuals_pass_or_fail(funcs, roots, tol=2.220446049250313e-13):
         tol : float, optional
             How close to 0 the maximal residual must be in order to pass.
             Defaults to 1000* eps where eps is machine epsilon.
-
     Returns
     -------
         bool
             True if the roots pass the test (are close enough to 0), False
             otherwise.
-
     """
     for func in funcs:
         if np.max(residuals(func, roots)) > tol:
             return False
-    
+
     return True
 
 
 def pass_or_fail(funcs, yroots, roots, test_num, test_type="norm", tol=2.220446049250313e-13):
     """Determines whether a test passes or fails bsed on the given criteria.
-
     Parameters
     ----------
         funcs : list of functions
@@ -103,13 +95,12 @@ def pass_or_fail(funcs, yroots, roots, test_num, test_type="norm", tol=2.2204460
         tol : float, optional
             The tolerance with which we want to run our tests. Defualts to
             1000*eps where eps is machine epsilon.
-
     Raises
     ------
         AssertionError
-            If len(yroots) != len(roots) or if it fails the residual 
+            If len(yroots) != len(roots) or if it fails the residual
             or norm tests.
-        ValueError 
+        ValueError
             If test_type is not "norm" or "residual"
     """
     if (test_type not in ['norm','residual']):
@@ -117,14 +108,14 @@ def pass_or_fail(funcs, yroots, roots, test_num, test_type="norm", tol=2.2204460
 
     if len(yroots) != len(roots):
         if len(yroots) > len(roots):
-            raise AssertionError("Test " + str(test_num) +  ": YRoots found" 
+            raise AssertionError("Test " + str(test_num) +  ": YRoots found"
                                  " too many roots: " + str(len(yroots)) +
                                  " where " + str(len(roots)) + " were expected.")
         else:
-            raise AssertionError("Test " + str(test_num) +  ": YRoots didn't" 
+            raise AssertionError("Test " + str(test_num) +  ": YRoots didn't"
                                  " find enough roots: " + str(len(yroots)) +
                                  " where " + str(len(roots)) + " were expected.")
-    
+
     if test_type == 'norm':
         assert norm_pass_or_fail(yroots, roots, tol=tol), "Test " + str(test_num) + " failed."
     else:
@@ -133,10 +124,9 @@ def pass_or_fail(funcs, yroots, roots, test_num, test_type="norm", tol=2.2204460
 
 def norm_pass_or_fail(yroots, roots, tol=2.220446049250313e-13):
     """ Determines whether the roots given pass or fail the test according
-        to whether or not their norms are within tol of the norms of the 
-        "actual" roots, which are determined either by previously known 
+        to whether or not their norms are within tol of the norms of the
+        "actual" roots, which are determined either by previously known
         roots or Marching Squares roots.
-
     Parameters
     ----------
         yroots : numpy array
@@ -148,12 +138,11 @@ def norm_pass_or_fail(yroots, roots, tol=2.220446049250313e-13):
             Tolerance that determines how close the roots need to be in order
             to be considered close. Defaults to 1000*eps where eps is machine
             epsilon.
-    
+
     Returns
     -------
          bool
             Whether or not all the roots were close enough.
-
     """
     roots_sorted = np.sort(roots,axis=0)
     yroots_sorted = np.sort(yroots,axis=0)
@@ -163,19 +152,17 @@ def norm_pass_or_fail(yroots, roots, tol=2.220446049250313e-13):
 
 def residuals(func, roots):
     """ Finds the residuals of the given function at the roots.
-
     Paramters
     ---------
         func : function
             The function to find the residuals of.
         roots : numpy array
             The coordinates of the roots.
-    
+
     Returns
     -------
         numpy array
             The residuals of the function.
-
     """
     return np.abs(func(roots[:,0],roots[:,1]))
 
@@ -183,7 +170,6 @@ def residuals(func, roots):
 def residuals_pass_or_fail(funcs, roots, tol=2.220446049250313e-13):
     """ Determines whether the roots given pass or fail the test according
         to whether or not the maximal residuals are within a certain tolerance.
-
     Parameters
     ----------
         funcs : list of functions
@@ -193,23 +179,20 @@ def residuals_pass_or_fail(funcs, roots, tol=2.220446049250313e-13):
         tol : float, optional
             How close to 0 the maximal residual must be in order to pass.
             Defaults to 1000* eps where eps is machine epsilon.
-
     Returns
     -------
         bool
             True if the roots pass the test (are close enough to 0), False
             otherwise.
-
     """
     for func in funcs:
         if np.max(residuals(func, roots)) > tol:
             return False
-    
+
     return True
 
 def verbose_pass_or_fail(funcs, yroots, polished_roots, test_num, cheb_roots=None, tol=2.220446049250313e-13):
     """ Determines which tests pass and which fail.
-
     Parameters
     ----------
         funcs : list of functions
@@ -226,11 +209,10 @@ def verbose_pass_or_fail(funcs, yroots, polished_roots, test_num, cheb_roots=Non
         tol : float, optional
             The tolerance with which we want to run our tests. Defualts to
             1000*eps where eps is machine epsilon.
-
     Raises
     ------
         AssertionError
-            If len(yroots) != len(roots) or if it fails the residual 
+            If len(yroots) != len(roots) or if it fails the residual
             or norm tests.
     """
     print ("=========================================================")
@@ -240,7 +222,7 @@ def verbose_pass_or_fail(funcs, yroots, polished_roots, test_num, cheb_roots=Non
         print("\t Residual test: pass")
     else:
         print("\t Residual test: fail")
-    
+
     if cheb_roots is not None:
         if residuals_pass_or_fail(funcs, cheb_roots, tol):
             print("\t Chebfun passes residual test")
@@ -271,13 +253,12 @@ def verbose_pass_or_fail(funcs, yroots, polished_roots, test_num, cheb_roots=Non
                 print("A different number of roots were found.")
                 print ("Yroots: " + str(len(yroots)))
                 print("Polished: " + str(len(polished_roots)))
-        
     print("YRoots max residuals:")
     YR_resid = list()
     for i, func in enumerate(funcs):
         YR_resid.append(residuals(func, yroots))
         print("\tf" + str(i) + ": " + str(np.max(residuals(func, yroots))))
-        
+
     cheb_resid = None
     if cheb_roots is not None:
         cheb_resid = list()
@@ -305,12 +286,12 @@ def verbose_pass_or_fail(funcs, yroots, polished_roots, test_num, cheb_roots=Non
             # print(comparison_array)
             num_smaller += np.sum(comparison_array)
         print("Number of YRoots residual values <= Polished residual values are: " + str(num_smaller))
-    
+
     if cheb_resid is not None:
         if len(yroots) > len(cheb_roots):
             print("=========================================================")
             return
-        
+
         for i in range(len(YR_resid)):
             comparison_array2 = (YR_resid[i] <= cheb_resid[i])
             num_smaller += np.sum(comparison_array2)
@@ -340,17 +321,16 @@ def test_roots_1_2():
     yroots2 = solve([f,g],[-1,-1],[1,1], abs_approx_tol=[1e-8, 1e-12], rel_approx_tol=[1e-15, 1e-18],\
                 max_cond_num=[1e5, 1e2], good_zeros_factor=[100,100], min_good_zeros_tol=[1e-5, 1e-5],\
                 check_eval_error=[True,True], check_eval_freq=[1,2], plot=False, target_tol=[1e-13, 1e-13])
-
     actual_roots = np.load('Polished_results/polished_1.2.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_1.2.csv', delimiter=',')
-
+    
     verbose_pass_or_fail([f,g], yroots, yroots2, 1.2, cheb_roots=chebfun_roots, tol=2.220446049250313e-10)
 
 
 def test_roots_1_3():
     # Test 1.3
     f = lambda x,y: y**2-x**3
-    g = lambda x,y: (y+.1)**3-(x-.1)**2 
+    g = lambda x,y: (y+.1)**3-(x-.1)**2
     yroots = solve([f,g],[-1,-1],[1,1], plot=False)
     actual_roots = np.load('Polished_results/polished_1.3.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_1.3.csv', delimiter=',')
@@ -460,7 +440,6 @@ def test_roots_3_2():
                 max_cond_num=[1e5, 1e2], good_zeros_factor=[100,100], min_good_zeros_tol=[1e-5, 1e-5],\
                 check_eval_error=[True,True], check_eval_freq=[1,1], plot=False)
 
-
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_3.2.csv', delimiter=',')
     actual_roots = chebfun_roots
 
@@ -480,26 +459,25 @@ def test_roots_4_1():
 
 def test_roots_4_2():
     # Test 4.2
-
-    f = lambda x,y: ((90000*y**10 + (-1440000)*y**9 + (360000*x**4 + 720000*x**3 + 504400*x**2 + 144400*x + 9971200)*(y**8) + 
-                ((-4680000)*x**4 + (-9360000)*x**3 + (-6412800)*x**2 + (-1732800)*x + (-39554400))*(y**7) + (540000*x**8 + 
-                2160000*x**7 + 3817600*x**6 + 3892800*x**5 + 27577600*x**4 + 51187200*x**3 + 34257600*x**2 + 8952800*x + 100084400)*(y**6) + 
-                ((-5400000)*x**8 + (-21600000)*x**7 + (-37598400)*x**6 + (-37195200)*x**5 + (-95198400)*x**4 + 
-                (-153604800)*x**3 + (-100484000)*x**2 + (-26280800)*x + (-169378400))*(y**5) + (360000*x**12 + 2160000*x**11 + 
-                6266400*x**10 + 11532000*x**9 + 34831200*x**8 + 93892800*x**7 + 148644800*x**6 + 141984000*x**5 + 206976800*x**4 + 
-                275671200*x**3 + 176534800*x**2 + 48374000*x + 194042000)*(y**4) + ((-2520000)*x**12 + (-15120000)*x**11 + (-42998400)*x**10 + 
-                (-76392000)*x**9 + (-128887200)*x**8 + (-223516800)*x**7 + (-300675200)*x**6 + (-274243200)*x**5 + (-284547200)*x**4 + 
-                (-303168000)*x**3 + (-190283200)*x**2 + (-57471200)*x + (-147677600))*(y**3) + (90000*x**16 + 720000*x**15 + 3097600*x**14 + 
-                9083200*x**13 + 23934400*x**12 + 58284800*x**11 + 117148800*x**10 + 182149600*x**9 + 241101600*x**8 + 295968000*x**7 + 
-                320782400*x**6 + 276224000*x**5 + 236601600*x**4 + 200510400*x**3 + 123359200*x**2 + 43175600*x + 70248800)*(y**2) + 
-                ((-360000)*x**16 + (-2880000)*x**15 + (-11812800)*x**14 + (-32289600)*x**13 + (-66043200)*x**12 + (-107534400)*x**11 + 
-                (-148807200)*x**10 + (-184672800)*x**9 + (-205771200)*x**8 + (-196425600)*x**7 + (-166587200)*x**6 + (-135043200)*x**5 + 
-                (-107568800)*x**4 + (-73394400)*x**3 + (-44061600)*x**2 + (-18772000)*x + (-17896000))*y + (144400*x**18 + 1299600*x**17 + 
-                5269600*x**16 + 12699200*x**15 + 21632000*x**14 + 32289600*x**13 + 48149600*x**12 + 63997600*x**11 + 67834400*x**10 + 
-                61884000*x**9 + 55708800*x**8 + 45478400*x**7 + 32775200*x**6 + 26766400*x**5 + 21309200*x**4 + 11185200*x**3 + 6242400*x**2 + 
+    f = lambda x,y: ((90000*y**10 + (-1440000)*y**9 + (360000*x**4 + 720000*x**3 + 504400*x**2 + 144400*x + 9971200)*(y**8) +
+                ((-4680000)*x**4 + (-9360000)*x**3 + (-6412800)*x**2 + (-1732800)*x + (-39554400))*(y**7) + (540000*x**8 +
+                2160000*x**7 + 3817600*x**6 + 3892800*x**5 + 27577600*x**4 + 51187200*x**3 + 34257600*x**2 + 8952800*x + 100084400)*(y**6) +
+                ((-5400000)*x**8 + (-21600000)*x**7 + (-37598400)*x**6 + (-37195200)*x**5 + (-95198400)*x**4 +
+                (-153604800)*x**3 + (-100484000)*x**2 + (-26280800)*x + (-169378400))*(y**5) + (360000*x**12 + 2160000*x**11 +
+                6266400*x**10 + 11532000*x**9 + 34831200*x**8 + 93892800*x**7 + 148644800*x**6 + 141984000*x**5 + 206976800*x**4 +
+                275671200*x**3 + 176534800*x**2 + 48374000*x + 194042000)*(y**4) + ((-2520000)*x**12 + (-15120000)*x**11 + (-42998400)*x**10 +
+                (-76392000)*x**9 + (-128887200)*x**8 + (-223516800)*x**7 + (-300675200)*x**6 + (-274243200)*x**5 + (-284547200)*x**4 +
+                (-303168000)*x**3 + (-190283200)*x**2 + (-57471200)*x + (-147677600))*(y**3) + (90000*x**16 + 720000*x**15 + 3097600*x**14 +
+                9083200*x**13 + 23934400*x**12 + 58284800*x**11 + 117148800*x**10 + 182149600*x**9 + 241101600*x**8 + 295968000*x**7 +
+                320782400*x**6 + 276224000*x**5 + 236601600*x**4 + 200510400*x**3 + 123359200*x**2 + 43175600*x + 70248800)*(y**2) +
+                ((-360000)*x**16 + (-2880000)*x**15 + (-11812800)*x**14 + (-32289600)*x**13 + (-66043200)*x**12 + (-107534400)*x**11 +
+                (-148807200)*x**10 + (-184672800)*x**9 + (-205771200)*x**8 + (-196425600)*x**7 + (-166587200)*x**6 + (-135043200)*x**5 +
+                (-107568800)*x**4 + (-73394400)*x**3 + (-44061600)*x**2 + (-18772000)*x + (-17896000))*y + (144400*x**18 + 1299600*x**17 +
+                5269600*x**16 + 12699200*x**15 + 21632000*x**14 + 32289600*x**13 + 48149600*x**12 + 63997600*x**11 + 67834400*x**10 +
+                61884000*x**9 + 55708800*x**8 + 45478400*x**7 + 32775200*x**6 + 26766400*x**5 + 21309200*x**4 + 11185200*x**3 + 6242400*x**2 +
                 3465600*x + 1708800)))
-    g = lambda x,y: 1e-4*(y**7 + (-3)*y**6 + (2*x**2 + (-1)*x + 2)*y**5 + (x**3 + (-6)*x**2 + x + 2)*y**4 + (x**4 + (-2)*x**3 + 2*x**2 + 
-                x + (-3))*y**3 + (2*x**5 + (-3)*x**4 + x**3 + 10*x**2 + (-1)*x + 1)*y**2 + ((-1)*x**5 + 3*x**4 + 4*x**3 + (-12)*x**2)*y + 
+    g = lambda x,y: 1e-4*(y**7 + (-3)*y**6 + (2*x**2 + (-1)*x + 2)*y**5 + (x**3 + (-6)*x**2 + x + 2)*y**4 + (x**4 + (-2)*x**3 + 2*x**2 +
+                x + (-3))*y**3 + (2*x**5 + (-3)*x**4 + x**3 + 10*x**2 + (-1)*x + 1)*y**2 + ((-1)*x**5 + 3*x**4 + 4*x**3 + (-12)*x**2)*y +
                 (x**7 + (-3)*x**5 + (-1)*x**4 + (-4)*x**3 + 4*x**2))
     yroots = solve([f,g],[-1, -1],[1,1], plot=False)
     actual_roots = np.load('Polished_results/polished_4.2.npy')
@@ -613,7 +591,7 @@ def test_roots_8_1():
     verbose_pass_or_fail([f,g], yroots, actual_roots, 8.1, cheb_roots=chebfun_roots)
 
 def test_roots_8_2():
-    # Test 8.2 
+    # Test 8.2
     f = lambda x,y: np.sin(10*x-y/10) + y
     g = lambda x,y: np.cos(10*y-x/10) - x
     yroots = solve([f,g],[-1,-1],[1,1], plot=False)
@@ -625,7 +603,7 @@ def test_roots_8_2():
 
 
 def test_roots_9_1():
-    # Test 8.2 
+    # Test 9.1
     f = lambda x,y: np.sin(10*x-y/10) + y
     g = lambda x,y: np.cos(10*y-x/10) - x
     yroots = solve([f,g],[-1,-1],[1,1], plot=False)
