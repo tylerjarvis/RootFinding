@@ -421,7 +421,7 @@ def changes_sign(deg, dim, values_block):
 
     for i, s in enumerate(product([slice1, slice2], repeat=dim)):
         # Check if the entries are either all positive or negative
-        flat_slice = np.ravel(is_positive[s])
+        flat_slice = is_positive[s].flatten()
         change_sign[i] = any(flat_slice) and any(~flat_slice)
 
     return change_sign
