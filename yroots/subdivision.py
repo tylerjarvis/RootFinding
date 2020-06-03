@@ -345,8 +345,7 @@ def interval_approximate_nd(f,a,b,deg,return_bools=False,inf_norm=None):
         values_block = f.evaluate_grid(cheb_points)
     else:
         cheb_points = transform(get_cheb_grid(deg, dim, False), a, b)
-        # cheb_points = [cheb_points[:,i] for i in range(dim)]
-        values_block = f(*cheb_points.T).reshape([deg+1]*dim)
+        values_block = f(*cheb_points.T).reshape(*([deg+1]*dim))
 
     # figure out on which subintervals the function changes sign
     if return_bools:
