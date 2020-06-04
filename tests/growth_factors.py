@@ -9,6 +9,7 @@ import yroots as yr
 import numpy as np
 from scipy import linalg as la
 from matplotlib import pyplot as plt
+import sys
 
 def msmatpolys(polys, max_cond_num=1.e6, verbose=False, return_all_roots=True,method='svd'):
     '''
@@ -121,19 +122,20 @@ def get_growth_factors(coeffs):
     deg = 2
     gfs = np.zeros((N,dim,deg**dim))
     print(gfs.shape)
-    for i,sys in enumerate(coeffs):
-        polys = [yr.MultiPower(c) for c in sys]
+    for i,system in enumerate(coeffs):
+        polys = [yr.MultiPower(c) for c in system]
         gf = growthfactor(polys,dim)
         #only records if has the right number of roots_sort
         #TODO: why do some systems not have enough roots?
         if gf.shape[1] == deg**dim:
             gfs[i] = gf
         if i%50 == 49:
-            print(i+1,'done')
+            print(i+1,'done',end='\r')
     return gfs
 
 if __name__ == "__main__":
-    for dim in range(2,11):
+    dims = sys.argv[1:]
+    for dim in dims:
         coeffs = np.load(f'random_tests/coeffs/dim{dim}_deg2_randn.npy')
         gfs = get_growth_factors(coeffs)
         not_full_roots = np.unique(np.where(gfs == 0)[0])
