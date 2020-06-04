@@ -140,4 +140,4 @@ if __name__ == "__main__":
         gfs = get_growth_factors(coeffs)
         not_full_roots = np.unique(np.where(gfs == 0)[0])
         np.save(f'growth_factors/gfs_deg2_dim{dim}.npy',gfs)
-        np.save(f'growth_factors/not_full_roots_deg2_dim{dim}.npy',gfs)
+        np.save(f'growth_factors/not_full_roots_deg2_dim{dim}.npy',not_full_roots)
