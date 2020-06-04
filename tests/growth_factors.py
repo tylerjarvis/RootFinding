@@ -10,6 +10,7 @@ import numpy as np
 from scipy import linalg as la
 from matplotlib import pyplot as plt
 import sys
+from matplotlib import ticker as mticker
 
 def msmatpolys(polys, max_cond_num=1.e6, verbose=False, return_all_roots=True,method='svd'):
     '''
@@ -155,8 +156,64 @@ def get_growth_factors(coeffs):
         if gf.shape[1] == deg**dim:
             gfs[i] = gf
         if i%10 == 9:
-            print(i+1,'done',end='\r')
+            print(i+1,'done')
     return gfs
+
+def plot(gf_data,digits_lost=False,figsize=(6,4),dpi=200):
+    """
+    Plots the growth factors of .
+
+    Parameters
+    ----------
+    gf_data : list of arrays
+        arrays of growth factors, which must be flattened
+    digits_lost : bool
+        whether the y-axis should be a log scale of the growth factors
+        or a linear scale of the digits lost
+    figsize : tuple of floats
+        figure size
+    dpi : int
+        dpi of the image
+    """
+    dims = 2+np.arange(len(gf_data))
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize,dpi=dpi)
+
+    gfs_log10 = [np.log10(g) for g in gf_data]
+    #log before plot
+    ax.violinplot(gfs_log10,
+                  positions=dims,
+                  widths=.9,
+                  points=1000,
+                  showextrema=False)
+    maxs = [np.max(g) for g in gfs_log10]
+    mins = [np.min(g) for g in gfs_log10]
+    alpha = .25
+    ax.hlines(maxs,dims-.02,dims+.02,lw=1,alpha=alpha)
+    ax.hlines(mins,dims-.02,dims+.02,lw=1,alpha=alpha)
+    ax.vlines(dims,mins,maxs,lw=.5,linestyles='dashed',alpha=alpha)
+    box_props = dict(facecolor='w')
+    median_props = dict(color='r')
+    ax.boxplot(gfs_log10,positions=dims,
+               vert=True,
+               showfliers=False,
+               patch_artist=True,
+               boxprops=box_props,
+               medianprops=median_props)
+    ax.plot(dims,dims,c='g',label=r'Devestating Example, $\epsilon=.1$')
+    max_y_lim = max(dims)+1
+    ax.set_title('Growth Factors of Quadratic Polynomial Systems')
+    if digits_lost:
+        ax.set_ylim(-1,max_y_lim)
+        ax.set_ylabel('Digits Lost')
+    else:
+        ax.set_ylabel('Growth Factor')
+        ax.yaxis.set_major_formatter(mticker.StrMethodFormatter("$10^{{{x:.0f}}}$"))
+        ax.yaxis.set_ticks([np.log10(x) for p in range(-1,max_y_lim)
+                               for x in np.linspace(10**p, 10**(p+1), 10)], minor=True)
+    ax.set_xlabel('Dimension')
+    ax.legend()
+    ax.set_title('Growth Factors of Quadratic Polynomial Systems')
+    plt.show()
 
 if __name__ == "__main__":
     dims = sys.argv[1:]
