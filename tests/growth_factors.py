@@ -27,8 +27,8 @@ def msmatpolys(polys, max_cond_num=1.e6, verbose=False, return_all_roots=True,me
         If True returns all the roots, otherwise just the ones in the unit box.
     returns
     -------
-    roots : numpy array
-        The common roots of the polynomials. Each row is a root.
+    M : (deg,deg,dim) ndarray
+        The moller stetter matrices of the system
     Raises
     ------
     ConditioningError if reduce_macaulay() raises a ConditioningError.
@@ -90,13 +90,26 @@ def msmatpolys(polys, max_cond_num=1.e6, verbose=False, return_all_roots=True,me
     return M
 
 def growthfactor(polys,dim):
+    """Computes the growth factors of a system of polynomails.
+
+    Parameters
+    ----------
+    polys : list of polynomial objects
+        Polynomial system
+    dim : int
+        dimension of the polynomials
+    returns
+    -------
+    growth factors: (dim, num_roots) array
+        Array of growth factors. The [i,j] spot is  the growth factor for
+        the i'th coordinate of the j'th root.
+    """
     roots = solve(polys,verbose=True)
     #run multiplication but just get the tensor of MS matrices
     M = msmatpolys(polys)
     eig_conds = np.empty((dim,len(roots)))
     for d in range(dim):
         M_ = M[...,d]
-        M_.shape
         vals, vecR = la.eig(M_)
         eig_conds[d] = condeigs(M_,vals,vecR)
         arr = sort_eigs(vals,roots[:,d])
@@ -113,11 +126,23 @@ def growthfactor(polys,dim):
         root_cond = S[-1]
         root_conds[i] = root_cond
     #compute the growth factors
-#     print(len(roots))
     factors = eig_conds / root_conds
     return factors
 
 def get_growth_factors(coeffs):
+    """Computes the growth factors of a bunch of systems of polynomails.
+
+    Parameters
+    ----------
+    coeffs : (N,dim,deg,deg,...) array
+        Coefficient tensors of N test systems. Each test system should have dim
+        polynomial systems of degree deg
+    returns
+    -------
+    growth factors: (N, dim, deg^dim) array
+        Array of growth factors. The [k,i,j] spot is  the growth factor for
+        the i'th coordinate of the j'th root of the k'th system
+    """
     N,dim = coeffs.shape[:2]
     deg = 2
     gfs = np.zeros((N,dim,deg**dim))
