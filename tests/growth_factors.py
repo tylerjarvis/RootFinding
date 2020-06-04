@@ -4,7 +4,7 @@ Computes the growth factors of random quadratics in dimensions
 """
 from yroots.utils import condeigs
 from yroots.polyroots import solve
-from yroots.Multiplication import sort_eigs
+from yroots.Multiplication import *
 import yroots as yr
 import numpy as np
 from scipy import linalg as la
