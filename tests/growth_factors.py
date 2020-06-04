@@ -128,6 +128,8 @@ def get_growth_factors(coeffs):
         #TODO: why do some systems not have enough roots?
         if gf.shape[1] == deg**dim:
             gfs[i] = gf
+        if i%50 == 49:
+            print(i+1,'done')
     return gfs
 
 if __name__ == "__main__":
