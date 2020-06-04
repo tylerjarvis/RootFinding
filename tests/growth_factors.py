@@ -75,7 +75,7 @@ def msmatpolys(polys, max_cond_num=1.e6, verbose=False, return_all_roots=True,me
             except ConditioningError as e:
                 raise e
 
-        # Construct the Möller-Stetter matrices
+        # Construct the Moller-Stetter matrices
         # M is a 3d array containing the multiplication-by-x_i matrix in M[...,i]
         if poly_type == "MultiCheb":
             if method == 'qrt' or method == 'svd':
