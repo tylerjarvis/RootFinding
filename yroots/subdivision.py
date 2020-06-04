@@ -970,11 +970,7 @@ def subdivision_solve_1d(f,a,b,deg,target_deg,interval_data,root_tracker,tols,ma
 
     # Approximate the function using Chebyshev polynomials
     coeff, inf_norm = interval_approximate_1d(f,a,b,deg)
-<<<<<<< HEAD
     coeff2, inf_norm, sign_change = interval_approximate_1d(f,a,b,deg*2,inf_norm, return_bools=True)
-=======
-    coeff2, inf_norm = interval_approximate_1d(f,a,b,deg*2,inf_norm)
->>>>>>> a5641dcbcdd538fb12d54e13716ca1ce58e30b95
 
     coeff2[slice_top(coeff)] -= coeff
 
