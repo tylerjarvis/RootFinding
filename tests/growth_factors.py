@@ -2,6 +2,14 @@
 Computes the growth factors of random quadratics in dimensions
 2-10
 """
+from yroots.utils import condeigs
+from yroots.polyroots import solve
+from yroots.Multiplication import sort_eigs
+import yroots as yr
+import numpy as np
+from scipy import linalg as la
+from matplotlib import pyplot as plt
+
 def msmatpolys(polys, max_cond_num=1.e6, verbose=False, return_all_roots=True,method='svd'):
     '''
     Returns the MS matrices of the system of polynomials
