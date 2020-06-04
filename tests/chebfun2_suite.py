@@ -323,7 +323,11 @@ def test_roots_1_2():
                 check_eval_error=[True,True], check_eval_freq=[1,2], plot=False, target_tol=[1e-13, 1e-13])
     actual_roots = np.load('Polished_results/polished_1.2.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_1.2.csv', delimiter=',')
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> a5641dcbcdd538fb12d54e13716ca1ce58e30b95
     verbose_pass_or_fail([f,g], yroots, yroots2, 1.2, cheb_roots=chebfun_roots, tol=2.220446049250313e-10)
 
 
