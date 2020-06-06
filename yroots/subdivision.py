@@ -405,8 +405,8 @@ def changes_sign(deg, dim, values_block):
     for i, s in slice_product(deg, dim):
         sub_block = values_block[s]
         # Sampe points on borders and center
-        sample_pts = [sub_block[pt] for pt in point_sample_indices(deg, dim)]
-        change_sign[i] = not(all(sp > 0 for sp in sample_pts) or all(sp < 0 for sp in sample_pts))
+        pos_sample_pts = [sub_block[pt] > 0 for pt in point_sample_indices(deg, dim)]
+        change_sign[i] = any(pos_sample_pts) and not all(pos_sample_pts)
 
     return change_sign
 
