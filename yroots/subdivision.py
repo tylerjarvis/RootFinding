@@ -13,7 +13,7 @@ from yroots.Division import division
 from yroots.Multiplication import multiplication
 from yroots.utils import clean_zeros_from_matrix, slice_top, MacaulayError, \
                         get_var_list, ConditioningError, TooManyRoots, Tolerances, \
-                        solve_linear, Memoize
+                        solve_linear, Memoize, memoize
 from yroots.polynomial import MultiCheb
 from yroots.IntervalChecks import IntervalData
 from yroots.RootTracker import RootTracker
@@ -283,7 +283,7 @@ def interval_approximate_1d(f,a,b,deg,inf_norm=None, return_bools=False):
 
     return coeffs[:deg+1], inf_norm
 
-@Memoize
+@memoize
 def get_cheb_grid(deg, dim, has_eval_grid):
     """Helper function for interval_approximate_nd.
 
@@ -401,20 +401,62 @@ def changes_sign(deg, dim, values_block):
         the subinterval checks.
     """
     change_sign = [False]*(2**dim)
-        
+    
+    for i, s in slice_product(deg, dim):
+        sub_block = values_block[s]
+        # Sampe points on borders and center
+        sample_pts = [sub_block[pt] for pt in point_sample_indices(deg, dim)]
+        change_sign[i] = not(all(sp > 0 for sp in sample_pts) or all(sp < 0 for sp in sample_pts))
+
+    return change_sign
+
+@memoize
+def slice_product(deg, dim):
+    """Returns the slice product corresponding to the subintervals for
+    changes_sign. Memoized for increased speed/reducing redundant use of
+    itertools.product.
+
+    Parameters
+    ----------
+        deg : int
+            The approximation degree used for Chebyshev interpolation. This 
+            gives the size of values_block in changes_sign.
+        dim : int
+            The dimension of the system.
+    
+    Returns
+    -------
+        list of tuples
+            An enumerate object cast as a list for easy copying on repeated calls.
+    """
     # The slices are arranged this way to match up with the array of 
     # intervals in the subinterval checks.
     slice1 = slice(0, deg//2, 1)
     slice2 = slice(deg//2, deg + 1, 1)
+
+    return list(enumerate(product([slice1, slice2], repeat=dim)))
+
+@memoize
+def point_sample_indices(deg, dim):
+    """Returns the sample point product indicies corresponding the to sample
+    points of values_block in changes_sign. Memoized for increased speed and
+    reducing redundant use of itertools.product.
+
+    Parameters
+    ----------
+        deg : int
+            The approximation degree used for Chebyshev interpolation. This 
+            gives the size of values_block in changes_sign.
+        dim : int
+            The dimension of the system.
     
-    is_positive = values_block > 0
-
-    for i, s in enumerate(product([slice1, slice2], repeat=dim)):
-        # Check if the entries are either all positive or negative
-        flat_slice = is_positive[s].flatten()
-        change_sign[i] = any(flat_slice) and any(~flat_slice)
-
-    return change_sign
+    Returns
+    -------
+        list of tuples
+            An itertools.product object cast as a list for easy copying on 
+            repeated calls.
+    """
+    return list(product([0, -1, deg//4], repeat=dim))
 
 def get_subintervals(a,b,dimensions,interval_data,polys,change_sign_list,approx_errors,check_subintervals=False):
     """Gets the subintervals to divide a search interval into.
@@ -588,7 +630,7 @@ def get_abs_approx_tol(func, deg, a, b):
     # Multiply by 10 to give a looser tolerance (speed-up)
     return abs_approx_tol*10 / numSpots
 
-@Memoize
+@memoize
 def random_point(dim):
     """Gets a random point from [-1, 1]^dim that's used for get_abs_approx_tol.
     Since this is Memoized, subsequent calls will be a lot faster.
@@ -751,7 +793,7 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
             for new_a, new_b in intervals:
                 subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, use_target_tol=True)
 
-@Memoize
+@memoize
 def get_div_dirs(dim):
     """Returns the directions that the algorithm should subdivide in.
 
@@ -850,7 +892,7 @@ def trim_coeffs(coeffs, abs_approx_tol, rel_approx_tol, inf_norms, errors):
 
     return coeffs, good_approx, errors
 
-@Memoize
+@memoize
 def mon_combos_limited_wrap(deg, dim, shape):
     """A wrapper for mon_combos_limited to memoize.
 
