@@ -402,11 +402,11 @@ def changes_sign(deg, dim, values_block):
     """
     change_sign = [False]*(2**dim)
     
+    is_positive = values_block > 0
+    
     for i, s in slice_product(deg, dim):
-        sub_block = values_block[s]
-        # Sampe points on borders and center
-        pos_sample_pts = [sub_block[pt] > 0 for pt in point_sample_indices(deg, dim)]
-        change_sign[i] = any(pos_sample_pts) and not all(pos_sample_pts)
+        sub_block = is_positive[s].ravel()[::deg//2]
+        change_sign[i] = any(sub_block) and any(~sub_block)
 
     return change_sign
 
@@ -456,7 +456,30 @@ def point_sample_indices(deg, dim):
             An itertools.product object cast as a list for easy copying on 
             repeated calls.
     """
-    return list(product([0, -1, deg//4], repeat=dim))
+    return list(product([0, -1, deg//8, deg//4, 3*deg//8], repeat=dim))
+
+def sample_pt_pos(sub_block, deg, dim):
+    """ Generator for sample points. Yeilds whether the next point in the
+    sample is positive or not until all the indicies from point_sample_indicies
+    are exhausted.
+
+    Parameters
+    ----------
+        sub_block : ndarray
+            The block of points of the interpolation from which to sample.
+        deg : int
+            The degree of the Chebyshev interpolation.
+        dim : int
+            The dimension of the system.
+    
+    Yields
+    ------
+        sample_pt : bool
+            Whether or not the sample point at a particular value is positive.
+            True if it is positive, False otherwise.
+    """
+    for point in point_sample_indices(deg, dim):
+        yield sub_block[point] > 0
 
 def get_subintervals(a,b,dimensions,interval_data,polys,change_sign_list,approx_errors,check_subintervals=False):
     """Gets the subintervals to divide a search interval into.
