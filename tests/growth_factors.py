@@ -222,4 +222,4 @@ if __name__ == "__main__":
     gfs = get_growth_factors(coeffs[sys_num])
     not_full_roots = np.unique(np.where(gfs == 0)[0])
     np.save('growth_factors/gfs_deg2_dim{}_sys{}.npy'.format(dim,sys_num),gfs)
-    np.save('growth_factors/not_full_roots_deg2_dim{}_sys{}.npy'.format(dim,sys_num,not_full_roots)
+    np.save('growth_factors/not_full_roots_deg2_dim{}_sys{}.npy'.format(dim,sys_num,not_full_roots))
