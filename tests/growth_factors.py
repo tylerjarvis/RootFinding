@@ -216,10 +216,10 @@ def plot(gf_data,digits_lost=False,figsize=(6,4),dpi=200):
     plt.show()
 
 if __name__ == "__main__":
-    dims = sys.argv[1:]
-    for dim in dims:
-        coeffs = np.load('random_tests/coeffs/dim{}_deg2_randn.npy'.format(dim))
-        gfs = get_growth_factors(coeffs)
-        not_full_roots = np.unique(np.where(gfs == 0)[0])
-        np.save('growth_factors/gfs_deg2_dim{}.npy'.format(dim),gfs)
-        np.save('growth_factors/not_full_roots_deg2_dim{}.npy'.format(dim),not_full_roots)
+    input = sys.argv[1:]
+    dim,sys_num = [int(i) for i in input]
+    coeffs = np.load('random_tests/coeffs/dim{}_deg2_randn.npy'.format(dim))
+    gfs = get_growth_factors(coeffs[sys_num])
+    not_full_roots = np.unique(np.where(gfs == 0)[0])
+    np.save('growth_factors/gfs_deg2_dim{}_sys{}.npy'.format(dim,sys_num),gfs)
+    np.save('growth_factors/not_full_roots_deg2_dim{}_sys{}.npy'.format(dim,sys_num,not_full_roots)
