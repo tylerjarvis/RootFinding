@@ -105,9 +105,8 @@ def growthfactor(polys,dim):
         Array of growth factors. The [i,j] spot is  the growth factor for
         the i'th coordinate of the j'th root.
     """
-    roots = solve(polys,verbose=True)
+    roots,M = solve(polys,verbose=True)
     #run multiplication but just get the tensor of MS matrices
-    M = msmatpolys(polys)
     eig_conds = np.empty((dim,len(roots)))
     for d in range(dim):
         M_ = M[...,d]
@@ -146,17 +145,22 @@ def get_growth_factors(coeffs):
     """
     N,dim = coeffs.shape[:2]
     deg = 2
-    gfs = np.zeros((N,dim,deg**dim))
-    print(gfs.shape)
+    print((N,dim,deg**dim))
+    not_full_roots = np.zeros(N,dtype=bool)
+    gfs = [0]*N
     for i,system in enumerate(coeffs):
         polys = [yr.MultiPower(c) for c in system]
         gf = growthfactor(polys,dim)
         #only records if has the right number of roots_sort
         #TODO: why do some systems not have enough roots?
+        print(i+1,'done')
         if gf.shape[1] == deg**dim:
             gfs[i] = gf
-        if i%10 == 9:
-            print(i+1,'done')
+            np.save('growth_factors/gfs_deg2_dim{}_sys{}.npy'.format(dim,i),gf)
+        else:
+            not_full_roots[i] = True
+            np.save('growth_factors/not_full_roots_deg2_dim{}.npy'.format(dim),not_full_roots)
+        print(i+1,'saved')
     return gfs
 
 def plot(gf_data,digits_lost=False,figsize=(6,4),dpi=200):
@@ -217,9 +221,6 @@ def plot(gf_data,digits_lost=False,figsize=(6,4),dpi=200):
 
 if __name__ == "__main__":
     input = sys.argv[1:]
-    dim,sys_num = [int(i) for i in input]
+    dim = int(input[0])
     coeffs = np.load('random_tests/coeffs/dim{}_deg2_randn.npy'.format(dim))
-    gfs = get_growth_factors(coeffs[sys_num])
-    not_full_roots = np.unique(np.where(gfs == 0)[0])
-    np.save('growth_factors/gfs_deg2_dim{}_sys{}.npy'.format(dim,sys_num),gfs)
-    np.save('growth_factors/not_full_roots_deg2_dim{}_sys{}.npy'.format(dim,sys_num,not_full_roots))
+    gfs = get_growth_factors(coeffs)
