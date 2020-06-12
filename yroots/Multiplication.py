@@ -97,7 +97,7 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
     if roots.shape[0] > max_number_of_roots:
         raise TooManyRoots("Found too many roots,{}/{}/{}:{}".format(roots.shape,max_number_of_roots, degrees,roots))
     if return_all_roots:
-        return roots
+        return roots,M
     else:
         # only return roots in the unit complex hyperbox
         return roots[[np.all(np.abs(root) <= 1) for root in roots]],M
