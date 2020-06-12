@@ -24,11 +24,13 @@ import time
 import warnings
 from numba import jit
 
+macheps = 2.220446049250313e-16
+
 def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
           max_cond_num=1e5, good_zeros_factor=100, min_good_zeros_tol=1e-5,
           check_eval_error=True, check_eval_freq=1, plot=False,
           plot_intervals=False, deg=None, target_deg=None, max_level=999,
-          return_potentials=False, method='svd', target_tol=1.e-16):
+          return_potentials=False, method='svd', target_tol=macheps):
     """
     Finds the real roots of the given list of functions on a given interval.
 
@@ -129,6 +131,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
             target_deg = 3
 
     # Sets up the tolerances.
+    abs_approx_tol = max(abs_approx_tol,macheps)
     tols = Tolerances(rel_approx_tol=rel_approx_tol,
                       abs_approx_tol=abs_approx_tol,
                       max_cond_num=max_cond_num,
@@ -507,7 +510,7 @@ def full_cheb_approximate(f,a,b,deg,abs_approx_tol,rel_approx_tol,good_deg=None)
     coeff2, bools, inf_norm = interval_approximate_nd(f,a,b,good_deg*2,return_bools=True, inf_norm=inf_norm)
     coeff2[slice_top(coeff)] -= coeff
 
-    error = np.sum(np.abs(coeff2))
+    error = max(np.sum(np.abs(coeff2)),macheps)
     if error > abs_approx_tol+rel_approx_tol*inf_norm:
         return None, bools, inf_norm, error
     else:
