@@ -2,6 +2,7 @@
 Computes the growth factors of random quadratics in dimensions
 2-10
 """
+from .devastating_example_test_scripts import *
 from yroots.utils import condeigs
 from yroots.polyroots import solve
 from yroots.Multiplication import *
@@ -11,86 +12,47 @@ from scipy import linalg as la
 from matplotlib import pyplot as plt
 import sys
 from matplotlib import ticker as mticker
+from scipy.stats import linregress
+from matplotlib.patches import Patch
 
-def msmatpolys(polys, max_cond_num=1.e6, verbose=False, return_all_roots=True,method='svd'):
-    '''
-    Returns the MS matrices of the system of polynomials
+def devestating_growth_factors(dims,eps,kind,N=100,just_origin=True,seed=468):
+    """Computes the growth factors of a system of polynomails.
 
     Parameters
     ----------
-    polys : list of polynomial objects
-        Polynomials to find the common roots of.
-    max_cond_num : float
-        The maximum condition number of the Macaulay Matrix Reduction
-    verbose : bool
-        Prints information about how the roots are computed.
-    return_all_roots : bool
-        If True returns all the roots, otherwise just the ones in the unit box.
+    dims : list of ints
+        The dimensions to test
+    eps : float
+        epsilon value for the devestating example
+    kind : string
+        the type of devestating example system. One of 'power', 'spower',
+        'cheb', and 'chebs'.
+    N : int or list
+        number of tests to run in each dimension
+    seed : int
+        random seed to use in generating the systems
+    just_origin : bool
+        If true, only returns growth factors for the root at the origin.
+        Otherwise, returns growth factors for all roots
     returns
     -------
-    M : (deg,deg,dim) ndarray
-        The moller stetter matrices of the system
-    Raises
-    ------
-    ConditioningError if reduce_macaulay() raises a ConditioningError.
-    TooManyRoots if the macaulay matrix returns more roots than the Bezout bound.
-    '''
-    #We don't want to use Linear Projection right now
+    growth factors: (dim, N, num_roots) or (dim, N) array
+        Array of growth factors. The [i,j] spot is  the growth factor for
+        the i'th coordinate in the j'th test system.
+    """
+    np.random.seed(seed)
+    if isinstance(N,int):
+        N = [N]*len(dims)
+    gfs = dict()
+    for n,dim in zip(N,dims):
+        gf = []
+        for _ in range(n):
+            polys = randpoly(dim,eps,kind)
+            gf.append(growthfactor(polys,dim,dev=just_origin))
+        gfs[dim] = np.array(gf)
+    return gfs
 
-    if len(polys) == 1:
-        from yroots.OneDimension import solve
-        return transform(solve(polys[0], MSmatrix=0))
-    poly_type = is_power(polys, return_string = True)
-    dim = polys[0].dim
-
-    #By Bezout's Theorem. Useful for making sure that the reduced Macaulay Matrix is as we expect
-    degrees = [poly.degree for poly in polys]
-    max_number_of_roots = np.prod(degrees)
-
-    matrix, matrix_terms, cut = build_macaulay(polys, verbose)
-
-    roots = np.array([])
-
-    # If cut is zero, then all the polynomials are linear and we solve
-    # using solve_linear.
-    if cut == 0:
-        roots, cond = solve_linear([p.coeff for p in polys])
-        # Make sure roots is a 2D array.
-        roots = np.array([roots])
-    else:
-        # Attempt to reduce the Macaulay matrix
-        if method == 'qrt':
-            try:
-                E,Q,cond,cond_back = reduce_macaulay_qrt(matrix,cut,max_cond_num)
-            except ConditioningError as e:
-                raise e
-        elif method == 'tvb':
-            try:
-                E,Q,cond,cond_back = reduce_macaulay_tvb(matrix,cut,max_cond_num)
-            except ConditioningError as e:
-                raise e
-        elif method == 'svd':
-            try:
-                E,Q,cond,cond_back = reduce_macaulay_svd(matrix,cut,max_cond_num)
-            except ConditioningError as e:
-                raise e
-
-        # Construct the Moller-Stetter matrices
-        # M is a 3d array containing the multiplication-by-x_i matrix in M[...,i]
-        if poly_type == "MultiCheb":
-            if method == 'qrt' or method == 'svd':
-                M = ms_matrices_cheb(E,Q,matrix_terms,dim)
-            elif method == 'tvb':
-                M = ms_matrices_p_cheb(E,Q,matrix_terms,dim,cut)
-
-        else:
-            if method == 'qrt' or method == 'svd':
-                M = ms_matrices(E,Q,matrix_terms,dim)
-            elif method == 'tvb':
-                M = ms_matrices_p(E,Q,matrix_terms,dim,cut)
-    return M
-
-def growthfactor(polys,dim):
+def growthfactor(polys,dim,dev=False):
     """Computes the growth factors of a system of polynomails.
 
     Parameters
@@ -99,35 +61,62 @@ def growthfactor(polys,dim):
         Polynomial system
     dim : int
         dimension of the polynomials
+    dev : bool
+        whether or not we are computing the growth factor for a devestating
+        example system, in which case we want to use the root at the origin
     returns
     -------
     growth factors: (dim, num_roots) array
         Array of growth factors. The [i,j] spot is  the growth factor for
         the i'th coordinate of the j'th root.
     """
-    roots,M = solve(polys,verbose=True)
-    #run multiplication but just get the tensor of MS matrices
-    eig_conds = np.empty((dim,len(roots)))
-    for d in range(dim):
-        M_ = M[...,d]
-        vals, vecR = la.eig(M_)
-        eig_conds[d] = condeigs(M_,vals,vecR)
-        arr = sort_eigs(vals,roots[:,d])
-        vals = vals[arr]
-        eig_conds[d] = eig_conds[d][arr]
-    factors = np.empty(len(roots))
-    #compute the condition numbers of the roots
-    root_conds = np.empty(len(roots))
-    for i,root in enumerate(roots):
+    roots,M = solve(polys)
+    #find the growth factors for all the roots
+    if not dev:
+        eig_conds = np.empty((dim,len(roots)))
+        for d in range(dim):
+            M_ = M[...,d]
+            vals, vecR = la.eig(M_)
+            eig_conds[d] = condeigs(M_,vals,vecR)
+            arr = sort_eigs(vals,roots[:,d])
+            vals = vals[arr]
+            eig_conds[d] = eig_conds[d][arr]
+        factors = np.empty(len(roots))
+        #compute the condition numbers of the roots
+        root_conds = np.empty(len(roots))
+        for i,root in enumerate(roots):
+            J = np.empty((dim,dim),dtype='complex')
+            for j,poly in enumerate(polys):
+                J[j] = poly.grad(root)
+            S = la.svd(J,compute_uv=False)
+            root_cond = S[-1]
+            root_conds[i] = root_cond
+        #compute the growth factors
+        factors = eig_conds / root_conds
+        return factors
+    #only find the growth factor for the root at the origin
+    else:
+        #find the root at the origin
+        idx = np.argmin(la.norm(roots,axis=1))
+
+        eig_conds = np.empty(dim)
+        for d in range(dim):
+            M_ = M[...,d]
+            vals, vecR = la.eig(M_)
+            eig_conds_curr = condeigs(M_,vals,vecR)
+            arr = sort_eigs(vals,roots[:,d])
+            vals = vals[arr]
+            eig_conds[d] = eig_conds_curr[arr][idx]
+        factors = np.empty(len(roots))
+        #compute the condition numbers of the roots
         J = np.empty((dim,dim),dtype='complex')
         for j,poly in enumerate(polys):
-            J[j] = poly.grad(root)
+            J[j] = poly.grad(roots[idx])
         S = la.svd(J,compute_uv=False)
         root_cond = S[-1]
-        root_conds[i] = root_cond
-    #compute the growth factors
-    factors = eig_conds / root_conds
-    return factors
+        #compute the growth factors
+        factors = eig_conds / root_cond
+        return factors
 
 def get_growth_factors(coeffs):
     """Computes the growth factors of a bunch of systems of polynomails.
@@ -163,14 +152,15 @@ def get_growth_factors(coeffs):
         print(i+1,'saved')
     return gfs
 
-def plot(gf_data,digits_lost=False,figsize=(6,4),dpi=200):
+def plot(datasets,labels=None,digits_lost=False,figsize=(6,4),dpi=200,best_fit=True):
     """
-    Plots the growth factors of .
+    Plots growth factor data.
 
     Parameters
     ----------
-    gf_data : list of arrays
-        arrays of growth factors, which must be flattened
+    datasets : list of dictionaries
+        Growth factor datasets to plot. Each dataset dictionary should be
+        formatted to map dimension to an array of growth factors
     digits_lost : bool
         whether the y-axis should be a log scale of the growth factors
         or a linear scale of the digits lost
@@ -179,31 +169,47 @@ def plot(gf_data,digits_lost=False,figsize=(6,4),dpi=200):
     dpi : int
         dpi of the image
     """
-    dims = 2+np.arange(len(gf_data))
+    dims = 2+np.arange(np.max([len(data.keys()) for data in datasets]))
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize,dpi=dpi)
-
-    gfs_log10 = [np.log10(g) for g in gf_data]
-    #log before plot
-    ax.violinplot(gfs_log10,
-                  positions=dims,
-                  widths=.9,
-                  points=1000,
-                  showextrema=False)
-    maxs = [np.max(g) for g in gfs_log10]
-    mins = [np.min(g) for g in gfs_log10]
-    alpha = .25
-    ax.hlines(maxs,dims-.02,dims+.02,lw=1,alpha=alpha)
-    ax.hlines(mins,dims-.02,dims+.02,lw=1,alpha=alpha)
-    ax.vlines(dims,mins,maxs,lw=.5,linestyles='dashed',alpha=alpha)
-    box_props = dict(facecolor='w')
-    median_props = dict(color='r')
-    ax.boxplot(gfs_log10,positions=dims,
-               vert=True,
-               showfliers=False,
-               patch_artist=True,
-               boxprops=box_props,
-               medianprops=median_props)
-    ax.plot(dims,dims,c='g',label=r'Devestating Example, $\epsilon=.1$')
+    ax.yaxis.grid(color='gray',alpha=.15,linewidth=1,which='major')
+    def plot_dataset(data,color):
+        pos = 2+np.arange(len(data))
+        #log before plot
+        data_log10 = [np.log10(data[d].flatten()) for d in data.keys()]
+        #violins
+        parts = ax.violinplot(data_log10,
+                      positions=pos,
+                      widths=.8,
+                      points=1000,
+                      showextrema=False)
+        for pc in parts['bodies']:
+            pc.set_facecolor(color)
+            pc.set_alpha(.3)
+        #boxplots
+        maxs = [np.max(g) for g in data_log10]
+        mins = [np.min(g) for g in data_log10]
+        ax.hlines(maxs,pos-.02,pos+.02,lw=1)
+        ax.hlines(mins,pos-.02,pos+.02,lw=1)
+        ax.vlines(pos,mins,maxs,lw=.5,linestyles='dashed')
+        box_props = dict(facecolor='w')
+        median_props = dict(color=color)
+        ax.boxplot(data_log10,positions=pos,
+                   vert=True,
+                   showfliers=False,
+                   patch_artist=True,
+                   boxprops=box_props,
+                   widths=.35,
+                   medianprops=median_props)
+        if best_fit:
+            points = np.array([[d,val] for i,d in enumerate(data.keys()) for val in data_log10[i]])
+            slope, intercept = linregress(points)[:2]
+            print(slope, intercept)
+            ax.plot(pos,pos*slope+intercept,c=color)
+    for i,dataset in enumerate(datasets):
+        plot_dataset(dataset,f'C{i}')
+    ax.plot(dims,dims-1,c='C1',label=r'Theoretical Devestating Example, $\epsilon=.1$')
+    ax.plot(dims,2*(dims-1),c='C2',label=r'Theoretical Devestating Example, $\epsilon=.01$')
+    ax.plot(dims,3*(dims-1),c='C3',label=r'Theoretical Devestating Example, $\epsilon=.001$')
     max_y_lim = max(dims)+1
     ax.set_title('Growth Factors of Quadratic Polynomial Systems')
     if digits_lost:
@@ -215,7 +221,8 @@ def plot(gf_data,digits_lost=False,figsize=(6,4),dpi=200):
         ax.yaxis.set_ticks([np.log10(x) for p in range(-1,max_y_lim)
                                for x in np.linspace(10**p, 10**(p+1), 10)], minor=True)
     ax.set_xlabel('Dimension')
-    ax.legend()
+    legend_elements = [Patch(facecolor=f'C{i}') for i in range(len(datasets))]
+    ax.legend(legend_elements,labels)
     ax.set_title('Growth Factors of Quadratic Polynomial Systems')
     plt.show()
 

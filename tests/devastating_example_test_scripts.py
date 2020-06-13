@@ -7,12 +7,12 @@ import numpy as np
 from scipy.stats import ortho_group
 from yroots.polynomial import MultiPower, MultiCheb
 from yroots.Multiplication import ms_matrices, ms_matrices_cheb, ms_matrices_p, build_macaulay, multiplication
-from yroots.MacaulayReduce import reduce_macaulay, reduce_macaulay_tvb, reduce_macaulay_p, reduce_macaulay_byu
+from yroots.MacaulayReduce import reduce_macaulay_svd
 from yroots.utils import ConditioningError
 import scipy.linalg as la
 import matplotlib.pyplot as plt
 from yroots.subdivision import full_cheb_approximate, trim_coeffs
-from random_tests import rand_coeffs
+from .random_tests import rand_coeffs
 
 def condeig(A,eig,v):
     """Calculates the condition number of an eigenvalue of A"""
