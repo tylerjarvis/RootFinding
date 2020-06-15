@@ -405,7 +405,7 @@ def changes_sign(deg, dim, values_block):
     is_positive = values_block > 0
     
     for i, s in slice_product(deg, dim):
-        sub_block = is_positive[s].ravel()[::deg//2]
+        sub_block = is_positive[s][point_sample_indices(deg, dim)].ravel()
         change_sign[i] = any(sub_block) and any(~sub_block)
 
     return change_sign
@@ -452,11 +452,11 @@ def point_sample_indices(deg, dim):
     
     Returns
     -------
-        list of tuples
-            An itertools.product object cast as a list for easy copying on 
-            repeated calls.
+        tuple of ndarrays
+            The indicies of all the sample points to take from the sub_block.
     """
-    return list(product([0, -1, deg//8, deg//4, 3*deg//8], repeat=dim))
+    points_to_sample = [0, -1, deg//4]
+    return tuple(np.meshgrid(*(points_to_sample,)*dim))
 
 def sample_pt_pos(sub_block, deg, dim):
     """ Generator for sample points. Yeilds whether the next point in the
