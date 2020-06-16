@@ -347,10 +347,17 @@ def interval_approximate_nd(f,a,b,deg,return_bools=False,inf_norm=None):
         cheb_points = transform(get_cheb_grid(deg, dim, False), a, b)
         values_block = f(*cheb_points.T).reshape(*([deg+1]*dim))
 
-    # figure out on which subintervals the function changes sign
+    # Figure out on which subintervals the function changes sign
     if return_bools:
-        # change_sign = [False]*(2**dim)
-        change_sign = changes_sign(deg, dim, values_block)
+        # For dimension 2 and 3, changes_sign is not faster than simply running
+        # the quadratic check on each of the subintervals.
+        if dim == 2:
+            change_sign = [False, False, False, False]
+        elif dim == 3:
+            change_sign = [False, False, False, False, \
+                           False, False, False, False]
+        else:
+            change_sign = changes_sign(deg, dim, values_block)
 
 
     values = chebyshev_block_copy(values_block)
