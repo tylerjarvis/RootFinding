@@ -171,14 +171,6 @@ class IntervalData:
         check_interval : bool
             True if we can throw out the interval. Otherwise False.
         '''
-        # for interval in subintervals:
-        #     if np.allclose(interval[0],np.array([9.99999876e-01, -1.00000000e+00, -1.32713257e-07])):
-        #         if np.allclose(interval[1],np.array([ 1.00000000e+00, -9.99999551e-01,  1.54485290e-07])):
-        #             print("HI I'M THE PROBLEM CHILD :)")
-        #             np.save('DebuggingFiles/probcoeff_ex5.npy',polys)
-        #             np.save('DebuggingFiles/subintervals_prob_ex5.npy',subintervals)
-        #             np.save('DebuggingFiles/scaled_subintervals_prob_ex5.npy',scaled_subintervals)
-        #             np.save('DebuggingFiles/errors_prob_ex5.npy',errors)
         for check in self.subinterval_checks:
             for poly,error in zip(polys, errors):
                 mask = check(poly, scaled_subintervals, change_sign, error)
