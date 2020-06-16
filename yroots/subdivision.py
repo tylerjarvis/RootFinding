@@ -745,7 +745,7 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
             zeros = transform(zeros,a,b)
             interval_data.track_interval("Macaulay", [a,b])
             root_tracker.add_roots(zeros, a, b, "Macaulay")
-        except (ConditioningError, TooManyRoots) as e:
+        except ConditioningError as e:
             # Subdivide but run some checks on the intervals first
             intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
             for new_a, new_b in intervals:
