@@ -30,7 +30,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
           max_cond_num=1e5, good_zeros_factor=100, min_good_zeros_tol=1e-5,
           check_eval_error=True, check_eval_freq=1, plot=False,
           plot_intervals=False, deg=None, target_deg=None, max_level=999,
-          return_potentials=False, method='svd', target_tol=macheps):
+          return_potentials=False, method='svd', target_tol=1.01*macheps):
     """
     Finds the real roots of the given list of functions on a given interval.
 
@@ -131,7 +131,10 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
             target_deg = 3
 
     # Sets up the tolerances.
-    abs_approx_tol = max(abs_approx_tol,macheps)
+    if isinstance(abs_approx_tol, list):
+        abs_approx_tol = [max(tol, 1.01*macheps) for tol in abs_approx_tol]
+    else:
+        abs_approx_tol = max(abs_approx_tol, 1.01*macheps)
     tols = Tolerances(rel_approx_tol=rel_approx_tol,
                       abs_approx_tol=abs_approx_tol,
                       max_cond_num=max_cond_num,
