@@ -224,7 +224,7 @@ def randmsmat(dim,eps,kind):
 def perturbpoly(dim,deg,basis,eps):
     if basis == 'power': MultiX = MultiPower
     else: MultiX = MultiCheb
-    coeff = eps*rand_coeffs(dim,deg,1)[0,0]
+    coeff = eps*rand_coeffs(dim,deg,1,'randn')[0,0]
     return MultiX(coeff)
 
 def perturb(polys,eps):
