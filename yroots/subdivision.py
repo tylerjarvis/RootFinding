@@ -540,11 +540,10 @@ def good_zeros_nd(zeros, imag_tol, real_tol):
     # Take care of the case where we found only 1 root
     if len(zeros.shape) == 1:
         mask = np.all(np.abs(zeros.imag) <= imag_tol,axis = 0)
-        mask *= np.all(np.abs(zeros) <= 1 + real_tol,axis = 0)
+        mask *= np.all(np.abs(zeros.real) <= 1 + real_tol,axis = 0)
     else:
         mask = np.all(np.abs(zeros.imag) <= imag_tol,axis = 1)
-        mask *= np.all(np.abs(zeros) <= 1 + real_tol,axis = 1)
-
+        mask *= np.all(np.abs(zeros.real) <= 1 + real_tol,axis = 1)
     return zeros[mask].real
 
 def get_abs_approx_tol(func, deg, a, b):
