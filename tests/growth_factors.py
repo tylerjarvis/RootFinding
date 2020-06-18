@@ -48,7 +48,7 @@ def devestating_growth_factors(dims,eps,kind,newton,N=50,just_dev_root=True,seed
         Array of growth factors. The [i,j] spot is  the growth factor for
         the i'th coordinate in the j'th test system.
     """
-    print('Devestating Example in dimensions',*dims)
+    print('Devestating Example in dimensions',dims)
     np.random.seed(seed)
     if isinstance(N,int):
         N = [N]*len(dims)
