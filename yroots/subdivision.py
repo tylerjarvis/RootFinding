@@ -243,7 +243,7 @@ def chebyshev_block_copy(values_block):
         values_cheb[tuple(cheb_idx)] = values_block[tuple(block_idx)]
     return values_cheb
 
-def interval_approximate_1d(f,a,b,deg,inf_norm=None, return_bools=False):
+def interval_approximate_1d(f,a,b,deg,return_bools=False,return_inf_norm=False):
     """Finds the chebyshev approximation of a one-dimensional function on an interval.
 
     Parameters
@@ -256,10 +256,10 @@ def interval_approximate_1d(f,a,b,deg,inf_norm=None, return_bools=False):
         The upper bound on the interval.
     deg : int
         The degree of the interpolation.
-    inf_norm : float
-        The inf_norm of the function, if already computed.
     return_bools : bool
         Whether or not to return change_sign.
+    return_inf_norm : bool
+        Whether to return the inf norm of the function
     Returns
     -------
     coeffs : numpy array
@@ -272,9 +272,7 @@ def interval_approximate_1d(f,a,b,deg,inf_norm=None, return_bools=False):
     extrema = transform(np.cos((np.pi*np.arange(2*deg))/deg),a,b)
     values = f(extrema)
 
-    if inf_norm is not None:
-        inf_norm = max(np.max(np.abs(values)), inf_norm)
-    else:
+    if return_inf_norm:
         inf_norm = np.max(np.abs(values))
 
     coeffs = np.real(np.fft.fft(values/deg))
@@ -285,9 +283,11 @@ def interval_approximate_1d(f,a,b,deg,inf_norm=None, return_bools=False):
         # Check to see if the sign changes on the interval
         is_positive = values > 0
         sign_change = any(is_positive) and any(~is_positive)
-        return coeffs[:deg+1], inf_norm, sign_change
-
-    return coeffs[:deg+1], inf_norm
+        if return_inf_norm: return coeffs[:deg+1], sign_change, inf_norm
+        else:               return coeffs[:deg+1], sign_change
+    else:
+        if return_inf_norm: return coeffs[:deg+1], inf_norm
+        else:               return coeffs[:deg+1]
 
 @Memoize
 def get_cheb_grid(deg, dim, has_eval_grid):
@@ -314,7 +314,7 @@ def get_cheb_grid(deg, dim, has_eval_grid):
         flatten = lambda x: x.flatten()
         return np.column_stack(tuple(map(flatten, cheb_grids)))
 
-def interval_approximate_nd(f,a,b,deg,return_bools=False,inf_norm=None):
+def interval_approximate_nd(f,a,b,deg,return_bools=False,return_inf_norm=False):
     """Finds the chebyshev approximation of an n-dimensional function on an interval.
 
     Parameters
@@ -329,8 +329,8 @@ def interval_approximate_nd(f,a,b,deg,return_bools=False,inf_norm=None):
         The degree of the interpolation in each dimension.
     return_bools: bool
         whether to return bools which indicate if the function changes sign or not
-    inf_norm : float
-        The inf_norm of the function, if already computed
+    return_inf_norm : bool
+        whether to return the inf norm of the function
 
     Returns
     -------
@@ -361,9 +361,7 @@ def interval_approximate_nd(f,a,b,deg,return_bools=False,inf_norm=None):
 
     values = chebyshev_block_copy(values_block)
 
-    if inf_norm is not None:
-        inf_norm = max(np.max(np.abs(values_block)), inf_norm)
-    else:
+    if return_inf_norm:
         inf_norm = np.max(np.abs(values_block))
 
     coeffs = np.real(fftn(values/deg**dim))
@@ -382,9 +380,11 @@ def interval_approximate_nd(f,a,b,deg,return_bools=False,inf_norm=None):
 
     slices = [slice(0,deg+1)]*dim
     if return_bools:
-        return coeffs[tuple(slices)], change_sign, inf_norm
+        if return_inf_norm: return coeffs[tuple(slices)], change_sign, inf_norm
+        else:               return coeffs[tuple(slices)], change_sign
     else:
-        return coeffs[tuple(slices)], inf_norm
+        if return_inf_norm: return coeffs[tuple(slices)], inf_norm
+        else:               return coeffs[tuple(slices)]
 
 def changes_sign(deg, dim, values_block):
     """Finds on what intervals the function evaluations change sign (if at all).
@@ -509,8 +509,8 @@ def full_cheb_approximate(f,a,b,deg,abs_approx_tol,rel_approx_tol,good_deg=None)
     if good_deg is None:
         good_deg = deg
     # Try degree deg and see if it's good enough
-    coeff, inf_norm = interval_approximate_nd(f,a,b,good_deg)
-    coeff2, bools, inf_norm = interval_approximate_nd(f,a,b,good_deg*2,return_bools=True, inf_norm=inf_norm)
+    coeff = interval_approximate_nd(f,a,b,good_deg)
+    coeff2, bools, inf_norm = interval_approximate_nd(f,a,b,good_deg*2,return_bools=True,return_inf_norm=True)
     coeff2[slice_top(coeff)] -= coeff
 
     error = max(np.sum(np.abs(coeff2)),macheps)
@@ -974,8 +974,8 @@ def subdivision_solve_1d(f,a,b,deg,target_deg,interval_data,root_tracker,tols,ma
     interval_data.print_progress()
 
     # Approximate the function using Chebyshev polynomials
-    coeff, inf_norm = interval_approximate_1d(f,a,b,deg)
-    coeff2, inf_norm, sign_change = interval_approximate_1d(f,a,b,deg*2,inf_norm, return_bools=True)
+    coeff = interval_approximate_1d(f,a,b,deg)
+    coeff2, bools, inf_norm = interval_approximate_1d(f,a,b,deg*2,return_bools=True,return_inf_norm=True)
 
     coeff2[slice_top(coeff)] -= coeff
 
