@@ -70,7 +70,7 @@ def devestating_growth_factors(dims,eps,kind,newton,N=50,just_dev_root=True,seed
             print(_+1,'done')
             gf.append(growth_factor)
             if save:
-                np.save(folder+'deg2_sys{}.npy'.format(_),gf)
+                np.save(folder+'deg2_sys{}.npy'.format(_),growth_factor)
                 print(_+1,'saved')
         gfs[dim] = np.array(gf)
         if save: np.save(folder+'deg2.npy',gfs[dim])
@@ -105,6 +105,10 @@ def growthfactor(polys,dim,newton,dev=False,shifted=None):
         newroots = np.array([newton_polish(polys,root,tol=10*macheps) for root in roots])
         max_diff = np.max(np.abs(newroots-roots))
         roots = newroots
+        if not 10*max_diff < smallest_dist_between_roots:
+            print('**Potentially converging roots with polishing**')
+            print('\tNewton changed roots by at most: {}'.format(max_diff))
+            print('\tDist between root was at least:  {}'.format(smallest_dist_between_roots))
     #find the growth factors for all the roots
     if not dev:
         eig_conds = np.empty((dim,len(roots)))
@@ -128,8 +132,7 @@ def growthfactor(polys,dim,newton,dev=False,shifted=None):
             root_conds[i] = root_cond
         #compute the growth factors
         factors = eig_conds / root_conds
-        if newton: return factors, max_diff, smallest_dist_between_roots
-        else: return factors
+        return factors
     #only find the growth factor for the root at the origin
     else:
         #find the root at the origin
@@ -156,8 +159,7 @@ def growthfactor(polys,dim,newton,dev=False,shifted=None):
         root_cond = 1/S[-1]
         #compute the growth factors
         factors = eig_conds / root_cond
-        if newton: return factors, max_diff, smallest_dist_between_roots
-        else: return factors
+        return factors
 
 def get_growth_factors(coeffs, newton, save=True):
     """Computes the growth factors of a bunch of systems of polynomails.
@@ -188,13 +190,6 @@ def get_growth_factors(coeffs, newton, save=True):
     for i,system in enumerate(coeffs):
         polys = [yr.MultiPower(c) for c in system]
         gf = growthfactor(polys,dim,newton)
-        if newton:
-
-            gf,max_diff,smallest_dist_between_roots = gf
-            if not 10*max_diff < smallest_dist_between_roots:
-                print('**Potentially converging roots with polishing**')
-                print('\tNewton changed roots by at most: {}'.format(max_diff))
-                print('\tDist between root was at least:  {}'.format(smallest_dist_between_roots))
         #only records if has the right number of roots_sort
         #TODO: why do some systems not have enough roots?
         print(i+1,'done')
