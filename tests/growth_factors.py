@@ -17,7 +17,7 @@ from matplotlib.patches import Patch
 
 macheps = 2.220446049250313e-16
 
-def devestating_growth_factors(dims,eps,kind,N=100,just_origin=True,seed=468,perturb_eps=0):
+def devestating_growth_factors(dims,eps,kind,newton,N=50,just_dev_root=True,seed=468,perturb_eps=0,save=True):
     """Computes the growth factors of a system of polynomails.
 
     Parameters
@@ -29,21 +29,26 @@ def devestating_growth_factors(dims,eps,kind,N=100,just_origin=True,seed=468,per
     kind : string
         the type of devestating example system. One of 'power', 'spower',
         'cheb', and 'chebs'.
+    newton : bool
+        whether or not to newton polish the roots
     N : int or list
         number of tests to run in each dimension
-    just_origin : bool
-        If true, only returns growth factors for the root at the origin.
-        Otherwise, returns growth factors for all roots
+    just_dev_root : bool
+        If true, only returns growth factors for the devestating root.
+        Otherwise, returns growth factors for all roots.
     seed : int
         random seed to use in generating the systems
     perturb_eps : float
         the amount by which to perturb the system
+    save : bool
+        whether to save and return the results or just return them
     returns
     -------
     growth factors: (dim, N, num_roots) or (dim, N) array
         Array of growth factors. The [i,j] spot is  the growth factor for
         the i'th coordinate in the j'th test system.
     """
+    print('Devestating Example in dimensions',*dims)
     np.random.seed(seed)
     if isinstance(N,int):
         N = [N]*len(dims)
@@ -53,17 +58,26 @@ def devestating_growth_factors(dims,eps,kind,N=100,just_origin=True,seed=468,per
     else:
         shifted = True
     for n,dim in zip(N,dims):
+        print(dim)
         gf = []
         for _ in range(n):
             #get a random devestating example
             polys = randpoly(dim,eps,kind)
             if perturb_eps > 0:
                 perturb(polys,perturb_eps)
-            gf.append(growthfactor(polys,dim,dev=just_origin,shifted=shifted))
+            growth_factor = growthfactor(polys,dim,newton,dev=just_dev_root,shifted=shifted)
+            print(_+1,'done')
+            gf.append(growth_factor)
+            if save:
+                np.save('growth_factors/dev/deg2_dim{}_sys{}.npy'.format(dim,_),gf)
+                print(_+1,'saved')
         gfs[dim] = np.array(gf)
+        if save: np.save('growth_factors/dev/deg2_dim{}.npy'.format(dim),gfs[dim])
+    #final save at the end
+    if save: np.save('growth_factors/dev/all_res.npy',gfs[dim])
     return gfs
 
-def growthfactor(polys,dim,dev=False,newton=False,shifted=False):
+def growthfactor(polys,dim,newton,dev=False,shifted=None):
     """Computes the growth factors of a system of polynomails.
 
     Parameters
@@ -72,11 +86,13 @@ def growthfactor(polys,dim,dev=False,newton=False,shifted=False):
         Polynomial system
     dim : int
         dimension of the polynomials
+    newton : bool
+        whether or not to newton polish the roots
     dev : bool
         whether or not we are computing the growth factor for a devestating
         example system, in which case we want to use the root at the origin
-    newton : bool
-        whether or not to newton polish the roots
+    shifted : bool
+        for devestating systems, whether the system is
     returns
     -------
     growth factors: (dim, num_roots) array
@@ -144,7 +160,7 @@ def growthfactor(polys,dim,dev=False,newton=False,shifted=False):
         if newton: return factors, max_diff, smallest_dist_between_roots
         else: return factors
 
-def get_growth_factors(coeffs, newton=False, save=True):
+def get_growth_factors(coeffs, newton, save=True):
     """Computes the growth factors of a bunch of systems of polynomails.
 
     Parameters
@@ -152,6 +168,10 @@ def get_growth_factors(coeffs, newton=False, save=True):
     coeffs : (N,dim,deg,deg,...) array
         Coefficient tensors of N test systems. Each test system should have dim
         polynomial systems of degree deg
+    newton : bool
+        whether or not to newton polish the roots
+    save : bool
+        whether or not to save and return the results or just return them
     returns
     -------
     growth factors: (N, dim, deg^dim) array
@@ -165,23 +185,24 @@ def get_growth_factors(coeffs, newton=False, save=True):
     gfs = [0]*N
     for i,system in enumerate(coeffs):
         polys = [yr.MultiPower(c) for c in system]
-        gf = growthfactor(polys,dim,newton=newton)
+        gf = growthfactor(polys,dim,newton)
         if newton:
             gf,max_diff,smallest_dist_between_roots = gf
             print('Newton changed roots by at most: {}'.format(max_diff))
             print('Dist between root was at least:  {}'.format(smallest_dist_between_roots))
         #only records if has the right number of roots_sort
         #TODO: why do some systems not have enough roots?
-        if save: print(i+1,'done')
+        print(i+1,'done')
         if gf.shape[1] == deg**dim:
             gfs[i] = gf
-            if save: np.save('growth_factors/gfs_deg2_dim{}_sys{}.npy'.format(dim,i),gf)
+            if save: np.save('growth_factors/rand/deg2_dim{}_sys{}.npy'.format(dim,i),gf)
         else:
             not_full_roots[i] = True
-            if save: np.save('growth_factors/not_full_roots_deg2_dim{}.npy'.format(dim),not_full_roots)
+            if save: np.save('growth_factors/rand/not_full_roots_deg2_dim{}.npy'.format(dim),not_full_roots)
         if save: print(i+1,'saved')
     #final save at the end
-    if save: np.save('growth_factors/gfs_deg2_dim{}.npy'.format(dim,i),gfs)
+    if save: np.save('growth_factors/rand/deg2_dim{}.npy'.format(dim),gfs)
+    print('saved all results')
     return gfs
 
 def plot(datasets,labels=None,digits_lost=False,figsize=(6,4),dpi=200,best_fit=True):
@@ -260,7 +281,22 @@ def plot(datasets,labels=None,digits_lost=False,figsize=(6,4),dpi=200,best_fit=T
 
 if __name__ == "__main__":
     input = sys.argv[1:]
-    dim = int(input[0])
-    newton = (len(input) > 1) and input[1] == 'newton'
-    coeffs = np.load('random_tests/coeffs/dim{}_deg2_randn.npy'.format(dim))
-    gfs = get_growth_factors(coeffs)
+    if input[1] == 'newton':
+        newton = True
+    elif input[1] == 'nopol':
+        newton=False
+    else:
+        raise ValueError("2nd input must be one of 'newton' for polishing or 'nopol' for no polishing")
+    test = input[0]
+    dims = [int(i) for i in input[2:]]
+    if test == 'rand':
+        for dim in dims:
+            coeffs = np.load('random_tests/coeffs/dim{}_deg2_randn.npy'.format(dim))
+            gfs = get_growth_factors(coeffs, newton)
+    elif test == 'dev':
+        eps = .1
+        kind = 'power'
+        N = 50
+        devestating_growth_factors(dims,eps,kind,newton,N=N)
+    else:
+        raise ValueError("1st input must be one of 'rand' for random polys 'dev' for devestating example")
