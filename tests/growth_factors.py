@@ -2,7 +2,7 @@
 Computes the growth factors of random quadratics in dimensions
 2-10
 """
-from .devastating_example_test_scripts import *
+from devastating_example_test_scripts import *
 from yroots.utils import condeigs, newton_polish
 from yroots.polyroots import solve
 from yroots.Multiplication import *
@@ -53,11 +53,12 @@ def devestating_growth_factors(dims,eps,kind,newton,N=50,just_dev_root=True,seed
     if isinstance(N,int):
         N = [N]*len(dims)
     gfs = dict()
-    if kind in ['power','cheb']:
-        shifted = False
-    else:
-        shifted = True
+    if kind in ['power','cheb']: shifted = False
+    else: shifted = True
     for n,dim in zip(N,dims):
+        if save:
+            if newton: folder = 'growth_factors/dev/newton/dim{}/'.format(dim)
+            else:      folder = 'growth_factors/dev/nopol/dim{}/'.format(dim)
         print(dim)
         gf = []
         for _ in range(n):
@@ -69,12 +70,10 @@ def devestating_growth_factors(dims,eps,kind,newton,N=50,just_dev_root=True,seed
             print(_+1,'done')
             gf.append(growth_factor)
             if save:
-                np.save('growth_factors/dev/deg2_dim{}_sys{}.npy'.format(dim,_),gf)
+                np.save(folder+'deg2_sys{}.npy'.format(_),gf)
                 print(_+1,'saved')
         gfs[dim] = np.array(gf)
-        if save: np.save('growth_factors/dev/deg2_dim{}.npy'.format(dim),gfs[dim])
-    #final save at the end
-    if save: np.save('growth_factors/dev/all_res.npy',gfs[dim])
+        if save: np.save(folder+'deg2.npy',gfs[dim])
     return gfs
 
 def growthfactor(polys,dim,newton,dev=False,shifted=None):
@@ -102,7 +101,7 @@ def growthfactor(polys,dim,newton,dev=False,shifted=None):
     roots,M = solve(polys)
     if newton:
         dist_between_roots = la.norm(roots[:,np.newaxis]-roots,axis=2)
-        smallest_dist_between_roots = np.min(diff[np.nonzero(dist_between_roots)])
+        smallest_dist_between_roots = np.min(dist_between_roots[np.nonzero(dist_between_roots)])
         newroots = np.array([newton_polish(polys,root,tol=10*macheps) for root in roots])
         max_diff = np.max(np.abs(newroots-roots))
         roots = newroots
@@ -183,25 +182,31 @@ def get_growth_factors(coeffs, newton, save=True):
     print((N,dim,deg**dim))
     not_full_roots = np.zeros(N,dtype=bool)
     gfs = [0]*N
+    if save:
+        if newton: folder = 'growth_factors/rand/newton/dim{}/'.format(dim)
+        else:      folder = 'growth_factors/rand/nopol/dim{}/'.format(dim)
     for i,system in enumerate(coeffs):
         polys = [yr.MultiPower(c) for c in system]
         gf = growthfactor(polys,dim,newton)
         if newton:
+
             gf,max_diff,smallest_dist_between_roots = gf
-            print('Newton changed roots by at most: {}'.format(max_diff))
-            print('Dist between root was at least:  {}'.format(smallest_dist_between_roots))
+            if not 10*max_diff < smallest_dist_between_roots:
+                print('**Potentially converging roots with polishing**')
+                print('\tNewton changed roots by at most: {}'.format(max_diff))
+                print('\tDist between root was at least:  {}'.format(smallest_dist_between_roots))
         #only records if has the right number of roots_sort
         #TODO: why do some systems not have enough roots?
         print(i+1,'done')
         if gf.shape[1] == deg**dim:
             gfs[i] = gf
-            if save: np.save('growth_factors/rand/deg2_dim{}_sys{}.npy'.format(dim,i),gf)
+            if save: np.save(folder+'deg2_sys{}.npy'.format(i),gf)
         else:
             not_full_roots[i] = True
-            if save: np.save('growth_factors/rand/not_full_roots_deg2_dim{}.npy'.format(dim),not_full_roots)
+            if save: np.save(folder+'not_full_roots_deg2.npy',not_full_roots)
         if save: print(i+1,'saved')
     #final save at the end
-    if save: np.save('growth_factors/rand/deg2_dim{}.npy'.format(dim),gfs)
+    if save: np.save(folder+'deg2_res.npy',gfs)
     print('saved all results')
     return gfs
 
@@ -280,14 +285,15 @@ def plot(datasets,labels=None,digits_lost=False,figsize=(6,4),dpi=200,best_fit=T
     plt.show()
 
 if __name__ == "__main__":
+    #INPUT FORMAT test_type--dev or rand; newton_polish--newton or nopol; dims-- dimensions to run in
     input = sys.argv[1:]
+    test = input[0]
     if input[1] == 'newton':
         newton = True
     elif input[1] == 'nopol':
         newton=False
     else:
         raise ValueError("2nd input must be one of 'newton' for polishing or 'nopol' for no polishing")
-    test = input[0]
     dims = [int(i) for i in input[2:]]
     if test == 'rand':
         for dim in dims:
