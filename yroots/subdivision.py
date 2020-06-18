@@ -580,7 +580,8 @@ def get_abs_approx_tol(func, deg, a, b):
     b2 = np.array(x + linearization_size)
 
     # Approximate with a low degree Chebyshev polynomial
-    coeff = interval_approximate_nd(func,a2,b2,2*deg)[0]
+    coeff = interval_approximate_nd(func,a2,b2,2*deg)
+    print(coeff)
     coeff[:deg,:deg] = 0
 
     # Sum up coeffieicents that are assumed to be just noise
@@ -975,7 +976,7 @@ def subdivision_solve_1d(f,a,b,deg,target_deg,interval_data,root_tracker,tols,ma
 
     # Approximate the function using Chebyshev polynomials
     coeff = interval_approximate_1d(f,a,b,deg)
-    coeff2, bools, inf_norm = interval_approximate_1d(f,a,b,deg*2,return_bools=True,return_inf_norm=True)
+    coeff2, sign_change, inf_norm = interval_approximate_1d(f,a,b,deg*2,return_bools=True,return_inf_norm=True)
 
     coeff2[slice_top(coeff)] -= coeff
 
