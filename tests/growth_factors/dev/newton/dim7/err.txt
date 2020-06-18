@@ -1,0 +1,17 @@
+nohup: ignoring input
+Traceback (most recent call last):
+  File "growth_factors.py", line 306, in <module>
+    devestating_growth_factors(dims,eps,kind,newton,N=N)
+  File "growth_factors.py", line 69, in devestating_growth_factors
+    growth_factor = growthfactor(polys,dim,newton,dev=just_dev_root,shifted=shifted)
+  File "growth_factors.py", line 101, in growthfactor
+    roots,M = solve(polys)
+  File "/home/yroots/RootFinding/yroots/polyroots.py", line 68, in solve
+    return multiplication(polys, max_cond_num=max_cond_num, verbose=verbose, return_all_roots=return_all_roots,method=method)
+  File "/home/yroots/RootFinding/yroots/Multiplication.py", line 75, in multiplication
+    E,Q,cond,cond_back = reduce_macaulay_svd(matrix,cut,max_cond_num)
+  File "/home/yroots/RootFinding/yroots/MacaulayReduce.py", line 147, in reduce_macaulay_svd
+    Q = svd(M[cut:,cut:])[2].conj().T
+  File "/home/yroots/.local/lib/python3.6/site-packages/scipy/linalg/decomp_svd.py", line 132, in svd
+    raise LinAlgError("SVD did not converge")
+numpy.linalg.LinAlgError: SVD did not converge
