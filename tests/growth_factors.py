@@ -14,7 +14,6 @@ import sys
 from matplotlib import ticker as mticker
 from scipy.stats import linregress
 from matplotlib.patches import Patch
-from scipy.spatial.distance import pdist
 
 macheps = 2.220446049250313e-16
 
@@ -49,6 +48,10 @@ def devestating_growth_factors(dims,eps,kind,N=100,just_origin=True,seed=468,per
     if isinstance(N,int):
         N = [N]*len(dims)
     gfs = dict()
+    if kind in ['power','cheb']:
+        shifted = False
+    else:
+        shifted = True
     for n,dim in zip(N,dims):
         gf = []
         for _ in range(n):
@@ -56,11 +59,11 @@ def devestating_growth_factors(dims,eps,kind,N=100,just_origin=True,seed=468,per
             polys = randpoly(dim,eps,kind)
             if perturb_eps > 0:
                 perturb(polys,perturb_eps)
-            gf.append(growthfactor(polys,dim,dev=just_origin))
+            gf.append(growthfactor(polys,dim,dev=just_origin,shifted=shifted))
         gfs[dim] = np.array(gf)
     return gfs
 
-def growthfactor(polys,dim,dev=False,newton=False):
+def growthfactor(polys,dim,dev=False,newton=False,shifted=False):
     """Computes the growth factors of a system of polynomails.
 
     Parameters
@@ -82,6 +85,8 @@ def growthfactor(polys,dim,dev=False,newton=False):
     """
     roots,M = solve(polys)
     if newton:
+        dist_between_roots = la.norm(roots[:,np.newaxis]-roots,axis=2)
+        smallest_dist_between_roots = np.min(diff[np.nonzero(dist_between_roots)])
         newroots = np.array([newton_polish(polys,root,tol=10*macheps) for root in roots])
         max_diff = np.max(np.abs(newroots-roots))
         roots = newroots
@@ -104,16 +109,20 @@ def growthfactor(polys,dim,dev=False,newton=False):
             for j,poly in enumerate(polys):
                 J[j] = poly.grad(root)
             S = la.svd(J,compute_uv=False)
-            root_cond = S[-1]
+            root_cond = 1/S[-1]
             root_conds[i] = root_cond
         #compute the growth factors
         factors = eig_conds / root_conds
-        if newton: return factors, max_diff
+        if newton: return factors, max_diff, smallest_dist_between_roots
         else: return factors
     #only find the growth factor for the root at the origin
     else:
         #find the root at the origin
-        idx = np.argmin(la.norm(roots,axis=1))
+        if shifted:
+            dev_root = np.ones(dim)
+        else:
+            dev_root = np.zeros(dim)
+        idx = np.argmin(la.norm(roots-dev_root,axis=1))
 
         eig_conds = np.empty(dim)
         for d in range(dim):
@@ -129,10 +138,10 @@ def growthfactor(polys,dim,dev=False,newton=False):
         for j,poly in enumerate(polys):
             J[j] = poly.grad(roots[idx])
         S = la.svd(J,compute_uv=False)
-        root_cond = S[-1]
+        root_cond = 1/S[-1]
         #compute the growth factors
         factors = eig_conds / root_cond
-        if newton: return factors, max_diff
+        if newton: return factors, max_diff, smallest_dist_between_roots
         else: return factors
 
 def get_growth_factors(coeffs, newton=False, save=True):
@@ -154,13 +163,13 @@ def get_growth_factors(coeffs, newton=False, save=True):
     print((N,dim,deg**dim))
     not_full_roots = np.zeros(N,dtype=bool)
     gfs = [0]*N
-    if newton: overall_max_diff = 0
     for i,system in enumerate(coeffs):
         polys = [yr.MultiPower(c) for c in system]
         gf = growthfactor(polys,dim,newton=newton)
         if newton:
-            gf,max_diff = gf
-            overall_max_diff = max(max_diff,overall_max_diff)
+            gf,max_diff,smallest_dist_between_roots = gf
+            print('Newton changed roots by at most: {}'.format(max_diff))
+            print('Dist between root was at least:  {}'.format(smallest_dist_between_roots))
         #only records if has the right number of roots_sort
         #TODO: why do some systems not have enough roots?
         if save: print(i+1,'done')
@@ -171,7 +180,6 @@ def get_growth_factors(coeffs, newton=False, save=True):
             not_full_roots[i] = True
             if save: np.save('growth_factors/not_full_roots_deg2_dim{}.npy'.format(dim),not_full_roots)
         if save: print(i+1,'saved')
-    print('most polishing moved a root:',overall_max_diff)
     return gfs
 
 def plot(datasets,labels=None,digits_lost=False,figsize=(6,4),dpi=200,best_fit=True):
