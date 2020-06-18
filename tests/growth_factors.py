@@ -180,6 +180,8 @@ def get_growth_factors(coeffs, newton=False, save=True):
             not_full_roots[i] = True
             if save: np.save('growth_factors/not_full_roots_deg2_dim{}.npy'.format(dim),not_full_roots)
         if save: print(i+1,'saved')
+    #final save at the end
+    if save: np.save('growth_factors/gfs_deg2_dim{}.npy'.format(dim,i),gfs)
     return gfs
 
 def plot(datasets,labels=None,digits_lost=False,figsize=(6,4),dpi=200,best_fit=True):
