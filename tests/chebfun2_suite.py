@@ -218,7 +218,8 @@ def verbose_pass_or_fail(funcs, yroots, polished_roots, test_num, cheb_roots=Non
     print ("=========================================================")
     print("Test " + str(test_num))
 
-    if residuals_pass_or_fail(funcs, yroots, tol):
+    residuals_pass = residuals_pass_or_fail(funcs, yroots, tol)
+    if residuals_pass:
         print("\t Residual test: pass")
     else:
         print("\t Residual test: fail")
@@ -229,8 +230,8 @@ def verbose_pass_or_fail(funcs, yroots, polished_roots, test_num, cheb_roots=Non
         else:
             print("\t Chebfun fails residual test")
         try:
-            result, x_norm, y_norm = norm_pass_or_fail(polished_roots, cheb_roots, tol)
-            if result:
+            norm_pass, x_norm, y_norm = norm_pass_or_fail(polished_roots, cheb_roots, tol)
+            if norm_pass:
                 print("\t Chebfun norm test: pass")
             else:
                 print("\t Chebfun norm test: fail")
@@ -242,8 +243,8 @@ def verbose_pass_or_fail(funcs, yroots, polished_roots, test_num, cheb_roots=Non
             print("Chebfun Roots: " + str(len(cheb_roots)))
     if polished_roots is not None:
         try:
-            result, x_norm, y_norm = norm_pass_or_fail(yroots, polished_roots, tol)
-            if result:
+            norm_pass, x_norm, y_norm = norm_pass_or_fail(yroots, polished_roots, tol)
+            if norm_pass:
                 print("\t YRoots norm test: pass")
             else:
                 print("\t YRoots norm test: fail")
@@ -276,7 +277,7 @@ def verbose_pass_or_fail(funcs, yroots, polished_roots, test_num, cheb_roots=Non
         if len(yroots) > len(polished_roots):
             print("YRoots found more roots.")
             print("=========================================================")
-            return
+            return residuals_pass,norm_pass
 
     # print("Comparison of Residuals (YRoots <= Other)")
     num_smaller = 0
@@ -290,7 +291,7 @@ def verbose_pass_or_fail(funcs, yroots, polished_roots, test_num, cheb_roots=Non
     if cheb_resid is not None:
         if len(yroots) > len(cheb_roots):
             print("=========================================================")
-            return
+            return residuals_pass,norm_pass
 
         for i in range(len(YR_resid)):
             comparison_array2 = (YR_resid[i] <= cheb_resid[i])
@@ -298,7 +299,7 @@ def verbose_pass_or_fail(funcs, yroots, polished_roots, test_num, cheb_roots=Non
     print("Number of YRoots residual values <= to Chebfun residual values are: " + str(num_smaller))
 
     print("=========================================================")
-
+    return residuals_pass,norm_pass
 
 def test_roots_1_1():
     # Test 1.1
@@ -308,7 +309,7 @@ def test_roots_1_1():
         actual_roots = np.load('Polished_results/polished_1.1.npy')
         chebfun_roots = np.loadtxt('Chebfun_results/test_roots_1.1.csv', delimiter=',')
 
-        verbose_pass_or_fail([f,g], yroots, actual_roots, 1.1, cheb_roots=chebfun_roots)
+        return verbose_pass_or_fail([f,g], yroots, actual_roots, 1.1, cheb_roots=chebfun_roots)
 
 
 def test_roots_1_2():
@@ -324,7 +325,7 @@ def test_roots_1_2():
     actual_roots = np.load('Polished_results/polished_1.2.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_1.2.csv', delimiter=',')
 
-    verbose_pass_or_fail([f,g], yroots, yroots2, 1.2, cheb_roots=chebfun_roots, tol=2.220446049250313e-10)
+    return verbose_pass_or_fail([f,g], yroots, yroots2, 1.2, cheb_roots=chebfun_roots, tol=2.220446049250313e-10)
 
 
 def test_roots_1_3():
@@ -335,7 +336,7 @@ def test_roots_1_3():
     actual_roots = np.load('Polished_results/polished_1.3.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_1.3.csv', delimiter=',')
 
-    verbose_pass_or_fail([f,g], yroots, actual_roots, 1.3, cheb_roots=chebfun_roots)
+    return verbose_pass_or_fail([f,g], yroots, actual_roots, 1.3, cheb_roots=chebfun_roots)
 
 def test_roots_1_4():
     # Test 1.4
@@ -347,7 +348,7 @@ def test_roots_1_4():
     a_roots = np.array([[-.25, .25]])
     chebfun_roots = np.array([np.loadtxt('Chebfun_results/test_roots_1.4.csv', delimiter=',')])
 
-    verbose_pass_or_fail([f,g], yroots, a_roots, 1.4, cheb_roots=chebfun_roots)
+    return verbose_pass_or_fail([f,g], yroots, a_roots, 1.4, cheb_roots=chebfun_roots)
 
 def test_roots_1_5():
     # Test 1.5
@@ -360,7 +361,7 @@ def test_roots_1_5():
 
     chebfun_roots = np.array([np.loadtxt('Chebfun_results/test_roots_1.5.csv', delimiter=',')])
 
-    verbose_pass_or_fail([f,g], yroots, a_roots, 1.5, cheb_roots=chebfun_roots)
+    return verbose_pass_or_fail([f,g], yroots, a_roots, 1.5, cheb_roots=chebfun_roots)
 
 
 def test_roots_2_1():
@@ -371,7 +372,7 @@ def test_roots_2_1():
     actual_roots = np.load('Polished_results/polished_2.1.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.1.csv', delimiter=',')
 
-    verbose_pass_or_fail([f,g], yroots, actual_roots, 2.1, cheb_roots=chebfun_roots)
+    return verbose_pass_or_fail([f,g], yroots, actual_roots, 2.1, cheb_roots=chebfun_roots)
 
 
 def test_roots_2_2():
@@ -382,7 +383,7 @@ def test_roots_2_2():
     actual_roots = np.load('Polished_results/polished_2.2.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.2.csv', delimiter=',')
 
-    verbose_pass_or_fail([f,g], yroots, actual_roots, 2.2, cheb_roots=chebfun_roots)
+    return verbose_pass_or_fail([f,g], yroots, actual_roots, 2.2, cheb_roots=chebfun_roots)
 
 
 def test_roots_2_3():
@@ -393,7 +394,7 @@ def test_roots_2_3():
     actual_roots = np.load('Polished_results/polished_2.3.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.3.csv', delimiter=',')
 
-    verbose_pass_or_fail([f,g], yroots, actual_roots, 2.3, cheb_roots=chebfun_roots)
+    return verbose_pass_or_fail([f,g], yroots, actual_roots, 2.3, cheb_roots=chebfun_roots)
 
 
 def test_roots_2_4():
@@ -404,7 +405,7 @@ def test_roots_2_4():
     actual_roots = np.load('Polished_results/polished_2.4.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.4.csv', delimiter=',')
 
-    verbose_pass_or_fail([f,g], yroots, actual_roots, 2.4, cheb_roots=chebfun_roots)
+    return verbose_pass_or_fail([f,g], yroots, actual_roots, 2.4, cheb_roots=chebfun_roots)
 
 
 def test_roots_2_5():
@@ -415,7 +416,7 @@ def test_roots_2_5():
     actual_roots = np.load('Polished_results/polished_2.5.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.5.csv', delimiter=',')
 
-    verbose_pass_or_fail([f,g], yroots, actual_roots, 2.5, cheb_roots=chebfun_roots, tol=2.220446049250313e-12)
+    return verbose_pass_or_fail([f,g], yroots, actual_roots, 2.5, cheb_roots=chebfun_roots, tol=2.220446049250313e-12)
 
 
 
@@ -427,7 +428,7 @@ def test_roots_3_1():
     actual_roots = np.load('Polished_results/polished_3.1.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_3.1.csv', delimiter=',')
 
-    verbose_pass_or_fail([f,g], yroots, actual_roots, 3.1, cheb_roots=chebfun_roots, tol=2.220446049250313e-11)
+    return verbose_pass_or_fail([f,g], yroots, actual_roots, 3.1, cheb_roots=chebfun_roots, tol=2.220446049250313e-11)
 
 def test_roots_3_2():
     # Test 3.2
@@ -443,7 +444,7 @@ def test_roots_3_2():
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_3.2.csv', delimiter=',')
     actual_roots = chebfun_roots
 
-    verbose_pass_or_fail([f,g], yroots, yroots2, 3.2, cheb_roots=chebfun_roots, tol=2.220446049250313e-11)
+    return verbose_pass_or_fail([f,g], yroots, yroots2, 3.2, cheb_roots=chebfun_roots, tol=2.220446049250313e-11)
 
 
 def test_roots_4_1():
@@ -455,7 +456,7 @@ def test_roots_4_1():
     actual_roots = np.load('Polished_results/polished_4.1.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_4.1.csv', delimiter=',')
 
-    verbose_pass_or_fail([f,g], yroots, actual_roots, 4.1, cheb_roots=chebfun_roots)
+    return verbose_pass_or_fail([f,g], yroots, actual_roots, 4.1, cheb_roots=chebfun_roots)
 
 def test_roots_4_2():
     # Test 4.2
@@ -483,7 +484,7 @@ def test_roots_4_2():
     actual_roots = np.load('Polished_results/polished_4.2.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_4.2.csv', delimiter=',')
 
-    verbose_pass_or_fail([f,g], yroots, actual_roots, 4.2, cheb_roots=chebfun_roots)
+    return verbose_pass_or_fail([f,g], yroots, actual_roots, 4.2, cheb_roots=chebfun_roots)
 
 
 
@@ -495,7 +496,7 @@ def test_roots_5():
     actual_roots = np.load('Polished_results/polished_5.1.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_5.1.csv', delimiter=',')
 
-    verbose_pass_or_fail([f,g], yroots, actual_roots, 5.1, cheb_roots=chebfun_roots)
+    return verbose_pass_or_fail([f,g], yroots, actual_roots, 5.1, cheb_roots=chebfun_roots)
 
 
 def test_roots_6_1():
@@ -506,7 +507,7 @@ def test_roots_6_1():
     actual_roots = np.load('Polished_results/polished_6.1.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_6.1.csv', delimiter=',')
 
-    verbose_pass_or_fail([f,g], yroots, actual_roots, 6.1, cheb_roots=chebfun_roots)
+    return verbose_pass_or_fail([f,g], yroots, actual_roots, 6.1, cheb_roots=chebfun_roots)
 
 
 
@@ -519,7 +520,7 @@ def test_roots_6_2():
     actual_roots = np.array([[1/10000,-1/20000],[1/10000, 1/5000],[-2/np.sqrt(5),1/np.sqrt(5)],[-1/np.sqrt(5),-2/np.sqrt(5)],[1/np.sqrt(5),2/np.sqrt(5)],[2/np.sqrt(5),-1/np.sqrt(5)]])
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_6.2.csv', delimiter=',')
 
-    verbose_pass_or_fail([f,g], yroots, actual_roots, 6.2, cheb_roots=chebfun_roots, tol=2.220446049250313e-11)
+    return verbose_pass_or_fail([f,g], yroots, actual_roots, 6.2, cheb_roots=chebfun_roots, tol=2.220446049250313e-11)
 
 
 def test_roots_6_3():
@@ -530,7 +531,7 @@ def test_roots_6_3():
     actual_roots = np.load('Polished_results/polished_6.3.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_6.3.csv', delimiter=',')
 
-    verbose_pass_or_fail([f,g], yroots, actual_roots, 6.3, cheb_roots=chebfun_roots)
+    return verbose_pass_or_fail([f,g], yroots, actual_roots, 6.3, cheb_roots=chebfun_roots)
 
 
 def test_roots_7_1():
@@ -541,7 +542,7 @@ def test_roots_7_1():
     actual_roots = np.load('Polished_results/polished_7.1.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_7.1.csv', delimiter=',')
 
-    verbose_pass_or_fail([f,g], yroots, actual_roots, 7.1, cheb_roots=chebfun_roots)
+    return verbose_pass_or_fail([f,g], yroots, actual_roots, 7.1, cheb_roots=chebfun_roots)
 
 
 def test_roots_7_2():
@@ -553,7 +554,7 @@ def test_roots_7_2():
     actual_roots = np.load('Polished_results/polished_7.2.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_7.2.csv', delimiter=',')
 
-    verbose_pass_or_fail([f,g], yroots, actual_roots, 7.2, cheb_roots=chebfun_roots, tol=2.220446049250313e-10)
+    return verbose_pass_or_fail([f,g], yroots, actual_roots, 7.2, cheb_roots=chebfun_roots, tol=2.220446049250313e-10)
 
 
 def test_roots_7_3():
@@ -566,7 +567,7 @@ def test_roots_7_3():
     actual_roots = np.load('Polished_results/polished_7.3.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_7.3.csv', delimiter=',')
 
-    verbose_pass_or_fail([f,g], yroots, actual_roots, 7.3, cheb_roots=chebfun_roots,tol=2.220446049250313e-10)
+    return verbose_pass_or_fail([f,g], yroots, actual_roots, 7.3, cheb_roots=chebfun_roots,tol=2.220446049250313e-10)
 
 
 
@@ -578,7 +579,7 @@ def test_roots_7_4():
     actual_roots = np.load('Polished_results/polished_7.4.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_7.4.csv', delimiter=',')
 
-    verbose_pass_or_fail([f,g], yroots, actual_roots, 7.4, cheb_roots=chebfun_roots)
+    return verbose_pass_or_fail([f,g], yroots, actual_roots, 7.4, cheb_roots=chebfun_roots)
 
 def test_roots_8_1():
     # Test 8.1
@@ -588,7 +589,7 @@ def test_roots_8_1():
     actual_roots = np.load('Polished_results/polished_8.1.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_8.1.csv', delimiter=',')
 
-    verbose_pass_or_fail([f,g], yroots, actual_roots, 8.1, cheb_roots=chebfun_roots)
+    return verbose_pass_or_fail([f,g], yroots, actual_roots, 8.1, cheb_roots=chebfun_roots)
 
 def test_roots_8_2():
     # Test 8.2
@@ -598,7 +599,7 @@ def test_roots_8_2():
     actual_roots = np.load('Polished_results/polished_8.2.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_8.2.csv', delimiter=',')
 
-    verbose_pass_or_fail([f,g], yroots, actual_roots, 8.2, cheb_roots=chebfun_roots)
+    return verbose_pass_or_fail([f,g], yroots, actual_roots, 8.2, cheb_roots=chebfun_roots)
 
 
 
@@ -610,7 +611,7 @@ def test_roots_9_1():
     actual_roots = np.load('Polished_results/polished_8.2.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_8.2.csv', delimiter=',')
 
-    verbose_pass_or_fail([f,g], yroots, actual_roots, 8.2, cheb_roots=chebfun_roots)
+    return verbose_pass_or_fail([f,g], yroots, actual_roots, 8.2, cheb_roots=chebfun_roots)
 
 
 def test_roots_9_2():
@@ -621,7 +622,7 @@ def test_roots_9_2():
     actual_roots = np.load('Polished_results/polished_9.2.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_9.2.csv', delimiter=',')
 
-    verbose_pass_or_fail([f,g], yroots, actual_roots, 9.2, cheb_roots=chebfun_roots)
+    return verbose_pass_or_fail([f,g], yroots, actual_roots, 9.2, cheb_roots=chebfun_roots)
 
 
 def test_roots_10():
@@ -634,35 +635,48 @@ def test_roots_10():
                             [1, 0.5], [1, 0.625], [1, 0.75], [1, 0.875], [1, 1.0]])
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_10.1.csv', delimiter=',')
 
-    verbose_pass_or_fail([f,g], yroots, actual_roots, 10.1, cheb_roots=chebfun_roots)
+    return verbose_pass_or_fail([f,g], yroots, actual_roots, 10.1, cheb_roots=chebfun_roots)
 
 
 if __name__ == "__main__":
     # Run all the tests!
-    test_roots_1_1()
-    test_roots_1_2()
-    test_roots_1_3()
-    test_roots_1_4()
-    test_roots_1_5()
-    test_roots_2_1()
-    test_roots_2_2()
-    test_roots_2_3()
-    test_roots_2_4()
-    test_roots_2_5()
-    test_roots_3_1()
-    test_roots_3_2()
-    test_roots_4_1()
-    test_roots_4_2()
-    test_roots_5()
-    test_roots_6_1()
-    test_roots_6_2()
-    test_roots_6_3()
-    test_roots_7_1()
-    test_roots_7_2()
-    test_roots_7_3()
-    test_roots_7_4()
-    test_roots_8_1()
-    test_roots_8_2()
-    test_roots_9_1()
-    test_roots_9_2()
-    test_roots_10()
+    tests = np.array([test_roots_1_1,
+                        test_roots_1_2,
+                        test_roots_1_3,
+                        test_roots_1_4,
+                        test_roots_1_5,
+                        test_roots_2_1,
+                        test_roots_2_2,
+                        test_roots_2_3,
+                        test_roots_2_4,
+                        test_roots_2_5,
+                        test_roots_3_1,
+                        test_roots_3_2,
+                        test_roots_4_1,
+                        test_roots_4_2,
+                        test_roots_5,
+                        test_roots_6_1,
+                        test_roots_6_2,
+                        test_roots_6_3,
+                        test_roots_7_1,
+                        test_roots_7_2,
+                        test_roots_7_3,
+                        test_roots_7_4,
+                        test_roots_8_1,
+                        test_roots_8_2,
+                        test_roots_9_1,
+                        test_roots_9_2,
+                        test_roots_10])
+    res_passes = np.zeros_like(tests,dtype=bool)
+    norm_passes = np.zeros_like(tests,dtype=bool)
+    for i,test in enumerate(tests):
+        res_pass,norm_pass = test()
+        res_passes[i] = res_pass
+        norm_passes[i] = norm_pass
+    print('\n\nSummary')
+    print(f'Residual Test: Passed {np.sum(res_passes)} of 27, {100*np.mean(res_passes)}%')
+    where_failed_res = np.where(~res_passes)[0]
+    print(f'Failed Residual Test on \n{tests[where_failed_res]}')
+    print(f'Norm Test    : Passed {np.sum(norm_passes)} of 27, {100*np.mean(norm_passes)}%')
+    where_failed_norm = np.where(~norm_passes)[0]
+    print(f'Failed Norm Test on \n{tests[where_failed_norm]}')
