@@ -6,8 +6,15 @@ from yroots.utils import row_swap_matrix, MacaulayError, slice_top, mon_combos, 
                               num_mons_full, memoized_all_permutations, mons_ordered, \
                               all_permutations_cheb, ConditioningError, TooManyRoots
 from matplotlib import pyplot as plt
+from warnings import warn
 
 macheps = 2.220446049250313e-16
+
+def plot_scree(s,tol):
+    plt.semilogy(s,marker='.')
+    plt.plot(np.ones(len(s))*tol)
+    plt.show()
+
 def add_polys(degree, poly, poly_coeff_list):
     """Adds polynomials to a Macaulay Matrix.
 
@@ -82,20 +89,19 @@ def reduce_macaulay_qrt(M, cut, bezout_bound, max_cond=1e6):
     ConditioningError if reduce_macaulay() raises a ConditioningError.
     TooManyRoots if the macaulay matrix returns more roots than the Bezout bound.
     """
-
-    # Check condition number before first QR
-    cond_num = np.linalg.cond(M[:,:cut])
-
     # Compute numerical rank
     s = svd(M, compute_uv=False)
     tol = max(M.shape)*s[0]*macheps
     rank = len(s[s>tol])
-    num_roots = M.shape[1]-rank
-
-    # Check if too many roots
-    if num_roots > bezout_bound:
+    # Check if numerical rank doesn't match bezout bound
+    bezout_rank = M.shape[1]-bezout_bound
+    if rank < bezout_rank:
         raise TooManyRoots("Expected {} roots, found {}. System potentially has infinitely many solutions.".format(bezout_bound,num_roots))
+    elif rank > bezout_rank:
+        warn('Rank of Macaulay Matrix does not match the Bezout bound.')
 
+    # Check condition number before first QR
+    cond_num = np.linalg.cond(M[:,:cut])
     if cond_num > max_cond:
         raise ConditioningError("Condition number of the Macaulay high-degree columns is {}".format(cond_num))
 
@@ -117,7 +123,7 @@ def reduce_macaulay_qrt(M, cut, bezout_bound, max_cond=1e6):
         raise ConditioningError("Condition number of the Macaulay primary submatrix is {}".format(cond_sum))
 
     # Return the backsolved columns and coefficient matrix for the quotient basis
-    return solve_triangular(M[:cut,:cut],M[:cut,rank:]),Q[:,rank-M.shape[1]:], cond_num, cond_num_back
+    return solve_triangular(M[:cut,:cut],M[:cut,bezout_rank:]),Q[:,-bezout_bound:], cond_num, cond_num_back
 
 def reduce_macaulay_svd(M, cut, bezout_bound, max_cond=1e6):
     """Reduces the Macaulay matrix using the Transposed QR method.
@@ -139,20 +145,20 @@ def reduce_macaulay_svd(M, cut, bezout_bound, max_cond=1e6):
         Matrix giving the quotient basis in terms of the monomial basis. Q2[:,i]
         being the coefficients for the ith basis element
     """
-
-    # Check condition number before first QR
-    cond_num = np.linalg.cond(M[:,:cut])
-
     # Compute numerical rank
     s = svd(M, compute_uv=False)
     tol = max(M.shape)*s[0]*macheps
+    plot_scree(s,tol)
     rank = len(s[s>tol])
-    num_roots = M.shape[1]-rank
-
-    # Check if too many roots
-    if num_roots > bezout_bound:
+    # Check if numerical rank doesn't match bezout bound
+    bezout_rank = M.shape[1]-bezout_bound
+    if rank < bezout_rank:
         raise TooManyRoots("Expected {} roots, found {}. System potentially has infinitely many solutions.".format(bezout_bound,num_roots))
+    elif rank > bezout_rank:
+        warn('Rank of Macaulay Matrix does not match the Bezout bound.')
 
+    # Check condition number before first QR
+    cond_num = np.linalg.cond(M[:,:cut])
     if cond_num > max_cond:
         raise ConditioningError("Condition number of the Macaulay high-degree columns is {}".format(cond_num))
 
@@ -174,23 +180,23 @@ def reduce_macaulay_svd(M, cut, bezout_bound, max_cond=1e6):
         raise ConditioningError("Condition number of the Macaulay primary submatrix is {}".format(cond_sum))
 
     # Return the backsolved columns and coefficient matrix for the quotient basis
-    return solve_triangular(M[:cut,:cut],M[:cut,rank:]),Q[:,rank-M.shape[1]:], cond_num, cond_num_back
+    return solve_triangular(M[:cut,:cut],M[:cut,bezout_rank:]),Q[:,-bezout_bound:], cond_num, cond_num_back
 
 def reduce_macaulay_tvb(M, cut, bezout_bound, max_cond=1e6):
+    # Compute numerical rank
+    s = svd(M, compute_uv=False)
+    tol = max(M.shape)*s[0]*macheps
+    plot_scree(s,tol)
+    rank = len(s[s>tol])
+    # Check if numerical rank doesn't match bezout bound
+    bezout_rank = M.shape[1]-bezout_bound
+    if rank < bezout_rank:
+        raise TooManyRoots("Expected {} roots, found {}. System potentially has infinitely many solutions.".format(bezout_bound,num_roots))
+    elif rank > bezout_rank:
+        warn('Rank of Macaulay Matrix does not match the Bezout bound.')
 
     # Check condition number before first QR
     cond_num = np.linalg.cond(M[:,:cut])
-
-        # Compute numerical rank
-    s = svd(M, compute_uv=False)
-    tol = max(M.shape)*s[0]*macheps
-    rank = len(s[s>tol])
-    num_roots = M.shape[1]-rank
-
-    # Check if too many roots
-    if num_roots > bezout_bound:
-        raise TooManyRoots("Expected {} roots, found {}. System potentially has infinitely many solutions.".format(bezout_bound,num_roots))
-
     if cond_num > max_cond:
         raise ConditioningError("Condition number of the Macaulay high-degree columns is {}".format(cond_num))
 
@@ -207,13 +213,25 @@ def reduce_macaulay_tvb(M, cut, bezout_bound, max_cond=1e6):
         M[:cut,cut:] = M[:cut,cut:][:,P] # Permute columns
 
     # Check condition number before backsolve
-    cond_num_back = np.linalg.cond(M[:,:rank])
+    cond_num_back = np.linalg.cond(M[:,:bezout_rank])
     if cond_num_back > max_cond:
         raise ConditioningError("Condition number of the Macaulay primary submatrix is {}".format(cond_num_back))
 
-    return solve_triangular(M[:rank,:rank],M[:rank,rank:]),P, cond_num, cond_num_back
+    return solve_triangular(M[:bezout_rank,:bezout_rank],M[:bezout_rank,:]),P, cond_num, cond_num_back
 
 def reduce_macaulay_p(M, cut, P, max_cond=1e6):
+    # Compute numerical rank
+    s = svd(M, compute_uv=False)
+    tol = max(M.shape)*s[0]*macheps
+    plot_scree(s,tol)
+    rank = len(s[s>tol])
+    # Check if numerical rank doesn't match bezout bound
+    bezout_rank = M.shape[1]-bezout_bound
+    if rank < bezout_rank:
+        raise TooManyRoots("Expected {} roots, found {}. System potentially has infinitely many solutions.".format(bezout_bound,num_roots))
+    elif rank > bezout_rank:
+        warn('Rank of Macaulay Matrix does not match the Bezout bound.')
+
     # Check condition number before first QR
     cond_num = np.linalg.cond(M[:,:cut])
     if cond_num > max_cond:
@@ -230,17 +248,12 @@ def reduce_macaulay_p(M, cut, P, max_cond=1e6):
     if cut < M.shape[0]:
         M[cut:,cut:] = qr(M[cut:,cut:])[1:]
 
-    # Compute numerical rank
-    s = svd(M, compute_uv=False)
-    tol = max(M.shape)*s[0]*macheps
-    rank = len(s[s>tol])
-
     # Check condition number before backsolve
     cond_num_back = np.linalg.cond(M[:,:cut])
     if cond_num_back > max_cond:
         raise ConditioningError("Condition number of the Macaulay primary submatrix is {}".format(cond_num))
 
-    return solve_triangular(M[:rank,:rank],M[:rank,rank:]),P, cond_num, cond_num_back
+    return solve_triangular(M[:bezout_rank,:bezout_rank],M[:bezout_rank,bezout_rank:]),P, cond_num, cond_num_back
 
 def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_cond_num, macaulay_zero_tol, return_perm=False):
     ''' Reduces a Macaulay matrix, BYU style.
