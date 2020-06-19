@@ -676,7 +676,9 @@ if __name__ == "__main__":
     print('\n\nSummary')
     print(f'Residual Test: Passed {np.sum(res_passes)} of 27, {100*np.mean(res_passes)}%')
     where_failed_res = np.where(~res_passes)[0]
-    print(f'Failed Residual Test on \n{tests[where_failed_res]}')
+    failed_res_tests = tests[where_failed_res]
+    print(f'Failed Residual Test on \n{[t.__name__ for t in failed_res_tests]}')
     print(f'Norm Test    : Passed {np.sum(norm_passes)} of 27, {100*np.mean(norm_passes)}%')
     where_failed_norm = np.where(~norm_passes)[0]
-    print(f'Failed Norm Test on \n{tests[where_failed_norm]}')
+    failed_norm_tests = tests[where_failed_norm]
+    print(f'Failed Norm Test on \n{[t.__name__ for t in failed_norm_tests]}')
