@@ -513,7 +513,7 @@ def full_cheb_approximate(f,a,b,deg,abs_approx_tol,rel_approx_tol,good_deg=None)
     coeff2, bools, inf_norm = interval_approximate_nd(f,a,b,good_deg*2,return_bools=True,return_inf_norm=True)
     coeff2[slice_top(coeff)] -= coeff
 
-    error = max(np.sum(np.abs(coeff2)),macheps)
+    error = np.sum(np.abs(coeff2))
     if error > abs_approx_tol+rel_approx_tol*inf_norm:
         return None, bools, inf_norm, error
     else:
@@ -688,6 +688,7 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
         approx_errors.append(approx_error)
         # Subdivides if a bad approximation
         if coeff is None:
+            approx_errors = [max(err,macheps) for err in approx_errors]
             intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,change_sign,approx_errors)
             for new_a, new_b in intervals:
                 subdivision_solve_nd(funcs,new_a,new_b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=level+1, method=method)
@@ -698,6 +699,7 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
                 cheb_approx_list.append(coeff)
                 continue
             # Run checks to try and throw out the interval
+            approx_error = max(approx_error,macheps)
             if interval_data.check_interval(coeff, approx_error, a, b):
                 return
 
@@ -705,7 +707,7 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
 
     # Reduce the degree of the approximations while not introducing too much error
     coeffs, good_approx, approx_errors = trim_coeffs(cheb_approx_list, tols.abs_approx_tol, tols.rel_approx_tol, inf_norms, approx_errors)
-
+    approx_errors = [max(err,macheps) for err in approx_errors]
     # Used if subdividing further.
     # Only choose good_degs if the approximation after trim_coeffs is good.
     if good_approx:
