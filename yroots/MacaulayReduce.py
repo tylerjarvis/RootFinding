@@ -144,7 +144,7 @@ def reduce_macaulay_svd(M, cut, max_cond=1e6):
     # If the matrix is "tall", compute an orthogonal transformation of the remaining
     # columns, generating a new polynomial basis
     if cut < M.shape[0]:
-        Q = svd(M[cut:,cut:],lapack_driver='ggesvd')[2].conj().T
+        Q = svd(M[cut:,cut:])[2].conj().T
         M[:cut,cut:] = M[:cut,cut:] @ Q # Apply column transform
 
     # Compute numerical rank
