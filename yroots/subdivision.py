@@ -581,7 +581,6 @@ def get_abs_approx_tol(func, deg, a, b):
 
     # Approximate with a low degree Chebyshev polynomial
     coeff = interval_approximate_nd(func,a2,b2,2*deg)
-    print(coeff)
     coeff[:deg,:deg] = 0
 
     # Sum up coeffieicents that are assumed to be just noise
