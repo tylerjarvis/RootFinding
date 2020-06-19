@@ -8,7 +8,7 @@ from yroots.MacaulayReduce import reduce_macaulay_qrt, find_degree, \
 from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list, \
                               mon_combos, mon_combosHighest, sort_polys_by_degree, \
                               deg_d_polys, all_permutations_cheb, ConditioningError,\
-                              newton_polish, condeigs, TooManyRoots, solve_linear, Memoize
+                              newton_polish, condeigs, solve_linear, Memoize
 import warnings
 from scipy.stats import ortho_group
 
@@ -45,8 +45,7 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
     dim = polys[0].dim
 
     #By Bezout's Theorem. Useful for making sure that the reduced Macaulay Matrix is as we expect
-    degrees = [poly.degree for poly in polys]
-    max_number_of_roots = np.prod(degrees)
+    bezout_bound = np.prod([poly.degree for poly in polys])
 
     matrix, matrix_terms, cut = build_macaulay(polys, verbose)
 
@@ -62,17 +61,17 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
         # Attempt to reduce the Macaulay matrix
         if method == 'qrt':
             try:
-                E,Q,cond,cond_back = reduce_macaulay_qrt(matrix,cut,max_cond_num)
+                E,Q,cond,cond_back = reduce_macaulay_qrt(matrix,cut,bezout_bound,max_cond_num)
             except ConditioningError as e:
                 raise e
         elif method == 'tvb':
             try:
-                E,Q,cond,cond_back = reduce_macaulay_tvb(matrix,cut,max_cond_num)
+                E,Q,cond,cond_back = reduce_macaulay_tvb(matrix,cut,bezout_bound,max_cond_num)
             except ConditioningError as e:
                 raise e
         elif method == 'svd':
             try:
-                E,Q,cond,cond_back = reduce_macaulay_svd(matrix,cut,max_cond_num)
+                E,Q,cond,cond_back = reduce_macaulay_svd(matrix,cut,bezout_bound,max_cond_num)
             except ConditioningError as e:
                 raise e
 
@@ -93,9 +92,6 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
         # Compute the roots using eigenvalues of the Möller-Stetter matrices
         roots,cond_eig = msroots(M)
 
-    # Check if too many roots
-    if roots.shape[0] > max_number_of_roots:
-        raise TooManyRoots("Found too many roots,{}/{}/{}:{}".format(roots.shape,max_number_of_roots, degrees,roots))
     if return_all_roots:
         return roots,M
     else:
