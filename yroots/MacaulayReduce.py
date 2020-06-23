@@ -187,7 +187,6 @@ def reduce_macaulay_tvb(M, cut, bezout_bound, max_cond=1e6):
     # Compute numerical rank
     s = svd(M, compute_uv=False)
     tol = max(M.shape)*s[0]*macheps
-    plot_scree(s,tol)
     rank = len(s[s>tol])
     # Check if numerical rank doesn't match bezout bound
     bezout_rank = M.shape[1]-bezout_bound
@@ -225,7 +224,6 @@ def reduce_macaulay_p(M, cut, P, max_cond=1e6):
     # Compute numerical rank
     s = svd(M, compute_uv=False)
     tol = max(M.shape)*s[0]*macheps
-    plot_scree(s,tol)
     rank = len(s[s>tol])
     # Check if numerical rank doesn't match bezout bound
     bezout_rank = M.shape[1]-bezout_bound
