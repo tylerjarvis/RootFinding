@@ -228,7 +228,8 @@ def reduce_macaulay_p(M, cut, P, max_cond=1e6):
     # Check if numerical rank doesn't match bezout bound
     bezout_rank = M.shape[1]-bezout_bound
     if rank < bezout_rank:
-        raise TooManyRoots("Expected {} roots, found {}. System potentially has infinitely many solutions.".format(bezout_bound,num_roots))
+        rank_roots = M.shape[1] - rank
+        raise TooManyRoots("Expected {} roots, found {}. System potentially has infinitely many solutions.".format(bezout_bound,rank_roots))
     elif rank > bezout_rank:
         warn('Rank of Macaulay Matrix does not match the Bezout bound.')
 
