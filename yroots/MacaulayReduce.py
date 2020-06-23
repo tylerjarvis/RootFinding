@@ -96,8 +96,7 @@ def reduce_macaulay_qrt(M, cut, bezout_bound, max_cond=1e6):
     # Check if numerical rank doesn't match bezout bound
     bezout_rank = M.shape[1]-bezout_bound
     if rank < bezout_rank:
-        rank_roots = M.shape[1] - rank
-        raise TooManyRoots("Expected {} roots, found {}. System potentially has infinitely many solutions.".format(bezout_bound,rank_roots))
+        warn("Rank of Macaulay Matrix does not match the Bezout bound. Expected rank {}, found rank {}. System potentially has infinitely many solutions.".format(bezout_rank,rank))
     elif rank > bezout_rank:
         warn('Rank of Macaulay Matrix does not match the Bezout bound. Expected rank {}, found rank {}.'.format(bezout_rank,rank))
 
@@ -153,8 +152,7 @@ def reduce_macaulay_svd(M, cut, bezout_bound, max_cond=1e6):
     # Check if numerical rank doesn't match bezout bound
     bezout_rank = M.shape[1]-bezout_bound
     if rank < bezout_rank:
-        rank_roots = M.shape[1] - rank
-        raise TooManyRoots("Expected {} roots, found {}. System potentially has infinitely many solutions.".format(bezout_bound,rank_roots))
+        warn("Rank of Macaulay Matrix does not match the Bezout bound. Expected rank {}, found rank {}. System potentially has infinitely many solutions.".format(bezout_rank,rank))
     elif rank > bezout_rank:
         warn('Rank of Macaulay Matrix does not match the Bezout bound. Expected rank {}, found rank {}.'.format(bezout_rank,rank))
 
@@ -191,8 +189,7 @@ def reduce_macaulay_tvb(M, cut, bezout_bound, max_cond=1e6):
     # Check if numerical rank doesn't match bezout bound
     bezout_rank = M.shape[1]-bezout_bound
     if rank < bezout_rank:
-        rank_roots = M.shape[1] - rank
-        raise TooManyRoots("Expected {} roots, found {}. System potentially has infinitely many solutions.".format(bezout_bound,rank_roots))
+        warn("Rank of Macaulay Matrix does not match the Bezout bound. Expected rank {}, found rank {}. System potentially has infinitely many solutions.".format(bezout_rank,rank))
     elif rank > bezout_rank:
         warn('Rank of Macaulay Matrix does not match the Bezout bound. Expected rank {}, found rank {}.'.format(bezout_rank,rank))
 
@@ -228,10 +225,9 @@ def reduce_macaulay_p(M, cut, P, max_cond=1e6):
     # Check if numerical rank doesn't match bezout bound
     bezout_rank = M.shape[1]-bezout_bound
     if rank < bezout_rank:
-        rank_roots = M.shape[1] - rank
-        raise TooManyRoots("Expected {} roots, found {}. System potentially has infinitely many solutions.".format(bezout_bound,rank_roots))
+        warn("Rank of Macaulay Matrix does not match the Bezout bound. Expected rank {}, found rank {}. System potentially has infinitely many solutions.".format(bezout_rank,rank))
     elif rank > bezout_rank:
-        warn('Rank of Macaulay Matrix does not match the Bezout bound.')
+        warn('Rank of Macaulay Matrix does not match the Bezout bound. Expected rank {}, found rank {}.'.format(bezout_rank,rank))
 
     # Check condition number before first QR
     cond_num = np.linalg.cond(M[:,:cut])
