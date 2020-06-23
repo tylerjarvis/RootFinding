@@ -605,8 +605,8 @@ def test_roots_8_2():
 
 def test_roots_9_1():
     # Test 9.1
-    f = lambda x,y: np.sin(10*x-y/10) + y
-    g = lambda x,y: np.cos(10*y-x/10) - x
+    f = lambda x,y: x**2+y**2-.9**2
+    g = lambda x,y: np.sin(x*y)
     yroots = solve([f,g],[-1,-1],[1,1], plot=False)
     actual_roots = np.load('Polished_results/polished_8.2.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_8.2.csv', delimiter=',')
