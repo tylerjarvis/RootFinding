@@ -608,10 +608,10 @@ def test_roots_9_1():
     f = lambda x,y: x**2+y**2-.9**2
     g = lambda x,y: np.sin(x*y)
     yroots = solve([f,g],[-1,-1],[1,1], plot=False)
-    actual_roots = np.load('Polished_results/polished_8.2.npy')
-    chebfun_roots = np.loadtxt('Chebfun_results/test_roots_8.2.csv', delimiter=',')
+    actual_roots = np.load('Polished_results/polished_9.1.npy')
+    chebfun_roots = np.loadtxt('Chebfun_results/test_roots_9.1.csv', delimiter=',')
 
-    return verbose_pass_or_fail([f,g], yroots, actual_roots, 8.2, cheb_roots=chebfun_roots)
+    return verbose_pass_or_fail([f,g], yroots, actual_roots, 9.1, cheb_roots=chebfun_roots)
 
 
 def test_roots_9_2():
