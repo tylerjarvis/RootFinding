@@ -980,8 +980,8 @@ def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
     #iterator for sides
     fixed_vars = get_fixed_vars(dim)
 
-    for i, interval in enumerate(intervals):
-        if change_sign[i]:
+    for k, interval in enumerate(intervals):
+        if change_sign[k]:
             continue
         Done = False
         min_satisfied, max_satisfied = False,False
@@ -1061,7 +1061,7 @@ def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
                                 Done = True
         #no root
         if not Done:
-            mask[i] = False
+            mask[k] = False
 
     return mask
 
