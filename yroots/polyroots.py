@@ -70,4 +70,4 @@ def solve(polys,MSmatrix=0, eigvals=True, verbose=False, return_all_roots=True, 
         if res[0] is None:
             raise ConditioningError(res[1])
         else:
-            return multiplication(polys, max_cond_num=max_cond_num, verbose=verbose, return_all_roots=return_all_roots,method=method)
+            return res
