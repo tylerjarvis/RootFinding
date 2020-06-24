@@ -698,10 +698,12 @@ def plot_timings(tests,timings):
     plt.subplot(211)
     plt.bar(labels,timings)
     plt.xticks(rotation=45)
+    plt.ylim(0,40)
     plt.subplot(212)
     plt.bar(labels,timings)
     plt.xticks(rotation=45)
     plt.yscale('log')
+    plt.ylim((10**-3,10**2))
     plt.tight_layout()
     plt.show()
 
