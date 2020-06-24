@@ -3,7 +3,7 @@ import itertools
 from scipy.linalg import solve_triangular, eig, qr
 from yroots import LinearProjection
 from yroots.polynomial import MultiCheb, MultiPower, is_power
-from yroots.MacaulayReduce import add_polys, rrqr_reduceMacaulay
+from yroots.MacaulayReduce import add_polys, #rrqr_reduceMacaulay
 from yroots.utils import get_var_list, slice_top, row_swap_matrix, \
                               mon_combos, newton_polish, MacaulayError
 
