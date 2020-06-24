@@ -9,7 +9,6 @@ the approximation degree is small enough to be solved efficiently.
 import numpy as np
 from scipy.fftpack import fftn
 from yroots.OneDimension import divCheb,divPower,multCheb,multPower,solve
-from yroots.Division import division
 from yroots.Multiplication import multiplication
 from yroots.utils import clean_zeros_from_matrix, slice_top, MacaulayError, \
                         get_var_list, ConditioningError, TooManyRoots, Tolerances, \
@@ -743,17 +742,19 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
     # Solve using spectral methods if stable.
     else:
         polys = [MultiCheb(coeff, lead_term = [coeff.shape[0]-1], clean_zeros = False) for coeff in coeffs]
-        try:
-            zeros = multiplication(polys, max_cond_num=tols.max_cond_num, method=method)
-            zeros = good_zeros_nd(zeros,good_zeros_tol,good_zeros_tol)
-            zeros = transform(zeros,a,b)
-            interval_data.track_interval("Macaulay", [a,b])
-            root_tracker.add_roots(zeros, a, b, "Macaulay")
-        except ConditioningError as e:
+        res = multiplication(polys, max_cond_num=tols.max_cond_num, method=method)
+        #check for a conditioning error
+        if res[0] is None:
             # Subdivide but run some checks on the intervals first
             intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
             for new_a, new_b in intervals:
                 subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, use_target_tol=True)
+        else:
+            zeros = res
+            zeros = good_zeros_nd(zeros,good_zeros_tol,good_zeros_tol)
+            zeros = transform(zeros,a,b)
+            interval_data.track_interval("Macaulay", [a,b])
+            root_tracker.add_roots(zeros, a, b, "Macaulay")
 
 @Memoize
 def get_div_dirs(dim):

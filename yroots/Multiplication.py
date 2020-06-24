@@ -7,7 +7,7 @@ from yroots.MacaulayReduce import reduce_macaulay_qrt, find_degree, \
                               add_polys, reduce_macaulay_tvb, reduce_macaulay_svd
 from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list, \
                               mon_combos, mon_combosHighest, sort_polys_by_degree, \
-                              deg_d_polys, all_permutations_cheb, ConditioningError,\
+                              deg_d_polys, all_permutations_cheb,\
                               newton_polish, condeigs, solve_linear, Memoize
 import warnings
 from scipy.stats import ortho_group
@@ -30,10 +30,6 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
     -------
     roots : numpy array
         The common roots of the polynomials. Each row is a root.
-    Raises
-    ------
-    ConditioningError if reduce_macaulay() raises a ConditioningError.
-    TooManyRoots if the macaulay matrix returns more roots than the Bezout bound.
     '''
     #We don't want to use Linear Projection right now
 #    polys, transform, is_projected = polys, lambda x:x, False
@@ -59,21 +55,23 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
         roots = np.array([roots])
     else:
         # Attempt to reduce the Macaulay matrix
-        if method == 'qrt':
-            try:
-                E,Q,cond,cond_back = reduce_macaulay_qrt(matrix,cut,bezout_bound,max_cond_num)
-            except ConditioningError as e:
-                raise e
+        if method == 'svd':
+            res = reduce_macaulay_svd(matrix,cut,bezout_bound,max_cond_num)
+            if res[0] is None:
+                return res
+            E,Q = res
+        elif method == 'qrt':
+            res = reduce_macaulay_qrt(matrix,cut,bezout_bound,max_cond_num)
+            if res[0] is None:
+                return res
+            E,Q = res
         elif method == 'tvb':
-            try:
-                E,Q,cond,cond_back = reduce_macaulay_tvb(matrix,cut,bezout_bound,max_cond_num)
-            except ConditioningError as e:
-                raise e
-        elif method == 'svd':
-            try:
-                E,Q,cond,cond_back = reduce_macaulay_svd(matrix,cut,bezout_bound,max_cond_num)
-            except ConditioningError as e:
-                raise e
+            res = reduce_macaulay_tvb(matrix,cut,bezout_bound,max_cond_num)
+            if res[0] is None:
+                return res
+            E,Q = res
+        else:
+            raise ValueError("Method must be one of 'svd','qrt' or 'tvb'")
 
         # Construct the Möller-Stetter matrices
         # M is a 3d array containing the multiplication-by-x_i matrix in M[...,i]
@@ -380,10 +378,6 @@ def MSMultMatrix(polys, poly_type, max_cond_num, macaulay_zero_tol, verbose=Fals
         can be reduced to.
     VB : numpy array
         The terms in the vector basis, each row being a term.
-
-    Raises
-    ------
-    ConditioningError if MacaulayReduction(...) raises a ConditioningError.
     '''
     try:
         basisDict, VB, varsRemoved = MacaulayReduction(polys, max_cond_num=max_cond_num, macaulay_zero_tol=macaulay_zero_tol, verbose=verbose)

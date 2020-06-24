@@ -2,9 +2,10 @@ import numpy as np
 import itertools
 from yroots import OneDimension as oneD
 from yroots.polynomial import MultiCheb, MultiPower, is_power
-from yroots.Division import division
 from yroots.Multiplication import multiplication
-from yroots.utils import Term, get_var_list, divides, MacaulayError, InstabilityWarning, match_size, match_poly_dimensions
+from yroots.utils import Term, get_var_list, divides, MacaulayError, \
+                            InstabilityWarning, match_size, match_poly_dimensions, \
+                            ConditioningError
 
 def solve(polys,MSmatrix=0, eigvals=True, verbose=False, return_all_roots=True, max_cond_num=1.e6, macaulay_zero_tol=1.e-12,method='svd'):
     '''
@@ -65,4 +66,8 @@ def solve(polys,MSmatrix=0, eigvals=True, verbose=False, return_all_roots=True, 
                 zeros = common
             return zeros
     else:
-        return multiplication(polys, max_cond_num=max_cond_num, verbose=verbose, return_all_roots=return_all_roots,method=method)
+        res = multiplication(polys, max_cond_num=max_cond_num, verbose=verbose, return_all_roots=return_all_roots,method=method)
+        if res[0] is None:
+            raise ConditioningError(res[1])
+        else:
+            return multiplication(polys, max_cond_num=max_cond_num, verbose=verbose, return_all_roots=return_all_roots,method=method)
