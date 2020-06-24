@@ -29,7 +29,8 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
           max_cond_num=1e5, good_zeros_factor=100, min_good_zeros_tol=1e-5,
           check_eval_error=True, check_eval_freq=1, plot=False,
           plot_intervals=False, deg=None, target_deg=None, max_level=999,
-          return_potentials=False, method='svd', target_tol=1.01*macheps):
+          return_potentials=False, method='svd', target_tol=1.01*macheps,
+          trust_small_evals=False):
     """
     Finds the real roots of the given list of functions on a given interval.
 
@@ -159,7 +160,8 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
 
     # Initial Solve
     solve_func(funcs, a, b, deg, target_deg, interval_data, \
-              root_tracker, tols, max_level, method=method)
+              root_tracker, tols, max_level, method=method,
+              trust_small_evals=trust_small_evals)
     root_tracker.keep_possible_duplicates()
 
     # Polishing
@@ -610,7 +612,7 @@ def random_point(dim):
     # Scale the points so that they're each within [-1, 1]
     return np.random.rand(dim)*2 - 1
 
-def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tols,max_level,good_degs=None,level=0, method='svd', use_target_tol=False):
+def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tols,max_level,good_degs=None,level=0, method='svd', use_target_tol=False, trust_small_evals=False):
     """Finds the common zeros of the given functions.
 
     All the zeros will be stored in root_tracker.
@@ -687,10 +689,11 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
         approx_errors.append(approx_error)
         # Subdivides if a bad approximation
         if coeff is None:
-            approx_errors = [max(err,macheps) for err in approx_errors]
+            if not trust_small_evals:
+                approx_errors = [max(err,macheps) for err in approx_errors]
             intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,change_sign,approx_errors)
             for new_a, new_b in intervals:
-                subdivision_solve_nd(funcs,new_a,new_b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=level+1, method=method)
+                subdivision_solve_nd(funcs,new_a,new_b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=level+1, method=method, trust_small_evals=trust_small_evals)
             return
         else:
             # if the function changes sign on at least one subinterval, skip the checks
@@ -698,7 +701,8 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
                 cheb_approx_list.append(coeff)
                 continue
             # Run checks to try and throw out the interval
-            approx_error = max(approx_error,macheps)
+            if not trust_small_evals:
+                approx_error = max(approx_error,macheps)
             if interval_data.check_interval(coeff, approx_error, a, b):
                 return
 
@@ -706,7 +710,8 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
 
     # Reduce the degree of the approximations while not introducing too much error
     coeffs, good_approx, approx_errors = trim_coeffs(cheb_approx_list, tols.abs_approx_tol, tols.rel_approx_tol, inf_norms, approx_errors)
-    approx_errors = [max(err,macheps) for err in approx_errors]
+    if not trust_small_evals:
+        approx_errors = [max(err,macheps) for err in approx_errors]
     # Used if subdividing further.
     # Only choose good_degs if the approximation after trim_coeffs is good.
     if good_approx:
@@ -719,18 +724,18 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
     if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > target_deg) or not good_approx:
         intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
         for new_a, new_b in intervals:
-            subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, use_target_tol=True)
+            subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
 
     # Check if any approx error is greater than target_tol for Macaulay method
     elif np.any(np.array(approx_errors) > np.array(tols.target_tol) + tols.rel_approx_tol*np.array(inf_norms)):
         intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
         for new_a, new_b in intervals:
-            subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, use_target_tol=True)
+            subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
 
     # Check if everything is linear
     elif np.all(np.array([coeff.shape[0] for coeff in coeffs]) == 2):
         if deg != 2:
-            subdivision_solve_nd(funcs,a,b,2,target_deg,interval_data,root_tracker,tols,max_level,good_degs,level, method=method, use_target_tol=True)
+            subdivision_solve_nd(funcs,a,b,2,target_deg,interval_data,root_tracker,tols,max_level,good_degs,level, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
             return
         zero, cond = solve_linear(coeffs)
         # Store the information and exit
@@ -748,7 +753,7 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
             # Subdivide but run some checks on the intervals first
             intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
             for new_a, new_b in intervals:
-                subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, use_target_tol=True)
+                subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
         else:
             zeros = res
             zeros = good_zeros_nd(zeros,good_zeros_tol,good_zeros_tol)
@@ -935,7 +940,8 @@ def good_zeros_1d(zeros, imag_tol, real_tol):
     zeros = zeros[np.where(np.abs(zeros.imag) < imag_tol)]
     return zeros.real
 
-def subdivision_solve_1d(f,a,b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=0,method='svd'):
+def subdivision_solve_1d(f,a,b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=0,method='svd',
+                            trust_small_evals=False):
     """Finds the roots of a one-dimensional function using subdivision and chebyshev approximation.
 
     Parameters
@@ -1006,6 +1012,7 @@ def subdivision_solve_1d(f,a,b,deg,target_deg,interval_data,root_tracker,tols,ma
             last_coeff_size = abs(coeff[-1])
             error = new_error
             new_error = error + last_coeff_size
+        error = max(error,macheps)
         good_deg = max(len(coeff) - 1, 1)
 
         # Run interval checks to eliminate regions
