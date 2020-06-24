@@ -1012,7 +1012,8 @@ def subdivision_solve_1d(f,a,b,deg,target_deg,interval_data,root_tracker,tols,ma
             last_coeff_size = abs(coeff[-1])
             error = new_error
             new_error = error + last_coeff_size
-        error = max(error,macheps)
+        if not trust_small_evals:
+            error = max(error,macheps)
         good_deg = max(len(coeff) - 1, 1)
 
         # Run interval checks to eliminate regions
