@@ -210,7 +210,7 @@ def get_growth_factors(coeffs, newton, save=True):
     print('saved all results')
     return gfs
 
-def plot(datasets,labels=None,digits_lost=False,figsize=(6,4),dpi=200,best_fit=True):
+def plot(datasets,labels=None,filename='growth_factor_plot',digits_lost=False,figsize=(6,4),dpi=400,best_fit=True):
     """
     Plots growth factor data.
 
@@ -265,9 +265,9 @@ def plot(datasets,labels=None,digits_lost=False,figsize=(6,4),dpi=200,best_fit=T
             ax.plot(pos,pos*slope+intercept,c=color)
     for i,dataset in enumerate(datasets):
         plot_dataset(dataset,f'C{i}')
-    ax.plot(dims,dims-1,c='C1',label=r'Theoretical Devestating Example, $\epsilon=.1$')
-    ax.plot(dims,2*(dims-1),c='C2',label=r'Theoretical Devestating Example, $\epsilon=.01$')
-    ax.plot(dims,3*(dims-1),c='C3',label=r'Theoretical Devestating Example, $\epsilon=.001$')
+    # ax.plot(dims,dims-1,c='C1',label=r'Theoretical Devestating Example, $\epsilon=.1$')
+    # ax.plot(dims,2*(dims-1),c='C2',label=r'Theoretical Devestating Example, $\epsilon=.01$')
+    # ax.plot(dims,3*(dims-1),c='C3',label=r'Theoretical Devestating Example, $\epsilon=.001$')
     max_y_lim = max(dims)+1
     ax.set_title('Growth Factors of Quadratic Polynomial Systems')
     if digits_lost:
@@ -282,6 +282,7 @@ def plot(datasets,labels=None,digits_lost=False,figsize=(6,4),dpi=200,best_fit=T
     legend_elements = [Patch(facecolor=f'C{i}') for i in range(len(datasets))]
     ax.legend(legend_elements,labels)
     ax.set_title('Growth Factors of Quadratic Polynomial Systems')
+    plt.savefig(fname=filename+'.pdf',bbox_inches='tight',dpi=dpi,format='pdf')
     plt.show()
 
 if __name__ == "__main__":
