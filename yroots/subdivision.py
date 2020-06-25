@@ -96,6 +96,10 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
     target_tol : float
         The final absolute approximation tolerance to use before using any sort
         of solver (Macaulay, linear, etc).
+    trust_small_evals : bool
+        Whether or not to trust function evaluations that may give floats
+        smaller than machine epsilon. This should only be set to True if the
+        function evaluations are very accurate.
 
     If finding roots of a univariate function, `funcs` does not need to be a list,
     and `a` and `b` can be floats instead of arrays.
