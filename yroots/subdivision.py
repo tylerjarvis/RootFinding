@@ -766,7 +766,7 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
         if coeff is None:
             if not trust_small_evals:
                 approx_errors = [max(err,macheps) for err in approx_errors]
-            intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,change_sign,approx_errors)
+            intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,change_sign_list,approx_errors)
             for new_a, new_b in intervals:
                 subdivision_solve_nd(funcs,new_a,new_b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=level+1, method=method, trust_small_evals=trust_small_evals)
             return
@@ -826,7 +826,7 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
         #check for a conditioning error
         if res[0] is None:
             # Subdivide but run some checks on the intervals first
-            intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
+            intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,change_sign_list,approx_errors,True)
             for new_a, new_b in intervals:
                 subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
         else:
