@@ -464,35 +464,35 @@ def build_macaulay(initial_poly_list, verbose=False):
     poly_coeff_list = []
     degree = find_degree(initial_poly_list)
 
-    linear_polys = [poly for poly in initial_poly_list if poly.degree == 1]
-    nonlinear_polys = [poly for poly in initial_poly_list if poly.degree != 1]
-    #Choose which variables to remove if things are linear, and add linear polys to matrix
-    if len(linear_polys) >= 1: #Linear polys involved
-        #get the row rededuced linear coefficients
-        A,Pc = nullspace(linear_polys)
-        varsToRemove = Pc[:len(A)].copy()
-        #add to macaulay matrix
-        for row in A:
-            #reconstruct a polynomial for each row
-            coeff = np.zeros([2]*dim)
-            coeff[tuple(get_var_list(dim))] = row[:-1]
-            coeff[tuple([0]*dim)] = row[-1]
-            if not power:
-                poly = MultiCheb(coeff)
-            else:
-                poly = MultiPower(coeff)
-            poly_coeff_list = add_polys(degree, poly, poly_coeff_list)
-    else: #no linear
-        A,Pc = None,None
-        varsToRemove = []
+    # linear_polys = [poly for poly in initial_poly_list if poly.degree == 1]
+    # nonlinear_polys = [poly for poly in initial_poly_list if poly.degree != 1]
+    # #Choose which variables to remove if things are linear, and add linear polys to matrix
+    # if len(linear_polys) >= 1: #Linear polys involved
+    #     #get the row rededuced linear coefficients
+    #     A,Pc = nullspace(linear_polys)
+    #     varsToRemove = Pc[:len(A)].copy()
+    #     #add to macaulay matrix
+    #     for row in A:
+    #         #reconstruct a polynomial for each row
+    #         coeff = np.zeros([2]*dim)
+    #         coeff[tuple(get_var_list(dim))] = row[:-1]
+    #         coeff[tuple([0]*dim)] = row[-1]
+    #         if not power:
+    #             poly = MultiCheb(coeff)
+    #         else:
+    #             poly = MultiPower(coeff)
+    #         poly_coeff_list = add_polys(degree, poly, poly_coeff_list)
+    # else: #no linear
+    #     A,Pc = None,None
+    #     varsToRemove = []
 
     #add nonlinear polys to poly_coeff_list
-    for poly in nonlinear_polys:
+    for poly in initial_poly_list:#nonlinear_polys:
         poly_coeff_list = add_polys(degree, poly, poly_coeff_list)
 
     #Creates the matrix
     # return (*create_matrix(poly_coeff_list, degree, dim, varsToRemove), A, Pc)
-    return create_matrix(poly_coeff_list, degree, dim, varsToRemove)
+    return create_matrix(poly_coeff_list, degree, dim)#, varsToRemove)
 
 def makeBasisDict(matrix, matrix_terms, VB, power):
     '''Calculates and returns the basisDict.
@@ -538,7 +538,7 @@ def makeBasisDict(matrix, matrix_terms, VB, power):
 
     return basisDict
 
-def create_matrix(poly_coeffs, degree, dim, varsToRemove):
+def create_matrix(poly_coeffs, degree, dim):#, varsToRemove):
     ''' Builds a Macaulay matrix.
 
     Parameters
@@ -562,7 +562,7 @@ def create_matrix(poly_coeffs, degree, dim, varsToRemove):
     '''
     bigShape = [degree+1]*dim
 
-    matrix_terms, cut = sorted_matrix_terms(degree, dim, varsToRemove)
+    matrix_terms, cut = sorted_matrix_terms(degree, dim)#, varsToRemove)
 
     #Get the slices needed to pull the matrix_terms from the coeff matrix.
     matrix_term_indexes = list()
@@ -586,7 +586,7 @@ def create_matrix(poly_coeffs, degree, dim, varsToRemove):
     matrix = row_swap_matrix(matrix)
     return matrix, matrix_terms, cut
 
-def sorted_matrix_terms(degree, dim, varsToRemove):
+def sorted_matrix_terms(degree, dim):#, varsToRemove):
     '''Finds the matrix_terms sorted in the term order needed for Macaulay reduction.
     So the highest terms come first,the x,y,z etc monomials last.
     Parameters
