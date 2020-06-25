@@ -6,6 +6,8 @@ from yroots.subdivision import get_subintervals
 import itertools
 from scipy import linalg as la
 
+macheps = 2.220446049250313e-16
+
 def base_quadratic_check(test_coeff,tol):
     """Slow nd-quadratic check to test against. Assumes we're subdividing
     in every direction each time and no quadrant has a sign change. """
@@ -173,6 +175,13 @@ def test_quadratic_check():
             assert base_quadratic_check(c,tol) == _quadratic_check(c,tol)
         for c in randn_test_cases:
             assert base_quadratic_check(c,tol) == _quadratic_check(c,tol)
+
+def test_quadratic_check3D():
+    #test 1
+    a = np.array([-2.78150902e-05, -2.78150902e-05, -2.78150902e-05])
+    b = np.array([4.19383023e-05, 4.19383023e-05, 4.19383023e-05])
+    tol = macheps
+
 
 if __name__ == "__main__":
     test_zero_check2D()

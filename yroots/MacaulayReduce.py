@@ -4,10 +4,17 @@ from scipy.linalg import qr, solve_triangular, qr_multiply, svd
 from yroots.polynomial import Polynomial, MultiCheb, MultiPower
 from yroots.utils import row_swap_matrix, MacaulayError, slice_top, mon_combos, \
                               num_mons_full, memoized_all_permutations, mons_ordered, \
-                              all_permutations_cheb, ConditioningError
+                              all_permutations_cheb, ConditioningError, TooManyRoots
 from matplotlib import pyplot as plt
+from warnings import warn
 
 macheps = 2.220446049250313e-16
+
+def plot_scree(s,tol):
+    plt.semilogy(s,marker='.')
+    plt.plot(np.ones(len(s))*tol)
+    plt.show()
+
 def add_polys(degree, poly, poly_coeff_list):
     """Adds polynomials to a Macaulay Matrix.
 
@@ -58,7 +65,7 @@ def find_degree(poly_list, verbose=False):
         print('Degree of Macaulay Matrix:', sum(poly.degree for poly in poly_list) - len(poly_list) + 1)
     return sum(poly.degree for poly in poly_list) - len(poly_list) + 1
 
-def reduce_macaulay_qrt(M, cut, max_cond=1e6):
+def reduce_macaulay_qrt(M, cut, bezout_bound, max_cond=1e6):
     """Reduces the Macaulay matrix using the Transposed QR method.
 
     Parameters:
@@ -78,11 +85,21 @@ def reduce_macaulay_qrt(M, cut, max_cond=1e6):
         Matrix giving the quotient basis in terms of the monomial basis. Q2[:,i]
         being the coefficients for the ith basis element
     """
+    # Compute numerical rank
+    s = svd(M, compute_uv=False)
+    tol = max(M.shape)*s[0]*macheps
+    rank = len(s[s>tol])
+    # Check if numerical rank doesn't match bezout bound
+    bezout_rank = M.shape[1]-bezout_bound
+    if rank < bezout_rank:
+        warn("Rank of Macaulay Matrix does not match the Bezout bound. Expected rank {}, found rank {}. System potentially has infinitely many solutions.".format(bezout_rank,rank))
+    elif rank > bezout_rank:
+        warn('Rank of Macaulay Matrix does not match the Bezout bound. Expected rank {}, found rank {}.'.format(bezout_rank,rank))
 
     # Check condition number before first QR
     cond_num = np.linalg.cond(M[:,:cut])
     if cond_num > max_cond:
-        raise ConditioningError("Condition number of the Macaulay high-degree columns is {}".format(cond_num))
+        return None, "Condition number of the Macaulay high-degree columns is {}".format(cond_num)
 
     # QR reduce the highest-degree columns
     Q,M[:,:cut] = qr(M[:,:cut])
@@ -96,20 +113,10 @@ def reduce_macaulay_qrt(M, cut, max_cond=1e6):
         Q = qr(M[cut:,cut:].T,pivoting=True)[0]
         M[:cut,cut:] = M[:cut,cut:] @ Q # Apply column transform
 
-    # Compute numerical rank
-    s = svd(M, compute_uv=False)
-    tol = max(M.shape)*s[0]*macheps
-    rank = len(s[s>tol])
-
-    # Check condition number before backsolve
-    cond_num_back = np.linalg.cond(M[:,:cut])
-    if cond_num_back > max_cond:
-        raise ConditioningError("Condition number of the Macaulay primary submatrix is {}".format(cond_sum))
-
     # Return the backsolved columns and coefficient matrix for the quotient basis
-    return solve_triangular(M[:cut,:cut],M[:cut,rank:]),Q[:,rank-M.shape[1]:], cond_num, cond_num_back
+    return solve_triangular(M[:cut,:cut],M[:cut,bezout_rank:]),Q[:,-bezout_bound:]
 
-def reduce_macaulay_svd(M, cut, max_cond=1e6):
+def reduce_macaulay_svd(M, cut, bezout_bound, max_cond=1e6):
     """Reduces the Macaulay matrix using the Transposed QR method.
 
     Parameters:
@@ -129,11 +136,21 @@ def reduce_macaulay_svd(M, cut, max_cond=1e6):
         Matrix giving the quotient basis in terms of the monomial basis. Q2[:,i]
         being the coefficients for the ith basis element
     """
+    # Compute numerical rank
+    s = svd(M, compute_uv=False)
+    tol = max(M.shape)*s[0]*macheps
+    rank = len(s[s>tol])
+    # Check if numerical rank doesn't match bezout bound
+    bezout_rank = M.shape[1]-bezout_bound
+    if rank < bezout_rank:
+        warn("Rank of Macaulay Matrix does not match the Bezout bound. Expected rank {}, found rank {}. System potentially has infinitely many solutions.".format(bezout_rank,rank))
+    elif rank > bezout_rank:
+        warn('Rank of Macaulay Matrix does not match the Bezout bound. Expected rank {}, found rank {}.'.format(bezout_rank,rank))
 
     # Check condition number before first QR
     cond_num = np.linalg.cond(M[:,:cut])
     if cond_num > max_cond:
-        raise ConditioningError("Condition number of the Macaulay high-degree columns is {}".format(cond_num))
+        return None, "Condition number of the Macaulay high-degree columns is {}".format(cond_num)
 
     # QR reduce the highest-degree columns
     Q,M[:,:cut] = qr(M[:,:cut])
@@ -147,25 +164,25 @@ def reduce_macaulay_svd(M, cut, max_cond=1e6):
         Q = svd(M[cut:,cut:])[2].conj().T
         M[:cut,cut:] = M[:cut,cut:] @ Q # Apply column transform
 
+    # Return the backsolved columns and coefficient matrix for the quotient basis
+    return solve_triangular(M[:cut,:cut],M[:cut,bezout_rank:]),Q[:,-bezout_bound:]
+
+def reduce_macaulay_tvb(M, cut, bezout_bound, max_cond=1e6):
     # Compute numerical rank
     s = svd(M, compute_uv=False)
     tol = max(M.shape)*s[0]*macheps
     rank = len(s[s>tol])
-
-    # Check condition number before backsolve
-    cond_num_back = np.linalg.cond(M[:,:cut])
-    if cond_num_back > max_cond:
-        raise ConditioningError("Condition number of the Macaulay primary submatrix is {}".format(cond_sum))
-
-    # Return the backsolved columns and coefficient matrix for the quotient basis
-    return solve_triangular(M[:cut,:cut],M[:cut,rank:]),Q[:,rank-M.shape[1]:], cond_num, cond_num_back
-
-def reduce_macaulay_tvb(M, cut, max_cond=1e6):
+    # Check if numerical rank doesn't match bezout bound
+    bezout_rank = M.shape[1]-bezout_bound
+    if rank < bezout_rank:
+        warn("Rank of Macaulay Matrix does not match the Bezout bound. Expected rank {}, found rank {}. System potentially has infinitely many solutions.".format(bezout_rank,rank))
+    elif rank > bezout_rank:
+        warn('Rank of Macaulay Matrix does not match the Bezout bound. Expected rank {}, found rank {}.'.format(bezout_rank,rank))
 
     # Check condition number before first QR
     cond_num = np.linalg.cond(M[:,:cut])
     if cond_num > max_cond:
-        raise ConditioningError("Condition number of the Macaulay high-degree columns is {}".format(cond_num))
+        return None, "Condition number of the Macaulay high-degree columns is {}".format(cond_num)
 
     # QR reduce the highest-degree columns
     Q,M[:,:cut] = qr(M[:,:cut])
@@ -179,23 +196,29 @@ def reduce_macaulay_tvb(M, cut, max_cond=1e6):
         M[cut:,cut:],P = qr(M[cut:,cut:], mode='r', pivoting=True)
         M[:cut,cut:] = M[:cut,cut:][:,P] # Permute columns
 
+    # Check condition number before backsolve
+    cond_num_back = np.linalg.cond(M[:,:bezout_rank])
+    if cond_num_back > max_cond:
+        return None, "Condition number of the Macaulay primary submatrix is {}".format(cond_num)
+
+    return solve_triangular(M[:bezout_rank,:bezout_rank],M[:bezout_rank,:]),P
+
+def reduce_macaulay_p(M, cut, P, max_cond=1e6):
     # Compute numerical rank
     s = svd(M, compute_uv=False)
     tol = max(M.shape)*s[0]*macheps
     rank = len(s[s>tol])
+    # Check if numerical rank doesn't match bezout bound
+    bezout_rank = M.shape[1]-bezout_bound
+    if rank < bezout_rank:
+        warn("Rank of Macaulay Matrix does not match the Bezout bound. Expected rank {}, found rank {}. System potentially has infinitely many solutions.".format(bezout_rank,rank))
+    elif rank > bezout_rank:
+        warn('Rank of Macaulay Matrix does not match the Bezout bound. Expected rank {}, found rank {}.'.format(bezout_rank,rank))
 
-    # Check condition number before backsolve
-    cond_num_back = np.linalg.cond(M[:,:rank])
-    if cond_num_back > max_cond:
-        raise ConditioningError("Condition number of the Macaulay primary submatrix is {}".format(cond_num_back))
-
-    return solve_triangular(M[:rank,:rank],M[:rank,rank:]),P, cond_num, cond_num_back
-
-def reduce_macaulay_p(M, cut, P, max_cond=1e6):
     # Check condition number before first QR
     cond_num = np.linalg.cond(M[:,:cut])
     if cond_num > max_cond:
-        raise ConditioningError("Condition number of the Macaulay high-degree columns is {}".format(cond_num))
+        return None, "Condition number of the Macaulay high-degree columns is {}".format(cond_num)
 
     # QR reduce the highest-degree columns
     Q,M[:,:cut] = qr(M[:,:cut])
@@ -208,118 +231,9 @@ def reduce_macaulay_p(M, cut, P, max_cond=1e6):
     if cut < M.shape[0]:
         M[cut:,cut:] = qr(M[cut:,cut:])[1:]
 
-    # Compute numerical rank
-    s = svd(M, compute_uv=False)
-    tol = max(M.shape)*s[0]*macheps
-    rank = len(s[s>tol])
-
     # Check condition number before backsolve
     cond_num_back = np.linalg.cond(M[:,:cut])
     if cond_num_back > max_cond:
-        raise ConditioningError("Condition number of the Macaulay primary submatrix is {}".format(cond_num))
+        return None, "Condition number of the Macaulay primary submatrix is {}".format(cond_num)
 
-    return solve_triangular(M[:rank,:rank],M[:rank,rank:]),P, cond_num, cond_num_back
-
-def rrqr_reduceMacaulay(matrix, matrix_terms, cuts, max_cond_num, macaulay_zero_tol, return_perm=False):
-    ''' Reduces a Macaulay matrix, BYU style.
-
-    The matrix is split into the shape
-    A B C
-    D E F
-    Where A is square and contains all the highest terms, and C contains all the x,y,z etc. terms. The lengths
-    are determined by the matrix_shape_stuff tuple. First A and D are reduced using rrqr without pivoting, and then the rest of
-    the matrix is multiplied by Q.T to change it accordingly. Then E is reduced by rrqr with pivoting, the rows of B are shifted
-    accordingly, and F is multipled by Q.T to change it accordingly. This is all done in place to save memory.
-
-    Parameters
-    ----------
-    matrix : numpy array.
-        The Macaulay matrix, sorted in BYU style.
-    matrix_terms: numpy array
-        Each row of the array contains a term in the matrix. The i'th row corresponds to
-        the i'th column in the matrix.
-    cuts : tuple
-        When the matrix is reduced it is split into 3 parts with restricted pivoting. These numbers indicate
-        where those cuts happen.
-    max_cond_num : float
-        Throws an error if the condition number of the backsolve is more than max_cond_num.
-    macaulay_zero_tol : float
-        What is considered to be 0 after the reduction. Specifically, rows where every element has
-        magnitude less that macaulay_zero_tol are removed.
-    return_perm : bool
-        If True, also returns the permutation done by the pivoting.
-    Returns
-    -------
-    matrix : numpy array
-        The reduced matrix.
-    matrix_terms: numpy array
-        The resorted matrix_terms.
-    perm : numpy array
-        The permutation of the rows from the original. Returned only if return_perm is True.
-    Raises
-    ------
-    ConditioningError if the conditioning number of the Macaulay matrix after
-    QR is greater than max_cond_num.
-    '''
-    #controller variables for each part of the matrix
-    AD = matrix[:,:cuts[0]]
-
-    BCEF = matrix[:,cuts[0]:]
-    # A = matrix[:cuts[0],:cuts[0]]
-    B = matrix[:cuts[0],cuts[0]:cuts[1]]
-    # C = matrix[:cuts[0],cuts[1]:]
-    # D = matrix[cuts[0]:,:cuts[0]]
-    E = matrix[cuts[0]:,cuts[0]:cuts[1]]
-    F = matrix[cuts[0]:,cuts[1]:]
-
-    #RRQR reduces A and D without pivoting sticking the result in its place.
-    Q1,matrix[:,:cuts[0]] = qr(AD)
-    #Conditioning check
-    cond_num = np.linalg.cond(matrix[:,:cuts[0]])
-    if cond_num > max_cond_num:
-        raise ConditioningError("Conditioning number of the Macaulay matrix "\
-                                + "after first QR is: " + str(cond_num))
-
-    #Multiplying BCEF by Q.T
-    BCEF[...] = Q1.T @ BCEF
-    del Q1 #Get rid of Q1 for memory purposes.
-
-    #Check to see if E exists
-    if cuts[0] != cuts[1] and cuts[0] < matrix.shape[0]:
-        #RRQR reduces E sticking the result in it's place.
-        Q,E[...],P = qr(E, pivoting = True)
-
-        #Multiplies F by Q.T.
-        F[...] = Q.T @ F
-        del Q #Get rid of Q for memory purposes.
-
-        #Permute the columns of B
-        B[...] = B[:,P]
-
-        #Resorts the matrix_terms.
-        matrix_terms[cuts[0]:cuts[1]] = matrix_terms[cuts[0]:cuts[1]][P]
-
-    #use the numerical rank to determine how many rows to keep
-    matrix = row_swap_matrix(matrix)[:cuts[1]]
-    s = svd(matrix,compute_uv=False)
-    tol = max(matrix.shape)*s[0]*macheps
-    rank = len(s[s>tol])
-    matrix = matrix[:rank]
-
-    #find the condition number of the backsolve
-    s = svd(matrix[:,:rank],compute_uv=False)
-    cond_num = s[0]/s[-1]
-    if cond_num > max_cond_num:
-        raise ConditioningError("Conditioning number of backsolving the Macaulay is: " + str(cond_num))
-
-    #backsolve
-    height = matrix.shape[0]
-    matrix[:,height:] = solve_triangular(matrix[:,:height],matrix[:,height:])
-    matrix[:,:height] = np.eye(height)
-
-    if return_perm:
-        perm = np.arange(matrix.shape[1])
-        perm[cuts[0]:cuts[1]] = perm[cuts[0]:cuts[1]][P]
-        return matrix, matrix_terms, perm
-
-    return matrix, matrix_terms
+    return solve_triangular(M[:bezout_rank,:bezout_rank],M[:bezout_rank,bezout_rank:]),P
