@@ -12,7 +12,6 @@ from yroots.utils import ConditioningError
 import scipy.linalg as la
 import matplotlib.pyplot as plt
 from yroots.subdivision import full_cheb_approximate, trim_coeffs
-from random_tests import rand_coeffs
 
 def condeig(A,eig,v):
     """Calculates the condition number of an eigenvalue of A"""

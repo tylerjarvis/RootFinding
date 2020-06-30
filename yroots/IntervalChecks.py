@@ -161,7 +161,7 @@ class IntervalData:
         scaled_subintervals: list
             A list of the subintervals to check, scaled to be within the unit box that the approxiations are valid on.
         polys: list
-            The MultiCheb polynomials that approximate the functions on these intervals.
+            The coefficient tensors of Chebyshev polynomials that approximate the functions on these intervals.
         change_sign: list
             A list of bools of whether we know the functions can change sign on the subintervals.
         errors: list
@@ -980,13 +980,12 @@ def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
     #iterator for sides
     fixed_vars = get_fixed_vars(dim)
 
-    for i, interval in enumerate(intervals):
-        if change_sign[i]:
+    for k, interval in enumerate(intervals):
+        if change_sign[k]:
             continue
         Done = False
         min_satisfied, max_satisfied = False,False
         #fix all variables--> corners
-        # print('corner')
         for corner in itertools.product([0,1],repeat=dim):
             #j picks if upper/lower bound. i is which var
             eval = eval_func([interval[j][i] for i,j in enumerate(corner)])
@@ -999,7 +998,6 @@ def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
         if not Done:
             X = np.zeros(dim)
             for fixed in fixed_vars:
-                # print(fixed)
                 #fixed some variables --> "sides"
                 #we only care about the equations from the unfixed variables
                 fixed = np.array(fixed)
@@ -1038,7 +1036,6 @@ def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
                 if Done:
                     break
             else:
-                # print('interior')
                 #fix no vars--> interior
                 #if diagonal entries change sign, can't be definite
                 for i,c in enumerate(pure_quad_coeff[:-1]):
@@ -1062,6 +1059,25 @@ def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
                             max_satisfied = max_satisfied or eval > -other_sum
                             if min_satisfied and max_satisfied:
                                 Done = True
+        #no root
+        if not Done:
+            mask[k] = False
+
+    return mask
+
+def slices_max_min_check(test_coeff, intervals, change_sign, tol):
+    dim = test_coeff.ndim
+    #at first just implement WRT x
+    mask = [True]*len(intervals)
+    #pull out the slices
+    # min_slice =
+
+    for i, interval in enumerate(intervals):
+        if change_sign[i]:
+            continue
+        Done = False
+        #check interval
+
         #no root
         if not Done:
             mask[i] = False

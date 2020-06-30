@@ -403,12 +403,14 @@ def solve_linear(coeffs):
             #if the rightmost column of U from LU decomposition
             # is a pivot column, system is inconsistent
             # otherwise, it's dependent
-            U = lu(np.hstack((A,B.reshape(-1,1))))[2]
+            U = lu(np.hstack((A,(-B).reshape(-1,1))))[2]
             pivot_columns = [np.flatnonzero(U[i, :])[0] for i in range(U.shape[0]) if np.flatnonzero(U[i, :]).shape[0]>0]
             if not (U.shape[1]-1 in pivot_columns):
                 #independent
-                warnings.warn('System potentially has infinitely many roots')
+                raise TooManyRoots('System has infinitely many roots.')
             return np.zeros([0,dim]), np.zeros([0,dim])
+        else:
+            raise e
 
 def first_x(string):
     '''
