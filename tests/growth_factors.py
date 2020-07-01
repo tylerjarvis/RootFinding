@@ -2,7 +2,7 @@
 Computes the growth factors of random quadratics in dimensions
 2-10
 """
-from devastating_example_test_scripts import *
+from .devastating_example_test_scripts import *
 from yroots.utils import condeigs, newton_polish
 from yroots.polyroots import solve
 from yroots.Multiplication import *
@@ -17,7 +17,8 @@ from matplotlib.patches import Patch
 
 macheps = 2.220446049250313e-16
 
-def devestating_growth_factors(dims,eps,kind,newton,N=50,just_dev_root=True,seed=468,perturb_eps=0,save=True):
+def devestating_growth_factors(dims,eps,kind,newton,N=50,just_dev_root=True,
+                                seed=468,perturb_eps=0,save=True,verbose=True):
     """Computes the growth factors of a system of polynomails.
 
     Parameters
@@ -48,7 +49,7 @@ def devestating_growth_factors(dims,eps,kind,newton,N=50,just_dev_root=True,seed
         Array of growth factors. The [i,j] spot is  the growth factor for
         the i'th coordinate in the j'th test system.
     """
-    print('Devestating Example in dimensions',dims)
+    if verbose:print('Devestating Example in dimensions',dims)
     np.random.seed(seed)
     if isinstance(N,int):
         N = [N]*len(dims)
@@ -59,19 +60,19 @@ def devestating_growth_factors(dims,eps,kind,newton,N=50,just_dev_root=True,seed
         if save:
             if newton: folder = 'growth_factors/dev/newton/dim{}/'.format(dim)
             else:      folder = 'growth_factors/dev/nopol/dim{}/'.format(dim)
-        print(dim)
+        if verbose:print(dim)
         gf = []
         for _ in range(n):
             #get a random devestating example
             polys = randpoly(dim,eps,kind)
             if perturb_eps > 0:
-                perturb(polys,perturb_eps)
+                polys = perturb(polys,perturb_eps)
             growth_factor = growthfactor(polys,dim,newton,dev=just_dev_root,shifted=shifted)
-            print(_+1,'done')
+            if verbose:print(_+1,'done')
             gf.append(growth_factor)
             if save:
                 np.save(folder+'deg2_sys{}.npy'.format(_),gf)
-                print(_+1,'saved')
+                if verbose:print(_+1,'saved')
         gfs[dim] = np.array(gf)
         if save: np.save(folder+'deg2.npy',gfs[dim])
     return gfs
@@ -230,7 +231,7 @@ def plot(datasets,labels=None,filename='growth_factor_plot',digits_lost=False,fi
     dims = 2+np.arange(np.max([len(data.keys()) for data in datasets]))
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize,dpi=dpi)
     ax.yaxis.grid(color='gray',alpha=.15,linewidth=1,which='major')
-    def plot_dataset(data,color):
+    def plot_dataset(data,color,label=None):
         pos = 2+np.arange(len(data))
         #log before plot
         data_log10 = [np.log10(data[d].flatten()) for d in data.keys()]
@@ -261,10 +262,16 @@ def plot(datasets,labels=None,filename='growth_factor_plot',digits_lost=False,fi
         if best_fit:
             points = np.array([[d,val] for i,d in enumerate(data.keys()) for val in data_log10[i]])
             slope, intercept = linregress(points)[:2]
-            print(slope, intercept)
+            if label is not None:
+                print(label)
+            print('Slope:',slope, '\nIntercept:',intercept,end='\n\n')
             ax.plot(pos,pos*slope+intercept,c=color)
-    for i,dataset in enumerate(datasets):
-        plot_dataset(dataset,f'C{i}')
+    if labels is None:
+        for i,dataset in enumerate(datasets):
+            plot_dataset(dataset,f'C{i}')
+    else:
+        for i,dataset in enumerate(datasets):
+            plot_dataset(dataset,f'C{i}',labels[i])
     # ax.plot(dims,dims-1,c='C1',label=r'Theoretical Devestating Example, $\epsilon=.1$')
     # ax.plot(dims,2*(dims-1),c='C2',label=r'Theoretical Devestating Example, $\epsilon=.01$')
     # ax.plot(dims,3*(dims-1),c='C3',label=r'Theoretical Devestating Example, $\epsilon=.001$')

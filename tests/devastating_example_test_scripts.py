@@ -11,6 +11,7 @@ from yroots.MacaulayReduce import reduce_macaulay_svd
 from yroots.utils import ConditioningError
 import scipy.linalg as la
 import matplotlib.pyplot as plt
+from .random_tests import rand_coeffs
 from yroots.subdivision import full_cheb_approximate, trim_coeffs
 
 def condeig(A,eig,v):
