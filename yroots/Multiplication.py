@@ -8,7 +8,7 @@ from yroots.MacaulayReduce import reduce_macaulay_qrt, find_degree, \
 from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list, \
                               mon_combos, mon_combosHighest, sort_polys_by_degree, \
                               deg_d_polys, all_permutations_cheb,\
-                              newton_polish, condeigs, solve_linear, Memoize
+                              newton_polish, condeigs, solve_linear, memoize
 import warnings
 from scipy.stats import ortho_group
 
@@ -278,7 +278,7 @@ def sort_eigs(eigs,diag):
         lst.remove(i)
     return np.argsort(arr)
 
-@Memoize
+@memoize
 def get_Q_c(dim):
     """Generates a once-chosen random orthogonal matrix and a random linear combination
     for use in the simultaneous eigenvalue compution.

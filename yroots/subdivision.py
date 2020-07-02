@@ -12,7 +12,7 @@ from yroots.OneDimension import divCheb,divPower,multCheb,multPower,solve
 from yroots.Multiplication import multiplication
 from yroots.utils import clean_zeros_from_matrix, slice_top, MacaulayError, \
                         get_var_list, ConditioningError, TooManyRoots, Tolerances, \
-                        solve_linear, Memoize, memoize
+                        solve_linear, memoize
 from yroots.polynomial import MultiCheb
 from yroots.IntervalChecks import IntervalData
 from yroots.RootTracker import RootTracker
