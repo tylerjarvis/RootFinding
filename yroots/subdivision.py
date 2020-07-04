@@ -145,7 +145,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
                       target_tol=target_tol)
     tols.nextTols()
 
-    # Set up the interval data, root tracker and cheb value holder classes
+    # Set up the interval data and root tracker classes and cheb blocky copy arr
     interval_data = IntervalData(a,b)
     root_tracker = RootTracker()
     initialize_values_arr(dim,2*(deg+1))
@@ -216,78 +216,17 @@ def transform(x,a,b):
     """
     return ((b-a)*x+(b+a))/2
 
-def chebyshev_block_copyOld(values_block):
-    """This functions helps avoid double evaluation of functions at
-    interpolation points. It takes in a tensor of function evaluation values
-    and copies these values to a new tensor appropriately to prepare for
-    chebyshev interpolation.
-
-    Parameters
-    ----------
-    values_block : numpy array
-      block of values from function evaluation
-    Returns
-    -------
-    values_cheb : numpy array
-      chebyshev interpolation values
-    """
-    dim = values_block.ndim
-    deg = values_block.shape[0] - 1
-    values_cheb = np.empty(tuple([2*deg])*dim, dtype=values_block.dtype)
-
-    for block in product([False,True],repeat=dim):
-        cheb_idx = [slice(0,deg+1)]*dim
-        block_idx = [slice(None)]*dim
-        for i,flip_dim in enumerate(block):
-            if flip_dim:
-                cheb_idx[i] = slice(deg+1,None)
-                block_idx[i] = slice(deg-1,0,-1)
-        values_cheb[tuple(cheb_idx)] = values_block[tuple(block_idx)]
-    return values_cheb
-
-class chebValuesHolder():
-    #this is sort of a hacky singleton.
-    #you have to do the constructor before any getinstance calls
-    #TODO less hacky
-    __instance = None
-    def __init__(self, dim, maxdeg):
-        """ Virtually private constructor. """
-        if chebValuesHolder.__instance is None:
-            self.maxdeg = maxdeg
-            self.dim = dim
-            chebValuesHolder.__instance = self
-            self.arr = np.empty(tuple([2*maxdeg])*dim, dtype=np.float64)
-        else:
-            raise Exception('Singleton already exists')
-
-    @staticmethod
-    def getInstance(dim,deg):
-        """ Static access method. """
-        if chebValuesHolder.__instance is None:
-            __init__(dim,deg)
-        else:
-            assert dim == chebValuesHolder.__instance.dim, "Dimension must match"
-            assert deg <= chebValuesHolder.__instance.maxdeg, "Degree must be <={}".format(chebValuesHolder.__instance.maxdeg)
-        return chebValuesHolder.__instance.arr
-
-    @staticmethod
-    def removeInstance():
-        chebValuesHolder.__instance = None
-
 @Memoize
 def initialize_values_arr(dim,deg):
     return np.empty(tuple([2*deg])*dim, dtype=np.float64)
 
 @memoize
-def values_arrNew(dim):
+def values_arr(dim):
     keys = tuple(initialize_values_arr.memo.keys())
     for idx,k in enumerate(keys):
         if k[0]==dim:
             break
     return initialize_values_arr.memo[keys[idx]]
-
-def values_arr(dim,deg):
-    return np.empty(tuple([2*deg])*dim, dtype=np.float64)
 
 @memoize
 def block_copy_slicers(dim,deg):
@@ -304,54 +243,6 @@ def block_copy_slicers(dim,deg):
         block_slicers.append(tuple(block_idx))
         cheb_slicers.append(tuple(cheb_idx))
     return block_slicers,cheb_slicers,tuple([slice(0,2*deg)]*dim)
-
-def chebyshev_block_copyNew(values_block):
-    """This functions helps avoid double evaluation of functions at
-    interpolation points. It takes in a tensor of function evaluation values
-    and copies these values to a new tensor appropriately to prepare for
-    chebyshev interpolation.
-
-    Parameters
-    ----------
-    values_block : numpy array
-      block of values from function evaluation
-    Returns
-    -------
-    values_cheb : numpy array
-      chebyshev interpolation values
-    """
-    dim = values_block.ndim
-    deg = values_block.shape[0] - 1
-    values_cheb = np.empty(tuple([2*deg])*dim, dtype=np.float64)
-    block_slicers,cheb_slicers,slicer = block_copy_slicers(dim,deg)
-
-    for cheb_idx,block_idx in zip(cheb_slicers,block_slicers):
-        values_cheb[cheb_idx] = values_block[block_idx]
-    return values_cheb[slicer]
-
-def chebyshev_block_copyNew_values_arr(values_block):
-    """This functions helps avoid double evaluation of functions at
-    interpolation points. It takes in a tensor of function evaluation values
-    and copies these values to a new tensor appropriately to prepare for
-    chebyshev interpolation.
-
-    Parameters
-    ----------
-    values_block : numpy array
-      block of values from function evaluation
-    Returns
-    -------
-    values_cheb : numpy array
-      chebyshev interpolation values
-    """
-    dim = values_block.ndim
-    deg = values_block.shape[0] - 1
-    values_cheb = values_arr(dim,deg)
-    block_slicers,cheb_slicers,slicer = block_copy_slicers(dim,deg)
-
-    for cheb_idx,block_idx in zip(cheb_slicers,block_slicers):
-        values_cheb[cheb_idx] = values_block[block_idx]
-    return values_cheb
 
 def chebyshev_block_copy(values_block):
     """This functions helps avoid double evaluation of functions at
@@ -370,31 +261,7 @@ def chebyshev_block_copy(values_block):
     """
     dim = values_block.ndim
     deg = values_block.shape[0] - 1
-    values_cheb = values_arrNew(dim)
-    block_slicers,cheb_slicers,slicer = block_copy_slicers(dim,deg)
-
-    for cheb_idx,block_idx in zip(cheb_slicers,block_slicers):
-        values_cheb[cheb_idx] = values_block[block_idx]
-    return values_cheb[slicer]
-
-def chebyshev_block_copyNew_values_holder(values_block):
-    """This functions helps avoid double evaluation  of functions at
-    interpolation points. It takes in a tensor of function evaluation values
-    and copies these values to a new tensor appropriately to prepare for
-    chebyshev interpolation.
-
-    Parameters
-    ----------
-    values_block : numpy array
-      block of values from function evaluation
-    Returns
-    -------
-    values_cheb : numpy array
-      chebyshev interpolation values
-    """
-    dim = values_block.ndim
-    deg = values_block.shape[0] - 1
-    values_cheb = chebValuesHolder.getInstance(dim,deg)
+    values_cheb = values_arr(dim)
     block_slicers,cheb_slicers,slicer = block_copy_slicers(dim,deg)
 
     for cheb_idx,block_idx in zip(cheb_slicers,block_slicers):
@@ -472,7 +339,7 @@ def get_cheb_grid(deg, dim, has_eval_grid):
         flatten = lambda x: x.flatten()
         return np.column_stack(tuple(map(flatten, cheb_grids)))
 
-def interval_approximate_nd(f,a,b,deg,return_bools=False,return_inf_norm=False):
+def interval_approximate_ndOld(f,a,b,deg,return_bools=False,return_inf_norm=False):
     """Finds the chebyshev approximation of an n-dimensional function on an interval.
 
     Parameters
@@ -543,7 +410,7 @@ def interval_approximate_nd(f,a,b,deg,return_bools=False,return_inf_norm=False):
         if return_inf_norm: return coeffs[tuple(slices)], inf_norm
         else:               return coeffs[tuple(slices)]
 
-def interval_approximate_ndNew(f,a,b,deg,return_bools=False,return_inf_norm=False):
+def interval_approximate_ndV1(f,a,b,deg,return_bools=False,return_inf_norm=False):
     """Finds the chebyshev approximation of an n-dimensional function on an interval.
 
     Parameters
@@ -570,10 +437,9 @@ def interval_approximate_ndNew(f,a,b,deg,return_bools=False,return_inf_norm=Fals
     inf_norm : float
         The inf_norm of the function
     """
-    if len(a)!=len(b):
-        raise ValueError("Interval dimensions must be the same!")
-
     dim = len(a)
+    if dim!=len(b):
+        raise ValueError("Interval dimensions must be the same!")
 
     if hasattr(f,"evaluate_grid"):
         cheb_points = transform(get_cheb_grid(deg, dim, True), a, b)
@@ -594,7 +460,69 @@ def interval_approximate_ndNew(f,a,b,deg,return_bools=False,return_inf_norm=Fals
 
     coeffs = np.real(fftn(values/deg**dim))
 
-    x0_slicer,deg_slicer,slices = interval_approx_slicers(dim,deg)
+    x0_slicer,deg_slicer,slices,rescale = interval_approx_slicers(dim,deg)
+    for x0sl,degsl in zip(x0_slicer,deg_slicer):
+        # halve the coefficients in each slice
+        coeffs[x0sl] /= 2
+        coeffs[degsl] /= 2
+
+    if return_bools:
+        if return_inf_norm: return coeffs[slices], change_sign, inf_norm
+        else:               return coeffs[slices], change_sign
+    else:
+        if return_inf_norm: return coeffs[slices], inf_norm
+        else:               return coeffs[slices]
+
+def interval_approximate_nd(f,a,b,deg,return_bools=False,return_inf_norm=False):
+    """Finds the chebyshev approximation of an n-dimensional function on an interval.
+
+    Parameters
+    ----------
+    f : function from R^n -> R
+        The function to interpolate.
+    a : numpy array
+        The lower bound on the interval.
+    b : numpy array
+        The upper bound on the interval.
+    deg : numpy array
+        The degree of the interpolation in each dimension.
+    return_bools: bool
+        whether to return bools which indicate if the function changes sign or not
+    return_inf_norm : bool
+        whether to return the inf norm of the function
+
+    Returns
+    -------
+    coeffs : numpy array
+        The coefficient of the chebyshev interpolating polynomial.
+    change_sign: numpy array (Optional)
+        list of which subintervals change sign
+    inf_norm : float
+        The inf_norm of the function
+    """
+    dim = len(a)
+    if dim!=len(b):
+        raise ValueError("Interval dimensions must be the same!")
+
+    if hasattr(f,"evaluate_grid"):
+        cheb_points = transform(get_cheb_grid(deg, dim, True), a, b)
+        values_block = f.evaluate_grid(cheb_points)
+    else:
+        cheb_points = transform(get_cheb_grid(deg, dim, False), a, b)
+        values_block = f(*cheb_points.T).reshape(*([deg+1]*dim))
+
+    # figure out on which subintervals the function changes sign
+    if return_bools:
+        # change_sign = [False]*(2**dim)
+        change_sign = changes_sign(deg, dim, values_block)
+
+    values = chebyshev_block_copy(values_block)
+
+    if return_inf_norm:
+        inf_norm = np.max(np.abs(values_block))
+
+    x0_slicer,deg_slicer,slices,rescale = interval_approx_slicers(dim,deg)
+    coeffs = fftn(values/rescale).real
     for x0sl,degsl in zip(x0_slicer,deg_slicer):
         # halve the coefficients in each slice
         coeffs[x0sl] /= 2
@@ -609,13 +537,12 @@ def interval_approximate_ndNew(f,a,b,deg,return_bools=False,return_inf_norm=Fals
 
 @memoize
 def interval_approx_slicers(dim,deg):
-    x0_slicer = [[slice(None)]*dim] for d in range(dim)]
-    deg_slicer = [[slice(None)] * dim]*dim
-    for d,x0sl,degsl in zip(range(dim),x0_slicer,deg_slicer):
-        x0sl[d][d] = 0
-        degsl[d][d] = deg
+    x0_slicer  = [tuple([slice(None) if i != d else 0   for i in range(dim)])
+                                                        for d in range(dim)]
+    deg_slicer = [tuple([slice(None) if i != d else deg for i in range(dim)])
+                                                        for d in range(dim)]
     slices = tuple([slice(0,deg+1)]*dim)
-    return [tuple(sl) for sl in x0_slicer],[tuple(sl) for sl in deg_slicer],slices
+    return x0_slicer,deg_slicer,slices,deg**dim
 
 def changes_sign(deg, dim, values_block):
     """Finds on what intervals the function evaluations change sign (if at all).
@@ -947,7 +874,6 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
     if good_approx:
         # good_degs are assumed to be 1 higher than the current approx for more
         # accurate performance.
-        #TODO: why???
         good_degs = [coeff.shape[0] for coeff in coeffs]
         good_zeros_tol = max(tols.min_good_zeros_tol, sum(np.abs(approx_errors))*tols.good_zeros_factor)
 
