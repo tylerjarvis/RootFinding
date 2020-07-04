@@ -218,10 +218,42 @@ def transform(x,a,b):
 
 @Memoize
 def initialize_values_arr(dim,deg):
+    """Helper function for chebyshev_block_copy.
+    Initializes an array to use throughout the whole solve function.
+    Builds one array corresponding to dim and deg that can be used for any
+    block copy of degree less than deg
+
+    Parameters
+    ----------
+    dim : int
+        Dimension
+    deg : int
+        Degree
+
+    Returns
+    -------
+    An empty numpy array that can be used to hold values for a chebyshev_block_copy
+    of dimension dim degree < deg.
+    """
     return np.empty(tuple([2*deg])*dim, dtype=np.float64)
 
 @memoize
 def values_arr(dim):
+    """Helper function for chebyshev_block_copy.
+    Finds the array initialized by initialize_values_arr for dimension dim.
+    Assumes the degree of the approximation is less than the degree used for
+    initialize_values_arr.
+
+    Parameters
+    ----------
+    dim : int
+        Dimension
+
+    Returns
+    -------
+    An empty numpy array that can be used to hold values for a chebyshev_block_copy
+    of dimension dim and degree less than the degree used for initialize_values_arr.
+    """
     keys = tuple(initialize_values_arr.memo.keys())
     for idx,k in enumerate(keys):
         if k[0]==dim:
@@ -230,6 +262,26 @@ def values_arr(dim):
 
 @memoize
 def block_copy_slicers(dim,deg):
+    """Helper function for chebyshev_block_copy.
+    Builds slice objects to index into the evaluation array to copy
+    in preparation for the fft.
+
+    Parameters
+    ----------
+    dim : int
+        Dimension
+    dim : int
+        Degree of approximation
+
+    Returns
+    -------
+    block_slicers : list of tuples of slice objects
+        Slice objects used to index into the evaluations
+    cheb_slicers : list of tuples of slice objects
+        Slice objects used to index into the array we're copying evaluations to
+    slicer : tuple of slice objets
+        Used to index into the portion of that array we're using for the fft input
+    """
     block_slicers = []
     cheb_slicers = []
     full_arr_deg = 2*deg
@@ -339,140 +391,6 @@ def get_cheb_grid(deg, dim, has_eval_grid):
         flatten = lambda x: x.flatten()
         return np.column_stack(tuple(map(flatten, cheb_grids)))
 
-def interval_approximate_ndOld(f,a,b,deg,return_bools=False,return_inf_norm=False):
-    """Finds the chebyshev approximation of an n-dimensional function on an interval.
-
-    Parameters
-    ----------
-    f : function from R^n -> R
-        The function to interpolate.
-    a : numpy array
-        The lower bound on the interval.
-    b : numpy array
-        The upper bound on the interval.
-    deg : numpy array
-        The degree of the interpolation in each dimension.
-    return_bools: bool
-        whether to return bools which indicate if the function changes sign or not
-    return_inf_norm : bool
-        whether to return the inf norm of the function
-
-    Returns
-    -------
-    coeffs : numpy array
-        The coefficient of the chebyshev interpolating polynomial.
-    change_sign: numpy array (Optional)
-        list of which subintervals change sign
-    inf_norm : float
-        The inf_norm of the function
-    """
-    if len(a)!=len(b):
-        raise ValueError("Interval dimensions must be the same!")
-
-    dim = len(a)
-
-    if hasattr(f,"evaluate_grid"):
-        cheb_points = transform(get_cheb_grid(deg, dim, True), a, b)
-        values_block = f.evaluate_grid(cheb_points)
-    else:
-        cheb_points = transform(get_cheb_grid(deg, dim, False), a, b)
-        values_block = f(*cheb_points.T).reshape(*([deg+1]*dim))
-
-    # figure out on which subintervals the function changes sign
-    if return_bools:
-        # change_sign = [False]*(2**dim)
-        change_sign = changes_sign(deg, dim, values_block)
-
-    values = chebyshev_block_copy(values_block)
-
-    if return_inf_norm:
-        inf_norm = np.max(np.abs(values_block))
-
-    coeffs = np.real(fftn(values/deg**dim))
-
-    for i in range(dim):
-        # construct slices for the first and degs[i] entry in each dimension
-        idx0 = [slice(None)] * dim
-        idx0[i] = 0
-
-        idx_deg = [slice(None)] * dim
-        idx_deg[i] = deg
-
-        # halve the coefficients in each slice
-        coeffs[tuple(idx0)] /= 2
-        coeffs[tuple(idx_deg)] /= 2
-
-    slices = [slice(0,deg+1)]*dim
-    if return_bools:
-        if return_inf_norm: return coeffs[tuple(slices)], change_sign, inf_norm
-        else:               return coeffs[tuple(slices)], change_sign
-    else:
-        if return_inf_norm: return coeffs[tuple(slices)], inf_norm
-        else:               return coeffs[tuple(slices)]
-
-def interval_approximate_ndV1(f,a,b,deg,return_bools=False,return_inf_norm=False):
-    """Finds the chebyshev approximation of an n-dimensional function on an interval.
-
-    Parameters
-    ----------
-    f : function from R^n -> R
-        The function to interpolate.
-    a : numpy array
-        The lower bound on the interval.
-    b : numpy array
-        The upper bound on the interval.
-    deg : numpy array
-        The degree of the interpolation in each dimension.
-    return_bools: bool
-        whether to return bools which indicate if the function changes sign or not
-    return_inf_norm : bool
-        whether to return the inf norm of the function
-
-    Returns
-    -------
-    coeffs : numpy array
-        The coefficient of the chebyshev interpolating polynomial.
-    change_sign: numpy array (Optional)
-        list of which subintervals change sign
-    inf_norm : float
-        The inf_norm of the function
-    """
-    dim = len(a)
-    if dim!=len(b):
-        raise ValueError("Interval dimensions must be the same!")
-
-    if hasattr(f,"evaluate_grid"):
-        cheb_points = transform(get_cheb_grid(deg, dim, True), a, b)
-        values_block = f.evaluate_grid(cheb_points)
-    else:
-        cheb_points = transform(get_cheb_grid(deg, dim, False), a, b)
-        values_block = f(*cheb_points.T).reshape(*([deg+1]*dim))
-
-    # figure out on which subintervals the function changes sign
-    if return_bools:
-        # change_sign = [False]*(2**dim)
-        change_sign = changes_sign(deg, dim, values_block)
-
-    values = chebyshev_block_copy(values_block)
-
-    if return_inf_norm:
-        inf_norm = np.max(np.abs(values_block))
-
-    coeffs = np.real(fftn(values/deg**dim))
-
-    x0_slicer,deg_slicer,slices,rescale = interval_approx_slicers(dim,deg)
-    for x0sl,degsl in zip(x0_slicer,deg_slicer):
-        # halve the coefficients in each slice
-        coeffs[x0sl] /= 2
-        coeffs[degsl] /= 2
-
-    if return_bools:
-        if return_inf_norm: return coeffs[slices], change_sign, inf_norm
-        else:               return coeffs[slices], change_sign
-    else:
-        if return_inf_norm: return coeffs[slices], inf_norm
-        else:               return coeffs[slices]
-
 def interval_approximate_nd(f,a,b,deg,return_bools=False,return_inf_norm=False):
     """Finds the chebyshev approximation of an n-dimensional function on an interval.
 
@@ -537,6 +455,28 @@ def interval_approximate_nd(f,a,b,deg,return_bools=False,return_inf_norm=False):
 
 @memoize
 def interval_approx_slicers(dim,deg):
+    """Helper function for interval_approximate_nd. Builds slice objects to index
+    into the output of the fft and divide some of the values by 2 and turn them into
+    coefficients of the approximation.
+
+    Parameters
+    ----------
+    dim : int
+        The interpolation dimension.
+    deg : int
+        The interpolation degree.
+
+    Returns
+    -------
+    x0_slicer : list of tuples of slice objects
+        Slice objects used to index into the the degree 1 monomials
+    deg_slicer : list of tuples of slice objects
+        Slice objects used to index into the the degree d monomials
+    slices : tuple of slice objets
+        Used to index into the portion of the array that are coefficients
+    rescale : int
+        amount to rescale the evaluations by in order to feed them into the fft
+    """
     x0_slicer  = [tuple([slice(None) if i != d else 0   for i in range(dim)])
                                                         for d in range(dim)]
     deg_slicer = [tuple([slice(None) if i != d else deg for i in range(dim)])
