@@ -77,10 +77,10 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
     deg : int
         The degree used for the approximation. If None, the following degrees
         are used.
-        Degree 50 for 1D functions.
-        Degree 9 for 2D functions.
-        Degree 5 for 3D functions.
-        Degree 3 for 4D functions.
+        Degree 100 for 1D functions.
+        Degree 20 for 2D functions.
+        Degree 9 for 3D functions.
+        Degree 9 for 4D functions.
         Degree 2 for 5D functions and above.
     target_deg : int
         The degree the approximation needs to be trimmed down to before the
@@ -251,7 +251,8 @@ def chebyshev_block_copy(values_block):
     return values_cheb
 
 def interval_approximate_1d(f,a,b,deg,return_bools=False,return_inf_norm=False):
-    """Finds the chebyshev approximation of a one-dimensional function on an interval.
+    """Finds the chebyshev approximation of a one-dimensional function on an 
+    interval.
 
     Parameters
     ----------
@@ -306,7 +307,8 @@ def get_cheb_grid(deg, dim, has_eval_grid):
     Returns
     -------
     get_cheb_grid : numpy array
-        The chebyshev grid used to evaluate the functions in interval_approximate_nd
+        The chebyshev grid used to evaluate the functions in 
+        interval_approximate_nd
     """
     if has_eval_grid:
         cheb_values = np.cos(np.arange(deg+1)*np.pi/deg)
@@ -318,7 +320,8 @@ def get_cheb_grid(deg, dim, has_eval_grid):
         return np.column_stack(tuple(map(flatten, cheb_grids)))
 
 def interval_approximate_nd(f,a,b,deg,return_inf_norm=False):
-    """Finds the chebyshev approximation of an n-dimensional function on an interval.
+    """Finds the chebyshev approximation of an n-dimensional function on an 
+    interval.
 
     Parameters
     ----------
@@ -443,12 +446,14 @@ def full_cheb_approximate(f,a,b,deg,abs_approx_tol,rel_approx_tol,good_deg=None)
         The absolute tolerance used in the approximation tolerance. The error is bouned by
         error < abs_approx_tol + rel_approx_tol * inf_norm_of_approximation
     good_deg : numpy array
-        Interpoation degree that is guaranteed to give an approximation valid to within approx_tol.
+        Interpoation degree that is guaranteed to give an approximation valid 
+        to within approx_tol.
 
     Returns
     -------
     coeff : numpy array
-        The coefficient array of the interpolation. If it can't get a good approximation and needs to subdivide, returns None.
+        The coefficient array of the interpolation. If it can't get a good 
+        approximation and needs to subdivide, returns None.
     inf_norm : float
         The inf norm of f on [a,b]
     error : float
@@ -560,7 +565,10 @@ def random_point(dim):
     # Scale the points so that they're each within [-1, 1]
     return np.random.rand(dim)*2 - 1
 
-def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tols,max_level,good_degs=None,level=0, method='svd', use_target_tol=False, trust_small_evals=False):
+def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data, 
+                         root_tracker, tols, max_level,good_degs=None, level=0,
+                         method='svd', use_target_tol=False, 
+                         trust_small_evals=False):
     """Finds the common zeros of the given functions.
 
     All the zeros will be stored in root_tracker.
@@ -578,7 +586,8 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
     target_deg : int
         The degree to subdivide down to before building the Macaulay matrix.
     interval_data : IntervalData
-        A class to run the subinterval checks and keep track of the solve progress
+        A class to run the subinterval checks and keep track of the solve 
+        progress
     root_tracker : RootTracker
         A class to keep track of the roots that are found.
     tols : Tolerances
@@ -586,7 +595,8 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
     max_level : int
         The maximum level for the recursion
     good_degs : numpy array
-        Interpoation degrees that are guaranteed to give an approximation valid to within approx_tol.
+        Interpoation degrees that are guaranteed to give an approximation valid
+        to within approx_tol.
     level : int
         The current level of the recursion.
     method : str (optional)
@@ -815,7 +825,8 @@ def mon_combos_limited_wrap(deg, dim, shape):
     dim : int
         Dimension of the monomials desired.
     shape : tuple
-        The limiting shape. The i'th index of the mon can't be bigger than the i'th index of the shape.
+        The limiting shape. The i'th index of the mon can't be bigger than the 
+        i'th index of the shape.
 
     Returns
     -----------
@@ -825,22 +836,26 @@ def mon_combos_limited_wrap(deg, dim, shape):
     return mon_combos_limited([0]*dim,deg,shape)
 
 def mon_combos_limited(mon, remaining_degrees, shape, cur_dim = 0):
-    """Finds all the monomials of a given degree that fits in a given shape and returns them. Works recursively.
+    """Finds all the monomials of a given degree that fits in a given shape and
+     returns them. Works recursively.
 
-    Very similar to mon_combos, but only returns the monomials of the desired degree.
+    Very similar to mon_combos, but only returns the monomials of the desired 
+    degree.
 
     Parameters
     --------
     mon: list
-        A list of zeros, the length of which is the dimension of the desired monomials. Will change
-        as the function searches recursively.
+        A list of zeros, the length of which is the dimension of the desired 
+        monomials. Will change as the function searches recursively.
     remaining_degrees : int
-        Initially the degree of the monomials desired. Will decrease as the function searches recursively.
+        Initially the degree of the monomials desired. Will decrease as the 
+        function searches recursively.
     shape : tuple
-        The limiting shape. The i'th index of the mon can't be bigger than the i'th index of the shape.
+        The limiting shape. The i'th index of the mon can't be bigger than the
+        i'th index of the shape.
     cur_dim : int
-        The current position in the list the function is iterating through. Defaults to 0, but increases
-        in each step of the recursion.
+        The current position in the list the function is iterating through. 
+        Defaults to 0, but increases in each step of the recursion.
 
     Returns
     -----------
@@ -884,9 +899,11 @@ def good_zeros_1d(zeros, imag_tol, real_tol):
     zeros = zeros[np.where(np.abs(zeros.imag) < imag_tol)]
     return zeros.real
 
-def subdivision_solve_1d(f,a,b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=0,method='svd',
-                            trust_small_evals=False):
-    """Finds the roots of a one-dimensional function using subdivision and chebyshev approximation.
+def subdivision_solve_1d(f, a, b, deg, target_deg, interval_data, root_tracker,
+                         tols, max_level, level=0, method='svd',
+                         trust_small_evals=False):
+    """Finds the roots of a one-dimensional function using subdivision and 
+    chebyshev approximation.
 
     Parameters
     ----------
