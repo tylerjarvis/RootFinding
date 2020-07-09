@@ -151,7 +151,7 @@ class IntervalData:
                 return True
         return False
 
-    def check_subintervals(self, subintervals, scaled_subintervals, polys, change_sign, errors):
+    def check_subintervals(self, subintervals, scaled_subintervals, polys, errors):
         ''' Runs the subinterval checks on the given subintervals of [-1,1]
 
         Parameters
@@ -161,9 +161,7 @@ class IntervalData:
         scaled_subintervals: list
             A list of the subintervals to check, scaled to be within the unit box that the approxiations are valid on.
         polys: list
-            The coefficient tensors of Chebyshev polynomials that approximate the functions on these intervals.
-        change_sign: list
-            A list of bools of whether we know the functions can change sign on the subintervals.
+            The coefficient tensors of Chebyshev polynomials that approximate the functions on these intervals..
         errors: list
             The approximation errors of the polynomials.
         Returns
@@ -173,7 +171,7 @@ class IntervalData:
         '''
         for check in self.subinterval_checks:
             for poly,error in zip(polys, errors):
-                mask = check(poly, scaled_subintervals, change_sign, error)
+                mask = check(poly, scaled_subintervals, error)
                 new_scaled_subintervals = []
                 new_subintervals = []
                 for i, result in enumerate(mask):
@@ -326,7 +324,7 @@ def constant_term_check(test_coeff, tol):
     else:
         return True
 
-def quadratic_check(test_coeff, intervals,change_sign,tol):
+def quadratic_check(test_coeff, intervals,tol):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
@@ -339,8 +337,6 @@ def quadratic_check(test_coeff, intervals,change_sign,tol):
         The coefficient matrix of the polynomial to check
     intervals : list
         A list of the intervals to check.
-    change_sign: list
-        A list of bools of whether we know the functions can change sign on the subintervals.
     tol: float
         The bound of the sup norm error of the chebyshev approximation.
 
@@ -351,13 +347,13 @@ def quadratic_check(test_coeff, intervals,change_sign,tol):
         in the unit box, True otherwise
     """
     if test_coeff.ndim == 2:
-        return quadratic_check_2D(test_coeff, intervals, change_sign, tol)
+        return quadratic_check_2D(test_coeff, intervals, tol)
     elif test_coeff.ndim == 3:
-        return quadratic_check_3D(test_coeff, intervals, change_sign, tol)
+        return quadratic_check_3D(test_coeff, intervals, tol)
     else:
-        return quadratic_check_nd(test_coeff, intervals, change_sign, tol)
+        return quadratic_check_nd(test_coeff, intervals, tol)
 
-def quadratic_check_2D(test_coeff, intervals, change_sign, tol):
+def quadratic_check_2D(test_coeff, intervals, tol):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
@@ -371,8 +367,6 @@ def quadratic_check_2D(test_coeff, intervals, change_sign, tol):
         The coefficient matrix of the polynomial to check
     intervals : list
         A list of the intervals to check.
-    change_sign: list
-        A list of bools of whether we know the functions can change sign on the subintervals.
     tol: float
         The bound of the sup norm error of the chebyshev approximation.
 
@@ -433,9 +427,6 @@ def quadratic_check_2D(test_coeff, intervals, change_sign, tol):
 
 
     for i, interval in enumerate(intervals):
-        if change_sign[i]:   # If change_sign true for this interval, then
-            continue        # move to next interval (mask is already True).
-
         min_satisfied, max_satisfied = False,False
         #Check all the corners
         eval = eval_func(interval[0][0], interval[0][1])
@@ -520,7 +511,7 @@ def quadratic_check_2D(test_coeff, intervals, change_sign, tol):
 
     return mask
 
-def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
+def quadratic_check_3D(test_coeff, intervals, tol):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
@@ -534,8 +525,6 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
         The coefficient matrix of the polynomial to check
     intervals : list
         A list of the intervals to check.
-    change_sign: list
-        A list of bools of whether we know the functions can change sign on the subintervals.
     tol: float
         The bound of the sup norm error of the chebyshev approximation.
 
@@ -613,9 +602,6 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
         int_z = np.inf
 
     for i, interval in enumerate(intervals):
-        if change_sign[i]:   # If change_sign true for this interval, then
-            continue        # move to next interval (mask is already True).
-
         #easier names for each value...
         x0 = interval[0][0]
         x1 = interval[1][0]
@@ -889,7 +875,7 @@ def get_fixed_vars(dim):
     return list(itertools.chain.from_iterable(itertools.combinations(range(dim), r)\
                                              for r in range(dim-1,0,-1)))
 
-def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
+def quadratic_check_nd(test_coeff, intervals, tol):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
@@ -903,8 +889,6 @@ def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
         The coefficient matrix of the polynomial to check
     intervals : list
         A list of the intervals to check.
-    change_sign: list
-        A list of bools of whether we know the functions can change sign on the subintervals.
     tol: float
         The bound of the sup norm error of the chebyshev approximation.
 
@@ -981,8 +965,6 @@ def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
     fixed_vars = get_fixed_vars(dim)
 
     for k, interval in enumerate(intervals):
-        if change_sign[k]:
-            continue
         Done = False
         min_satisfied, max_satisfied = False,False
         #fix all variables--> corners
@@ -1065,7 +1047,7 @@ def quadratic_check_nd(test_coeff, intervals, change_sign, tol):
 
     return mask
 
-def slices_max_min_check(test_coeff, intervals, change_sign, tol):
+def slices_max_min_check(test_coeff, intervals, tol):
     dim = test_coeff.ndim
     #at first just implement WRT x
     mask = [True]*len(intervals)
@@ -1073,8 +1055,6 @@ def slices_max_min_check(test_coeff, intervals, change_sign, tol):
     # min_slice =
 
     for i, interval in enumerate(intervals):
-        if change_sign[i]:
-            continue
         Done = False
         #check interval
 
