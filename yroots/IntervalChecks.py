@@ -13,7 +13,7 @@ from yroots.polynomial import MultiCheb, Polynomial
 from matplotlib import patches
 from scipy import linalg as la
 from math import fabs                      # faster than np.abs for small arrays
-from yroots.utils import Memoize
+from yroots.utils import memoize
 
 class IntervalData:
     '''
@@ -869,7 +869,7 @@ def quadratic_check_3D(test_coeff, intervals, change_sign, tol):
 
     return mask
 
-@Memoize
+@memoize
 def get_fixed_vars(dim):
     """Used in quadratic_check_nd to iterate through the boundaries of the domain.
 

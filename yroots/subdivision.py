@@ -12,7 +12,7 @@ from yroots.OneDimension import divCheb,divPower,multCheb,multPower,solve
 from yroots.Multiplication import multiplication
 from yroots.utils import clean_zeros_from_matrix, slice_top, MacaulayError, \
                         get_var_list, ConditioningError, TooManyRoots, Tolerances, \
-                        solve_linear, Memoize
+                        solve_linear, memoize
 from yroots.polynomial import MultiCheb
 from yroots.IntervalChecks import IntervalData
 from yroots.RootTracker import RootTracker
@@ -294,7 +294,7 @@ def interval_approximate_1d(f,a,b,deg,return_bools=False,return_inf_norm=False):
         if return_inf_norm: return coeffs[:deg+1], inf_norm
         else:               return coeffs[:deg+1]
 
-@Memoize
+@memoize
 def get_cheb_grid(deg, dim, has_eval_grid):
     """Helper function for interval_approximate_nd.
 
@@ -597,7 +597,7 @@ def get_abs_approx_tol(func, deg, a, b):
     # Multiply by 10 to give a looser tolerance (speed-up)
     return abs_approx_tol*10 / numSpots
 
-@Memoize
+@memoize
 def random_point(dim):
     """Gets a random point from [-1, 1]^dim that's used for get_abs_approx_tol.
     Since this is Memoized, subsequent calls will be a lot faster.
@@ -765,7 +765,7 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
             interval_data.track_interval("Macaulay", [a,b])
             root_tracker.add_roots(zeros, a, b, "Macaulay")
 
-@Memoize
+@memoize
 def get_div_dirs(dim):
     """Returns the directions that the algorithm should subdivide in.
 
@@ -864,7 +864,7 @@ def trim_coeffs(coeffs, abs_approx_tol, rel_approx_tol, inf_norms, errors):
 
     return coeffs, good_approx, errors
 
-@Memoize
+@memoize
 def mon_combos_limited_wrap(deg, dim, shape):
     """A wrapper for mon_combos_limited to memoize.
 
