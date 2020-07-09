@@ -535,8 +535,8 @@ def get_abs_approx_tol(func, deg, a, b):
 
     # Approximate with a low degree Chebyshev polynomial
     coeff = interval_approximate_nd(func,a2,b2,2*deg)
-    coeff[:deg,:deg] = 0
-
+    coeff[deg_slices(deg, dim)] = 0
+    
     # Sum up coeffieicents that are assumed to be just noise
     abs_approx_tol = np.sum(np.abs(coeff))
 
@@ -544,7 +544,29 @@ def get_abs_approx_tol(func, deg, a, b):
     numSpots = (deg*2)**dim - (deg)**dim
 
     # Multiply by 10 to give a looser tolerance (speed-up)
+    # print(abs_approx_tol*10 / numSpots)
     return abs_approx_tol*10 / numSpots
+
+@memoize
+def deg_slices(deg, dim):
+    """Helper function for get_abs_approx_tol. Returns a slice object for
+    accessing all the terms of total degree less than deg in a coefficient
+    tensor.
+    
+    Parameters
+    ----------
+        deg : int
+            The degree of the Chebsyhev interpolation.
+        dim : int
+            The dimension of the system.
+    
+    Returns
+    -------
+        slice
+            The slice that accesses all the coefficients of degree less than 
+            deg.
+    """
+    return (slice(0,deg),)*dim
 
 @memoize
 def random_point(dim):
