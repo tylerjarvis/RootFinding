@@ -500,7 +500,7 @@ def good_zeros_nd(zeros, imag_tol, real_tol):
         mask *= np.all(np.abs(zeros.real) <= 1 + real_tol,axis = 1)
     return zeros[mask].real
 
-def get_abs_approx_tol(func, deg, a, b):
+def get_abs_approx_tol(func, deg, a, b, dim):
     """ Gets an absolute approximation tolerance based on the assumption that
         on the interval of size linearization_size * 2, the function can be
         perfectly approximated by a low degree Chebyshev polynomial.
@@ -522,8 +522,6 @@ def get_abs_approx_tol(func, deg, a, b):
                 The calculated absolute approximation tolerance based on the
                 noise of the function on the small interval.
     """
-    dim = len(a)
-
     # Half the width of the smaller interval -- about 100*machine_epsilon
     linearization_size = 2.220446049250313e-14
 
@@ -636,6 +634,8 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
         root_tracker.add_potential_roots((a + b)/2, a, b, "Too Deep.")
         return
 
+    dim = len(a)
+
     if tols.check_eval_error:
         # Using the first abs_approx_tol
         if not use_target_tol:
@@ -643,18 +643,17 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
             if level%tols.check_eval_freq == 0:
                 numSpots = (deg*2)**len(a) - (deg)**len(a)
                 for func in funcs:
-                    tols.abs_approx_tol = max(tols.abs_approx_tol, numSpots * get_abs_approx_tol(func, 3, a, b))
+                    tols.abs_approx_tol = max(tols.abs_approx_tol, numSpots * get_abs_approx_tol(func, 3, a, b, dim))
         # Using target_tol
         else:
             tols.target_tol = tols.target_tols[tols.currTol]
             if level%tols.check_eval_freq == 0:
                 numSpots = (deg*2)**len(a) - (deg)**len(a)
                 for func in funcs:
-                    tols.target_tol = max(tols.target_tol, numSpots * get_abs_approx_tol(func, 3, a, b))
+                    tols.target_tol = max(tols.target_tol, numSpots * get_abs_approx_tol(func, 3, a, b, dim))
 
     cheb_approx_list = []
     interval_data.print_progress()
-    dim = len(a)
     if good_degs is None:
         good_degs = [None]*len(funcs)
     inf_norms = []
