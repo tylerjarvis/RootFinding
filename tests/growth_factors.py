@@ -77,7 +77,7 @@ def devestating_growth_factors(dims,eps,kind,newton,N=50,just_dev_root=True,
         if save: np.save(folder+'deg2.npy',gfs[dim])
     return gfs
 
-def growthfactor(polys,dim,newton,dev=False,shifted=None):
+def growthfactor(polys,dim,newton,dev=False,shifted=None,root=None):
     """Computes the growth factors of a system of polynomails.
 
     Parameters
@@ -104,10 +104,36 @@ def growthfactor(polys,dim,newton,dev=False,shifted=None):
         dist_between_roots = la.norm(roots[:,np.newaxis]-roots,axis=2)
         smallest_dist_between_roots = np.min(dist_between_roots[np.nonzero(dist_between_roots)])
         newroots = np.array([newton_polish(polys,root,tol=10*macheps) for root in roots])
+        print(newroots)
         max_diff = np.max(np.abs(newroots-roots))
         roots = newroots
     #find the growth factors for all the roots
-    if not dev:
+    if root is not None:
+        #find the root
+        idx = np.argmin(la.norm(roots-root,axis=1))
+
+        eig_conds = np.empty(dim)
+        for d in range(dim):
+            M_ = M[...,d]
+            vals, vecR = la.eig(M_)
+            eig_conds_curr = condeigs(M_,vals,vecR)
+            arr = sort_eigs(vals,roots[:,d])
+            vals = vals[arr]
+            eig_conds[d] = eig_conds_curr[arr][idx]
+        factors = np.empty(len(roots))
+        #compute the condition numbers of the roots
+        J = np.empty((dim,dim),dtype='complex')
+        for j,poly in enumerate(polys):
+            J[j] = poly.grad(root)
+        S = la.svd(J,compute_uv=False)
+        root_cond = 1/S[-1]
+        # print(np.log10(root_cond))
+        # print(np.log10(eig_conds))
+        #compute the growth factors
+        factors = eig_conds / root_cond
+        if newton: return factors, max_diff, smallest_dist_between_roots
+        else: return factors
+    elif not dev:
         eig_conds = np.empty((dim,len(roots)))
         for d in range(dim):
             M_ = M[...,d]
@@ -207,8 +233,9 @@ def get_growth_factors(coeffs, newton, save=True):
             if save: np.save(folder+'not_full_roots_deg2.npy',not_full_roots)
         if save: print(i+1,'saved')
     #final save at the end
-    if save: np.save(folder+'deg2_res.npy',gfs)
-    print('saved all results')
+    if save:
+        np.save(folder+'deg2_res.npy',gfs)
+        print('saved all results')
     return gfs
 
 def plot(datasets,labels=None,filename='growth_factor_plot',digits_lost=False,figsize=(6,4),dpi=400,best_fit=True):
