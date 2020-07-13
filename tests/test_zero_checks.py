@@ -6,14 +6,14 @@ from yroots.subdivision import get_subintervals
 import itertools
 from scipy import linalg as la
 
+macheps = 2.220446049250313e-16
+
 def base_quadratic_check(test_coeff,tol):
-    """Slow nd-quadratic check to test against. Assumes we're subdividing
-    in every direction each time and no quadrant has a sign change. """
+    """Slow nd-quadratic check to test against. """
     #get the dimension and make sure the coeff tensor has all the right
     # quadratic coeff spots, set to zero if necessary
     dim = test_coeff.ndim
-    intervals = get_subintervals(-np.ones(dim),np.ones(dim),np.arange(dim),None,None,None,tol)
-    change_sign = [False]*len(intervals)
+    intervals = get_subintervals(-np.ones(dim),np.ones(dim),np.arange(dim),None,None,tol)
     padding = [(0,max(0,3-i)) for i in test_coeff.shape]
     test_coeff = np.pad(test_coeff.copy(), padding, mode='constant')
 
@@ -61,9 +61,6 @@ def base_quadratic_check(test_coeff,tol):
                                                      for r in range(len(s)+1))
     mask = []
     for interval_num, interval in enumerate(intervals):
-        if change_sign[interval_num]:
-            mask.append(True)
-            continue
 
         extreme_points = []
         for fixed in powerset(np.arange(dim)):
@@ -117,7 +114,7 @@ def test_zero_check2D():
     a = -np.ones(2)
     b = np.ones(2)
     tol = 1.e-4
-    interval_checks.extend([lambda x, tol: f(x, [(a,b)],[False], tol)[0]  for f in subinterval_checks])
+    interval_checks.extend([lambda x, tol: f(x, [(a,b)], tol)[0]  for f in subinterval_checks])
 
     test_cases =[
     np.array([
@@ -163,9 +160,8 @@ def test_quadratic_check():
     for dim in deg_dim.keys():
         print(dim)
         deg = deg_dim[dim]
-        subintervals = get_subintervals(-np.ones(dim),np.ones(dim),np.arange(dim),None,None,None,tol)
-        sign_change = [False]*len(subintervals)
-        _quadratic_check = lambda c, tol: quadratic_check(c,subintervals,sign_change,tol)
+        subintervals = get_subintervals(-np.ones(dim),np.ones(dim),np.arange(dim),None,None,tol)
+        _quadratic_check = lambda c, tol: quadratic_check(c,subintervals,tol)
         np.random.seed(42)
         rand_test_cases = np.random.rand(*[tests_per_batch]+[deg]*dim)*2-1
         randn_test_cases = np.random.randn(*[tests_per_batch]+[deg]*dim)
@@ -173,6 +169,13 @@ def test_quadratic_check():
             assert base_quadratic_check(c,tol) == _quadratic_check(c,tol)
         for c in randn_test_cases:
             assert base_quadratic_check(c,tol) == _quadratic_check(c,tol)
+
+def test_quadratic_check3D():
+    #test 1
+    a = np.array([-2.78150902e-05, -2.78150902e-05, -2.78150902e-05])
+    b = np.array([4.19383023e-05, 4.19383023e-05, 4.19383023e-05])
+    tol = macheps
+
 
 if __name__ == "__main__":
     test_zero_check2D()

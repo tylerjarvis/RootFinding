@@ -7,8 +7,8 @@ from yroots.MacaulayReduce import reduce_macaulay_qrt, find_degree, \
                               add_polys, reduce_macaulay_tvb, reduce_macaulay_svd
 from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list, \
                               mon_combos, mon_combosHighest, sort_polys_by_degree, \
-                              deg_d_polys, all_permutations_cheb, ConditioningError,\
-                              newton_polish, condeigs, TooManyRoots, solve_linear, Memoize
+                              deg_d_polys, all_permutations_cheb,\
+                              newton_polish, condeigs, solve_linear, memoize
 import warnings
 from scipy.stats import ortho_group
 
@@ -30,10 +30,6 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
     -------
     roots : numpy array
         The common roots of the polynomials. Each row is a root.
-    Raises
-    ------
-    ConditioningError if reduce_macaulay() raises a ConditioningError.
-    TooManyRoots if the macaulay matrix returns more roots than the Bezout bound.
     '''
     #We don't want to use Linear Projection right now
 #    polys, transform, is_projected = polys, lambda x:x, False
@@ -45,8 +41,7 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
     dim = polys[0].dim
 
     #By Bezout's Theorem. Useful for making sure that the reduced Macaulay Matrix is as we expect
-    degrees = [poly.degree for poly in polys]
-    max_number_of_roots = np.prod(degrees)
+    bezout_bound = np.prod([poly.degree for poly in polys])
 
     matrix, matrix_terms, cut = build_macaulay(polys, verbose)
 
@@ -60,21 +55,23 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
         roots = np.array([roots])
     else:
         # Attempt to reduce the Macaulay matrix
-        if method == 'qrt':
-            try:
-                E,Q,cond,cond_back = reduce_macaulay_qrt(matrix,cut,max_cond_num)
-            except ConditioningError as e:
-                raise e
+        if method == 'svd':
+            res = reduce_macaulay_svd(matrix,cut,bezout_bound,max_cond_num)
+            if res[0] is None:
+                return res
+            E,Q = res
+        elif method == 'qrt':
+            res = reduce_macaulay_qrt(matrix,cut,bezout_bound,max_cond_num)
+            if res[0] is None:
+                return res
+            E,Q = res
         elif method == 'tvb':
-            try:
-                E,Q,cond,cond_back = reduce_macaulay_tvb(matrix,cut,max_cond_num)
-            except ConditioningError as e:
-                raise e
-        elif method == 'svd':
-            try:
-                E,Q,cond,cond_back = reduce_macaulay_svd(matrix,cut,max_cond_num)
-            except ConditioningError as e:
-                raise e
+            res = reduce_macaulay_tvb(matrix,cut,bezout_bound,max_cond_num)
+            if res[0] is None:
+                return res
+            E,Q = res
+        else:
+            raise ValueError("Method must be one of 'svd','qrt' or 'tvb'")
 
         # Construct the Möller-Stetter matrices
         # M is a 3d array containing the multiplication-by-x_i matrix in M[...,i]
@@ -93,9 +90,6 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
         # Compute the roots using eigenvalues of the Möller-Stetter matrices
         roots,cond_eig = msroots(M)
 
-    # Check if too many roots
-    if roots.shape[0] > max_number_of_roots:
-        raise TooManyRoots("Found too many roots,{}/{}/{}:{}".format(roots.shape,max_number_of_roots, degrees,roots))
     if return_all_roots:
         return roots
     else:
@@ -284,7 +278,7 @@ def sort_eigs(eigs,diag):
         lst.remove(i)
     return np.argsort(arr)
 
-@Memoize
+@memoize
 def get_Q_c(dim):
     """Generates a once-chosen random orthogonal matrix and a random linear combination
     for use in the simultaneous eigenvalue compution.
@@ -384,10 +378,6 @@ def MSMultMatrix(polys, poly_type, max_cond_num, macaulay_zero_tol, verbose=Fals
         can be reduced to.
     VB : numpy array
         The terms in the vector basis, each row being a term.
-
-    Raises
-    ------
-    ConditioningError if MacaulayReduction(...) raises a ConditioningError.
     '''
     try:
         basisDict, VB, varsRemoved = MacaulayReduction(polys, max_cond_num=max_cond_num, macaulay_zero_tol=macaulay_zero_tol, verbose=verbose)
@@ -474,35 +464,35 @@ def build_macaulay(initial_poly_list, verbose=False):
     poly_coeff_list = []
     degree = find_degree(initial_poly_list)
 
-    linear_polys = [poly for poly in initial_poly_list if poly.degree == 1]
-    nonlinear_polys = [poly for poly in initial_poly_list if poly.degree != 1]
-    #Choose which variables to remove if things are linear, and add linear polys to matrix
-    if len(linear_polys) >= 1: #Linear polys involved
-        #get the row rededuced linear coefficients
-        A,Pc = nullspace(linear_polys)
-        varsToRemove = Pc[:len(A)].copy()
-        #add to macaulay matrix
-        for row in A:
-            #reconstruct a polynomial for each row
-            coeff = np.zeros([2]*dim)
-            coeff[tuple(get_var_list(dim))] = row[:-1]
-            coeff[tuple([0]*dim)] = row[-1]
-            if not power:
-                poly = MultiCheb(coeff)
-            else:
-                poly = MultiPower(coeff)
-            poly_coeff_list = add_polys(degree, poly, poly_coeff_list)
-    else: #no linear
-        A,Pc = None,None
-        varsToRemove = []
+    # linear_polys = [poly for poly in initial_poly_list if poly.degree == 1]
+    # nonlinear_polys = [poly for poly in initial_poly_list if poly.degree != 1]
+    # #Choose which variables to remove if things are linear, and add linear polys to matrix
+    # if len(linear_polys) >= 1: #Linear polys involved
+    #     #get the row rededuced linear coefficients
+    #     A,Pc = nullspace(linear_polys)
+    #     varsToRemove = Pc[:len(A)].copy()
+    #     #add to macaulay matrix
+    #     for row in A:
+    #         #reconstruct a polynomial for each row
+    #         coeff = np.zeros([2]*dim)
+    #         coeff[tuple(get_var_list(dim))] = row[:-1]
+    #         coeff[tuple([0]*dim)] = row[-1]
+    #         if not power:
+    #             poly = MultiCheb(coeff)
+    #         else:
+    #             poly = MultiPower(coeff)
+    #         poly_coeff_list = add_polys(degree, poly, poly_coeff_list)
+    # else: #no linear
+    #     A,Pc = None,None
+    #     varsToRemove = []
 
     #add nonlinear polys to poly_coeff_list
-    for poly in nonlinear_polys:
+    for poly in initial_poly_list:#nonlinear_polys:
         poly_coeff_list = add_polys(degree, poly, poly_coeff_list)
 
     #Creates the matrix
     # return (*create_matrix(poly_coeff_list, degree, dim, varsToRemove), A, Pc)
-    return create_matrix(poly_coeff_list, degree, dim, varsToRemove)
+    return create_matrix(poly_coeff_list, degree, dim)#, varsToRemove)
 
 def makeBasisDict(matrix, matrix_terms, VB, power):
     '''Calculates and returns the basisDict.
@@ -548,7 +538,7 @@ def makeBasisDict(matrix, matrix_terms, VB, power):
 
     return basisDict
 
-def create_matrix(poly_coeffs, degree, dim, varsToRemove):
+def create_matrix(poly_coeffs, degree, dim):#, varsToRemove):
     ''' Builds a Macaulay matrix.
 
     Parameters
@@ -572,7 +562,7 @@ def create_matrix(poly_coeffs, degree, dim, varsToRemove):
     '''
     bigShape = [degree+1]*dim
 
-    matrix_terms, cut = sorted_matrix_terms(degree, dim, varsToRemove)
+    matrix_terms, cut = sorted_matrix_terms(degree, dim)#, varsToRemove)
 
     #Get the slices needed to pull the matrix_terms from the coeff matrix.
     matrix_term_indexes = list()
@@ -596,7 +586,7 @@ def create_matrix(poly_coeffs, degree, dim, varsToRemove):
     matrix = row_swap_matrix(matrix)
     return matrix, matrix_terms, cut
 
-def sorted_matrix_terms(degree, dim, varsToRemove):
+def sorted_matrix_terms(degree, dim):#, varsToRemove):
     '''Finds the matrix_terms sorted in the term order needed for Macaulay reduction.
     So the highest terms come first,the x,y,z etc monomials last.
     Parameters
