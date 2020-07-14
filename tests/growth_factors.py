@@ -93,6 +93,9 @@ def growthfactor(polys,dim,newton,dev=False,shifted=None,root=None):
         example system, in which case we want to use the root at the origin
     shifted : bool
         for devestating systems, whether the system is
+    root : 1d nparray
+        optional parameter for when you know the actual
+        root you want to find the growth factor of
     returns
     -------
     growth factors: (dim, num_roots) array
