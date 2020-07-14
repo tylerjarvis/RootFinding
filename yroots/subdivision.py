@@ -12,7 +12,7 @@ from yroots.OneDimension import divCheb,divPower,multCheb,multPower,solve
 from yroots.Multiplication import multiplication
 from yroots.utils import clean_zeros_from_matrix, slice_top, MacaulayError, \
                         get_var_list, ConditioningError, TooManyRoots, Tolerances, \
-                        solve_linear, memoize
+                        solve_linear, memoize, Memoize
 from yroots.polynomial import MultiCheb
 from yroots.IntervalChecks import IntervalData
 from yroots.RootTracker import RootTracker
@@ -149,9 +149,10 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
                       target_tol=target_tol)
     tols.nextTols()
 
-    # Set up the interval data and root tracker classes
+    # Set up the interval data and root tracker classes and cheb blocky copy arr
     interval_data = IntervalData(a,b)
     root_tracker = RootTracker()
+    initialize_values_arr(dim,2*(deg+1))
 
     if dim == 1:
         # In one dimension, we don't use target_deg; it's the same as deg
@@ -208,7 +209,7 @@ def transform(x,a,b):
     x : numpy array
         The points to be tranformed.
     a : float or numpy array
-        The lower bound on the interval. Float if one-dimensional, numpy array 
+        The lower bound on the interval. Float if one-dimensional, numpy array
         if multi-dimensional.
     b : float or numpy array
         The upper bound on the interval. Float if one-dimensional, numpy array
@@ -220,6 +221,86 @@ def transform(x,a,b):
         The transformed points.
     """
     return ((b-a)*x+(b+a))/2
+
+@Memoize
+def initialize_values_arr(dim,deg):
+    """Helper function for chebyshev_block_copy.
+    Initializes an array to use throughout the whole solve function.
+    Builds one array corresponding to dim and deg that can be used for any
+    block copy of degree less than deg
+
+    Parameters
+    ----------
+    dim : int
+        Dimension
+    deg : int
+        Degree
+
+    Returns
+    -------
+    An empty numpy array that can be used to hold values for a chebyshev_block_copy
+    of dimension dim degree < deg.
+    """
+    return np.empty(tuple([2*deg])*dim, dtype=np.float64)
+
+@memoize
+def values_arr(dim):
+    """Helper function for chebyshev_block_copy.
+    Finds the array initialized by initialize_values_arr for dimension dim.
+    Assumes the degree of the approximation is less than the degree used for
+    initialize_values_arr.
+
+    Parameters
+    ----------
+    dim : int
+        Dimension
+
+    Returns
+    -------
+    An empty numpy array that can be used to hold values for a chebyshev_block_copy
+    of dimension dim and degree less than the degree used for initialize_values_arr.
+    """
+    keys = tuple(initialize_values_arr.memo.keys())
+    for idx,k in enumerate(keys):
+        if k[0]==dim:
+            break
+    return initialize_values_arr.memo[keys[idx]]
+
+@memoize
+def block_copy_slicers(dim,deg):
+    """Helper function for chebyshev_block_copy.
+    Builds slice objects to index into the evaluation array to copy
+    in preparation for the fft.
+
+    Parameters
+    ----------
+    dim : int
+        Dimension
+    dim : int
+        Degree of approximation
+
+    Returns
+    -------
+    block_slicers : list of tuples of slice objects
+        Slice objects used to index into the evaluations
+    cheb_slicers : list of tuples of slice objects
+        Slice objects used to index into the array we're copying evaluations to
+    slicer : tuple of slice objets
+        Used to index into the portion of that array we're using for the fft input
+    """
+    block_slicers = []
+    cheb_slicers = []
+    full_arr_deg = 2*deg
+    for block in product([False,True],repeat=dim):
+        cheb_idx = [slice(0,deg+1)]*dim
+        block_idx = [slice(0,full_arr_deg)]*dim
+        for i,flip_dim in enumerate(block):
+            if flip_dim:
+                cheb_idx[i] = slice(deg+1,full_arr_deg)
+                block_idx[i] = slice(deg-1,0,-1)
+        block_slicers.append(tuple(block_idx))
+        cheb_slicers.append(tuple(cheb_idx))
+    return block_slicers,cheb_slicers,tuple([slice(0,2*deg)]*dim)
 
 def chebyshev_block_copy(values_block):
     """This functions helps avoid double evaluation of functions at
@@ -238,20 +319,15 @@ def chebyshev_block_copy(values_block):
     """
     dim = values_block.ndim
     deg = values_block.shape[0] - 1
-    values_cheb = np.empty(tuple([2*deg])*dim, dtype=values_block.dtype)
+    values_cheb = values_arr(dim)
+    block_slicers,cheb_slicers,slicer = block_copy_slicers(dim,deg)
 
-    for block in product([False,True],repeat=dim):
-        cheb_idx = [slice(0,deg+1)]*dim
-        block_idx = [slice(None)]*dim
-        for i,flip_dim in enumerate(block):
-            if flip_dim:
-                cheb_idx[i] = slice(deg+1,None)
-                block_idx[i] = slice(deg-1,0,-1)
-        values_cheb[tuple(cheb_idx)] = values_block[tuple(block_idx)]
-    return values_cheb
+    for cheb_idx,block_idx in zip(cheb_slicers,block_slicers):
+        values_cheb[cheb_idx] = values_block[block_idx]
+    return values_cheb[slicer]
 
 def interval_approximate_1d(f,a,b,deg,return_bools=False,return_inf_norm=False):
-    """Finds the chebyshev approximation of a one-dimensional function on an 
+    """Finds the chebyshev approximation of a one-dimensional function on an
     interval.
 
     Parameters
@@ -307,7 +383,7 @@ def get_cheb_grid(deg, dim, has_eval_grid):
     Returns
     -------
     get_cheb_grid : numpy array
-        The chebyshev grid used to evaluate the functions in 
+        The chebyshev grid used to evaluate the functions in
         interval_approximate_nd
     """
     if has_eval_grid:
@@ -320,7 +396,7 @@ def get_cheb_grid(deg, dim, has_eval_grid):
         return np.column_stack(tuple(map(flatten, cheb_grids)))
 
 def interval_approximate_nd(f,a,b,deg,return_inf_norm=False):
-    """Finds the chebyshev approximation of an n-dimensional function on an 
+    """Finds the chebyshev approximation of an n-dimensional function on an
     interval.
 
     Parameters
@@ -343,10 +419,9 @@ def interval_approximate_nd(f,a,b,deg,return_inf_norm=False):
     inf_norm : float
         The inf_norm of the function
     """
-    if len(a)!=len(b):
-        raise ValueError("Interval dimensions must be the same!")
-
     dim = len(a)
+    if dim!=len(b):
+        raise ValueError("Interval dimensions must be the same!")
 
     if hasattr(f,"evaluate_grid"):
         cheb_points = transform(get_cheb_grid(deg, dim, True), a, b)
@@ -360,25 +435,79 @@ def interval_approximate_nd(f,a,b,deg,return_inf_norm=False):
     if return_inf_norm:
         inf_norm = np.max(np.abs(values_block))
 
-    coeffs = np.real(fftn(values/deg**dim))
-
-    for i in range(dim):
-        # construct slices for the first and degs[i] entry in each dimension
-        idx0 = [slice(None)] * dim
-        idx0[i] = 0
-
-        idx_deg = [slice(None)] * dim
-        idx_deg[i] = deg
-
+    x0_slicer,deg_slicer,slices,rescale = interval_approx_slicers(dim,deg)
+    coeffs = fftn(values/rescale).real
+    for x0sl,degsl in zip(x0_slicer,deg_slicer):
         # halve the coefficients in each slice
-        coeffs[tuple(idx0)] /= 2
-        coeffs[tuple(idx_deg)] /= 2
+        coeffs[x0sl] /= 2
+        coeffs[degsl] /= 2
+
 
     slices = [slice(0,deg+1)]*dim
     if return_inf_norm:
         return coeffs[tuple(slices)], inf_norm
     else:
         return coeffs[tuple(slices)]
+
+@memoize
+def interval_approx_slicers(dim,deg):
+    """Helper function for interval_approximate_nd. Builds slice objects to index
+    into the output of the fft and divide some of the values by 2 and turn them into
+    coefficients of the approximation.
+
+    Parameters
+    ----------
+    dim : int
+        The interpolation dimension.
+    deg : int
+        The interpolation degree.
+
+    Returns
+    -------
+    x0_slicer : list of tuples of slice objects
+        Slice objects used to index into the the degree 1 monomials
+    deg_slicer : list of tuples of slice objects
+        Slice objects used to index into the the degree d monomials
+    slices : tuple of slice objets
+        Used to index into the portion of the array that are coefficients
+    rescale : int
+        amount to rescale the evaluations by in order to feed them into the fft
+    """
+    x0_slicer  = [tuple([slice(None) if i != d else 0   for i in range(dim)])
+                                                        for d in range(dim)]
+    deg_slicer = [tuple([slice(None) if i != d else deg for i in range(dim)])
+                                                        for d in range(dim)]
+    slices = tuple([slice(0,deg+1)]*dim)
+    return x0_slicer,deg_slicer,slices,deg**dim
+
+def changes_sign(deg, dim, values_block):
+    """Finds on what intervals the function evaluations change sign (if at all).
+
+    Parameters
+    ----------
+    deg : int
+        The approximation degree used for Chebyshev interpolation.
+    dim : int
+        The dimension of the system.
+    values_block : ndarray
+        Function evaluations on the Chebyshev point grid of the Chebyshev
+        interpolationm.
+
+    Returns
+    -------
+    change_sign : list of bools
+        Whether or not the function changed signs on the interval. The slices
+        are set up such that change_sign[i] corresponds with intervals[i] in
+        the subinterval checks.
+    """
+    change_sign = [False]*(2**dim)
+
+    # The slices are arranged this way to match up with the array of
+    # intervals in the subinterval checks.
+    slice1 = slice(0, deg//2, 1)
+    slice2 = slice(deg//2, deg + 1, 1)
+
+    is_positive = values_block > 0
 
 def get_subintervals(a,b,dimensions,interval_data,polys,approx_error,check_subintervals=False):
     """Gets the subintervals to divide a search interval into.
@@ -446,13 +575,13 @@ def full_cheb_approximate(f,a,b,deg,abs_approx_tol,rel_approx_tol,good_deg=None)
         The absolute tolerance used in the approximation tolerance. The error is bouned by
         error < abs_approx_tol + rel_approx_tol * inf_norm_of_approximation
     good_deg : numpy array
-        Interpoation degree that is guaranteed to give an approximation valid 
+        Interpoation degree that is guaranteed to give an approximation valid
         to within approx_tol.
 
     Returns
     -------
     coeff : numpy array
-        The coefficient array of the interpolation. If it can't get a good 
+        The coefficient array of the interpolation. If it can't get a good
         approximation and needs to subdivide, returns None.
     inf_norm : float
         The inf norm of f on [a,b]
@@ -534,7 +663,7 @@ def get_abs_approx_tol(func, deg, a, b, dim):
     # Approximate with a low degree Chebyshev polynomial
     coeff = interval_approximate_nd(func,a2,b2,2*deg)
     coeff[deg_slices(deg, dim)] = 0
-    
+
     # Sum up coeffieicents that are assumed to be just noise
     abs_approx_tol = np.sum(np.abs(coeff))
 
@@ -550,18 +679,18 @@ def deg_slices(deg, dim):
     """Helper function for get_abs_approx_tol. Returns a slice object for
     accessing all the terms of total degree less than deg in a coefficient
     tensor.
-    
+
     Parameters
     ----------
         deg : int
             The degree of the Chebsyhev interpolation.
         dim : int
             The dimension of the system.
-    
+
     Returns
     -------
         slice
-            The slice that accesses all the coefficients of degree less than 
+            The slice that accesses all the coefficients of degree less than
             deg.
     """
     return (slice(0,deg),)*dim
@@ -569,7 +698,7 @@ def deg_slices(deg, dim):
 @memoize
 def random_point(dim):
     """Gets a random point from [-1, 1]^dim that's used for get_abs_approx_tol.
-    Since this is Memoized, subsequent calls will be a lot faster.
+    Since this is memoized, subsequent calls will be a lot faster.
 
     Parameters
     ----------
@@ -585,9 +714,9 @@ def random_point(dim):
     # Scale the points so that they're each within [-1, 1]
     return np.random.rand(dim)*2 - 1
 
-def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data, 
+def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
                          root_tracker, tols, max_level,good_degs=None, level=0,
-                         method='svd', use_target_tol=False, 
+                         method='svd', use_target_tol=False,
                          trust_small_evals=False):
     """Finds the common zeros of the given functions.
 
@@ -606,7 +735,7 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
     target_deg : int
         The degree to subdivide down to before building the Macaulay matrix.
     interval_data : IntervalData
-        A class to run the subinterval checks and keep track of the solve 
+        A class to run the subinterval checks and keep track of the solve
         progress
     root_tracker : RootTracker
         A class to keep track of the roots that are found.
@@ -740,7 +869,7 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
 def get_div_dirs(dim):
     """Returns the directions that the algorithm should subdivide in.
 
-    Currently, this just returns all the directions. Memoized for speed.
+    Currently, this just returns all the directions. memoized for speed.
 
     Parameters
     ----------
@@ -846,7 +975,7 @@ def mon_combos_limited_wrap(deg, dim, shape):
     dim : int
         Dimension of the monomials desired.
     shape : tuple
-        The limiting shape. The i'th index of the mon can't be bigger than the 
+        The limiting shape. The i'th index of the mon can't be bigger than the
         i'th index of the shape.
 
     Returns
@@ -860,22 +989,22 @@ def mon_combos_limited(mon, remaining_degrees, shape, cur_dim = 0):
     """Finds all the monomials of a given degree that fits in a given shape and
      returns them. Works recursively.
 
-    Very similar to mon_combos, but only returns the monomials of the desired 
+    Very similar to mon_combos, but only returns the monomials of the desired
     degree.
 
     Parameters
     --------
     mon: list
-        A list of zeros, the length of which is the dimension of the desired 
+        A list of zeros, the length of which is the dimension of the desired
         monomials. Will change as the function searches recursively.
     remaining_degrees : int
-        Initially the degree of the monomials desired. Will decrease as the 
+        Initially the degree of the monomials desired. Will decrease as the
         function searches recursively.
     shape : tuple
         The limiting shape. The i'th index of the mon can't be bigger than the
         i'th index of the shape.
     cur_dim : int
-        The current position in the list the function is iterating through. 
+        The current position in the list the function is iterating through.
         Defaults to 0, but increases in each step of the recursion.
 
     Returns
@@ -923,7 +1052,7 @@ def good_zeros_1d(zeros, imag_tol, real_tol):
 def subdivision_solve_1d(f, a, b, deg, target_deg, interval_data, root_tracker,
                          tols, max_level, level=0, method='svd',
                          trust_small_evals=False):
-    """Finds the roots of a one-dimensional function using subdivision and 
+    """Finds the roots of a one-dimensional function using subdivision and
     chebyshev approximation.
 
     Parameters
