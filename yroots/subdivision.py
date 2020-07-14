@@ -77,10 +77,10 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
     deg : int
         The degree used for the approximation. If None, the following degrees
         are used.
-        Degree 50 for 1D functions.
-        Degree 9 for 2D functions.
-        Degree 5 for 3D functions.
-        Degree 3 for 4D functions.
+        Degree 100 for 1D functions.
+        Degree 20 for 2D functions.
+        Degree 9 for 3D functions.
+        Degree 9 for 4D functions.
         Degree 2 for 5D functions and above.
     target_deg : int
         The degree the approximation needs to be trimmed down to before the
@@ -96,6 +96,10 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
     target_tol : float
         The final absolute approximation tolerance to use before using any sort
         of solver (Macaulay, linear, etc).
+    trust_small_evals : bool
+        Whether or not to trust function evaluations that may give floats
+        smaller than machine epsilon. This should only be set to True if the
+        function evaluations are very accurate.
 
     If finding roots of a univariate function, `funcs` does not need to be a list,
     and `a` and `b` can be floats instead of arrays.
@@ -205,9 +209,11 @@ def transform(x,a,b):
     x : numpy array
         The points to be tranformed.
     a : float or numpy array
-        The lower bound on the interval. Float if one-dimensional, numpy array if multi-dimensional
+        The lower bound on the interval. Float if one-dimensional, numpy array
+        if multi-dimensional.
     b : float or numpy array
-        The upper bound on the interval. Float if one-dimensional, numpy array if multi-dimensional
+        The upper bound on the interval. Float if one-dimensional, numpy array
+         if multi-dimensional.
 
     Returns
     -------
@@ -321,7 +327,8 @@ def chebyshev_block_copy(values_block):
     return values_cheb[slicer]
 
 def interval_approximate_1d(f,a,b,deg,return_bools=False,return_inf_norm=False):
-    """Finds the chebyshev approximation of a one-dimensional function on an interval.
+    """Finds the chebyshev approximation of a one-dimensional function on an
+    interval.
 
     Parameters
     ----------
@@ -333,8 +340,6 @@ def interval_approximate_1d(f,a,b,deg,return_bools=False,return_inf_norm=False):
         The upper bound on the interval.
     deg : int
         The degree of the interpolation.
-    return_bools : bool
-        Whether or not to return change_sign.
     return_inf_norm : bool
         Whether to return the inf norm of the function
     Returns
@@ -343,8 +348,6 @@ def interval_approximate_1d(f,a,b,deg,return_bools=False,return_inf_norm=False):
         The coefficient of the chebyshev interpolating polynomial.
     inf_norm : float
         The inf_norm of the function
-    change_sign : bool
-        Whether or not the function changes sign over the interval.
     """
     extrema = transform(np.cos((np.pi*np.arange(2*deg))/deg),a,b)
     values = f(extrema)
@@ -380,7 +383,8 @@ def get_cheb_grid(deg, dim, has_eval_grid):
     Returns
     -------
     get_cheb_grid : numpy array
-        The chebyshev grid used to evaluate the functions in interval_approximate_nd
+        The chebyshev grid used to evaluate the functions in
+        interval_approximate_nd
     """
     if has_eval_grid:
         cheb_values = np.cos(np.arange(deg+1)*np.pi/deg)
@@ -391,8 +395,9 @@ def get_cheb_grid(deg, dim, has_eval_grid):
         flatten = lambda x: x.flatten()
         return np.column_stack(tuple(map(flatten, cheb_grids)))
 
-def interval_approximate_nd(f,a,b,deg,return_bools=False,return_inf_norm=False):
-    """Finds the chebyshev approximation of an n-dimensional function on an interval.
+def interval_approximate_nd(f,a,b,deg,return_inf_norm=False):
+    """Finds the chebyshev approximation of an n-dimensional function on an
+    interval.
 
     Parameters
     ----------
@@ -404,8 +409,6 @@ def interval_approximate_nd(f,a,b,deg,return_bools=False,return_inf_norm=False):
         The upper bound on the interval.
     deg : numpy array
         The degree of the interpolation in each dimension.
-    return_bools: bool
-        whether to return bools which indicate if the function changes sign or not
     return_inf_norm : bool
         whether to return the inf norm of the function
 
@@ -413,8 +416,6 @@ def interval_approximate_nd(f,a,b,deg,return_bools=False,return_inf_norm=False):
     -------
     coeffs : numpy array
         The coefficient of the chebyshev interpolating polynomial.
-    change_sign: numpy array (Optional)
-        list of which subintervals change sign
     inf_norm : float
         The inf_norm of the function
     """
@@ -429,11 +430,6 @@ def interval_approximate_nd(f,a,b,deg,return_bools=False,return_inf_norm=False):
         cheb_points = transform(get_cheb_grid(deg, dim, False), a, b)
         values_block = f(*cheb_points.T).reshape(*([deg+1]*dim))
 
-    # figure out on which subintervals the function changes sign
-    if return_bools:
-        # change_sign = [False]*(2**dim)
-        change_sign = changes_sign(deg, dim, values_block)
-
     values = chebyshev_block_copy(values_block)
 
     if return_inf_norm:
@@ -446,12 +442,12 @@ def interval_approximate_nd(f,a,b,deg,return_bools=False,return_inf_norm=False):
         coeffs[x0sl] /= 2
         coeffs[degsl] /= 2
 
-    if return_bools:
-        if return_inf_norm: return coeffs[slices], change_sign, inf_norm
-        else:               return coeffs[slices], change_sign
+
+    slices = [slice(0,deg+1)]*dim
+    if return_inf_norm:
+        return coeffs[tuple(slices)], inf_norm
     else:
-        if return_inf_norm: return coeffs[slices], inf_norm
-        else:               return coeffs[slices]
+        return coeffs[tuple(slices)]
 
 @memoize
 def interval_approx_slicers(dim,deg):
@@ -513,14 +509,7 @@ def changes_sign(deg, dim, values_block):
 
     is_positive = values_block > 0
 
-    for i, s in enumerate(product([slice1, slice2], repeat=dim)):
-        # Check if the entries are either all positive or negative
-        flat_slice = is_positive[s].flatten()
-        change_sign[i] = any(flat_slice) and any(~flat_slice)
-
-    return change_sign
-
-def get_subintervals(a,b,dimensions,interval_data,polys,change_sign,approx_error,check_subintervals=False):
+def get_subintervals(a,b,dimensions,interval_data,polys,approx_error,check_subintervals=False):
     """Gets the subintervals to divide a search interval into.
 
     Parameters
@@ -536,9 +525,6 @@ def get_subintervals(a,b,dimensions,interval_data,polys,change_sign,approx_error
     polys : list
         A list of MultiCheb polynomials representing the function approximations on the
         interval to subdivide. Used in the subinterval checks.
-    change_sign : list
-        A list of bools of whether we know the functions can change sign on the subintervals.
-        Used in the subinterval checks.
     approx_error: list of floats
         The bound of the sup norm error of the chebyshev approximation.
     check_subintervals : bool
@@ -564,8 +550,8 @@ def get_subintervals(a,b,dimensions,interval_data,polys,change_sign,approx_error
 
     if check_subintervals:
         # get intervals -1 to 1
-        scaled_subintervals = get_subintervals(-np.ones_like(a),np.ones_like(a),dimensions,None,None,None,approx_error)
-        return interval_data.check_subintervals(subintervals, scaled_subintervals, polys, change_sign, approx_error)
+        scaled_subintervals = get_subintervals(-np.ones_like(a),np.ones_like(a),dimensions,None,None,approx_error)
+        return interval_data.check_subintervals(subintervals, scaled_subintervals, polys, approx_error)
     else:
         return subintervals
 
@@ -589,15 +575,14 @@ def full_cheb_approximate(f,a,b,deg,abs_approx_tol,rel_approx_tol,good_deg=None)
         The absolute tolerance used in the approximation tolerance. The error is bouned by
         error < abs_approx_tol + rel_approx_tol * inf_norm_of_approximation
     good_deg : numpy array
-        Interpoation degree that is guaranteed to give an approximation valid to within approx_tol.
+        Interpoation degree that is guaranteed to give an approximation valid
+        to within approx_tol.
 
     Returns
     -------
     coeff : numpy array
-        The coefficient array of the interpolation. If it can't get a good approximation and needs to subdivide, returns None.
-    bools: numpy array
-        (2^n, 1) array of bools corresponding to which subintervals the function changes sign in
-        If it cannot get a good approximation, it returns which directions to subdivide in.
+        The coefficient array of the interpolation. If it can't get a good
+        approximation and needs to subdivide, returns None.
     inf_norm : float
         The inf norm of f on [a,b]
     error : float
@@ -608,14 +593,14 @@ def full_cheb_approximate(f,a,b,deg,abs_approx_tol,rel_approx_tol,good_deg=None)
         good_deg = deg
     # Try degree deg and see if it's good enough
     coeff = interval_approximate_nd(f,a,b,good_deg)
-    coeff2, bools, inf_norm = interval_approximate_nd(f,a,b,good_deg*2,return_bools=True,return_inf_norm=True)
+    coeff2,inf_norm = interval_approximate_nd(f,a,b,good_deg*2,return_inf_norm=True)
     coeff2[slice_top(coeff)] -= coeff
 
     error = np.sum(np.abs(coeff2))
     if error > abs_approx_tol+rel_approx_tol*inf_norm:
-        return None, bools, inf_norm, error
+        return None, inf_norm, error
     else:
-        return coeff, bools, inf_norm, error
+        return coeff, inf_norm, error
 
 def good_zeros_nd(zeros, imag_tol, real_tol):
     """Get the real zeros in the -1 to 1 interval in each dimension.
@@ -644,7 +629,7 @@ def good_zeros_nd(zeros, imag_tol, real_tol):
         mask *= np.all(np.abs(zeros.real) <= 1 + real_tol,axis = 1)
     return zeros[mask].real
 
-def get_abs_approx_tol(func, deg, a, b):
+def get_abs_approx_tol(func, deg, a, b, dim):
     """ Gets an absolute approximation tolerance based on the assumption that
         on the interval of size linearization_size * 2, the function can be
         perfectly approximated by a low degree Chebyshev polynomial.
@@ -666,8 +651,6 @@ def get_abs_approx_tol(func, deg, a, b):
                 The calculated absolute approximation tolerance based on the
                 noise of the function on the small interval.
     """
-    dim = len(a)
-
     # Half the width of the smaller interval -- about 100*machine_epsilon
     linearization_size = 2.220446049250313e-14
 
@@ -679,7 +662,7 @@ def get_abs_approx_tol(func, deg, a, b):
 
     # Approximate with a low degree Chebyshev polynomial
     coeff = interval_approximate_nd(func,a2,b2,2*deg)
-    coeff[:deg,:deg] = 0
+    coeff[deg_slices(deg, dim)] = 0
 
     # Sum up coeffieicents that are assumed to be just noise
     abs_approx_tol = np.sum(np.abs(coeff))
@@ -688,7 +671,29 @@ def get_abs_approx_tol(func, deg, a, b):
     numSpots = (deg*2)**dim - (deg)**dim
 
     # Multiply by 10 to give a looser tolerance (speed-up)
+    # print(abs_approx_tol*10 / numSpots)
     return abs_approx_tol*10 / numSpots
+
+@memoize
+def deg_slices(deg, dim):
+    """Helper function for get_abs_approx_tol. Returns a slice object for
+    accessing all the terms of total degree less than deg in a coefficient
+    tensor.
+
+    Parameters
+    ----------
+        deg : int
+            The degree of the Chebsyhev interpolation.
+        dim : int
+            The dimension of the system.
+
+    Returns
+    -------
+        slice
+            The slice that accesses all the coefficients of degree less than
+            deg.
+    """
+    return (slice(0,deg),)*dim
 
 @memoize
 def random_point(dim):
@@ -709,7 +714,10 @@ def random_point(dim):
     # Scale the points so that they're each within [-1, 1]
     return np.random.rand(dim)*2 - 1
 
-def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tols,max_level,good_degs=None,level=0, method='svd', use_target_tol=False, trust_small_evals=False):
+def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
+                         root_tracker, tols, max_level,good_degs=None, level=0,
+                         method='svd', use_target_tol=False,
+                         trust_small_evals=False):
     """Finds the common zeros of the given functions.
 
     All the zeros will be stored in root_tracker.
@@ -727,7 +735,8 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
     target_deg : int
         The degree to subdivide down to before building the Macaulay matrix.
     interval_data : IntervalData
-        A class to run the subinterval checks and keep track of the solve progress
+        A class to run the subinterval checks and keep track of the solve
+        progress
     root_tracker : RootTracker
         A class to keep track of the roots that are found.
     tols : Tolerances
@@ -735,7 +744,8 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
     max_level : int
         The maximum level for the recursion
     good_degs : numpy array
-        Interpoation degrees that are guaranteed to give an approximation valid to within approx_tol.
+        Interpoation degrees that are guaranteed to give an approximation valid
+        to within approx_tol.
     level : int
         The current level of the recursion.
     method : str (optional)
@@ -753,6 +763,8 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
         root_tracker.add_potential_roots((a + b)/2, a, b, "Too Deep.")
         return
 
+    dim = len(a)
+
     if tols.check_eval_error:
         # Using the first abs_approx_tol
         if not use_target_tol:
@@ -760,18 +772,17 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
             if level%tols.check_eval_freq == 0:
                 numSpots = (deg*2)**len(a) - (deg)**len(a)
                 for func in funcs:
-                    tols.abs_approx_tol = max(tols.abs_approx_tol, numSpots * get_abs_approx_tol(func, 3, a, b))
+                    tols.abs_approx_tol = max(tols.abs_approx_tol, numSpots * get_abs_approx_tol(func, 3, a, b, dim))
         # Using target_tol
         else:
             tols.target_tol = tols.target_tols[tols.currTol]
             if level%tols.check_eval_freq == 0:
                 numSpots = (deg*2)**len(a) - (deg)**len(a)
                 for func in funcs:
-                    tols.target_tol = max(tols.target_tol, numSpots * get_abs_approx_tol(func, 3, a, b))
+                    tols.target_tol = max(tols.target_tol, numSpots * get_abs_approx_tol(func, 3, a, b, dim))
 
     cheb_approx_list = []
     interval_data.print_progress()
-    dim = len(a)
     if good_degs is None:
         good_degs = [None]*len(funcs)
     inf_norms = []
@@ -779,24 +790,20 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
     # Get the chebyshev approximations
     for func, good_deg in zip(funcs, good_degs):
         if use_target_tol:
-            coeff,change_sign,inf_norm,approx_error = full_cheb_approximate(func,a,b,deg,tols.target_tol,tols.rel_approx_tol, good_deg)
+            coeff,inf_norm,approx_error = full_cheb_approximate(func,a,b,deg,tols.target_tol,tols.rel_approx_tol, good_deg)
         else:
-            coeff,change_sign,inf_norm,approx_error = full_cheb_approximate(func,a,b,deg,tols.abs_approx_tol,tols.rel_approx_tol, good_deg)
+            coeff,inf_norm,approx_error = full_cheb_approximate(func,a,b,deg,tols.abs_approx_tol,tols.rel_approx_tol, good_deg)
         inf_norms.append(inf_norm)
         approx_errors.append(approx_error)
         # Subdivides if a bad approximation
         if coeff is None:
             if not trust_small_evals:
                 approx_errors = [max(err,macheps) for err in approx_errors]
-            intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,change_sign,approx_errors)
+            intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,approx_errors)
             for new_a, new_b in intervals:
                 subdivision_solve_nd(funcs,new_a,new_b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=level+1, method=method, trust_small_evals=trust_small_evals)
             return
         else:
-            # if the function changes sign on at least one subinterval, skip the checks
-            if np.any(change_sign):
-                cheb_approx_list.append(coeff)
-                continue
             # Run checks to try and throw out the interval
             if not trust_small_evals:
                 approx_error = max(approx_error,macheps)
@@ -819,13 +826,13 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
 
     # Check if the degree is small enough or if trim_coeffs introduced too much error
     if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > target_deg) or not good_approx:
-        intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
+        intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,approx_errors,True)
         for new_a, new_b in intervals:
             subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
 
     # Check if any approx error is greater than target_tol for Macaulay method
     elif np.any(np.array(approx_errors) > np.array(tols.target_tol) + tols.rel_approx_tol*np.array(inf_norms)):
-        intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
+        intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,approx_errors,True)
         for new_a, new_b in intervals:
             subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
 
@@ -848,7 +855,7 @@ def subdivision_solve_nd(funcs,a,b,deg,target_deg,interval_data,root_tracker,tol
         #check for a conditioning error
         if res[0] is None:
             # Subdivide but run some checks on the intervals first
-            intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,change_sign,approx_errors,True)
+            intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,approx_errors,True)
             for new_a, new_b in intervals:
                 subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
         else:
@@ -968,7 +975,8 @@ def mon_combos_limited_wrap(deg, dim, shape):
     dim : int
         Dimension of the monomials desired.
     shape : tuple
-        The limiting shape. The i'th index of the mon can't be bigger than the i'th index of the shape.
+        The limiting shape. The i'th index of the mon can't be bigger than the
+        i'th index of the shape.
 
     Returns
     -----------
@@ -978,22 +986,26 @@ def mon_combos_limited_wrap(deg, dim, shape):
     return mon_combos_limited([0]*dim,deg,shape)
 
 def mon_combos_limited(mon, remaining_degrees, shape, cur_dim = 0):
-    """Finds all the monomials of a given degree that fits in a given shape and returns them. Works recursively.
+    """Finds all the monomials of a given degree that fits in a given shape and
+     returns them. Works recursively.
 
-    Very similar to mon_combos, but only returns the monomials of the desired degree.
+    Very similar to mon_combos, but only returns the monomials of the desired
+    degree.
 
     Parameters
     --------
     mon: list
-        A list of zeros, the length of which is the dimension of the desired monomials. Will change
-        as the function searches recursively.
+        A list of zeros, the length of which is the dimension of the desired
+        monomials. Will change as the function searches recursively.
     remaining_degrees : int
-        Initially the degree of the monomials desired. Will decrease as the function searches recursively.
+        Initially the degree of the monomials desired. Will decrease as the
+        function searches recursively.
     shape : tuple
-        The limiting shape. The i'th index of the mon can't be bigger than the i'th index of the shape.
+        The limiting shape. The i'th index of the mon can't be bigger than the
+        i'th index of the shape.
     cur_dim : int
-        The current position in the list the function is iterating through. Defaults to 0, but increases
-        in each step of the recursion.
+        The current position in the list the function is iterating through.
+        Defaults to 0, but increases in each step of the recursion.
 
     Returns
     -----------
@@ -1037,9 +1049,11 @@ def good_zeros_1d(zeros, imag_tol, real_tol):
     zeros = zeros[np.where(np.abs(zeros.imag) < imag_tol)]
     return zeros.real
 
-def subdivision_solve_1d(f,a,b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=0,method='svd',
-                            trust_small_evals=False):
-    """Finds the roots of a one-dimensional function using subdivision and chebyshev approximation.
+def subdivision_solve_1d(f, a, b, deg, target_deg, interval_data, root_tracker,
+                         tols, max_level, level=0, method='svd',
+                         trust_small_evals=False):
+    """Finds the roots of a one-dimensional function using subdivision and
+    chebyshev approximation.
 
     Parameters
     ----------

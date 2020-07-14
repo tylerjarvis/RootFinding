@@ -446,7 +446,8 @@ def test_roots_3_1():
     f = lambda x,y: ((x-.3)**2+2*(y+0.3)**2-1)
     g = lambda x,y: ((x-.49)**2+(y+.5)**2-1)*((x+0.5)**2+(y+0.5)**2-1)*((x-1)**2+(y-0.5)**2-1)
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False, target_tol=1e-14)
+    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    t = time() - start
     actual_roots = np.load('Polished_results/polished_3.1.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_3.1.csv', delimiter=',')
 
@@ -464,7 +465,6 @@ def test_roots_3_2():
     yroots2 = solve([f,g],[-1,-1],[1,1], abs_approx_tol=[1e-8, 1e-15], rel_approx_tol=[1e-12, 1e-29],\
                 max_cond_num=[1e5, 1e2], good_zeros_factor=[100,100], min_good_zeros_tol=[1e-5, 1e-5],\
                 check_eval_error=[True,True], check_eval_freq=[1,1], plot=False)
-    t = time() - start
 
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_3.2.csv', delimiter=',')
     actual_roots = chebfun_roots
