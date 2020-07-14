@@ -755,3 +755,4 @@ if __name__ == "__main__":
     failed_norm_tests = tests[where_failed_norm]
     print(f'Failed Norm Test on \n{[t.__name__ for t in failed_norm_tests]}')
     plot_timings(tests,times)
+    np.save('chebfuntiming',times)
