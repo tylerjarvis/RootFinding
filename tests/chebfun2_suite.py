@@ -302,12 +302,15 @@ def verbose_pass_or_fail(funcs, yroots, polished_roots, test_num, cheb_roots=Non
     print("=========================================================")
     return residuals_pass,norm_pass
 
-def test_roots_1_1():
+def test_roots_1_1(solver):
     # Test 1.1
         f = lambda x,y: 144*(x**4+y**4)-225*(x**2+y**2) + 350*x**2*y**2+81
         g = lambda x,y: y-x**6
         start = time()
-        yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+        yroots = solve([f,g],[-1,-1],[1,1], plot=False, solver=solver)
+        t = time() - start
+        start = time()
+        yroots = solve([g,f],[-1,-1],[1,1], plot=False, solver=solver)
         t = time() - start
         actual_roots = np.load('Polished_results/polished_1.1.npy')
         chebfun_roots = np.loadtxt('Chebfun_results/test_roots_1.1.csv', delimiter=',')
@@ -315,12 +318,12 @@ def test_roots_1_1():
         return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 1.1, cheb_roots=chebfun_roots)
 
 
-def test_roots_1_2():
+def test_roots_1_2(solver):
     # Test 1.2
     f = lambda x,y: (y**2-x**3)*((y-0.7)**2-(x-0.3)**3)*((y+0.2)**2-(x+0.8)**3)*((y+0.2)**2-(x-0.8)**3)
     g = lambda x,y: ((y+.4)**3-(x-.4)**2)*((y+.3)**3-(x-.3)**2)*((y-.5)**3-(x+.6)**2)*((y+0.3)**3-(2*x-0.8)**3)
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solve([f,g],[-1,-1],[1,1], plot=False, solver=solver)
     t = time() - start
 
     # Get Polished results (Newton polishing misses roots)
@@ -333,24 +336,24 @@ def test_roots_1_2():
     return t, verbose_pass_or_fail([f,g], yroots, yroots2, 1.2, cheb_roots=chebfun_roots, tol=2.220446049250313e-10)
 
 
-def test_roots_1_3():
+def test_roots_1_3(solver):
     # Test 1.3
     f = lambda x,y: y**2-x**3
     g = lambda x,y: (y+.1)**3-(x-.1)**2
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solve([f,g],[-1,-1],[1,1], plot=False, solver=solver)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_1.3.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_1.3.csv', delimiter=',')
 
     return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 1.3, cheb_roots=chebfun_roots)
 
-def test_roots_1_4():
+def test_roots_1_4(solver):
     # Test 1.4
     f = lambda x,y: x - y + .5
     g = lambda x,y: x + y
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solve([f,g],[-1,-1],[1,1], plot=False, solver=solver)
     t = time() - start
     # Single root has to be in matrix form because yroots
     # returns the roots in matrix form.
@@ -359,12 +362,12 @@ def test_roots_1_4():
 
     return t, verbose_pass_or_fail([f,g], yroots, a_roots, 1.4, cheb_roots=chebfun_roots)
 
-def test_roots_1_5():
+def test_roots_1_5(solver):
     # Test 1.5
     f = lambda x,y: y + x/2 + 1/10
     g = lambda x,y: y - 2.1*x + 2
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solve([f,g],[-1,-1],[1,1], plot=False, solver=solver)
     t = time() - start
     # Single root has to be in matrix form because yroots
     # returns the roots in matrix form.
@@ -375,12 +378,12 @@ def test_roots_1_5():
     return t, verbose_pass_or_fail([f,g], yroots, a_roots, 1.5, cheb_roots=chebfun_roots)
 
 
-def test_roots_2_1():
+def test_roots_2_1(solver):
     # Test 2.1
     f = lambda x,y: np.cos(10*x*y)
     g = lambda x,y: x + y**2
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solve([f,g],[-1,-1],[1,1], plot=False, solver=solver)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_2.1.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.1.csv', delimiter=',')
@@ -388,12 +391,12 @@ def test_roots_2_1():
     return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 2.1, cheb_roots=chebfun_roots)
 
 
-def test_roots_2_2():
+def test_roots_2_2(solver):
     # Test 2.2
     f = lambda x,y: x
     g = lambda x,y: (x-.9999)**2 + y**2-1
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solve([f,g],[-1,-1],[1,1], plot=False, solver=solver)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_2.2.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.2.csv', delimiter=',')
@@ -401,12 +404,12 @@ def test_roots_2_2():
     return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 2.2, cheb_roots=chebfun_roots)
 
 
-def test_roots_2_3():
+def test_roots_2_3(solver):
     # Test 2.3
     f = lambda x,y: np.sin(4*(x + y/10 + np.pi/10))
     g = lambda x,y: np.cos(2*(x-2*y+ np.pi/7))
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solve([f,g],[-1,-1],[1,1], plot=False, solver=solver)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_2.3.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.3.csv', delimiter=',')
@@ -414,12 +417,12 @@ def test_roots_2_3():
     return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 2.3, cheb_roots=chebfun_roots)
 
 
-def test_roots_2_4():
+def test_roots_2_4(solver):
     # Test 2.4
     f = lambda x,y: np.exp(x-2*x**2-y**2)*np.sin(10*(x+y+x*y**2))
     g = lambda x,y: np.exp(-x+2*y**2+x*y**2)*np.sin(10*(x-y-2*x*y**2))
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solve([f,g],[-1,-1],[1,1], plot=False, solver=solver)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_2.4.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.4.csv', delimiter=',')
@@ -427,12 +430,12 @@ def test_roots_2_4():
     return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 2.4, cheb_roots=chebfun_roots)
 
 
-def test_roots_2_5():
+def test_roots_2_5(solver):
     # Test 2.5
     f = lambda x,y: 2*y*np.cos(y**2)*np.cos(2*x)-np.cos(y)
     g = lambda x,y: 2*np.sin(y**2)*np.sin(2*x)-np.sin(x)
     start = time()
-    yroots = solve([f,g],[-4,-4],[4,4], plot=False)
+    yroots = solve([f,g],[-4,-4],[4,4], plot=False, solver=solver)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_2.5.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.5.csv', delimiter=',')
@@ -441,30 +444,30 @@ def test_roots_2_5():
 
 
 
-def test_roots_3_1():
+def test_roots_3_1(solver):
     # Test 3.1
     f = lambda x,y: ((x-.3)**2+2*(y+0.3)**2-1)
     g = lambda x,y: ((x-.49)**2+(y+.5)**2-1)*((x+0.5)**2+(y+0.5)**2-1)*((x-1)**2+(y-0.5)**2-1)
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solve([f,g],[-1,-1],[1,1], plot=False, solver=solver)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_3.1.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_3.1.csv', delimiter=',')
 
     return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 3.1, cheb_roots=chebfun_roots, tol=2.220446049250313e-11)
 
-def test_roots_3_2():
+def test_roots_3_2(solver):
     # Test 3.2
     f = lambda x,y: ((x-0.1)**2+2*(y-0.1)**2-1)*((x+0.3)**2+2*(y-0.2)**2-1)*((x-0.3)**2+2*(y+0.15)**2-1)*((x-0.13)**2+2*(y+0.15)**2-1)
     g = lambda x,y: (2*(x+0.1)**2+(y+0.1)**2-1)*(2*(x+0.1)**2+(y-0.1)**2-1)*(2*(x-0.3)**2+(y-0.15)**2-1)*((x-0.21)**2+2*(y-0.15)**2-1)
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solve([f,g],[-1,-1],[1,1], plot=False, solver=solver)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_3.2.npy')
 
     yroots2 = solve([f,g],[-1,-1],[1,1], abs_approx_tol=[1e-8, 1e-15], rel_approx_tol=[1e-12, 1e-29],\
                 max_cond_num=[1e5, 1e2], good_zeros_factor=[100,100], min_good_zeros_tol=[1e-5, 1e-5],\
-                check_eval_error=[True,True], check_eval_freq=[1,1], plot=False)
+                check_eval_error=[True,True], check_eval_freq=[1,1], plot=False, solver=solver)
 
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_3.2.csv', delimiter=',')
     actual_roots = chebfun_roots
@@ -472,20 +475,20 @@ def test_roots_3_2():
     return t, verbose_pass_or_fail([f,g], yroots, yroots2, 3.2, cheb_roots=chebfun_roots, tol=2.220446049250313e-11)
 
 
-def test_roots_4_1():
+def test_roots_4_1(solver):
     # Test 4.1
     # This system hs 4 true roots, but ms fails (finds 5).
     f = lambda x,y: np.sin(3*(x+y))
     g = lambda x,y: np.sin(3*(x-y))
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solve([f,g],[-1,-1],[1,1], plot=False, solver=solver)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_4.1.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_4.1.csv', delimiter=',')
 
     return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 4.1, cheb_roots=chebfun_roots)
 
-def test_roots_4_2():
+def test_roots_4_2(solver):
     # Test 4.2
     f = lambda x,y: ((90000*y**10 + (-1440000)*y**9 + (360000*x**4 + 720000*x**3 + 504400*x**2 + 144400*x + 9971200)*(y**8) +
                 ((-4680000)*x**4 + (-9360000)*x**3 + (-6412800)*x**2 + (-1732800)*x + (-39554400))*(y**7) + (540000*x**8 +
@@ -508,21 +511,19 @@ def test_roots_4_2():
                 x + (-3))*y**3 + (2*x**5 + (-3)*x**4 + x**3 + 10*x**2 + (-1)*x + 1)*y**2 + ((-1)*x**5 + 3*x**4 + 4*x**3 + (-12)*x**2)*y +
                 (x**7 + (-3)*x**5 + (-1)*x**4 + (-4)*x**3 + 4*x**2))
     start = time()
-    yroots = solve([f,g],[-1, -1],[1,1], plot=False)
+    yroots = solve([f,g],[-1, -1],[1,1], plot=False, solver=solver)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_4.2.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_4.2.csv', delimiter=',')
 
     return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 4.2, cheb_roots=chebfun_roots)
 
-
-
-def test_roots_5():
+def test_roots_5(solver):
     # Test 5.1
     f = lambda x,y: 2*x*y*np.cos(y**2)*np.cos(2*x)-np.cos(x*y)
     g = lambda x,y: 2*np.sin(x*y**2)*np.sin(3*x*y)-np.sin(x*y)
     start = time()
-    yroots = solve([f,g],[-2,-2],[2,2], plot=False)
+    yroots = solve([f,g],[-2,-2],[2,2], plot=False, solver=solver)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_5.1.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_5.1.csv', delimiter=',')
@@ -530,12 +531,12 @@ def test_roots_5():
     return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 5.1, cheb_roots=chebfun_roots)
 
 
-def test_roots_6_1():
+def test_roots_6_1(solver):
     # Test 6.1
     f = lambda x,y: (y - 2*x)*(y+0.5*x)
     g = lambda x,y: x*(x**2+y**2-1)
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solve([f,g],[-1,-1],[1,1], plot=False, solver=solver)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_6.1.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_6.1.csv', delimiter=',')
@@ -545,12 +546,12 @@ def test_roots_6_1():
 
 
 
-def test_roots_6_2():
+def test_roots_6_2(solver):
     # Test 6.2
     f = lambda x,y: (y - 2*x)*(y+.5*x)
     g = lambda x,y: (x-.0001)*(x**2+y**2-1)
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solve([f,g],[-1,-1],[1,1], plot=False, solver=solver)
     t = time() - start
     actual_roots = np.array([[1/10000,-1/20000],[1/10000, 1/5000],[-2/np.sqrt(5),1/np.sqrt(5)],[-1/np.sqrt(5),-2/np.sqrt(5)],[1/np.sqrt(5),2/np.sqrt(5)],[2/np.sqrt(5),-1/np.sqrt(5)]])
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_6.2.csv', delimiter=',')
@@ -558,12 +559,12 @@ def test_roots_6_2():
     return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 6.2, cheb_roots=chebfun_roots, tol=2.220446049250313e-11)
 
 
-def test_roots_6_3():
+def test_roots_6_3(solver):
     # Test 6.3
     f = lambda x,y: 25*x*y - 12
     g = lambda x,y: x**2+y**2-1
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solve([f,g],[-1,-1],[1,1], plot=False, solver=solver)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_6.3.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_6.3.csv', delimiter=',')
@@ -571,12 +572,12 @@ def test_roots_6_3():
     return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 6.3, cheb_roots=chebfun_roots)
 
 
-def test_roots_7_1():
+def test_roots_7_1(solver):
     # Test 7.1
     f = lambda x,y: (x**2+y**2-1)*(x-1.1)
     g = lambda x,y: (25*x*y-12)*(x-1.1)
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solve([f,g],[-1,-1],[1,1], plot=False, solver=solver)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_7.1.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_7.1.csv', delimiter=',')
@@ -584,13 +585,13 @@ def test_roots_7_1():
     return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 7.1, cheb_roots=chebfun_roots)
 
 
-def test_roots_7_2():
+def test_roots_7_2(solver):
     # Test 7.2
     f = lambda x,y: y**4 + (-1)*y**3 + (2*x**2)*(y**2) + (3*x**2)*y + (x**4)
     h = lambda x,y: y**10-2*(x**8)*(y**2)+4*(x**4)*y-2
     g = lambda x,y: h(2*x,2*(y+.5))
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solve([f,g],[-1,-1],[1,1], plot=False, solver=solver)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_7.2.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_7.2.csv', delimiter=',')
@@ -598,14 +599,14 @@ def test_roots_7_2():
     return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 7.2, cheb_roots=chebfun_roots, tol=2.220446049250313e-10)
 
 
-def test_roots_7_3():
+def test_roots_7_3(solver):
     # Test 7.3
     c = 1.e-09
     f = lambda x,y: np.cos(x*y/(c**2))+np.sin(3*x*y/(c**2))
     g = lambda x,y: np.cos(y/c)-np.cos(2*x*y/(c**2))
 
     start = time()
-    yroots = solve([f,g],[-1e-9, -1e-9],[1e-9, 1e-9], plot=False)
+    yroots = solve([f,g],[-1e-9, -1e-9],[1e-9, 1e-9], plot=False, solver=solver)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_7.3.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_7.3.csv', delimiter=',')
@@ -614,36 +615,36 @@ def test_roots_7_3():
 
 
 
-def test_roots_7_4():
+def test_roots_7_4(solver):
     # Test 7.4
     f = lambda x,y: np.sin(3*np.pi*x)*np.cos(x*y)
     g = lambda x,y: np.sin(3*np.pi*y)*np.cos(np.sin(x*y))
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solve([f,g],[-1,-1],[1,1], plot=False, solver=solver)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_7.4.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_7.4.csv', delimiter=',')
 
     return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 7.4, cheb_roots=chebfun_roots)
 
-def test_roots_8_1():
+def test_roots_8_1(solver):
     # Test 8.1
     f = lambda x,y: np.sin(10*x-y/10)
     g = lambda x,y: np.cos(3*x*y)
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solve([f,g],[-1,-1],[1,1], plot=False, solver=solver)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_8.1.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_8.1.csv', delimiter=',')
 
     return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 8.1, cheb_roots=chebfun_roots)
 
-def test_roots_8_2():
+def test_roots_8_2(solver):
     # Test 8.2
     f = lambda x,y: np.sin(10*x-y/10) + y
     g = lambda x,y: np.cos(10*y-x/10) - x
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solve([f,g],[-1,-1],[1,1], plot=False, solver=solver)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_8.2.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_8.2.csv', delimiter=',')
@@ -652,12 +653,12 @@ def test_roots_8_2():
 
 
 
-def test_roots_9_1():
+def test_roots_9_1(solver):
     # Test 9.1
     f = lambda x,y: x**2+y**2-.9**2
     g = lambda x,y: np.sin(x*y)
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solve([f,g],[-1,-1],[1,1], plot=False, solver=solver)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_9.1.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_9.1.csv', delimiter=',')
@@ -665,12 +666,12 @@ def test_roots_9_1():
     return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 9.1, cheb_roots=chebfun_roots)
 
 
-def test_roots_9_2():
+def test_roots_9_2(solver):
     # Test 9.2
     f = lambda x,y: x**2+y**2-.49**2
     g = lambda x,y: (x-.1)*(x*y - .2)
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solve([f,g],[-1,-1],[1,1], plot=False, solver=solver)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_9.2.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_9.2.csv', delimiter=',')
@@ -678,12 +679,12 @@ def test_roots_9_2():
     return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 9.2, cheb_roots=chebfun_roots)
 
 
-def test_roots_10():
+def test_roots_10(solver):
     # Test 10.1
     f = lambda x,y: (x-1)*(np.cos(x*y**2)+2)
     g = lambda x,y: np.sin(8*np.pi*y)*(np.cos(x*y)+2)
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solve([f,g],[-1,-1],[1,1], plot=False, solver=solver)
     t = time() - start
     actual_roots = np.array([[1, -1.0], [1, -0.875], [1, -0.75], [1, -0.625], [1, -0.5], [1, -0.375],
                             [1, -0.25], [1, -0.125], [1, 0.0], [1, 0.125], [1, 0.25], [1, 0.375],
@@ -736,23 +737,27 @@ if __name__ == "__main__":
                         test_roots_9_1,
                         test_roots_9_2,
                         test_roots_10])
-    res_passes = np.zeros_like(tests,dtype=bool)
-    norm_passes = np.zeros_like(tests,dtype=bool)
-    times = np.zeros_like(tests)
-    for i,test in enumerate(tests):
-        t, passes = test()
-        res_pass,norm_pass = passes
-        res_passes[i] = res_pass
-        norm_passes[i] = norm_pass
-        times[i] = t
+    solvers = ['A','B','C','Old']
+    res_passes  = [np.zeros_like(tests,dtype=bool) for solver in solvers]
+    norm_passes = [np.zeros_like(tests,dtype=bool) for solver in solvers]
+    times = [np.zeros_like(tests) for solver in solvers]
+    for testnum,test in enumerate(tests):
+        for solvernum, solver in enumerate(solvers):
+            t, passes = test(solver)
+            res_pass,norm_pass = passes
+            res_passes[solvernum][testnum] = res_pass
+            norm_passes[solvernum][testnum] = norm_pass
+            times[solvernum][testnum] = t
     print('\n\nSummary')
-    print(f'Residual Test: Passed {np.sum(res_passes)} of 27, {100*np.mean(res_passes)}%')
-    where_failed_res = np.where(~res_passes)[0]
-    failed_res_tests = tests[where_failed_res]
-    print(f'Failed Residual Test on \n{[t.__name__ for t in failed_res_tests]}')
-    print(f'Norm Test    : Passed {np.sum(norm_passes)} of 27, {100*np.mean(norm_passes)}%')
-    where_failed_norm = np.where(~norm_passes)[0]
-    failed_norm_tests = tests[where_failed_norm]
-    print(f'Failed Norm Test on \n{[t.__name__ for t in failed_norm_tests]}')
-    plot_timings(tests,times)
+    for solvernum, solver in enumerate(solvers):
+        print('Solver',solver)
+        print(f'Residual Test: Passed {np.sum(res_passes[solvernum])} of 27, {100*np.mean(res_passes[solvernum])}%')
+        where_failed_res = np.where(~res_passes[solvernum])[0]
+        failed_res_tests = tests[where_failed_res]
+        print(f'Failed Residual Test on \n{[t.__name__ for t in failed_res_tests]}')
+        print(f'Norm Test    : Passed {np.sum(norm_passes[solvernum])} of 27, {100*np.mean(norm_passes[solvernum])}%')
+        where_failed_norm = np.where(~norm_passes[solvernum])[0]
+        failed_norm_tests = tests[where_failed_norm]
+        print(f'Failed Norm Test on \n{[t.__name__ for t in failed_norm_tests]}')
+        plot_timings(tests,times[solvernum])
     np.save('chebfuntiming',times)

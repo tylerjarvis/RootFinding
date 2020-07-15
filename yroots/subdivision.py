@@ -30,7 +30,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
           check_eval_error=True, check_eval_freq=1, plot=False,
           plot_intervals=False, deg=None, target_deg=None, max_level=999,
           return_potentials=False, method='svd', target_tol=1.01*macheps,
-          trust_small_evals=False):
+          trust_small_evals=False, solver='Old'):
     """
     Finds the real roots of the given list of functions on a given interval.
 
@@ -152,6 +152,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
     # Set up the interval data and root tracker classes and cheb blocky copy arr
     interval_data = IntervalData(a,b)
     root_tracker = RootTracker()
+    values_arr.cache = {}
     initialize_values_arr(dim,2*(deg+1))
 
     if dim == 1:
@@ -161,7 +162,14 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
         if isinstance(funcs,list):
             funcs = funcs[0]
     else:
-        solve_func = subdivision_solve_ndOld
+        if solver == 'A':
+            solve_func = subdivision_solve_ndA
+        elif solver == 'B':
+            solve_func = subdivision_solve_ndB
+        elif solver == 'C':
+            solve_func = subdivision_solve_ndC
+        else:
+            solve_func = subdivision_solve_ndOld
 
     # Initial Solve
     solve_func(funcs, a, b, deg, target_deg, interval_data, \
@@ -757,7 +765,8 @@ def subdivision_solve_ndA(funcs , a, b, deg, target_deg, interval_data,
     inf_norms = []
     approx_errors = []
     # Get the chebyshev approximations
-    for func, good_deg in zip(funcs, good_degs):
+    num_funcs = len(funcs)
+    for func_num, (func, good_deg) in enumerate(zip(funcs, good_degs)):
         if use_target_tol:
             coeff,inf_norm,approx_error = full_cheb_approximate(func,a,b,deg,tols.target_tol,tols.rel_approx_tol, good_deg)
         else:
@@ -769,8 +778,11 @@ def subdivision_solve_ndA(funcs , a, b, deg, target_deg, interval_data,
             if not trust_small_evals:
                 approx_errors = [max(err,macheps) for err in approx_errors]
             intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,approx_errors)
-            funcs.remove(func)
-            funcs.append(func)
+
+            #reorder funcs. TODO: fancier things like how likely it is to pass checks
+            if func_num + 1 < num_funcs:
+                del funcs[func_num]
+                funcs.append(func)
             for new_a, new_b in intervals:
                 subdivision_solve_ndA(funcs,new_a,new_b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=level+1, method=method, trust_small_evals=trust_small_evals)
             return
@@ -932,11 +944,16 @@ def subdivision_solve_ndB(funcs , a, b, deg, target_deg, interval_data,
     if len(good_cheb_approx_list) < len(cheb_approx_list):
         if not trust_small_evals:
             approx_errors = [max(err,macheps) for err in approx_errors]
+
+        #get/check subintervals
         good_approx_errors  = [err for err,coeff in zip(approx_errors,cheb_approx_list) if coeff is not None]
         intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,good_cheb_approx_list,good_approx_errors)
 
+        #reorder funcs. TODO: fancier things like how likely it is to pass checks. and do that in ALL the places we pass in funcs
         srt = np.argsort(approx_errors)
         funcs = np.array(funcs)[srt]
+
+        #subdivide
         for new_a, new_b in intervals:
             subdivision_solve_ndB(funcs,new_a,new_b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=level+1, method=method, trust_small_evals=trust_small_evals)
         return
@@ -1086,18 +1103,21 @@ def subdivision_solve_ndC(funcs , a, b, deg, target_deg, interval_data,
         cheb_approx_list.append(coeff)
 
     # Subdivides if any are bad approximations
-    good_approx_mask
     good_cheb_approx_list = [coeff for coeff in cheb_approx_list if coeff is not None]
     if len(good_cheb_approx_list) < len(cheb_approx_list):
+        #get/check subintervals
         if not trust_small_evals:
             approx_errors = [max(err,macheps) for err in approx_errors]
         good_approx_errors  = [err for err,coeff in zip(approx_errors,cheb_approx_list) if coeff is not None]
         intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,good_cheb_approx_list,good_approx_errors)
 
+        #reorder funcs. TODO: fancier things like how likely it is to pass checks
         bad_cheb_approx_list = [coeff for coeff in cheb_approx_list if coeff is None]
-        sorting_errors  = [err for err,coeff in zip(approx_errors,cheb_approx_list) if coeff is None else 0]
+        sorting_errors  = [err if coeff is None else 0 for err,coeff in zip(approx_errors,cheb_approx_list)]
         srt = np.argsort(sorting_errors)
         funcs = np.array(funcs)[srt]
+
+        #subdivide
         for new_a, new_b in intervals:
             subdivision_solve_ndC(funcs,new_a,new_b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=level+1, method=method, trust_small_evals=trust_small_evals)
         return
