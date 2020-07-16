@@ -307,9 +307,6 @@ def test_roots_1_1(solver):
         f = lambda x,y: 144*(x**4+y**4)-225*(x**2+y**2) + 350*x**2*y**2+81
         g = lambda x,y: y-x**6
         start = time()
-        yroots = solve([f,g],[-1,-1],[1,1], plot=False, solver=solver)
-        t = time() - start
-        start = time()
         yroots = solve([g,f],[-1,-1],[1,1], plot=False, solver=solver)
         t = time() - start
         actual_roots = np.load('Polished_results/polished_1.1.npy')

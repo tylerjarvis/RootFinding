@@ -781,8 +781,11 @@ def subdivision_solve_ndA(funcs , a, b, deg, target_deg, interval_data,
 
             #reorder funcs. TODO: fancier things like how likely it is to pass checks
             if func_num + 1 < num_funcs:
-                del funcs[func_num]
-                funcs.append(func)
+                if num_funcs == 2:
+                    funcs = funcs[::-1]
+                else:
+                    del funcs[func_num]
+                    funcs.append(func)
             for new_a, new_b in intervals:
                 subdivision_solve_ndA(funcs,new_a,new_b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=level+1, method=method, trust_small_evals=trust_small_evals)
             return
