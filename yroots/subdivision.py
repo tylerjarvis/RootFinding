@@ -113,7 +113,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
     if not isinstance(funcs,list):
         dim = 1
     else:
-        dim = len(funcs)
+        dim = len(a)
 
     # make a and b the right type
     a = np.float64(a)
@@ -780,14 +780,15 @@ def subdivision_solve_ndA(funcs , a, b, deg, target_deg, interval_data,
             intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,approx_errors)
 
             #reorder funcs. TODO: fancier things like how likely it is to pass checks
+            funcs2 = funcs.copy()
             if func_num + 1 < num_funcs:
-                if num_funcs == 2:
-                    funcs = funcs[::-1]
-                else:
-                    del funcs[func_num]
-                    funcs.append(func)
+                # if num_funcs == 2:
+                #     funcs2 = funcs[::-1]
+                # else:
+                    del funcs2[func_num]
+                    funcs2.append(func)
             for new_a, new_b in intervals:
-                subdivision_solve_ndA(funcs,new_a,new_b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=level+1, method=method, trust_small_evals=trust_small_evals)
+                subdivision_solve_ndA(funcs2,new_a,new_b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=level+1, method=method, trust_small_evals=trust_small_evals)
             return
         else:
             # Run checks to try and throw out the interval
