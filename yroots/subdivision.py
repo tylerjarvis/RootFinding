@@ -490,7 +490,6 @@ def interval_approx_slicers(dim,deg):
     slices = tuple([slice(0,deg+1)]*dim)
     return x0_slicer,deg_slicer,slices,deg**dim
 
-
 def get_subintervals(a,b,dimensions,interval_data,polys,approx_error,check_subintervals=False):
     """Gets the subintervals to divide a search interval into.
 
