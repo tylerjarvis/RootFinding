@@ -110,10 +110,13 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
         The common zeros of the polynomials. Each row is a root.
     """
     # Detect the dimension
-    if not isinstance(funcs,list):
+    if isinstance(funcs,list):
+        dim = len(funcs)
+    elif callable(funcs):
         dim = 1
     else:
-        dim = len(funcs)
+        raise ValueError('`funcs` must be a callable or list of callables.')
+
 
     # make a and b the right type
     a = np.float64(a)
@@ -152,7 +155,8 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
     # Set up the interval data and root tracker classes and cheb blocky copy arr
     interval_data = IntervalData(a,b)
     root_tracker = RootTracker()
-    initialize_values_arr(dim,2*(deg+1))
+    values_arr.memo = {}
+    initialize_values_arr(dim,2*(deg+3))
 
     if dim == 1:
         # In one dimension, we don't use target_deg; it's the same as deg
@@ -243,7 +247,7 @@ def initialize_values_arr(dim,deg):
     """
     return np.empty(tuple([2*deg])*dim, dtype=np.float64)
 
-@memoize
+@Memoize
 def values_arr(dim):
     """Helper function for chebyshev_block_copy.
     Finds the array initialized by initialize_values_arr for dimension dim.
@@ -323,7 +327,15 @@ def chebyshev_block_copy(values_block):
     block_slicers,cheb_slicers,slicer = block_copy_slicers(dim,deg)
 
     for cheb_idx,block_idx in zip(cheb_slicers,block_slicers):
-        values_cheb[cheb_idx] = values_block[block_idx]
+        try:
+            values_cheb[cheb_idx] = values_block[block_idx]
+        except ValueError as e:
+            if str(e)[:42] == 'could not broadcast input array from shape':
+                values_arr.memo[(dim,)] = np.empty(tuple([2*deg])*dim, dtype=np.float64)
+                values_cheb = values_arr(dim)
+                values_cheb[cheb_idx] = values_block[block_idx]
+            else:
+                raise ValueError(e)
     return values_cheb[slicer]
 
 def interval_approximate_1d(f,a,b,deg,return_bools=False,return_inf_norm=False):
