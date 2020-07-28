@@ -937,8 +937,8 @@ def quadratic_check_nd(test_coeff, intervals, tol):
             if len(where_nonzero) == 2:
                 #coeff of cross terms
                 i,j = where_nonzero
-                #with symmetric matrices, we only need the upper part
-                A[i,j] = test_coeff[spot].copy()
+                #with symmetric matrices, we only need to store the lower part
+                A[j,i] = test_coeff[spot].copy()
             else:
                 #coeff of pure quadratic terms
                 i = where_nonzero[0]
@@ -994,12 +994,21 @@ def quadratic_check_nd(test_coeff, intervals, tol):
                 #if no sign change, can find extrema
                 else:
                     #not full rank --> no soln
-                    if np.linalg.matrix_rank(A_) == A_.shape[0]:
+                    if np.linalg.matrix_rank(A_,hermitian=True) == A_.shape[0]:
                         fixed_A = A[unfixed][:,fixed]
                         B_ = B[unfixed]
                         for side in itertools.product([0,1],repeat=len(fixed)):
                             X0 = np.array([interval[j][i] for i,j in enumerate(side)])
-                            X_ = la.solve(A_, -B_-fixed_A@X0, assume_a='sym')
+                            # try:
+                            X_ = la.solve(A_, -B_-fixed_A@X0, assume_a='sym',lower=True)
+                            # except np.linalg.LinAlgError as e:
+                            #     if str(e) == 'Matrix is singular.':
+                            #         np.set_printoptions(precision=20)
+                            #         np.save('A_',A_)
+                            #         np.save('B_',-B_-fixed_A@X0)
+                            #         print(A_)
+                            #         print(-B_-fixed_A@X0)
+                            #     raise np.linalg.LinAlgError(e)
                             #make sure it's in the domain
                             for i,var in enumerate(unfixed):
                                 if interval[0][var] <= X_[i] <= interval[1][var]:
@@ -1027,8 +1036,8 @@ def quadratic_check_nd(test_coeff, intervals, tol):
                 #if no sign change, can find extrema
                 else:
                     #not full rank --> no soln
-                    if np.linalg.matrix_rank(A) == A.shape[0]:
-                        X = la.solve(A, -B, assume_a='sym')
+                    if np.linalg.matrix_rank(A,hermitian=True) == A.shape[0]:
+                        X = la.solve(A, -B, assume_a='sym',lower=True)
                         #make sure it's in the domain
                         for i in range(dim):
                             if interval[0][i] <= X[i] <= interval[1][i]:
