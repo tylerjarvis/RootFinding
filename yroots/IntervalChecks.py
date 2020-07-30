@@ -942,6 +942,8 @@ def quadratic_check_nd(test_coeff, intervals, tol):
                 i,j = where_nonzero
                 #with symmetric matrices, we only need to store the lower part
                 A[j,i] = test_coeff[spot].copy()
+                #todo: see if we can store this in only one half of A
+                A[i,j] = test_coeff[spot].copy()
             else:
                 #coeff of pure quadratic terms
                 i = where_nonzero[0]
@@ -1002,7 +1004,7 @@ def quadratic_check_nd(test_coeff, intervals, tol):
                         B_ = B[unfixed]
                         for side in itertools.product([0,1],repeat=len(fixed)):
                             X0 = np.array([interval[j][i] for i,j in enumerate(side)])
-                            X_ = la.solve(A_, -B_-fixed_A@X0, assume_a='sym',lower=True)
+                            X_ = la.solve(A_, -B_-fixed_A@X0, assume_a='sym')
                             #make sure it's in the domain
                             for i,var in enumerate(unfixed):
                                 if interval[0][var] <= X_[i] <= interval[1][var]:
@@ -1031,7 +1033,7 @@ def quadratic_check_nd(test_coeff, intervals, tol):
                 else:
                     #not full rank --> no soln
                     if np.linalg.matrix_rank(A,hermitian=True) == A.shape[0]:
-                        X = la.solve(A, -B, assume_a='sym',lower=True)
+                        X = la.solve(A, -B, assume_a='sym')
                         #make sure it's in the domain
                         for i in range(dim):
                             if interval[0][i] <= X[i] <= interval[1][i]:
