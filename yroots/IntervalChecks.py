@@ -14,9 +14,6 @@ from matplotlib import patches
 from scipy import linalg as la
 from math import fabs                      # faster than np.abs for small arrays
 from yroots.utils import memoize
-import warnings
-
-macheps = 2.220446049250313e-16
 
 class IntervalData:
     '''
