@@ -28,7 +28,7 @@ macheps = 2.220446049250313e-16
 def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
           max_cond_num=1e5, good_zeros_factor=100, min_good_zeros_tol=1e-5,
           check_eval_error=True, check_eval_freq=1, plot=False,
-          plot_intervals=False, deg=None, target_deg=None, max_level=999,
+          plot_intervals=False, deg=None, target_deg=2, max_level=999,
           return_potentials=False, method='svd', target_tol=1.01*macheps,
           trust_small_evals=False):
     """
@@ -129,13 +129,6 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
             deg = 2
         else:
             deg = deg_dim[dim]
-
-    # Choose an appropriate target degree if none is specified
-    if target_deg is None:
-        if dim > 4:
-            target_deg = 2
-        else:
-            target_deg = 3
 
     # Sets up the tolerances.
     if isinstance(abs_approx_tol, list):
@@ -800,13 +793,13 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
     # Used if subdividing further.
     # Only choose good_degs if the approximation after trim_coeffs is good.
     if good_approx:
-        # good_degs are assumed to be 1 higher than the current approx for more
-        # accurate performance.
-        good_degs = [coeff.shape[0] for coeff in coeffs]
+        # good_degs are assumed to be 1 higher than the current approximation
+        # but no larger than the initial degree for more accurate performance.
+        good_degs = [min(coeff.shape[0], deg) for coeff in coeffs]
         good_zeros_tol = max(tols.min_good_zeros_tol, sum(np.abs(approx_errors))*tols.good_zeros_factor)
 
     # Check if the degree is small enough or if trim_coeffs introduced too much error
-    if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > target_deg) or not good_approx:
+    if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > target_deg + 1) or not good_approx:
         intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,approx_errors,True)
         for new_a, new_b in intervals:
             subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
