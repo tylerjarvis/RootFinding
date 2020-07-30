@@ -818,7 +818,7 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
         good_zeros_tol = max(tols.min_good_zeros_tol, sum(np.abs(approx_errors))*tols.good_zeros_factor)
 
     # Check if the degree is small enough or if trim_coeffs introduced too much error
-    if np.any(np.array([coeff.shape[0] - 1 for coeff in coeffs]) > target_deg) or not good_approx:
+    if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > target_deg + 1) or not good_approx:
         intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,approx_errors,True)
         for new_a, new_b in intervals:
             subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
