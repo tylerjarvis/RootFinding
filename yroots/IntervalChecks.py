@@ -14,6 +14,9 @@ from matplotlib import patches
 from scipy import linalg as la
 from math import fabs                      # faster than np.abs for small arrays
 from yroots.utils import memoize
+import warnings
+
+macheps = 2.220446049250313e-16
 
 class IntervalData:
     '''
@@ -999,8 +1002,18 @@ def quadratic_check_nd(test_coeff, intervals, tol):
                         B_ = B[unfixed]
                         for side in itertools.product([0,1],repeat=len(fixed)):
                             X0 = np.array([interval[j][i] for i,j in enumerate(side)])
-                            # try:
+                            # with warnings.catch_warnings(record=True) as w:
+                            #     warnings.filterwarnings("error")
+                            #     try:
                             X_ = la.solve(A_, -B_-fixed_A@X0, assume_a='sym',lower=True)
+                            #     except Warning as e:
+                            #         # print(e)
+                            #         s = np.linalg.svd(A_,compute_uv=False,hermitian=True)
+                            #         # print('\nSing Vals:',s)
+                            #         cond = np.max(s)/np.min(s)
+                            #         # print('Cond:',cond)
+                            #         print('RCond < Macheps?',1/cond<macheps)
+                            #         # print('Matrix:',A_,sep='\n')
                             # except np.linalg.LinAlgError as e:
                             #     if str(e) == 'Matrix is singular.':
                             #         np.set_printoptions(precision=20)
@@ -1037,7 +1050,16 @@ def quadratic_check_nd(test_coeff, intervals, tol):
                 else:
                     #not full rank --> no soln
                     if np.linalg.matrix_rank(A,hermitian=True) == A.shape[0]:
+                        # with warnings.catch_warnings(record=True) as w:
+                        #     try:
                         X = la.solve(A, -B, assume_a='sym',lower=True)
+                        #     except Warning as e:
+                        #         # print(e)
+                        #         s = np.linalg.svd(A,compute_uv=False,hermitian=True)
+                        #         # print('\nSing Vals:',s)
+                        #         cond = np.max(s)/np.min(s)
+                        #         # print('Cond:',cond)
+                        #         print('RCond < Macheps?',1/cond<macheps)
                         #make sure it's in the domain
                         for i in range(dim):
                             if interval[0][i] <= X[i] <= interval[1][i]:
