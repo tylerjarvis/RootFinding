@@ -102,7 +102,7 @@ def growthfactor(polys,dim,newton,dev=False,shifted=None,root=None):
         Array of growth factors. The [i,j] spot is  the growth factor for
         the i'th coordinate of the j'th root.
     """
-    roots,M = solve(polys)
+    roots,M = solve(polys,max_cond_num=np.inf)
     if newton:
         dist_between_roots = la.norm(roots[:,np.newaxis]-roots,axis=2)
         smallest_dist_between_roots = np.min(dist_between_roots[np.nonzero(dist_between_roots)])
@@ -240,6 +240,117 @@ def get_growth_factors(coeffs, newton, save=True):
         np.save(folder+'deg2_res.npy',gfs)
         print('saved all results')
     return gfs
+
+'''functions to generate random systems that almost have double roots.
+
+get_scalar, get_coeff and get_MultiPower can be used to find a hyperellipse/hyperbola
+with pre-chosen roots.
+
+the rest of the functions use specially chosen roots to generate examples.
+'''
+def get_scalar(center,roots):
+    'solves for the scalars in the conic equation. see growth_factors.ipynb for details'
+    dim = roots.shape[1]
+    return la.solve((roots - center)**2,np.ones(dim))
+
+def get_coeff(center,roots):
+    """
+    finds the coefficient tensor of the hyperellipses/hyperbolas with specified center
+    and roots
+    """
+    scalar = get_scalar(center,roots)
+    dim = len(center)
+    coeff = np.zeros([3]*dim)
+    spot = [0]*dim
+    coeff[tuple(spot)] = np.sum(scalar*center**2)-1
+    for var,c,s in zip(range(dim),center,scalar):
+        #linear
+        spot[var] = 1
+        coeff[tuple(spot)] = -2*s*c
+        spot[var] = 2
+        coeff[tuple(spot)] = s
+        spot[var] = 0
+    return coeff
+
+def get_MultiPower(center,roots):
+    """
+    creates a MultiPower object of a hyperellipse/hyperbola with a specified center and roots
+    """
+    return yr.MultiPower(get_coeff(center,roots))
+
+def gen_almost_multiple_roots(dim,seed,delta,verbose=False):
+    """
+    Generates an n-dimensional hyperellipse/hyperbola with random seed 'seed.'
+    The first root is *almost* multiplicity 'dim.' Specifically, the first root is chosen,
+    and then dim-1 perturbations of that root are forced to also be roots. Those perturbations
+    are chosen using a normal distribution in each coordinate with mean 0 and standard deviation delta.
+    """
+    np.random.seed(seed)
+    centers = np.random.randn(dim,dim)
+    if verbose: print('Centers:',centers,sep='\n')
+    root = np.random.randn(dim)
+    if verbose: print('Root:',root,sep='\n')
+    dirs = np.random.randn(dim,dim)*delta
+    dirs[0] = 0
+    if verbose: print('Directions:',dirs,sep='\n')
+    roots = root+dirs
+    if verbose: print('Roots:',roots,sep='\n')
+    return roots,[get_MultiPower(c,roots) for c in centers]
+
+def gen_almost_double_roots(dim,seed,delta,verbose=False):
+    """
+    Generates an n-dimensional hyperellipse/hyperbola with random seed 'seed.'
+    The first root is *almost* a double root. Specifically, the first root is chosen,
+    and then a perturbation of that root is forced to also be a root. The perturbation
+    is chosen using a normal distribution in each coordinate with mean 0 and standard deviation delta.
+    There are also dim-2 other randomly pre-chosen chosen real roots. To see what they are, usee verbose=True.
+    """
+    np.random.seed(seed)
+    centers = np.random.randn(dim,dim)
+    if verbose: print('Centers:',centers,sep='\n')
+    root = np.random.randn(1,dim)
+    if verbose: print('Root:',root,sep='\n')
+    direction = np.random.randn(1,dim)*delta
+    if verbose: print('Perturbation:',direction,sep='\n')
+    root2 = root+direction
+    if verbose: print('Almost Double Root:',root2,sep='\n')
+    if dim > 2:
+        other_roots = np.random.randn(dim-2,dim)
+        if verbose: print('Other Roots:',other_roots,sep='\n')
+        roots = np.vstack((root,root2,other_roots))
+    else:
+        roots = np.vstack((root,root2))
+    if verbose: print('Total Roots:',roots,sep='\n')
+    return roots,[get_MultiPower(c,roots) for c in centers]
+
+def gen_rand_hyperellipses(dim,seed,delta,verbose=False):
+    """
+    Generates an n-dimensional hyperellipse/hyperbola with random seed 'seed.'
+    There are dim randomly pre-chosen real roots. To see what they are, usee verbose=True.
+    """
+    np.random.seed(seed)
+    centers = np.random.randn(dim,dim)
+    if verbose: print('Centers:',centers,sep='\n')
+    roots = np.random.randn(dim,dim)
+    if verbose: print('Roots:',roots,sep='\n')
+    return roots,[get_MultiPower(c,roots) for c in centers]
+
+def get_data(delta,gen_func,seeds = {2:range(300),3:range(300),4:range(300),5:range(300)}):
+    """
+    Computes the growth factor of the first generated root of systems generated with gen_func(dim,seed,delta) for each
+    seed in the seeds dictionary.
+    Seeds is assumed to be a dictionary where the keys are the dimensions you want to test in, and the values
+    are an iterable of random seeds to generate random systems with.
+    """
+    dims = seeds.keys()
+    data = {d:[] for d in dims}
+    for dim in dims:
+        print(dim)
+        for n in seeds[dim]:
+            roots,polys = gen_func(dim=dim,seed=n,delta=delta)
+            data[dim].extend(growthfactor(polys,dim,newton=False,root=roots[0]))
+        data[dim] = np.array(data[dim]).flatten()
+    return data
 
 def plot(datasets,labels=None,filename='growth_factor_plot',digits_lost=False,figsize=(6,4),dpi=400,best_fit=True):
     """
