@@ -28,7 +28,7 @@ quadratic check would throw out the region anyway.
 useful in dimensions 3+ ***
 Originally a subinterval check
 """
-def linear_check(test_coeff, intervals, change_sign, tol):
+def linear_check(test_coeff, intervals, tol):
     """One of subinterval_checks
 
     Checks the max of the linear part of the approximation and compares to the sum of the other terms.
@@ -39,8 +39,6 @@ def linear_check(test_coeff, intervals, change_sign, tol):
         The coefficient matrix of the polynomial to check
     intervals : list
         A list of the intervals to check.
-    change_sign: list
-        A list of bools of whether we know the functions can change sign on the subintervals.
     tol: float
         The bound of the sup norm error of the chebyshev approximation.
 
@@ -68,9 +66,6 @@ def linear_check(test_coeff, intervals, change_sign, tol):
     mask = []
 
     for i, interval in enumerate(intervals):
-        if change_sign[i]:
-            mask.append(True)
-            continue
 
         corner_vals = []
         for ints in product(interval, repeat = dim):
