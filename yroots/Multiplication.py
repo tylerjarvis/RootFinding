@@ -91,7 +91,7 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
         roots,cond_eig = msroots(M)
 
     if return_all_roots:
-        return roots#,M
+        return roots,M
     else:
         # only return roots in the unit complex hyperbox
         return roots[[np.all(np.abs(root) <= 1) for root in roots]],M

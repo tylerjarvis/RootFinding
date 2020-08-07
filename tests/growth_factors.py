@@ -335,7 +335,7 @@ def gen_rand_hyperellipses(dim,seed,delta,verbose=False):
     if verbose: print('Roots:',roots,sep='\n')
     return roots,[get_MultiPower(c,roots) for c in centers]
 
-def get_data(delta,gen_func,seeds = {2:range(300),3:range(300),4:range(300),5:range(300)}):
+def get_data(delta,gen_func,seeds = {2:range(300),3:range(300),4:range(300)}):
     """
     Computes the growth factor of the first generated root of systems generated with gen_func(dim,seed,delta) for each
     seed in the seeds dictionary.
@@ -352,7 +352,7 @@ def get_data(delta,gen_func,seeds = {2:range(300),3:range(300),4:range(300),5:ra
         data[dim] = np.array(data[dim]).flatten()
     return data
 
-def plot(datasets,labels=None,filename='growth_factor_plot',digits_lost=False,figsize=(6,4),dpi=400,best_fit=True):
+def plot(datasets,labels=None,subplots=None,title=None,filename='growth_factor_plot',digits_lost=False,figsize=(6,4),dpi=400,best_fit=True):
     """
     Plots growth factor data.
 
@@ -369,10 +369,9 @@ def plot(datasets,labels=None,filename='growth_factor_plot',digits_lost=False,fi
     dpi : int
         dpi of the image
     """
-    dims = 2+np.arange(np.max([len(data.keys()) for data in datasets]))
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize,dpi=dpi)
-    ax.yaxis.grid(color='gray',alpha=.15,linewidth=1,which='major')
-    def plot_dataset(data,color,label=None):
+    if subplots is None: fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize,dpi=dpi)
+    else: fig, ax = plt.subplots(nrows=subplots[0], ncols=subplots[1], figsize=figsize,dpi=dpi,sharey=True,sharex=True)
+    def plot_dataset(ax,data,color,label=None):
         pos = 2+np.arange(len(data))
         #log before plot
         data_log10 = [np.log10(data[d].flatten()) for d in data.keys()]
@@ -407,29 +406,61 @@ def plot(datasets,labels=None,filename='growth_factor_plot',digits_lost=False,fi
                 print(label)
             print('Slope:',slope, '\nIntercept:',intercept,end='\n\n')
             ax.plot(pos,pos*slope+intercept,c=color)
-    if labels is None:
-        for i,dataset in enumerate(datasets):
-            plot_dataset(dataset,f'C{i}')
+    if subplots is None:
+        dims = 2+np.arange(np.max([len(data.keys()) for data in datasets]))
+        ax.yaxis.grid(color='gray',alpha=.15,linewidth=1,which='major')
+        if labels is None:
+            for i,dataset in enumerate(datasets):
+                plot_dataset(ax,dataset,f'C{i}')
+        else:
+            for i,dataset in enumerate(datasets):
+                plot_dataset(ax,dataset,f'C{i}',labels[i])
+        max_y_lim = max(dims)+1
+        ax.set_title('Growth Factors of Quadratic Polynomial Systems')
+        if digits_lost:
+            ax.set_ylim(-1,max_y_lim)
+            ax.set_ylabel('Digits Lost')
+        else:
+            ax.set_ylabel('Growth Factor')
+            ax.yaxis.set_major_formatter(mticker.StrMethodFormatter("$10^{{{x:.0f}}}$"))
+            ax.yaxis.set_ticks([np.log10(x) for p in range(-1,max_y_lim)
+                                   for x in np.linspace(10**p, 10**(p+1), 10)], minor=True)
+        ax.set_xlabel('Dimension')
+        legend_elements = [Patch(facecolor=f'C{i}') for i in range(len(datasets))]
+        ax.legend(legend_elements,labels)
+        if title is None:
+            ax.set_title('Growth Factors of Quadratic Polynomial Systems')
+        else:
+            ax.set_title(title)
     else:
-        for i,dataset in enumerate(datasets):
-            plot_dataset(dataset,f'C{i}',labels[i])
-    # ax.plot(dims,dims-1,c='C1',label=r'Theoretical Devestating Example, $\epsilon=.1$')
-    # ax.plot(dims,2*(dims-1),c='C2',label=r'Theoretical Devestating Example, $\epsilon=.01$')
-    # ax.plot(dims,3*(dims-1),c='C3',label=r'Theoretical Devestating Example, $\epsilon=.001$')
-    max_y_lim = max(dims)+1
-    ax.set_title('Growth Factors of Quadratic Polynomial Systems')
-    if digits_lost:
-        ax.set_ylim(-1,max_y_lim)
-        ax.set_ylabel('Digits Lost')
-    else:
-        ax.set_ylabel('Growth Factor')
-        ax.yaxis.set_major_formatter(mticker.StrMethodFormatter("$10^{{{x:.0f}}}$"))
-        ax.yaxis.set_ticks([np.log10(x) for p in range(-1,max_y_lim)
-                               for x in np.linspace(10**p, 10**(p+1), 10)], minor=True)
-    ax.set_xlabel('Dimension')
-    legend_elements = [Patch(facecolor=f'C{i}') for i in range(len(datasets))]
-    ax.legend(legend_elements,labels)
-    ax.set_title('Growth Factors of Quadratic Polynomial Systems')
+        for ax_,datasets_axis,title_axis,labels_axis in zip(ax,datasets,title,labels):
+            ax_.yaxis.grid(color='gray',alpha=.15,linewidth=1,which='major')
+            if labels is None:
+                for i,dataset in enumerate(datasets_axis):
+                    plot_dataset(ax_,dataset,f'C{i}')
+            else:
+                for i,dataset in enumerate(datasets_axis):
+                    plot_dataset(ax_,dataset,f'C{i}',labels_axis[i])
+            ax_.set_title('Growth Factors of Quadratic Polynomial Systems')
+            ax_.set_xlabel('Dimension')
+            legend_elements = [Patch(facecolor=f'C{i}') for i in range(len(datasets_axis))]
+            ax_.legend(legend_elements,labels_axis)
+            if title is None:
+                ax_.set_title('Growth Factors of Quadratic Polynomial Systems')
+            else:
+                ax_.set_title(title_axis)
+        if title is not None: plt.suptitle(title[-1])
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+        dims = 2+np.arange(np.max([len(data.keys()) for data in datasets[0]]))
+        max_y_lim = 9
+        if digits_lost:
+            ax[0].set_ylim(-1,max_y_lim)
+            ax[0].set_ylabel('Digits Lost')
+        else:
+            ax[0].set_ylabel('Growth Factor')
+            ax[0].yaxis.set_major_formatter(mticker.StrMethodFormatter("$10^{{{x:.0f}}}$"))
+            ax[0].yaxis.set_ticks([np.log10(x) for p in range(-1,max_y_lim)
+                                   for x in np.linspace(10**p, 10**(p+1), 10)], minor=True)
     plt.savefig(fname=filename+'.pdf',bbox_inches='tight',dpi=dpi,format='pdf')
     plt.show()
 
