@@ -28,7 +28,7 @@ macheps = 2.220446049250313e-16
 def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
           max_cond_num=1e5, good_zeros_factor=100, min_good_zeros_tol=1e-5,
           check_eval_error=True, check_eval_freq=1, plot=False,
-          plot_intervals=False, deg=None, target_deg=None, max_level=999,
+          plot_intervals=False, deg=None, target_deg=2, max_level=999,
           return_potentials=False, method='svd', target_tol=1.01*macheps,
           trust_small_evals=False):
     """
@@ -110,10 +110,13 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
         The common zeros of the polynomials. Each row is a root.
     """
     # Detect the dimension
-    if not isinstance(funcs,list):
+    if isinstance(funcs,list):
+        dim = len(funcs)
+    elif callable(funcs):
         dim = 1
     else:
-        dim = len(funcs)
+        raise ValueError('`funcs` must be a callable or list of callables.')
+
 
     # make a and b the right type
     a = np.float64(a)
@@ -126,13 +129,6 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
             deg = 2
         else:
             deg = deg_dim[dim]
-
-    # Choose an appropriate target degree if none is specified
-    if target_deg is None:
-        if dim > 4:
-            target_deg = 2
-        else:
-            target_deg = 3
 
     # Sets up the tolerances.
     if isinstance(abs_approx_tol, list):
@@ -152,7 +148,8 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
     # Set up the interval data and root tracker classes and cheb blocky copy arr
     interval_data = IntervalData(a,b)
     root_tracker = RootTracker()
-    initialize_values_arr(dim,2*(deg+1))
+    values_arr.memo = {}
+    initialize_values_arr(dim,2*(deg+3))
 
     if dim == 1:
         # In one dimension, we don't use target_deg; it's the same as deg
@@ -243,7 +240,7 @@ def initialize_values_arr(dim,deg):
     """
     return np.empty(tuple([2*deg])*dim, dtype=np.float64)
 
-@memoize
+@Memoize
 def values_arr(dim):
     """Helper function for chebyshev_block_copy.
     Finds the array initialized by initialize_values_arr for dimension dim.
@@ -323,7 +320,15 @@ def chebyshev_block_copy(values_block):
     block_slicers,cheb_slicers,slicer = block_copy_slicers(dim,deg)
 
     for cheb_idx,block_idx in zip(cheb_slicers,block_slicers):
-        values_cheb[cheb_idx] = values_block[block_idx]
+        try:
+            values_cheb[cheb_idx] = values_block[block_idx]
+        except ValueError as e:
+            if str(e)[:42] == 'could not broadcast input array from shape':
+                values_arr.memo[(dim,)] = np.empty(tuple([2*deg])*dim, dtype=np.float64)
+                values_cheb = values_arr(dim)
+                values_cheb[cheb_idx] = values_block[block_idx]
+            else:
+                raise ValueError(e)
     return values_cheb[slicer]
 
 def interval_approximate_1d(f,a,b,deg,return_bools=False,return_inf_norm=False):
@@ -442,8 +447,6 @@ def interval_approximate_nd(f,a,b,deg,return_inf_norm=False):
         coeffs[x0sl] /= 2
         coeffs[degsl] /= 2
 
-
-    slices = [slice(0,deg+1)]*dim
     if return_inf_norm:
         return coeffs[tuple(slices)], inf_norm
     else:
@@ -479,35 +482,6 @@ def interval_approx_slicers(dim,deg):
                                                         for d in range(dim)]
     slices = tuple([slice(0,deg+1)]*dim)
     return x0_slicer,deg_slicer,slices,deg**dim
-
-def changes_sign(deg, dim, values_block):
-    """Finds on what intervals the function evaluations change sign (if at all).
-
-    Parameters
-    ----------
-    deg : int
-        The approximation degree used for Chebyshev interpolation.
-    dim : int
-        The dimension of the system.
-    values_block : ndarray
-        Function evaluations on the Chebyshev point grid of the Chebyshev
-        interpolationm.
-
-    Returns
-    -------
-    change_sign : list of bools
-        Whether or not the function changed signs on the interval. The slices
-        are set up such that change_sign[i] corresponds with intervals[i] in
-        the subinterval checks.
-    """
-    change_sign = [False]*(2**dim)
-
-    # The slices are arranged this way to match up with the array of
-    # intervals in the subinterval checks.
-    slice1 = slice(0, deg//2, 1)
-    slice2 = slice(deg//2, deg + 1, 1)
-
-    is_positive = values_block > 0
 
 def get_subintervals(a,b,dimensions,interval_data,polys,approx_error,check_subintervals=False):
     """Gets the subintervals to divide a search interval into.
@@ -819,13 +793,13 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
     # Used if subdividing further.
     # Only choose good_degs if the approximation after trim_coeffs is good.
     if good_approx:
-        # good_degs are assumed to be 1 higher than the current approx for more
-        # accurate performance.
-        good_degs = [coeff.shape[0] for coeff in coeffs]
+        # good_degs are assumed to be 1 higher than the current approximation
+        # but no larger than the initial degree for more accurate performance.
+        good_degs = [min(coeff.shape[0], deg) for coeff in coeffs]
         good_zeros_tol = max(tols.min_good_zeros_tol, sum(np.abs(approx_errors))*tols.good_zeros_factor)
 
     # Check if the degree is small enough or if trim_coeffs introduced too much error
-    if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > target_deg) or not good_approx:
+    if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > target_deg + 1) or not good_approx:
         intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,approx_errors,True)
         for new_a, new_b in intervals:
             subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
