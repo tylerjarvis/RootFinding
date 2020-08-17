@@ -143,11 +143,11 @@ class Polynomial(object):
         '''
         if isinstance(coeff,np.ndarray):
             self.coeff = coeff
-            # If coeff has integer coefficients, 
+            # If coeff has integer coefficients,
             # cast as numpy floats for jit compilation
             if coeff.dtype == np.int32 or coeff.dtype == np.int64:
                 coeff = coeff.astype(np.float64)
-        
+
         elif isinstance(coeff,str):
             self.coeff = makePolyCoeffMatrix(coeff)
         elif isinstance(coeff, tuple):
@@ -473,7 +473,7 @@ class MultiCheb(Polynomial):
             idx = [i-j for i,j in zip(p1.shape,initial_matrix.shape)]
 
             result = np.zeros(np.array(initial_matrix.shape) + idx)
-            result[slice_top(initial_matrix)] = initial_matrix
+            result[slice_top(initial_matrix.shape)] = initial_matrix
             initial_matrix = result
         Pf = p1 + initial_matrix
         return .5*Pf

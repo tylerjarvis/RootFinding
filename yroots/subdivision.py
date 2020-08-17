@@ -568,7 +568,7 @@ def full_cheb_approximate(f,a,b,deg,abs_approx_tol,rel_approx_tol,good_deg=None)
     # Try degree deg and see if it's good enough
     coeff = interval_approximate_nd(f,a,b,good_deg)
     coeff2,inf_norm = interval_approximate_nd(f,a,b,good_deg*2,return_inf_norm=True)
-    coeff2[slice_top(coeff)] -= coeff
+    coeff2[slice_top(coeff.shape)] -= coeff
 
     error = np.sum(np.abs(coeff2))
     if error > abs_approx_tol+rel_approx_tol*inf_norm:
@@ -1071,7 +1071,7 @@ def subdivision_solve_1d(f, a, b, deg, target_deg, interval_data, root_tracker,
     coeff = interval_approximate_1d(f,a,b,deg)
     coeff2, sign_change, inf_norm = interval_approximate_1d(f,a,b,deg*2,return_bools=True,return_inf_norm=True)
 
-    coeff2[slice_top(coeff)] -= coeff
+    coeff2[slice_top(coeff.shape)] -= coeff
 
     # Calculate the approximate error between the deg and 2*deg approximations
     error = np.sum(np.abs(coeff2))

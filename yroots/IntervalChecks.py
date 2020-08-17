@@ -319,7 +319,7 @@ def constant_term_check(test_coeff, tol):
         False if the function is guarenteed to never be zero in the unit box, True otherwise
     """
     test_sum = np.sum(np.abs(test_coeff))
-    if np.abs(test_coeff[tuple([0]*test_coeff.ndim)]) * 2 > test_sum + tol:
+    if fabs(test_coeff[tuple([0]*test_coeff.ndim)]) * 2 > test_sum + tol:
         return False
     else:
         return True

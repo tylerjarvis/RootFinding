@@ -573,7 +573,7 @@ def create_matrix(poly_coeffs, degree, dim):#, varsToRemove):
     added_zeros = np.zeros(bigShape)
     flat_polys = list()
     for coeff in poly_coeffs:
-        slices = slice_top(coeff)
+        slices = slice_top(coeff.shape)
         added_zeros[slices] = coeff
         flat_polys.append(added_zeros[tuple(matrix_term_indexes)])
         added_zeros[slices] = np.zeros_like(coeff)
