@@ -939,6 +939,7 @@ def quadratic_check_nd(test_coeff, intervals, tol):
                 i,j = where_nonzero
                 #with symmetric matrices, we only need to store the lower part
                 A[j,i] = test_coeff[spot].copy()
+                A[i,j] = A[j,i]
                 #todo: see if we can store this in only one half of A
                 A[i,j] = test_coeff[spot].copy()
             else:
