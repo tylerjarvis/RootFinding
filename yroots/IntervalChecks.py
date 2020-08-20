@@ -941,7 +941,7 @@ def quadratic_check_nd(test_coeff, intervals, tol):
                 A[j,i] = test_coeff[spot].copy()
                 A[i,j] = A[j,i]
                 #todo: see if we can store this in only one half of A
-                A[i,j] = test_coeff[spot].copy()
+               
             else:
                 #coeff of pure quadratic terms
                 i = where_nonzero[0]
