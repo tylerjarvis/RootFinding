@@ -8,11 +8,11 @@ the approximation degree is small enough to be solved efficiently.
 
 import numpy as np
 from scipy.fftpack import fftn
-from yroots.OneDimension import divCheb,divPower,multCheb,multPower,solve
+from yroots.OneDimension import divCheb, divPower, multCheb, multPower
 from yroots.Multiplication import multiplication
 from yroots.utils import clean_zeros_from_matrix, slice_top, MacaulayError, \
-                        get_var_list, ConditioningError, TooManyRoots, Tolerances, \
-                        solve_linear, memoize, Memoize
+                         get_var_list, ConditioningError, TooManyRoots, \
+                         Tolerances, solve_linear, memoize, Memoize
 from yroots.polynomial import MultiCheb
 from yroots.IntervalChecks import IntervalData
 from yroots.RootTracker import RootTracker
@@ -22,13 +22,14 @@ from scipy.linalg import lu
 import time
 import warnings
 from numba import jit
+from math import log2, ceil
 
 macheps = 2.220446049250313e-16
 
 def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
           max_cond_num=1e5, good_zeros_factor=100, min_good_zeros_tol=1e-5,
           check_eval_error=True, check_eval_freq=1, plot=False,
-          plot_intervals=False, deg=None, target_deg=2, max_level=999,
+          plot_intervals=False, deg=None, target_deg=2,
           return_potentials=False, method='svd', target_tol=1.01*macheps,
           trust_small_evals=False):
     """
@@ -86,8 +87,6 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
         The degree the approximation needs to be trimmed down to before the
         Macaulay solver is called. If unspecified, it will either be 5 (for 2D
         functions) or match the deg argument.
-    max_level : int
-        The maximum levels deep the recursion will go. Increasing it above 999 may result in recursion error!
     return_potentials : bool
         If True, returns the potential roots. Else, it does not.
     method : str (optional)
@@ -157,13 +156,23 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
         solve_func = subdivision_solve_1d
         if isinstance(funcs,list):
             funcs = funcs[0]
+
+        # Set the maximum number of subdivisions so that intervals cannot
+        # possibly be smaller than 2^--50
+        max_level = min(49, 49 + ceil(log2(b - a)))
     else:
         solve_func = subdivision_solve_nd
 
+        # Set the maximum number of subdivisions so that intervals cannot
+        # possibly be smaller than 2^--50
+        max_level = min(49, 49 + ceil(log2(min(b - a))))
+
+    
+
     # Initial Solve
-    solve_func(funcs, a, b, deg, target_deg, interval_data, \
-              root_tracker, tols, max_level, method=method,
-              trust_small_evals=trust_small_evals)
+    solve_func(funcs, a, b, deg, target_deg, interval_data,
+               root_tracker, tols, max_level, method=method,
+               trust_small_evals=trust_small_evals)
     root_tracker.keep_possible_duplicates()
 
     # Polishing
@@ -625,8 +634,8 @@ def get_abs_approx_tol(func, deg, a, b, dim):
                 The calculated absolute approximation tolerance based on the
                 noise of the function on the small interval.
     """
-    # Half the width of the smaller interval -- about 100*machine_epsilon
-    linearization_size = 2.220446049250313e-14
+    # Half the width of the smaller interval, so each interval is 1e-15
+    linearization_size = 5e-14
 
     # Get a random small interval from [-1,1] and transform so it's
     # within [a,b]
