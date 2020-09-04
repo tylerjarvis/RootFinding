@@ -158,14 +158,14 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
             funcs = funcs[0]
 
         # Set the maximum number of subdivisions so that intervals cannot
-        # possibly be smaller than 2^--50
-        max_level = min(49, 49 + ceil(log2(b - a)))
+        # possibly be smaller than 2^-50
+        max_level = min(50, 50 + ceil(log2(b - a)))
     else:
         solve_func = subdivision_solve_nd
 
         # Set the maximum number of subdivisions so that intervals cannot
         # possibly be smaller than 2^--50
-        max_level = min(49, 49 + ceil(log2(min(b - a))))
+        max_level = min(50, 50 + ceil(log2(min(b - a))))
 
     
 
@@ -585,6 +585,34 @@ def full_cheb_approximate(f,a,b,deg,abs_approx_tol,rel_approx_tol,good_deg=None)
     else:
         return coeff, inf_norm, error
 
+
+def zeros_in_interval(zeros, a, b, dim, within_interval_tol=1e-12):
+    """Returns the zeros that are only in the interval [a,b].
+
+    Parameters
+    ----------
+        zeros : numpy array
+            The zeros found using the solver.
+        a : numpy array
+            The lower bounds of the interval for each variable.
+        b : numpy array
+            The upper bounds of the interval for each variable.
+        dim : int
+            The dimension of the system.
+    
+    Returns
+    -------
+        zeros : numpy array
+            The zeros that are in the interval [a,b]
+    """
+    # Check along each axis to ensure roots are within the boundaries
+    for i in range(dim):
+        zeros = zeros[zeros[:, i] - a[i] >= -within_interval_tol]
+        zeros = zeros[zeros[:, i] - b[i] <= within_interval_tol]
+    
+    return zeros
+
+
 def good_zeros_nd(zeros, imag_tol, real_tol):
     """Get the real zeros in the -1 to 1 interval in each dimension.
 
@@ -636,6 +664,7 @@ def get_abs_approx_tol(func, deg, a, b, dim):
     """
     # Half the width of the smaller interval, so each interval is 1e-15
     linearization_size = 5e-14
+
 
     # Get a random small interval from [-1,1] and transform so it's
     # within [a,b]
@@ -739,12 +768,19 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
         is necessary to get a sufficiently accurate approximation from which to
         build the Macaulay matrix and run the solver.
     """
+
     if level >= max_level:
         # TODO Refine case where there may be a root and it goes too deep.
         interval_data.track_interval("Too Deep", [a, b])
         # Return potential roots if the residuals are small
         root_tracker.add_potential_roots((a + b)/2, a, b, "Too Deep.")
         return
+
+    interval_buffer_size = (b - a)*1e-8 + 1e-11
+    og_a = np.copy(a)
+    og_b = np.copy(b)
+    a -= interval_buffer_size
+    b += interval_buffer_size
 
     dim = len(a)
 
@@ -782,7 +818,7 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
         if coeff is None:
             if not trust_small_evals:
                 approx_errors = [max(err,macheps) for err in approx_errors]
-            intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,approx_errors)
+            intervals = get_subintervals(og_a, og_b,get_div_dirs(dim),interval_data,cheb_approx_list,approx_errors)
             for new_a, new_b in intervals:
                 subdivision_solve_nd(funcs,new_a,new_b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=level+1, method=method, trust_small_evals=trust_small_evals)
             return
@@ -790,7 +826,11 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
             # Run checks to try and throw out the interval
             if not trust_small_evals:
                 approx_error = max(approx_error,macheps)
-            if interval_data.check_interval(coeff, approx_error, a, b):
+            # TODO : Should this pass in a and b or og_a and og_b?
+            # The argument for the og's is that it makes the percent
+            # finished more accurate and true, but that means that we're
+            # not running the checks on the interpolation interval.
+            if interval_data.check_interval(coeff, approx_error, og_a, og_b):
                 return
 
             cheb_approx_list.append(coeff)
@@ -809,13 +849,13 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
 
     # Check if the degree is small enough or if trim_coeffs introduced too much error
     if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > target_deg + 1) or not good_approx:
-        intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,approx_errors,True)
+        intervals = get_subintervals(og_a, og_b,get_div_dirs(dim),interval_data,cheb_approx_list,approx_errors,True)
         for new_a, new_b in intervals:
             subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
 
     # Check if any approx error is greater than target_tol for Macaulay method
     elif np.any(np.array(approx_errors) > np.array(tols.target_tol) + tols.rel_approx_tol*np.array(inf_norms)):
-        intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,approx_errors,True)
+        intervals = get_subintervals(og_a, og_b,get_div_dirs(dim),interval_data,cheb_approx_list,approx_errors,True)
         for new_a, new_b in intervals:
             subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
 
@@ -828,6 +868,7 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
         # Store the information and exit
         zero = good_zeros_nd(zero,good_zeros_tol,good_zeros_tol)
         zero = transform(zero,a,b)
+        zero = zeros_in_interval(zero, og_a, og_b, dim)
         interval_data.track_interval("Base Case", [a,b])
         root_tracker.add_roots(zero, a, b, "Base Case")
 
@@ -838,13 +879,14 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
         #check for a conditioning error
         if res[0] is None:
             # Subdivide but run some checks on the intervals first
-            intervals = get_subintervals(a,b,get_div_dirs(dim),interval_data,cheb_approx_list,approx_errors,True)
+            intervals = get_subintervals(og_a, og_b, get_div_dirs(dim),interval_data,cheb_approx_list,approx_errors,True)
             for new_a, new_b in intervals:
                 subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
         else:
             zeros = res
             zeros = good_zeros_nd(zeros,good_zeros_tol,good_zeros_tol)
             zeros = transform(zeros,a,b)
+            zeros = zeros_in_interval(zeros, og_a, og_b, dim)
             interval_data.track_interval("Macaulay", [a,b])
             root_tracker.add_roots(zeros, a, b, "Macaulay")
 
