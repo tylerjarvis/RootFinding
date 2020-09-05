@@ -79,7 +79,7 @@ class IntervalData:
     '''
     def __init__(self,a,b):
         self.interval_checks = [constant_term_check]
-        self.subinterval_checks = [quadratic_check]
+        self.subinterval_checks = [self.quadratic_check]
         self.a = a
         self.b = b
         self.interval_results = dict()
@@ -107,22 +107,16 @@ class IntervalData:
         self.backcond = 0
         
         #Variables to store for Subintervals
+        dim = len(a)
         self.RAND = 0.5139303900908738
-        self.mask = np.zeros([2]*len(a))
-        self.subintervals = []
-        minus_ones = -np.ones_like(a)
-        ones = np.ones_like(a)
-        diffs1 = ((ones-minus_ones)*self.RAND)
-        diffs2 = ((ones-minus_ones)-(ones-minus_ones)*self.RAND)
+        self.mask = np.zeros([2]*dim, dtype = bool)
+        middleVal = 2*self.RAND - 1
+        self.subintervals = np.zeros([2]*dim + [2, dim])
+        for spot in product([0,1], repeat=dim):
+            for i,val in enumerate(spot):
+                self.subintervals[spot][0][i] = -1 if val == 0 else middleVal
+                self.subintervals[spot][1][i] = middleVal if val == 0 else 1
 
-        for subset in product([False,True], repeat=len(a)):
-            subset = np.array(subset)
-            aTemp = minus_ones.copy()
-            bTemp = ones.copy()
-            aTemp += (~subset)*diffs1
-            bTemp -= subset*diffs2
-            self.subintervals.append((aTemp,bTemp))
-            
         #Variables to store for quadratic checks
         self.RAND_POWERS = [self.RAND**i for i in range(len(a) + 1)]
 
@@ -148,7 +142,7 @@ class IntervalData:
         self.total_area = np.prod(self.polish_b-self.polish_a)
         self.current_area = 0.
 
-    def get_subintervals(self, a, b, dimensions, polys, approx_error):
+    def get_subintervals(self, a, b, dimensions, polys, errors):
         """Gets the subintervals to divide a search interval into.
 
         Parameters
@@ -162,7 +156,7 @@ class IntervalData:
         polys : list
             A list of MultiCheb polynomials representing the function approximations on the
             interval to subdivide. Used in the subinterval checks.
-        approx_error: list of floats
+        errors: list of floats
             The bound of the sup norm error of the chebyshev approximation.
 
         Returns
@@ -171,7 +165,7 @@ class IntervalData:
             Each element of the list is a tuple containing an a and b, the lower and upper bounds of the interval.
         """
         #Default to keeping everything
-        self.mask = True
+        self.mask.fill(True)
         
         #Run checks to set mask to False
         for check in self.subinterval_checks:
@@ -183,8 +177,8 @@ class IntervalData:
         
         #Create the new intervals based on the ones we are keeping
         temp1 = b - a
-        temp2 = b + a
-        newIntervals = self.subintervals[self.mask]
+        temp2 = b + a        
+        newIntervals = self.subintervals[self.mask]        
         newIntervals[:,:1,:] = (newIntervals[:,:1,:] * temp1 + temp2) / 2
         newIntervals[:,1:,:] = (newIntervals[:,1:,:] * temp1 + temp2) / 2
                 
@@ -330,6 +324,188 @@ class IntervalData:
             plt.savefig('intervals.pdf', bbox_inches='tight')
         plt.show()
 
+    def quadratic_check(self, test_coeff, tol):
+        """One of subinterval_checks
+
+        Finds the min of the absolute value of the quadratic part, and compares to the sum of the
+        rest of the terms. quadratic_check_2D and quadratic_check_3D are faster so runs those if it can,
+        otherwise it runs the genereic n-dimensional version.
+
+        Parameters
+        ----------
+        test_coeff_in : numpy array
+            The coefficient matrix of the polynomial to check
+        intervals : list
+            A list of the intervals to check.
+        tol: float
+            The bound of the sup norm error of the chebyshev approximation.
+
+        Returns
+        -------
+        mask : list
+            A list of the results of each interval. False if the function is guarenteed to never be zero
+            in the unit box, True otherwise
+        """
+        if test_coeff.ndim == 2:
+            return self.quadratic_check_2D(test_coeff, tol)
+        elif test_coeff.ndim == 3:
+            return self.quadratic_check_3D(test_coeff, tol)
+        else:
+            return self.quadratic_check_nd(test_coeff, tol)
+
+    def quadratic_check_2D(self, test_coeff, tol):
+        """One of subinterval_checks
+
+        Finds the min of the absolute value of the quadratic part, and compares to the sum of the
+        rest of the terms. There can't be a root if min(extreme_values) > other_sum	or if
+        max(extreme_values) < -other_sum. We can short circuit and finish
+        faster as soon as we find one value that is < other_sum and one value that > -other_sum.
+
+        Parameters
+        ----------
+        test_coeff_in : numpy array
+            The coefficient matrix of the polynomial to check
+        intervals : list
+            A list of the intervals to check.
+        tol: float
+            The bound of the sup norm error of the chebyshev approximation.
+
+        Returns
+        -------
+        mask : list
+            A list of the results of each interval. False if the function is guarenteed to never be zero
+            in the unit box, True otherwise
+        """
+        if test_coeff.ndim != 2:
+            return
+
+        #Get the coefficients of the quadratic part
+        #Need to account for when certain coefs are zero.
+        #Padding is slow, so check the shape instead.
+        c = [0]*6
+        shape = test_coeff.shape
+        c[0] = test_coeff[0,0]
+        if shape[0] > 1:
+            c[1] = test_coeff[1,0]
+        if shape[1] > 1:
+            c[2] = test_coeff[0,1]
+        if shape[0] > 2:
+            c[3] = test_coeff[2,0]
+        if shape[0] > 1 and shape[1] > 1:
+            c[4] = test_coeff[1,1]
+        if shape[1] > 2:
+            c[5] = test_coeff[0,2]
+
+        # The sum of the absolute values of the other coefs
+        # Note: Overhead for instantiating a NumPy array is too costly for
+        #  small arrays, so the second sum here is faster than using numpy
+        other_sum = np.sum(np.abs(test_coeff)) - sum([fabs(coeff) for coeff in c]) + tol
+
+
+        # Function for evaluating c0 + c1 T_1(x) + c2 T_1(y) +c3 T_2(x) + c4 T_1(x)T_1(y) + c5 T_2(y)
+        # Use the Horner form because it is much faster, also do any repeated computatons in advance
+        k0 = c[0]-c[3]-c[5]
+        k3 = 2*c[3]
+        k5 = 2*c[5]
+        def eval_func(x,y):
+            return k0 + (c[1] + k3 * x + c[4] * y) * x  + (c[2] + k5 * y) * y
+
+        #The interior min
+        #Comes from solving dx, dy = 0
+        #Dx: 4c3x +  c4y = -c1    Matrix inverse is  [4c5  -c4]
+        #Dy:  c4x + 4c5y = -c2                       [-c4  4c3]
+        # This computation is the same for all subintevals, so do it first
+        det = 16 * c[3] * c[5] - c[4]**2
+        if det != 0:
+            int_x = (c[2] * c[4] - 4 * c[1] * c[5]) / det
+            int_y = (c[1] * c[4] - 4 * c[2] * c[3]) / det
+        else:                      # det is zero,
+            int_x = np.inf
+            int_y = np.inf
+
+        for i, interval in enumerate(self.subintervals.reshape(4,2,2)):
+            min_satisfied, max_satisfied = False,False
+            #Check all the corners
+            eval = eval_func(interval[0][0], interval[0][1])
+            min_satisfied = min_satisfied or eval < other_sum
+            max_satisfied = max_satisfied or eval > -other_sum
+            if min_satisfied and max_satisfied:
+                continue
+
+            eval = eval_func(interval[1][0], interval[0][1])
+            min_satisfied = min_satisfied or eval < other_sum
+            max_satisfied = max_satisfied or eval > -other_sum
+            if min_satisfied and max_satisfied:
+                continue
+
+            eval = eval_func(interval[0][0], interval[1][1])
+            min_satisfied = min_satisfied or eval < other_sum
+            max_satisfied = max_satisfied or eval > -other_sum
+            if min_satisfied and max_satisfied:
+                continue
+
+            eval = eval_func(interval[1][0], interval[1][1])
+            min_satisfied = min_satisfied or eval < other_sum
+            max_satisfied = max_satisfied or eval > -other_sum
+            if min_satisfied and max_satisfied:
+                continue
+
+            #Check the x constant boundaries
+            #The partial with respect to y is zero
+            #Dy:  c4x + 4c5y = -c2 =>   y = (-c2-c4x)/(4c5)
+            if c[5] != 0:
+                cc5 = 4 * c[5]
+                x = interval[0][0]
+                y = -(c[2] + c[4]*x)/cc5
+                if interval[0][1] < y < interval[1][1]:
+                    eval = eval_func(x,y)
+                    min_satisfied = min_satisfied or eval < other_sum
+                    max_satisfied = max_satisfied or eval > -other_sum
+                    if min_satisfied and max_satisfied:
+                        continue
+                x = interval[1][0]
+                y = -(c[2] + c[4]*x)/cc5
+                if interval[0][1] < y < interval[1][1]:
+                    eval = eval_func(x,y)
+                    min_satisfied = min_satisfied or eval < other_sum
+                    max_satisfied = max_satisfied or eval > -other_sum
+                    if min_satisfied and max_satisfied:
+                        continue
+
+            #Check the y constant boundaries
+            #The partial with respect to x is zero
+            #Dx: 4c3x +  c4y = -c1  =>  x = (-c1-c4y)/(4c3)
+            if c[3] != 0:
+                cc3 = 4*c[3]
+                y = interval[0][1]
+                x = -(c[1] + c[4]*y)/cc3
+                if interval[0][0] < x < interval[1][0]:
+                    eval = eval_func(x,y)
+                    min_satisfied = min_satisfied or eval < other_sum
+                    max_satisfied = max_satisfied or eval > -other_sum
+                    if min_satisfied and max_satisfied:
+                        continue
+
+                y = interval[1][1]
+                x = -(c[1] + c[4]*y)/cc3
+                if interval[0][0] < x < interval[1][0]:
+                    eval = eval_func(x,y)
+                    min_satisfied = min_satisfied or eval < other_sum
+                    max_satisfied = max_satisfied or eval > -other_sum
+                    if min_satisfied and max_satisfied:
+                        continue
+
+            #Check the interior value
+            if interval[0][0] < int_x < interval[1][0] and interval[0][1] < int_y < interval[1][1]:
+                eval = eval_func(int_x,int_y)
+                min_satisfied = min_satisfied or eval < other_sum
+                max_satisfied = max_satisfied or eval > -other_sum
+                if min_satisfied and max_satisfied:
+                    continue
+
+            # No root possible
+            self.mask.reshape(4)[i] = False
+        
 def constant_term_check(test_coeff, tol):
     """One of interval_checks
 
@@ -454,7 +630,7 @@ def quadratic_check_2D(test_coeff, tol):
         int_y = np.inf
 
 
-    for i, interval in enumerate(intervals):
+    for i, interval in enumerate(self.subintervals):
         min_satisfied, max_satisfied = False,False
         #Check all the corners
         eval = eval_func(interval[0][0], interval[0][1])
