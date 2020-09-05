@@ -62,6 +62,8 @@ class IntervalData:
     -------
     __init__
         Initializes everything.
+    get_subintervals
+        Returns the intervals needed for subdivision after running subinterval checks
     check_intervals
         Checks if a polynomial can be zero on an interval.
     check_subintervals
@@ -103,6 +105,26 @@ class IntervalData:
         #for keeping track of condition numbers
         self.cond = 0
         self.backcond = 0
+        
+        #Variables to store for Subintervals
+        self.RAND = 0.5139303900908738
+        self.mask = np.zeros([2]*len(a))
+        self.subintervals = []
+        minus_ones = -np.ones_like(a)
+        ones = np.ones_like(a)
+        diffs1 = ((ones-minus_ones)*self.RAND)
+        diffs2 = ((ones-minus_ones)-(ones-minus_ones)*self.RAND)
+
+        for subset in product([False,True], repeat=len(a)):
+            subset = np.array(subset)
+            aTemp = minus_ones.copy()
+            bTemp = ones.copy()
+            aTemp += (~subset)*diffs1
+            bTemp -= subset*diffs2
+            self.subintervals.append((aTemp,bTemp))
+            
+        #Variables to store for quadratic checks
+        self.RAND_POWERS = [self.RAND**i for i in range(len(a) + 1)]
 
     def add_polish_intervals(self, polish_intervals):
         ''' Add the intervals that polishing will be run on.
@@ -126,6 +148,48 @@ class IntervalData:
         self.total_area = np.prod(self.polish_b-self.polish_a)
         self.current_area = 0.
 
+    def get_subintervals(self, a, b, dimensions, polys, approx_error):
+        """Gets the subintervals to divide a search interval into.
+
+        Parameters
+        ----------
+        a : numpy array
+            The lower bound on the interval.
+        b : numpy array
+            The upper bound on the interval.
+        dimensions : numpy array
+            The dimensions we want to cut in half.
+        polys : list
+            A list of MultiCheb polynomials representing the function approximations on the
+            interval to subdivide. Used in the subinterval checks.
+        approx_error: list of floats
+            The bound of the sup norm error of the chebyshev approximation.
+
+        Returns
+        -------
+        subintervals : list
+            Each element of the list is a tuple containing an a and b, the lower and upper bounds of the interval.
+        """
+        #Default to keeping everything
+        self.mask = True
+        
+        #Run checks to set mask to False
+        for check in self.subinterval_checks:
+            for poly,error in zip(polys, errors):
+                #The Mask will be updated inside this function call
+                check(poly, error)
+                #TODO: How to store when something is thrown out efficiently?
+                #Maybe do it inside of the check itself?
+        
+        #Create the new intervals based on the ones we are keeping
+        temp1 = b - a
+        temp2 = b + a
+        newIntervals = self.subintervals[self.mask]
+        newIntervals[:,:1,:] = (newIntervals[:,:1,:] * temp1 + temp2) / 2
+        newIntervals[:,1:,:] = (newIntervals[:,1:,:] * temp1 + temp2) / 2
+                
+        return newIntervals
+    
     def check_interval(self, coeff, error, a, b):
         ''' Runs the interval checks on the interval [a,b]
 
@@ -150,40 +214,6 @@ class IntervalData:
                     self.track_interval(check.__name__, [a,b])
                 return True
         return False
-
-    def check_subintervals(self, subintervals, scaled_subintervals, polys, errors):
-        ''' Runs the subinterval checks on the given subintervals of [-1,1]
-
-        Parameters
-        ----------
-        subintervals : list
-            A list of the intervals to check.
-        scaled_subintervals: list
-            A list of the subintervals to check, scaled to be within the unit box that the approxiations are valid on.
-        polys: list
-            The coefficient tensors of Chebyshev polynomials that approximate the functions on these intervals..
-        errors: list
-            The approximation errors of the polynomials.
-        Returns
-        -------
-        check_interval : bool
-            True if we can throw out the interval. Otherwise False.
-        '''
-        for check in self.subinterval_checks:
-            for poly,error in zip(polys, errors):
-                mask = check(poly, scaled_subintervals, error)
-                new_scaled_subintervals = []
-                new_subintervals = []
-                for i, result in enumerate(mask):
-                    if result:
-                        new_scaled_subintervals.append(scaled_subintervals[i])
-                        new_subintervals.append(subintervals[i])
-                    else:
-                        if not self.polishing:
-                            self.track_interval(check.__name__, subintervals[i])
-                scaled_subintervals = new_scaled_subintervals
-                subintervals = new_subintervals
-        return subintervals
 
     def track_interval(self, name, interval):
         ''' Stores what happened to a given interval
@@ -324,7 +354,7 @@ def constant_term_check(test_coeff, tol):
     else:
         return True
 
-def quadratic_check(test_coeff, intervals,tol):
+def quadratic_check(test_coeff,tol):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
@@ -347,13 +377,13 @@ def quadratic_check(test_coeff, intervals,tol):
         in the unit box, True otherwise
     """
     if test_coeff.ndim == 2:
-        return quadratic_check_2D(test_coeff, intervals, tol)
+        return quadratic_check_2D(test_coeff, tol)
     elif test_coeff.ndim == 3:
-        return quadratic_check_3D(test_coeff, intervals, tol)
+        return quadratic_check_3D(test_coeff, tol)
     else:
-        return quadratic_check_nd(test_coeff, intervals, tol)
+        return quadratic_check_nd(test_coeff, tol)
 
-def quadratic_check_2D(test_coeff, intervals, tol):
+def quadratic_check_2D(test_coeff, tol):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
@@ -376,10 +406,8 @@ def quadratic_check_2D(test_coeff, intervals, tol):
         A list of the results of each interval. False if the function is guarenteed to never be zero
         in the unit box, True otherwise
     """
-    mask = [True]*len(intervals)
-
     if test_coeff.ndim != 2:
-        return mask
+        return
 
     #Get the coefficients of the quadratic part
     #Need to account for when certain coefs are zero.
@@ -507,11 +535,9 @@ def quadratic_check_2D(test_coeff, intervals, tol):
                 continue
 
         # No root possible
-        mask[i] = False
+        self.mask[i] = False
 
-    return mask
-
-def quadratic_check_3D(test_coeff, intervals, tol):
+def quadratic_check_3D(test_coeff, tol):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
@@ -875,7 +901,7 @@ def get_fixed_vars(dim):
     return list(itertools.chain.from_iterable(itertools.combinations(range(dim), r)\
                                              for r in range(dim-1,0,-1)))
 
-def quadratic_check_nd(test_coeff, intervals, tol):
+def quadratic_check_nd(test_coeff, tol):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
