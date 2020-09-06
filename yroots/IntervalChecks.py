@@ -110,6 +110,7 @@ class IntervalData:
         dim = len(a)
         self.RAND = 0.5139303900908738
         self.mask = np.zeros([2]*dim, dtype = bool)
+        self.throwOutMask = np.zeros([2]*dim, dtype = bool)
         middleVal = 2*self.RAND - 1
         self.subintervals = np.zeros([2]*dim + [2, dim])
         for spot in product([0,1], repeat=dim):
@@ -118,7 +119,7 @@ class IntervalData:
                 self.subintervals[spot][1][i] = middleVal if val == 0 else 1
 
         #Variables to store for quadratic checks
-        self.RAND_POWERS = [self.RAND**i for i in range(len(a) + 1)]
+        self.midPointPowers = [middleVal**i for i in range(dim + 1)]
 
     def add_polish_intervals(self, polish_intervals):
         ''' Add the intervals that polishing will be run on.
@@ -170,8 +171,9 @@ class IntervalData:
         #Run checks to set mask to False
         for check in self.subinterval_checks:
             for poly,error in zip(polys, errors):
-                #The Mask will be updated inside this function call
+                #The throwOutMask will be updated inside this function call. If anything is set to True it is thrown out.
                 check(poly, error)
+                self.mask &= ~self.throwOutMask
                 #TODO: How to store when something is thrown out efficiently?
                 #Maybe do it inside of the check itself?
         
@@ -182,6 +184,13 @@ class IntervalData:
         newIntervals[:,:1,:] = (newIntervals[:,:1,:] * temp1 + temp2) / 2
         newIntervals[:,1:,:] = (newIntervals[:,1:,:] * temp1 + temp2) / 2
                 
+        #Track the intervals we are throwing out
+        thrownOutIntervals = self.subintervals[~self.mask]
+        thrownOutIntervals[:,:1,:] = (thrownOutIntervals[:,:1,:] * temp1 + temp2) / 2
+        thrownOutIntervals[:,1:,:] = (thrownOutIntervals[:,1:,:] * temp1 + temp2) / 2
+        for old_a,old_b in thrownOutIntervals:
+            self.track_interval("quadratic_check", [old_a,old_b])
+            
         return newIntervals
     
     def check_interval(self, coeff, error, a, b):
@@ -525,7 +534,7 @@ def constant_term_check(test_coeff, tol):
         False if the function is guarenteed to never be zero in the unit box, True otherwise
     """
     test_sum = np.sum(np.abs(test_coeff))
-    if fabs(test_coeff[tuple([0]*test_coeff.ndim)]) * 2 > test_sum + tol:
+    if abs(test_coeff[tuple([0]*test_coeff.ndim)]) * 2 > test_sum + tol:
         return False
     else:
         return True
@@ -559,7 +568,7 @@ def quadratic_check(test_coeff,tol):
     else:
         return quadratic_check_nd(test_coeff, tol)
 
-def quadratic_check_2D(test_coeff, tol):
+def quadratic_check_2D(test_coeff, intervals, tol):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
@@ -585,6 +594,8 @@ def quadratic_check_2D(test_coeff, tol):
     if test_coeff.ndim != 2:
         return
 
+    mask = [0,0,0,0]
+    
     #Get the coefficients of the quadratic part
     #Need to account for when certain coefs are zero.
     #Padding is slow, so check the shape instead.
@@ -630,7 +641,7 @@ def quadratic_check_2D(test_coeff, tol):
         int_y = np.inf
 
 
-    for i, interval in enumerate(self.subintervals):
+    for i, interval in enumerate(intervals):
         min_satisfied, max_satisfied = False,False
         #Check all the corners
         eval = eval_func(interval[0][0], interval[0][1])
@@ -711,7 +722,8 @@ def quadratic_check_2D(test_coeff, tol):
                 continue
 
         # No root possible
-        self.mask[i] = False
+        mask[i] = False
+    return mask
 
 def quadratic_check_3D(test_coeff, tol):
     """One of subinterval_checks
