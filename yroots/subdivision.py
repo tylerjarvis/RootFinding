@@ -61,10 +61,10 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
     macaulay_zero_tol : float or list
         What is considered 0 in the macaulay matrix reduction.
     good_zeros_factor : float or list
-        Multiplying this by the approximation error gives how far outside of [-1,1] a root can
+        Multiplying this by the approximation error gives how far outside of [-1, 1] a root can
         be and still be considered inside the interval.
     min_good_zeros_tol : float or list
-        The smallest the good_zeros_tol can be, which is how far outside of [-1,1] a root can
+        The smallest the good_zeros_tol can be, which is how far outside of [-1, 1] a root can
         be and still be considered inside the interval.
     check_eval_error : bool
         Whether to compute the evaluation error on the fly and replace the approx tol with it.
@@ -109,7 +109,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
         The common zeros of the polynomials. Each row is a root.
     """
     # Detect the dimension
-    if isinstance(funcs,list):
+    if isinstance(funcs, list):
         dim = len(funcs)
     elif callable(funcs):
         dim = 1
@@ -145,27 +145,27 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
     tols.nextTols()
 
     # Set up the interval data and root tracker classes and cheb blocky copy arr
-    interval_data = IntervalData(a,b)
+    interval_data = IntervalData(a, b)
     root_tracker = RootTracker()
     values_arr.memo = {}
-    initialize_values_arr(dim,2*(deg+3))
+    initialize_values_arr(dim, 2*(deg+3))
 
     if dim == 1:
         # In one dimension, we don't use target_deg; it's the same as deg
         target_deg = deg
         solve_func = subdivision_solve_1d
-        if isinstance(funcs,list):
+        if isinstance(funcs, list):
             funcs = funcs[0]
 
-        # Set the maximum number of subdivisions so that intervals cannot
-        # possibly be smaller than 2^-50
-        max_level = min(50, 50 + ceil(log2(b - a)))
+        # TODO : Set the maximum number of subdivisions so that
+        # intervals cannot possibly be smaller than 2^-51
+        max_level = 52
     else:
         solve_func = subdivision_solve_nd
 
-        # Set the maximum number of subdivisions so that intervals cannot
-        # possibly be smaller than 2^--50
-        max_level = min(50, 50 + ceil(log2(min(b - a))))
+        # TODO : Set the maximum number of subdivisions so that
+        # intervals cannot possibly be smaller than 2^-51
+        max_level = 52
 
     
 
@@ -181,7 +181,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
         interval_data.add_polish_intervals(polish_intervals)
         for new_a, new_b in polish_intervals:
             interval_data.start_polish_interval()
-            solve_func(funcs,new_a,new_b,deg,target_deg,interval_data,root_tracker,tols,max_level,method=method)
+            solve_func(funcs, new_a, new_b, deg, target_deg, interval_data, root_tracker, tols, max_level, method=method)
             root_tracker.keep_possible_duplicates(),
     print("\rPercent Finished: 100%{}".format(' '*50))
 
@@ -191,9 +191,9 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
     # Plotting
     if plot:
         if dim == 1:
-            x = np.linspace(a,b,1000)
-            plt.plot(x,funcs(x),color='k')
-            plt.plot(np.real(root_tracker.roots),np.zeros(len(root_tracker.roots)),'o',color = 'none',markeredgecolor='r')
+            x = np.linspace(a, b, 1000)
+            plt.plot(x, funcs(x), color='k')
+            plt.plot(np.real(root_tracker.roots), np.zeros(len(root_tracker.roots)), 'o', color = 'none', markeredgecolor='r')
             plt.show()
         elif dim == 2:
             interval_data.plot_results(funcs, root_tracker.roots, plot_intervals)
@@ -207,8 +207,8 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
         return root_tracker.roots
 
 @jit
-def transform(x,a,b):
-    """Transforms points from the interval [-1,1] to the interval [a,b].
+def transform(x, a, b):
+    """Transforms points from the interval [-1, 1] to the interval [a, b].
 
     Parameters
     ----------
@@ -228,8 +228,9 @@ def transform(x,a,b):
     """
     return ((b-a)*x+(b+a))/2
 
+
 @Memoize
-def initialize_values_arr(dim,deg):
+def initialize_values_arr(dim, deg):
     """Helper function for chebyshev_block_copy.
     Initializes an array to use throughout the whole solve function.
     Builds one array corresponding to dim and deg that can be used for any
@@ -267,13 +268,13 @@ def values_arr(dim):
     of dimension dim and degree less than the degree used for initialize_values_arr.
     """
     keys = tuple(initialize_values_arr.memo.keys())
-    for idx,k in enumerate(keys):
+    for idx, k in enumerate(keys):
         if k[0]==dim:
             break
     return initialize_values_arr.memo[keys[idx]]
 
 @memoize
-def block_copy_slicers(dim,deg):
+def block_copy_slicers(dim, deg):
     """Helper function for chebyshev_block_copy.
     Builds slice objects to index into the evaluation array to copy
     in preparation for the fft.
@@ -297,16 +298,16 @@ def block_copy_slicers(dim,deg):
     block_slicers = []
     cheb_slicers = []
     full_arr_deg = 2*deg
-    for block in product([False,True],repeat=dim):
-        cheb_idx = [slice(0,deg+1)]*dim
-        block_idx = [slice(0,full_arr_deg)]*dim
-        for i,flip_dim in enumerate(block):
+    for block in product([False, True], repeat=dim):
+        cheb_idx = [slice(0, deg+1)]*dim
+        block_idx = [slice(0, full_arr_deg)]*dim
+        for i, flip_dim in enumerate(block):
             if flip_dim:
-                cheb_idx[i] = slice(deg+1,full_arr_deg)
-                block_idx[i] = slice(deg-1,0,-1)
+                cheb_idx[i] = slice(deg+1, full_arr_deg)
+                block_idx[i] = slice(deg-1, 0, -1)
         block_slicers.append(tuple(block_idx))
         cheb_slicers.append(tuple(cheb_idx))
-    return block_slicers,cheb_slicers,tuple([slice(0,2*deg)]*dim)
+    return block_slicers, cheb_slicers, tuple([slice(0, 2*deg)]*dim)
 
 def chebyshev_block_copy(values_block):
     """This functions helps avoid double evaluation of functions at
@@ -326,21 +327,21 @@ def chebyshev_block_copy(values_block):
     dim = values_block.ndim
     deg = values_block.shape[0] - 1
     values_cheb = values_arr(dim)
-    block_slicers,cheb_slicers,slicer = block_copy_slicers(dim,deg)
+    block_slicers, cheb_slicers, slicer = block_copy_slicers(dim, deg)
 
-    for cheb_idx,block_idx in zip(cheb_slicers,block_slicers):
+    for cheb_idx, block_idx in zip(cheb_slicers, block_slicers):
         try:
             values_cheb[cheb_idx] = values_block[block_idx]
         except ValueError as e:
             if str(e)[:42] == 'could not broadcast input array from shape':
-                values_arr.memo[(dim,)] = np.empty(tuple([2*deg])*dim, dtype=np.float64)
+                values_arr.memo[(dim, )] = np.empty(tuple([2*deg])*dim, dtype=np.float64)
                 values_cheb = values_arr(dim)
                 values_cheb[cheb_idx] = values_block[block_idx]
             else:
                 raise ValueError(e)
     return values_cheb[slicer]
 
-def interval_approximate_1d(f,a,b,deg,return_bools=False,return_inf_norm=False):
+def interval_approximate_1d(f, a, b, deg, return_bools=False, return_inf_norm=False):
     """Finds the chebyshev approximation of a one-dimensional function on an
     interval.
 
@@ -363,7 +364,7 @@ def interval_approximate_1d(f,a,b,deg,return_bools=False,return_inf_norm=False):
     inf_norm : float
         The inf_norm of the function
     """
-    extrema = transform(np.cos((np.pi*np.arange(2*deg))/deg),a,b)
+    extrema = transform(np.cos((np.pi*np.arange(2*deg))/deg), a, b)
     values = f(extrema)
 
     if return_inf_norm:
@@ -409,7 +410,7 @@ def get_cheb_grid(deg, dim, has_eval_grid):
         flatten = lambda x: x.flatten()
         return np.column_stack(tuple(map(flatten, cheb_grids)))
 
-def interval_approximate_nd(f,a,b,deg,return_inf_norm=False):
+def interval_approximate_nd(f, a, b, deg, return_inf_norm=False):
     """Finds the chebyshev approximation of an n-dimensional function on an
     interval.
 
@@ -434,10 +435,10 @@ def interval_approximate_nd(f,a,b,deg,return_inf_norm=False):
         The inf_norm of the function
     """
     dim = len(a)
-    if dim!=len(b):
+    if dim != len(b):
         raise ValueError("Interval dimensions must be the same!")
 
-    if hasattr(f,"evaluate_grid"):
+    if hasattr(f, "evaluate_grid"):
         cheb_points = transform(get_cheb_grid(deg, dim, True), a, b)
         values_block = f.evaluate_grid(cheb_points)
     else:
@@ -449,9 +450,9 @@ def interval_approximate_nd(f,a,b,deg,return_inf_norm=False):
     if return_inf_norm:
         inf_norm = np.max(np.abs(values_block))
 
-    x0_slicer,deg_slicer,slices,rescale = interval_approx_slicers(dim,deg)
+    x0_slicer, deg_slicer, slices, rescale = interval_approx_slicers(dim, deg)
     coeffs = fftn(values/rescale).real
-    for x0sl,degsl in zip(x0_slicer,deg_slicer):
+    for x0sl, degsl in zip(x0_slicer, deg_slicer):
         # halve the coefficients in each slice
         coeffs[x0sl] /= 2
         coeffs[degsl] /= 2
@@ -462,7 +463,7 @@ def interval_approximate_nd(f,a,b,deg,return_inf_norm=False):
         return coeffs[tuple(slices)]
 
 @memoize
-def interval_approx_slicers(dim,deg):
+def interval_approx_slicers(dim, deg):
     """Helper function for interval_approximate_nd. Builds slice objects to index
     into the output of the fft and divide some of the values by 2 and turn them into
     coefficients of the approximation.
@@ -485,14 +486,15 @@ def interval_approx_slicers(dim,deg):
     rescale : int
         amount to rescale the evaluations by in order to feed them into the fft
     """
-    x0_slicer  = [tuple([slice(None) if i != d else 0   for i in range(dim)])
-                                                        for d in range(dim)]
+    x0_slicer = [tuple([slice(None) if i != d else 0 for i in range(dim)])
+                  for d in range(dim)]
     deg_slicer = [tuple([slice(None) if i != d else deg for i in range(dim)])
-                                                        for d in range(dim)]
-    slices = tuple([slice(0,deg+1)]*dim)
-    return x0_slicer,deg_slicer,slices,deg**dim
+                  for d in range(dim)]
+    slices = tuple([slice(0, deg+1)]*dim)
+    return x0_slicer, deg_slicer, slices, deg**dim
 
-def get_subintervals(a,b,dimensions,interval_data,polys,approx_error,check_subintervals=False):
+def get_subintervals(a, b, dimensions, interval_data, polys, approx_error,
+                     check_subintervals=False):
     """Gets the subintervals to divide a search interval into.
 
     Parameters
@@ -523,22 +525,22 @@ def get_subintervals(a,b,dimensions,interval_data,polys,approx_error,check_subin
     diffs1 = ((b-a)*RAND)[dimensions]
     diffs2 = ((b-a)-(b-a)*RAND)[dimensions]
 
-    for subset in product([False,True], repeat=len(dimensions)):
+    for subset in product([False, True], repeat=len(dimensions)):
         subset = np.array(subset)
         aTemp = a.copy()
         bTemp = b.copy()
         aTemp[dimensions] += (~subset)*diffs1
         bTemp[dimensions] -= subset*diffs2
-        subintervals.append((aTemp,bTemp))
+        subintervals.append((aTemp, bTemp))
 
     if check_subintervals:
         # get intervals -1 to 1
-        scaled_subintervals = get_subintervals(-np.ones_like(a),np.ones_like(a),dimensions,None,None,approx_error)
+        scaled_subintervals = get_subintervals(-np.ones_like(a), np.ones_like(a), dimensions, None, None, approx_error)
         return interval_data.check_subintervals(subintervals, scaled_subintervals, polys, approx_error)
     else:
         return subintervals
 
-def full_cheb_approximate(f,a,b,deg,abs_approx_tol,rel_approx_tol,good_deg=None):
+def full_cheb_approximate(f, a, b, deg, abs_approx_tol, rel_approx_tol, good_deg=None):
     """Gives the full chebyshev approximation and checks if it's good enough.
 
     Parameters
@@ -567,7 +569,7 @@ def full_cheb_approximate(f,a,b,deg,abs_approx_tol,rel_approx_tol,good_deg=None)
         The coefficient array of the interpolation. If it can't get a good
         approximation and needs to subdivide, returns None.
     inf_norm : float
-        The inf norm of f on [a,b]
+        The inf norm of f on [a, b]
     error : float
         The approximation error
     """
@@ -575,8 +577,8 @@ def full_cheb_approximate(f,a,b,deg,abs_approx_tol,rel_approx_tol,good_deg=None)
     if good_deg is None:
         good_deg = deg
     # Try degree deg and see if it's good enough
-    coeff = interval_approximate_nd(f,a,b,good_deg)
-    coeff2,inf_norm = interval_approximate_nd(f,a,b,good_deg*2,return_inf_norm=True)
+    coeff = interval_approximate_nd(f, a, b, good_deg)
+    coeff2, inf_norm = interval_approximate_nd(f, a, b, good_deg*2, return_inf_norm=True)
     coeff2[slice_top(coeff.shape)] -= coeff
 
     error = np.sum(np.abs(coeff2))
@@ -586,8 +588,8 @@ def full_cheb_approximate(f,a,b,deg,abs_approx_tol,rel_approx_tol,good_deg=None)
         return coeff, inf_norm, error
 
 
-def zeros_in_interval(zeros, a, b, dim, within_interval_tol=1e-12):
-    """Returns the zeros that are only in the interval [a,b].
+def zeros_in_interval(zeros, a, b, dim, within_interval_tol=1e-9):
+    """Returns the zeros that are only in the interval [a, b].
 
     Parameters
     ----------
@@ -603,7 +605,7 @@ def zeros_in_interval(zeros, a, b, dim, within_interval_tol=1e-12):
     Returns
     -------
         zeros : numpy array
-            The zeros that are in the interval [a,b]
+            The zeros that are in the interval [a, b]
     """
     # Check along each axis to ensure roots are within the boundaries
     for i in range(dim):
@@ -623,21 +625,21 @@ def good_zeros_nd(zeros, imag_tol, real_tol):
     imag_tol : float
         How large the imaginary part can be to still have it be considered real.
     real_tol : float
-        How far the real part can be outside the interval [-1,1]^n and still be
+        How far the real part can be outside the interval [-1, 1]^n and still be
         considered valid.
 
     Returns
     -------
     good_zeros : numpy array
-        The real zeros in [-1,1]^n of the input zeros.
+        The real zeros in [-1, 1]^n of the input zeros.
     """
     # Take care of the case where we found only 1 root
     if len(zeros.shape) == 1:
-        mask = np.all(np.abs(zeros.imag) <= imag_tol,axis = 0)
-        mask *= np.all(np.abs(zeros.real) <= 1 + real_tol,axis = 0)
+        mask = np.all(np.abs(zeros.imag) <= imag_tol, axis = 0)
+        mask *= np.all(np.abs(zeros.real) <= 1 + real_tol, axis = 0)
     else:
-        mask = np.all(np.abs(zeros.imag) <= imag_tol,axis = 1)
-        mask *= np.all(np.abs(zeros.real) <= 1 + real_tol,axis = 1)
+        mask = np.all(np.abs(zeros.imag) <= imag_tol, axis = 1)
+        mask *= np.all(np.abs(zeros.real) <= 1 + real_tol, axis = 1)
     return zeros[mask].real
 
 def get_abs_approx_tol(func, deg, a, b, dim):
@@ -662,18 +664,18 @@ def get_abs_approx_tol(func, deg, a, b, dim):
                 The calculated absolute approximation tolerance based on the
                 noise of the function on the small interval.
     """
-    # Half the width of the smaller interval, so each interval is 1e-15
-    linearization_size = 5e-14
+    # Half the width of the smaller interval
+    linearization_size = 1e-14
 
 
-    # Get a random small interval from [-1,1] and transform so it's
-    # within [a,b]
+    # Get a random small interval from [-1, 1] and transform so it's
+    # within [a, b]
     x = transform(random_point(dim), a, b)
     a2 = np.array(x - linearization_size)
     b2 = np.array(x + linearization_size)
 
     # Approximate with a low degree Chebyshev polynomial
-    coeff = interval_approximate_nd(func,a2,b2,2*deg)
+    coeff = interval_approximate_nd(func, a2, b2, 2*deg)
     coeff[deg_slices(deg, dim)] = 0
 
     # Sum up coeffieicents that are assumed to be just noise
@@ -705,7 +707,7 @@ def deg_slices(deg, dim):
             The slice that accesses all the coefficients of degree less than
             deg.
     """
-    return (slice(0,deg),)*dim
+    return (slice(0, deg), )*dim
 
 @memoize
 def random_point(dim):
@@ -715,7 +717,7 @@ def random_point(dim):
     Parameters
     ----------
         dim : int
-            The dimension of the system/how many samples to take from [0,1].
+            The dimension of the system/how many samples to take from [0, 1].
 
     Returns
     -------
@@ -727,7 +729,7 @@ def random_point(dim):
     return np.random.rand(dim)*2 - 1
 
 def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
-                         root_tracker, tols, max_level,good_degs=None, level=0,
+                         root_tracker, tols, max_level, good_degs=None, level=0,
                          method='svd', use_target_tol=False,
                          trust_small_evals=False):
     """Finds the common zeros of the given functions.
@@ -776,12 +778,6 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
         root_tracker.add_potential_roots((a + b)/2, a, b, "Too Deep.")
         return
 
-    interval_buffer_size = (b - a)*1e-8 + 1e-11
-    og_a = np.copy(a)
-    og_b = np.copy(b)
-    a -= interval_buffer_size
-    b += interval_buffer_size
-
     dim = len(a)
 
     if tols.check_eval_error:
@@ -800,6 +796,16 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
                 for func in funcs:
                     tols.target_tol = max(tols.target_tol, numSpots * get_abs_approx_tol(func, 3, a, b, dim))
 
+    # Buffer the interval to solve on a larger interval to account for
+    # corners. Right now, it's set to be 5e-10 so that on [-1, 1], the
+    # buffer goes out 1e-9 around the initial search interval.
+    # DETERMINED BY EXPERIMENTATION
+    interval_buffer_size = (b - a) * 5e-10
+    og_a = a.copy()
+    og_b = b.copy()
+    a -= interval_buffer_size
+    b += interval_buffer_size
+
     cheb_approx_list = []
     interval_data.print_progress()
     if good_degs is None:
@@ -809,27 +815,23 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
     # Get the chebyshev approximations
     for func, good_deg in zip(funcs, good_degs):
         if use_target_tol:
-            coeff,inf_norm,approx_error = full_cheb_approximate(func,a,b,deg,tols.target_tol,tols.rel_approx_tol, good_deg)
+            coeff, inf_norm, approx_error = full_cheb_approximate(func, a, b, deg, tols.target_tol, tols.rel_approx_tol, good_deg)
         else:
-            coeff,inf_norm,approx_error = full_cheb_approximate(func,a,b,deg,tols.abs_approx_tol,tols.rel_approx_tol, good_deg)
+            coeff, inf_norm, approx_error = full_cheb_approximate(func, a, b, deg, tols.abs_approx_tol, tols.rel_approx_tol, good_deg)
         inf_norms.append(inf_norm)
         approx_errors.append(approx_error)
         # Subdivides if a bad approximation
         if coeff is None:
             if not trust_small_evals:
-                approx_errors = [max(err,macheps) for err in approx_errors]
-            intervals = get_subintervals(og_a, og_b,get_div_dirs(dim),interval_data,cheb_approx_list,approx_errors)
+                approx_errors = [max(err, macheps) for err in approx_errors]
+            intervals = get_subintervals(og_a, og_b, get_div_dirs(dim), interval_data, cheb_approx_list, approx_errors)
             for new_a, new_b in intervals:
-                subdivision_solve_nd(funcs,new_a,new_b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=level+1, method=method, trust_small_evals=trust_small_evals)
+                subdivision_solve_nd(funcs, new_a, new_b, deg, target_deg, interval_data, root_tracker, tols, max_level, level=level+1, method=method, trust_small_evals=trust_small_evals)
             return
         else:
             # Run checks to try and throw out the interval
             if not trust_small_evals:
-                approx_error = max(approx_error,macheps)
-            # TODO : Should this pass in a and b or og_a and og_b?
-            # The argument for the og's is that it makes the percent
-            # finished more accurate and true, but that means that we're
-            # not running the checks on the interpolation interval.
+                approx_error = max(approx_error, macheps)
             if interval_data.check_interval(coeff, approx_error, og_a, og_b):
                 return
 
@@ -838,7 +840,7 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
     # Reduce the degree of the approximations while not introducing too much error
     coeffs, good_approx, approx_errors = trim_coeffs(cheb_approx_list, tols.abs_approx_tol, tols.rel_approx_tol, inf_norms, approx_errors)
     if not trust_small_evals:
-        approx_errors = [max(err,macheps) for err in approx_errors]
+        approx_errors = [max(err, macheps) for err in approx_errors]
     # Used if subdividing further.
     # Only choose good_degs if the approximation after trim_coeffs is good.
     if good_approx:
@@ -849,27 +851,27 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
 
     # Check if the degree is small enough or if trim_coeffs introduced too much error
     if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > target_deg + 1) or not good_approx:
-        intervals = get_subintervals(og_a, og_b,get_div_dirs(dim),interval_data,cheb_approx_list,approx_errors,True)
+        intervals = get_subintervals(og_a, og_b, get_div_dirs(dim), interval_data, cheb_approx_list, approx_errors, True)
         for new_a, new_b in intervals:
-            subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
+            subdivision_solve_nd(funcs, new_a, new_b, deg, target_deg, interval_data, root_tracker, tols, max_level, good_degs, level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
 
     # Check if any approx error is greater than target_tol for Macaulay method
     elif np.any(np.array(approx_errors) > np.array(tols.target_tol) + tols.rel_approx_tol*np.array(inf_norms)):
-        intervals = get_subintervals(og_a, og_b,get_div_dirs(dim),interval_data,cheb_approx_list,approx_errors,True)
+        intervals = get_subintervals(og_a, og_b, get_div_dirs(dim), interval_data, cheb_approx_list, approx_errors, True)
         for new_a, new_b in intervals:
-            subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
+            subdivision_solve_nd(funcs, new_a, new_b, deg, target_deg, interval_data, root_tracker, tols, max_level, good_degs, level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
 
     # Check if everything is linear
     elif np.all(np.array([coeff.shape[0] for coeff in coeffs]) == 2):
         if deg != 2:
-            subdivision_solve_nd(funcs,a,b,2,target_deg,interval_data,root_tracker,tols,max_level,good_degs,level, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
+            subdivision_solve_nd(funcs, a, b, 2, target_deg, interval_data, root_tracker, tols, max_level, good_degs, level, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
             return
         zero, cond = solve_linear(coeffs)
         # Store the information and exit
-        zero = good_zeros_nd(zero,good_zeros_tol,good_zeros_tol)
-        zero = transform(zero,a,b)
+        zero = good_zeros_nd(zero, good_zeros_tol, good_zeros_tol)
+        zero = transform(zero, a, b)
         zero = zeros_in_interval(zero, og_a, og_b, dim)
-        interval_data.track_interval("Base Case", [a,b])
+        interval_data.track_interval("Base Case", [a, b])
         root_tracker.add_roots(zero, a, b, "Base Case")
 
     # Solve using spectral methods if stable.
@@ -879,15 +881,15 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
         #check for a conditioning error
         if res[0] is None:
             # Subdivide but run some checks on the intervals first
-            intervals = get_subintervals(og_a, og_b, get_div_dirs(dim),interval_data,cheb_approx_list,approx_errors,True)
+            intervals = get_subintervals(og_a, og_b, get_div_dirs(dim), interval_data, cheb_approx_list, approx_errors, True)
             for new_a, new_b in intervals:
-                subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
+                subdivision_solve_nd(funcs, new_a, new_b, deg, target_deg, interval_data, root_tracker, tols, max_level, good_degs, level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
         else:
             zeros = res
-            zeros = good_zeros_nd(zeros,good_zeros_tol,good_zeros_tol)
-            zeros = transform(zeros,a,b)
+            zeros = good_zeros_nd(zeros, good_zeros_tol, good_zeros_tol)
+            zeros = transform(zeros, a, b)
             zeros = zeros_in_interval(zeros, og_a, og_b, dim)
-            interval_data.track_interval("Macaulay", [a,b])
+            interval_data.track_interval("Macaulay", [a, b])
             root_tracker.add_roots(zeros, a, b, "Macaulay")
 
 @memoize
@@ -972,7 +974,7 @@ def trim_coeffs(coeffs, abs_approx_tol, rel_approx_tol, inf_norms, errors):
                 # if that introduces too much error, backtrack
                 if slice_error + error > abs_approx_tol+rel_approx_tol*inf_norms[num]:
                     if deg < coeff.shape[0]-1:
-                        slices = tuple([slice(0,deg+1)]*dim)
+                        slices = tuple([slice(0, deg+1)]*dim)
                         coeff = coeff[slices]
                     break
                 # otherwise, increment the error
@@ -981,7 +983,7 @@ def trim_coeffs(coeffs, abs_approx_tol, rel_approx_tol, inf_norms, errors):
                     coeff[slices] = 0
                     deg-=1
                     if deg == 1:
-                        slices = tuple([slice(0,2)]*dim)
+                        slices = tuple([slice(0, 2)]*dim)
                         coeff = coeff[slices]
                         break
         coeffs[num] = coeff
@@ -1008,7 +1010,7 @@ def mon_combos_limited_wrap(deg, dim, shape):
     mon_combo_limited_wrap : list
         A list of all the monomials.
     """
-    return mon_combos_limited([0]*dim,deg,shape)
+    return mon_combos_limited([0]*dim, deg, shape)
 
 def mon_combos_limited(mon, remaining_degrees, shape, cur_dim = 0):
     """Finds all the monomials of a given degree that fits in a given shape and
@@ -1047,7 +1049,7 @@ def mon_combos_limited(mon, remaining_degrees, shape, cur_dim = 0):
         answers.append(mon.copy())
         return answers
     temp = mon.copy() # Quicker than copying every time inside the loop.
-    for i in range(min(shape[cur_dim],remaining_degrees+1)): # Recursively add to mon further down.
+    for i in range(min(shape[cur_dim], remaining_degrees+1)): # Recursively add to mon further down.
         temp[cur_dim] = i
         answers.extend(mon_combos_limited(temp, remaining_degrees-i, shape, cur_dim+1))
     return answers
@@ -1062,13 +1064,13 @@ def good_zeros_1d(zeros, imag_tol, real_tol):
     imag_tol : float
         How large the imaginary part can be to still have it be considered real.
     real_tol : float
-        How far the real part can be outside the interval [-1,1] and still be
+        How far the real part can be outside the interval [-1, 1] and still be
         considered valid.
 
     Returns
     -------
     good_zeros : numpy array
-        The real zeros in [-1,1] of the input zeros.
+        The real zeros in [-1, 1] of the input zeros.
     """
     zeros = zeros[np.where(np.abs(zeros) <= 1 + real_tol)]
     zeros = zeros[np.where(np.abs(zeros.imag) < imag_tol)]
@@ -1119,8 +1121,8 @@ def subdivision_solve_1d(f, a, b, deg, target_deg, interval_data, root_tracker,
     interval_data.print_progress()
 
     # Approximate the function using Chebyshev polynomials
-    coeff = interval_approximate_1d(f,a,b,deg)
-    coeff2, sign_change, inf_norm = interval_approximate_1d(f,a,b,deg*2,return_bools=True,return_inf_norm=True)
+    coeff = interval_approximate_1d(f, a, b, deg)
+    coeff2, sign_change, inf_norm = interval_approximate_1d(f, a, b, deg*2, return_bools=True, return_inf_norm=True)
 
     coeff2[slice_top(coeff.shape)] -= coeff
 
@@ -1132,8 +1134,8 @@ def subdivision_solve_1d(f, a, b, deg, target_deg, interval_data, root_tracker,
         # Subdivide the interval and recursively call the function.
         div_spot = a + (b-a)*RAND
         good_deg = deg
-        subdivision_solve_1d(f, a, div_spot, good_deg, target_deg,interval_data,root_tracker,tols,max_level,level+1)
-        subdivision_solve_1d(f, div_spot, b, good_deg, target_deg,interval_data,root_tracker,tols,max_level,level+1)
+        subdivision_solve_1d(f, a, div_spot, good_deg, target_deg, interval_data, root_tracker, tols, max_level, level+1)
+        subdivision_solve_1d(f, div_spot, b, good_deg, target_deg, interval_data, root_tracker, tols, max_level, level+1)
     else:
         # Trim the coefficient array (reduce the degree) as much as we can.
         # This identifies a 'good degree' with which to approximate the function
@@ -1149,7 +1151,7 @@ def subdivision_solve_1d(f, a, b, deg, target_deg, interval_data, root_tracker,
             error = new_error
             new_error = error + last_coeff_size
         if not trust_small_evals:
-            error = max(error,macheps)
+            error = max(error, macheps)
         good_deg = max(len(coeff) - 1, 1)
 
         # Run interval checks to eliminate regions
@@ -1159,10 +1161,10 @@ def subdivision_solve_1d(f, a, b, deg, target_deg, interval_data, root_tracker,
 
         try:
             good_zeros_tol = max(tols.min_good_zeros_tol, error*tols.good_zeros_factor)
-            zeros = transform(good_zeros_1d(multCheb(coeff),good_zeros_tol,good_zeros_tol),a,b)
-            interval_data.track_interval("Macaulay", [a,b])
+            zeros = transform(good_zeros_1d(multCheb(coeff), good_zeros_tol, good_zeros_tol), a, b)
+            interval_data.track_interval("Macaulay", [a, b])
             root_tracker.add_roots(zeros, a, b, "Macaulay")
         except (ConditioningError, TooManyRoots) as e:
             div_spot = a + (b-a)*RAND
-            subdivision_solve_1d(f,a,div_spot, good_deg, target_deg, interval_data,root_tracker,tols,max_level,level+1)
-            subdivision_solve_1d(f,div_spot,b, good_deg, target_deg, interval_data,root_tracker,tols,max_level,level+1)
+            subdivision_solve_1d(f, a, div_spot, good_deg, target_deg, interval_data, root_tracker, tols, max_level, level+1)
+            subdivision_solve_1d(f, div_spot, b, good_deg, target_deg, interval_data, root_tracker, tols, max_level, level+1)
