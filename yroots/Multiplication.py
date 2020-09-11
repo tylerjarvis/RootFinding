@@ -88,7 +88,7 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
                 M = ms_matrices_p(E,Q,matrix_terms,dim,cut)
 
         # Compute the roots using eigenvalues of the Möller-Stetter matrices
-        roots,cond_eig = msroots(M)
+        roots = msroots(M)
 
     if return_all_roots:
         return roots
@@ -329,23 +329,14 @@ def msroots(M):
     # Compute the matrix U that triangularizes a random linear combination
     U = schur((M*c).sum(axis=-1),output='complex')[1]
 
-    # Compute the eigenvalues of each matrix, and use the computed U to sort them
-    T = (U.conj().T)@(M[...,0])@U
-    w,v = eig(M[...,0])
-    arr = sort_eigs(w,np.diag(T))
-    eigs[0] = w[arr]
-
-    # compute eigenvalue condition numbers (will be the same for all matrices)
-    cond = condeigs(M[...,0],eigs[0],v[:,arr])
-
-    for i in range(1,dim):
+    for i in range(0,dim):
         T = (U.conj().T)@(M[...,i])@U
         w = eig(M[...,i],right=False)
         arr = sort_eigs(w,np.diag(T))
         eigs[i] = w[arr]
 
     # Rotate back before returning, transposing to match expected shape
-    return (Q.T@eigs).T,cond
+    return (Q.T@eigs).T
 
 def MSMultMatrix(polys, poly_type, max_cond_num, macaulay_zero_tol, verbose=False, MSmatrix=0):
     '''
