@@ -270,7 +270,7 @@ def sort_eigs(eigs,diag):
         Eigenvalues from eigs sorted to match the order in diag
     """
     n = diag.shape[0]
-    lst = list(np.arange(n))
+    lst = list(range(n))
     arr = []
     for eig in eigs:
         i = lst[np.argmin(np.abs(diag[lst]-eig))]
