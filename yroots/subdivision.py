@@ -727,7 +727,7 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
         if coeff is None:
             if not trust_small_evals:
                 approx_errors = [max(err,macheps) for err in approx_errors]
-            intervals = interval_data.get_subintervals(a,b,get_div_dirs(dim),cheb_approx_list,approx_errors)
+            intervals = interval_data.get_subintervals(a,b,cheb_approx_list,approx_errors,False)
             for new_a, new_b in intervals:
                 subdivision_solve_nd(funcs,new_a,new_b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=level+1, method=method, trust_small_evals=trust_small_evals)
             return
@@ -754,13 +754,13 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
 
     # Check if the degree is small enough or if trim_coeffs introduced too much error
     if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > target_deg + 1) or not good_approx:
-        intervals = interval_data.get_subintervals(a,b,get_div_dirs(dim),cheb_approx_list,approx_errors)
+        intervals = interval_data.get_subintervals(a,b,cheb_approx_list,approx_errors,True)
         for new_a, new_b in intervals:
             subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
 
     # Check if any approx error is greater than target_tol for Macaulay method
     elif np.any(np.array(approx_errors) > np.array(tols.target_tol) + tols.rel_approx_tol*np.array(inf_norms)):
-        intervals = interval_data.get_subintervals(a,b,get_div_dirs(dim),cheb_approx_list,approx_errors)
+        intervals = interval_data.get_subintervals(a,b,cheb_approx_list,approx_errors,True)
         for new_a, new_b in intervals:
             subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
 
@@ -783,7 +783,7 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
         #check for a conditioning error
         if res[0] is None:
             # Subdivide but run some checks on the intervals first
-            intervals = interval_data.get_subintervals(a,b,get_div_dirs(dim),cheb_approx_list,approx_errors)
+            intervals = interval_data.get_subintervals(a,b,cheb_approx_list,approx_errors,True)
             for new_a, new_b in intervals:
                 subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
         else:
@@ -792,25 +792,6 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
             zeros = transform(zeros,a,b)
             interval_data.track_interval("Macaulay", [a,b])
             root_tracker.add_roots(zeros, a, b, "Macaulay")
-
-@memoize
-def get_div_dirs(dim):
-    """Returns the directions that the algorithm should subdivide in.
-
-    Currently, this just returns all the directions. memoized for speed.
-
-    Parameters
-    ----------
-        dim : int
-            The dimension of the system.
-
-    Returns
-    -------
-        list of ints
-            The direction in which we should subdivide in. For example, if in a
-            3D system and we divide in all directions, returns [0, 1, 2].
-    """
-    return [i for i in range(dim)]
 
 def trim_coeffs(coeffs, abs_approx_tol, rel_approx_tol, inf_norms, errors):
     """Trim the coefficient matrices to reduce the degree by zeroing out any

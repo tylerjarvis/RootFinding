@@ -143,7 +143,7 @@ class IntervalData:
         self.total_area = np.prod(self.polish_b-self.polish_a)
         self.current_area = 0.
 
-    def get_subintervals(self, a, b, dimensions, polys, errors):
+    def get_subintervals(self, a, b, polys, errors, runChecks):
         """Gets the subintervals to divide a search interval into.
 
         Parameters
@@ -165,44 +165,28 @@ class IntervalData:
         subintervals : list
             Each element of the list is a tuple containing an a and b, the lower and upper bounds of the interval.
         """
-        intervals = [[interval[0], interval[1]] for interval in self.subintervals.reshape(4,2,2)]
-        for poly,error in zip(polys, errors):
-            realMask = quadratic_check(poly, intervals, error)
-            tempI = []
-            for i,interval in zip(realMask, intervals):
-                if i:
-                    tempI.append(interval)
-            intervals = tempI
-        
         #Default to keeping everything
         self.mask.fill(True)
         
-        #Run checks to set mask to False
-        for check in self.subinterval_checks:
-            for poly,error in zip(polys, errors):
-                #The throwOutMask will be updated inside this function call. If anything is set to True it is thrown out.
-                check(poly, error)
-                self.mask &= ~self.throwOutMask
-                #TODO: How to store when something is thrown out efficiently?
-                #Maybe do it inside of the check itself?
+        if runChecks:
+            #Run checks to set mask to False
+            for check in self.subinterval_checks:
+                for poly,error in zip(polys, errors):
+                    #The throwOutMask will be updated inside this function call. If anything is set to True it is thrown out.
+                    check(poly, error)
+                    self.mask &= ~self.throwOutMask
+                    #TODO: How to store when something is thrown out efficiently?
+                    #Maybe do it inside of the check itself?
         
         #Create the new intervals based on the ones we are keeping
         temp1 = b - a
         temp2 = b + a        
-        newIntervals = self.subintervals[self.mask]
-        
-        if len(intervals) != len(newIntervals):
-            print('ERROR')
-        if len(newIntervals) > 0:
-            correct = np.all(newIntervals == np.array(intervals))
-            if not correct:
-                print('ERROR')
-        
+        newIntervals = self.subintervals[self.mask]        
         newIntervals[:,:1,:] = (newIntervals[:,:1,:] * temp1 + temp2) / 2
         newIntervals[:,1:,:] = (newIntervals[:,1:,:] * temp1 + temp2) / 2
-                
+        
         #Track the intervals we are throwing out
-        if not self.polishing:
+        if runChecks and not self.polishing:
             thrownOutIntervals = self.subintervals[~self.mask]
             thrownOutIntervals[:,:1,:] = (thrownOutIntervals[:,:1,:] * temp1 + temp2) / 2
             thrownOutIntervals[:,1:,:] = (thrownOutIntervals[:,1:,:] * temp1 + temp2) / 2
