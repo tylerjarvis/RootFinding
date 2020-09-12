@@ -847,7 +847,7 @@ def quadratic_check_2D(test_coeff, intervals, tol):
     if test_coeff.ndim != 2:
         return
 
-    mask = [0,0,0,0]
+    mask = [True]*len(intervals)
     
     #Get the coefficients of the quadratic part
     #Need to account for when certain coefs are zero.
