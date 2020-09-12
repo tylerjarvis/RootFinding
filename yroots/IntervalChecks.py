@@ -119,6 +119,7 @@ class IntervalData:
             for i,val in enumerate(spot):
                 self.subintervals[spot][0][i] = -1 if val == 0 else self.middleVal
                 self.subintervals[spot][1][i] = self.middleVal if val == 0 else 1
+        self.RUNCOUNT = 0
 
     def add_polish_intervals(self, polish_intervals):
         ''' Add the intervals that polishing will be run on.
@@ -164,6 +165,15 @@ class IntervalData:
         subintervals : list
             Each element of the list is a tuple containing an a and b, the lower and upper bounds of the interval.
         """
+        intervals = [[interval[0], interval[1]] for interval in self.subintervals.reshape(4,2,2)]
+        for poly,error in zip(polys, errors):
+            realMask = quadratic_check(poly, intervals, error)
+            tempI = []
+            for i,interval in zip(realMask, intervals):
+                if i:
+                    tempI.append(interval)
+            intervals = tempI
+        
         #Default to keeping everything
         self.mask.fill(True)
         
@@ -179,16 +189,25 @@ class IntervalData:
         #Create the new intervals based on the ones we are keeping
         temp1 = b - a
         temp2 = b + a        
-        newIntervals = self.subintervals[self.mask]        
+        newIntervals = self.subintervals[self.mask]
+        
+        if len(intervals) != len(newIntervals):
+            print('ERROR')
+        if len(newIntervals) > 0:
+            correct = np.all(newIntervals == np.array(intervals))
+            if not correct:
+                print('ERROR')
+        
         newIntervals[:,:1,:] = (newIntervals[:,:1,:] * temp1 + temp2) / 2
         newIntervals[:,1:,:] = (newIntervals[:,1:,:] * temp1 + temp2) / 2
                 
         #Track the intervals we are throwing out
-        thrownOutIntervals = self.subintervals[~self.mask]
-        thrownOutIntervals[:,:1,:] = (thrownOutIntervals[:,:1,:] * temp1 + temp2) / 2
-        thrownOutIntervals[:,1:,:] = (thrownOutIntervals[:,1:,:] * temp1 + temp2) / 2
-        for old_a,old_b in thrownOutIntervals:
-            self.track_interval("quadratic_check", [old_a,old_b])
+        if not self.polishing:
+            thrownOutIntervals = self.subintervals[~self.mask]
+            thrownOutIntervals[:,:1,:] = (thrownOutIntervals[:,:1,:] * temp1 + temp2) / 2
+            thrownOutIntervals[:,1:,:] = (thrownOutIntervals[:,1:,:] * temp1 + temp2) / 2
+            for old_a,old_b in thrownOutIntervals:
+                self.track_interval("quadratic_check", [old_a,old_b])
             
         return newIntervals
     
@@ -254,6 +273,7 @@ class IntervalData:
         total_intervals = sum(results_numbers)
         self.total_intervals = total_intervals
         checkers = [name for name in self.interval_results]
+        print(results_numbers)
         print("Total intervals checked was {}".format(total_intervals))
         print("Methods used were {}".format(checkers))
         print("The percent solved by each was {}".format((100*results_numbers / total_intervals).round(4)))
@@ -354,8 +374,19 @@ class IntervalData:
             A list of the results of each interval. False if the function is guarenteed to never be zero
             in the unit box, True otherwise
         """
+        self.RUNCOUNT += 1
+        self.VERBOSE = self.RUNCOUNT == -1
+        if self.VERBOSE:
+            print('RUNNING VERBOSE')
         if test_coeff.ndim == 2:
-            self.quadratic_check_2DNew(test_coeff, tol)            
+            intervals = [[interval[0], interval[1]] for interval in self.subintervals.reshape(4,2,2)]
+            realMask = quadratic_check_2D(test_coeff, intervals, tol, VERBOSE = self.VERBOSE)
+            self.quadratic_check_2DNew(test_coeff, tol)
+            newMask = [not i for i in self.throwOutMask.reshape(4)]
+            if not np.all(realMask == newMask):
+                print('Fail', self.RUNCOUNT)
+                print(realMask, newMask)
+                raise ValueError('OH NO')
         elif test_coeff.ndim == 3:
             return self.quadratic_check_3D(test_coeff, tol)
         else:
@@ -384,11 +415,12 @@ class IntervalData:
             A list of the results of each interval. False if the function is guarenteed to never be zero
             in the unit box, True otherwise
         """
-        if test_coeff.ndim != 2 or not (self.mask[0,0] or self.mask[1,0] or self.mask[0,1] or self.mask[1,1]):
-            return
+#         if test_coeff.ndim != 2 or not (self.mask[0,0] or self.mask[1,0] or self.mask[0,1] or self.mask[1,1]):
+#             return
 
         #Start out assuming we can throw out all intervals that remain.
         self.throwOutMask = self.mask.copy()
+        self.throwOutMask.fill(True) # For Testing
 
         #Get the coefficients of the quadratic part
         #Need to account for when certain coefs are zero.
@@ -412,8 +444,13 @@ class IntervalData:
         #  small arrays, so the second sum here is faster than using numpy
         otherSum = np.sum(np.abs(test_coeff)) - abs(c0)-abs(c1)-abs(c2)-abs(c3)-abs(c4)-abs(c5) + tol
 
+        if self.VERBOSE:
+            print('New Check, Other Sum: ', otherSum)
+        
         #MidPoint
         midPoint = (c5+c3)*self.middleValChebSqrd + c4*self.middleValSqrd + (c2+c1)*self.middleVal + c0
+        if self.VERBOSE:
+            print('Mid Point: ', midPoint)
         if midPoint < otherSum and midPoint > -otherSum:
             self.throwOutMask.fill(False)
             return
@@ -663,7 +700,6 @@ class IntervalData:
         #  small arrays, so the second sum here is faster than using numpy
         other_sum = np.sum(np.abs(test_coeff)) - sum([fabs(coeff) for coeff in c]) + tol
 
-
         # Function for evaluating c0 + c1 T_1(x) + c2 T_1(y) +c3 T_2(x) + c4 T_1(x)T_1(y) + c5 T_2(y)
         # Use the Horner form because it is much faster, also do any repeated computatons in advance
         k0 = c[0]-c[3]-c[5]
@@ -792,7 +828,7 @@ def constant_term_check(test_coeff, tol):
     else:
         return True
 
-def quadratic_check(test_coeff,tol):
+def quadratic_check(test_coeff, intervals, tol):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
@@ -815,13 +851,13 @@ def quadratic_check(test_coeff,tol):
         in the unit box, True otherwise
     """
     if test_coeff.ndim == 2:
-        return quadratic_check_2D(test_coeff, tol)
+        return quadratic_check_2D(test_coeff, intervals, tol)
     elif test_coeff.ndim == 3:
-        return quadratic_check_3D(test_coeff, tol)
+        return quadratic_check_3D(test_coeff, intervals, tol)
     else:
-        return quadratic_check_nd(test_coeff, tol)
+        return quadratic_check_nd(test_coeff, intervals, tol)
 
-def quadratic_check_2D(test_coeff, intervals, tol):
+def quadratic_check_2D(test_coeff, intervals, tol, VERBOSE = False):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
@@ -844,11 +880,10 @@ def quadratic_check_2D(test_coeff, intervals, tol):
         A list of the results of each interval. False if the function is guarenteed to never be zero
         in the unit box, True otherwise
     """
-    if test_coeff.ndim != 2:
-        return
-
     mask = [True]*len(intervals)
-    
+    if test_coeff.ndim != 2:
+        return mask
+
     #Get the coefficients of the quadratic part
     #Need to account for when certain coefs are zero.
     #Padding is slow, so check the shape instead.
@@ -871,7 +906,9 @@ def quadratic_check_2D(test_coeff, intervals, tol):
     #  small arrays, so the second sum here is faster than using numpy
     other_sum = np.sum(np.abs(test_coeff)) - sum([fabs(coeff) for coeff in c]) + tol
 
-
+    if VERBOSE:
+        print('Old Check: other_sum:', other_sum)
+    
     # Function for evaluating c0 + c1 T_1(x) + c2 T_1(y) +c3 T_2(x) + c4 T_1(x)T_1(y) + c5 T_2(y)
     # Use the Horner form because it is much faster, also do any repeated computatons in advance
     k0 = c[0]-c[3]-c[5]
