@@ -1370,6 +1370,13 @@ class Tolerances:
         self.currTol = -1
         self.numTols = numTols
 
+    def getTolDict(self):
+        tolDict = dict()
+        for name in self.__dict__:
+            if hasattr(self.__dict__[name], '__iter__'):
+                tolDict[name] = self.__dict__[name]
+        return tolDict
+        
     def nextTols(self):
         """Determines the next tolerances
 
