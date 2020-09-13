@@ -684,6 +684,12 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
         is necessary to get a sufficiently accurate approximation from which to
         build the Macaulay matrix and run the solver.
     """
+    searchA = np.array([ 0.41589129, -0.26823241])
+    searchB = np.array([ 0.41590777, -0.26821593])
+    VERBOSE = np.all(np.isclose(a,searchA)) and np.all(np.isclose(b,searchB))
+    if VERBOSE:
+        print(a,b,deg,tols.getTolDict(),good_degs,target_deg,use_target_tol)
+
     if level >= max_level:
         # TODO Refine case where there may be a root and it goes too deep.
         interval_data.track_interval("Too Deep", [a, b])
@@ -740,6 +746,9 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
 
             cheb_approx_list.append(coeff)
 
+    if VERBOSE:
+        print('GOOD APPROXIMATION')
+            
     # Reduce the degree of the approximations while not introducing too much error
     coeffs, good_approx, approx_errors = trim_coeffs(cheb_approx_list, tols.abs_approx_tol, tols.rel_approx_tol, inf_norms, approx_errors)
     if not trust_small_evals:
@@ -752,25 +761,40 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
         good_degs = [min(coeff.shape[0], deg) for coeff in coeffs]
         good_zeros_tol = max(tols.min_good_zeros_tol, sum(np.abs(approx_errors))*tols.good_zeros_factor)
 
+    if VERBOSE:
+        print('Degrees are: ', [coeff.shape for coeff in coeffs])
+        print(coeffs)
+        print('Errors:', approx_errors)
+        print('Inf Norms:', inf_norms)
+        print('Good Approx:', good_approx)
+        
     # Check if the degree is small enough or if trim_coeffs introduced too much error
     if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > target_deg + 1) or not good_approx:
+        if VERBOSE:
+            print('Too much error after trim coeffs')
         intervals = interval_data.get_subintervals(a,b,cheb_approx_list,approx_errors,True)
         for new_a, new_b in intervals:
             subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
 
     # Check if any approx error is greater than target_tol for Macaulay method
     elif np.any(np.array(approx_errors) > np.array(tols.target_tol) + tols.rel_approx_tol*np.array(inf_norms)):
+        if VERBOSE:
+            print('Too much error after trim coeffs still')
         intervals = interval_data.get_subintervals(a,b,cheb_approx_list,approx_errors,True)
         for new_a, new_b in intervals:
             subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
 
     # Check if everything is linear
     elif np.all(np.array([coeff.shape[0] for coeff in coeffs]) == 2):
+        if VERBOSE:
+            print('Everything is linear')
         if deg != 2:
             subdivision_solve_nd(funcs,a,b,2,target_deg,interval_data,root_tracker,tols,max_level,good_degs,level, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
             return
         zero, cond = solve_linear(coeffs)
         # Store the information and exit
+        if VERBOSE:
+            print('Solving Base Case')
         zero = good_zeros_nd(zero,good_zeros_tol,good_zeros_tol)
         zero = transform(zero,a,b)
         interval_data.track_interval("Base Case", [a,b])
@@ -778,15 +802,21 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
 
     # Solve using spectral methods if stable.
     else:
+        if VERBOSE:
+            print('Trying spectral solve')
         polys = [MultiCheb(coeff, lead_term = [coeff.shape[0]-1], clean_zeros = False) for coeff in coeffs]
         res = multiplication(polys, max_cond_num=tols.max_cond_num, method=method)
         #check for a conditioning error
         if res[0] is None:
+            if VERBOSE:
+                print('Bad Spectral Solve')
             # Subdivide but run some checks on the intervals first
             intervals = interval_data.get_subintervals(a,b,cheb_approx_list,approx_errors,True)
             for new_a, new_b in intervals:
                 subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
         else:
+            if VERBOSE:
+                print('GOOD Spectral Solve')
             zeros = res
             zeros = good_zeros_nd(zeros,good_zeros_tol,good_zeros_tol)
             zeros = transform(zeros,a,b)
