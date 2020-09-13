@@ -557,7 +557,7 @@ def good_zeros_nd(zeros, imag_tol, real_tol):
         mask *= np.all(np.abs(zeros.real) <= 1 + real_tol,axis = 1)
     return zeros[mask].real
 
-def get_abs_approx_tol(func, deg, a, b, dim):
+def get_abs_approx_tol(func, deg, a, b, dim, VERBOSE=False):
     """ Gets an absolute approximation tolerance based on the assumption that
         on the interval of size linearization_size * 2, the function can be
         perfectly approximated by a low degree Chebyshev polynomial.
@@ -585,6 +585,8 @@ def get_abs_approx_tol(func, deg, a, b, dim):
     # Get a random small interval from [-1,1] and transform so it's
     # within [a,b]
     x = transform(random_point(dim), a, b)
+    if VERBOSE:
+        print('Random Point:', x)
     a2 = np.array(x - linearization_size)
     b2 = np.array(x + linearization_size)
 
@@ -688,7 +690,7 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
     searchB = np.array([ 0.41590777, -0.26821593])
     VERBOSE = np.all(np.isclose(a,searchA)) and np.all(np.isclose(b,searchB))
     if VERBOSE:
-        print(a,b,deg,tols.getTolDict(),good_degs,target_deg,use_target_tol)
+        print(a,b,deg,good_degs,target_deg,use_target_tol,tols.target_tol)
 
     if level >= max_level:
         # TODO Refine case where there may be a root and it goes too deep.
@@ -710,10 +712,12 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
         # Using target_tol
         else:
             tols.target_tol = tols.target_tols[tols.currTol]
+            if VERBOSE:
+                print('Target Tol:', tols.target_tol)
             if level%tols.check_eval_freq == 0:
                 numSpots = (deg*2)**len(a) - (deg)**len(a)
                 for func in funcs:
-                    tols.target_tol = max(tols.target_tol, numSpots * get_abs_approx_tol(func, 3, a, b, dim))
+                    tols.target_tol = max(tols.target_tol, numSpots * get_abs_approx_tol(func, 3, a, b, dim, VERBOSE))
 
     cheb_approx_list = []
     interval_data.print_progress()
@@ -767,6 +771,7 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
         print('Errors:', approx_errors)
         print('Inf Norms:', inf_norms)
         print('Good Approx:', good_approx)
+        print('target tol:', tols.target_tol)
         
     # Check if the degree is small enough or if trim_coeffs introduced too much error
     if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > target_deg + 1) or not good_approx:
