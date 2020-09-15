@@ -156,16 +156,12 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
         solve_func = subdivision_solve_1d
         if isinstance(funcs, list):
             funcs = funcs[0]
-
-        # TODO : Set the maximum number of subdivisions so that
-        # intervals cannot possibly be smaller than 2^-51
-        max_level = 52
     else:
         solve_func = subdivision_solve_nd
 
-        # TODO : Set the maximum number of subdivisions so that
-        # intervals cannot possibly be smaller than 2^-51
-        max_level = 52
+    # TODO : Set the maximum number of subdivisions so that
+    # intervals cannot possibly be smaller than 2^-51
+    max_level = 52
 
     
 
