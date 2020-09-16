@@ -198,7 +198,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
         return root_tracker.roots
 
 @jit
-def transform(x,a,b):
+def transform(x,a,b,VERBOSE=False):
     """Transforms points from the interval [-1,1] to the interval [a,b].
 
     Parameters
@@ -217,6 +217,8 @@ def transform(x,a,b):
     transform : numpy array
         The transformed points.
     """
+    if VERBOSE:
+        np.save('randFast',x)
     return ((b-a)*x+(b+a))/2
 
 @Memoize
@@ -590,7 +592,7 @@ def get_abs_approx_tol(func, deg, a, b, dim, VERBOSE=False):
 
     # Get a random small interval from [-1,1] and transform so it's
     # within [a,b]
-    x = transform(random_point(dim), a, b)
+    x = transform(random_point(dim), a, b, VERBOSE)
     if VERBOSE:
         print('Random Point:', x)
     a2 = np.array(x - linearization_size)
@@ -601,6 +603,7 @@ def get_abs_approx_tol(func, deg, a, b, dim, VERBOSE=False):
     coeff = interval_approximate_nd(func,a2,b2,2*deg,VERBOSE=VERBOSE)
     
     if VERBOSE:
+        np.save('xFast', x)
         print('a2:', a2)
         print('b2:', b2)
         print('2*deg:', 2*deg)
@@ -736,8 +739,10 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
                 numSpots = (deg*2)**len(a) - (deg)**len(a)
                 if VERBOSE:
                     print('numSpots:', numSpots)
+                tempNum = 0
                 for func in funcs:
-                    tols.target_tol = max(tols.target_tol, numSpots * get_abs_approx_tol(func, 3, a, b, dim, VERBOSE))
+                    tempNum += 1
+                    tols.target_tol = max(tols.target_tol, numSpots * get_abs_approx_tol(func, 3, a, b, dim, VERBOSE and (tempNum == 1)))
                     if VERBOSE:
                         print('Target Tol:', tols.target_tol)
 
