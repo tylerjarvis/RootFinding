@@ -596,6 +596,8 @@ def get_abs_approx_tol(func, deg, a, b, dim, VERBOSE=False):
 
     # Sum up coeffieicents that are assumed to be just noise
     abs_approx_tol = np.sum(np.abs(coeff))
+    if VERBOSE:
+        print('abs_approx_tol:', abs_approx_tol)
 
     # Divide by the number of spots that were summed up.
     numSpots = (deg*2)**dim - (deg)**dim
@@ -716,8 +718,12 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
                 print('Target Tol:', tols.target_tol)
             if level%tols.check_eval_freq == 0:
                 numSpots = (deg*2)**len(a) - (deg)**len(a)
+                if VERBOSE:
+                    print('numSpots:', numSpots)
                 for func in funcs:
                     tols.target_tol = max(tols.target_tol, numSpots * get_abs_approx_tol(func, 3, a, b, dim, VERBOSE))
+                    if VERBOSE:
+                        print('Target Tol:', tols.target_tol)
 
     cheb_approx_list = []
     interval_data.print_progress()
