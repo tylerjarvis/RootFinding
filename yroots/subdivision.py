@@ -400,7 +400,7 @@ def get_cheb_grid(deg, dim, has_eval_grid):
         flatten = lambda x: x.flatten()
         return np.column_stack(tuple(map(flatten, cheb_grids)))
 
-def interval_approximate_nd(f,a,b,deg,return_inf_norm=False):
+def interval_approximate_nd(f,a,b,deg,return_inf_norm=False,VERBOSE=False):
     """Finds the chebyshev approximation of an n-dimensional function on an
     interval.
 
@@ -435,6 +435,12 @@ def interval_approximate_nd(f,a,b,deg,return_inf_norm=False):
         cheb_points = transform(get_cheb_grid(deg, dim, False), a, b)
         values_block = f(*cheb_points.T).reshape(*([deg+1]*dim))
 
+    if VERBOSE:
+        np.save('aFast', a)
+        np.save('bFast', b)
+        np.save('cheb_pointsFast', cheb_points)
+        np.save('values_blockFast', cheb_points)
+        
     values = chebyshev_block_copy(values_block)
 
     if return_inf_norm:
@@ -592,7 +598,7 @@ def get_abs_approx_tol(func, deg, a, b, dim, VERBOSE=False):
 
     # Approximate with a low degree Chebyshev polynomial
     
-    coeff = interval_approximate_nd(func,a2,b2,2*deg)
+    coeff = interval_approximate_nd(func,a2,b2,2*deg,VERBOSE=VERBOSE)
     
     if VERBOSE:
         print('a2:', a2)
