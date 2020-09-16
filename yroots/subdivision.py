@@ -219,6 +219,8 @@ def transform(x,a,b,VERBOSE=False):
     """
     if VERBOSE:
         np.save('randFast',x)
+        np.save('aTranFast',a)
+        np.save('bTranFast',b)        
     return ((b-a)*x+(b+a))/2
 
 @Memoize
