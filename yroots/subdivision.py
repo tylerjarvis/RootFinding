@@ -591,9 +591,19 @@ def get_abs_approx_tol(func, deg, a, b, dim, VERBOSE=False):
     b2 = np.array(x + linearization_size)
 
     # Approximate with a low degree Chebyshev polynomial
+    
     coeff = interval_approximate_nd(func,a2,b2,2*deg)
+    
+    if VERBOSE:
+        print('a2:', a2)
+        print('b2:', b2)
+        print('2*deg:', 2*deg)
+    
     coeff[deg_slices(deg, dim)] = 0
 
+    if VERBOSE:
+        print('coeff[5,0]:', coeff[5,0])
+    
     # Sum up coeffieicents that are assumed to be just noise
     abs_approx_tol = np.sum(np.abs(coeff))
     if VERBOSE:
