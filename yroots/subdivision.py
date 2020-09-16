@@ -198,7 +198,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
         return root_tracker.roots
 
 @jit
-def transform(x,a,b,VERBOSE=False):
+def transform(x,a,b):
     """Transforms points from the interval [-1,1] to the interval [a,b].
 
     Parameters
@@ -217,10 +217,6 @@ def transform(x,a,b,VERBOSE=False):
     transform : numpy array
         The transformed points.
     """
-    if VERBOSE:
-        np.save('randFast',x)
-        np.save('aTranFast',a)
-        np.save('bTranFast',b)        
     return ((b-a)*x+(b+a))/2
 
 @Memoize
@@ -404,7 +400,7 @@ def get_cheb_grid(deg, dim, has_eval_grid):
         flatten = lambda x: x.flatten()
         return np.column_stack(tuple(map(flatten, cheb_grids)))
 
-def interval_approximate_nd(f,a,b,deg,return_inf_norm=False,VERBOSE=False):
+def interval_approximate_nd(f,a,b,deg,return_inf_norm=False):
     """Finds the chebyshev approximation of an n-dimensional function on an
     interval.
 
@@ -438,12 +434,6 @@ def interval_approximate_nd(f,a,b,deg,return_inf_norm=False,VERBOSE=False):
     else:
         cheb_points = transform(get_cheb_grid(deg, dim, False), a, b)
         values_block = f(*cheb_points.T).reshape(*([deg+1]*dim))
-
-    if VERBOSE:
-        np.save('aFast', a)
-        np.save('bFast', b)
-        np.save('cheb_pointsFast', cheb_points)
-        np.save('values_blockFast', cheb_points)
         
     values = chebyshev_block_copy(values_block)
 
@@ -567,7 +557,7 @@ def good_zeros_nd(zeros, imag_tol, real_tol):
         mask *= np.all(np.abs(zeros.real) <= 1 + real_tol,axis = 1)
     return zeros[mask].real
 
-def get_abs_approx_tol(func, deg, a, b, dim, VERBOSE=False):
+def get_abs_approx_tol(func, deg, a, b, dim):
     """ Gets an absolute approximation tolerance based on the assumption that
         on the interval of size linearization_size * 2, the function can be
         perfectly approximated by a low degree Chebyshev polynomial.
@@ -594,31 +584,17 @@ def get_abs_approx_tol(func, deg, a, b, dim, VERBOSE=False):
 
     # Get a random small interval from [-1,1] and transform so it's
     # within [a,b]
-    x = transform(random_point(dim), a, b, VERBOSE)
-    if VERBOSE:
-        print('Random Point:', x)
+    x = transform(random_point(dim), a, b)
     a2 = np.array(x - linearization_size)
     b2 = np.array(x + linearization_size)
 
     # Approximate with a low degree Chebyshev polynomial
     
-    coeff = interval_approximate_nd(func,a2,b2,2*deg,VERBOSE=VERBOSE)
-    
-    if VERBOSE:
-        np.save('xFast', x)
-        print('a2:', a2)
-        print('b2:', b2)
-        print('2*deg:', 2*deg)
-    
+    coeff = interval_approximate_nd(func,a2,b2,2*deg)    
     coeff[deg_slices(deg, dim)] = 0
-
-    if VERBOSE:
-        print('coeff[5,0]:', coeff[5,0])
     
     # Sum up coeffieicents that are assumed to be just noise
     abs_approx_tol = np.sum(np.abs(coeff))
-    if VERBOSE:
-        print('abs_approx_tol:', abs_approx_tol)
 
     # Divide by the number of spots that were summed up.
     numSpots = (deg*2)**dim - (deg)**dim
@@ -709,12 +685,6 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
         is necessary to get a sufficiently accurate approximation from which to
         build the Macaulay matrix and run the solver.
     """
-    searchA = np.array([ 0.41589129, -0.26823241])
-    searchB = np.array([ 0.41590777, -0.26821593])
-    VERBOSE = np.all(np.isclose(a,searchA)) and np.all(np.isclose(b,searchB))
-    if VERBOSE:
-        print(a,b,deg,good_degs,target_deg,use_target_tol,tols.target_tol)
-
     if level >= max_level:
         # TODO Refine case where there may be a root and it goes too deep.
         interval_data.track_interval("Too Deep", [a, b])
@@ -735,18 +705,10 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
         # Using target_tol
         else:
             tols.target_tol = tols.target_tols[tols.currTol]
-            if VERBOSE:
-                print('Target Tol:', tols.target_tol)
             if level%tols.check_eval_freq == 0:
                 numSpots = (deg*2)**len(a) - (deg)**len(a)
-                if VERBOSE:
-                    print('numSpots:', numSpots)
-                tempNum = 0
                 for func in funcs:
-                    tempNum += 1
-                    tols.target_tol = max(tols.target_tol, numSpots * get_abs_approx_tol(func, 3, a, b, dim, VERBOSE and (tempNum == 1)))
-                    if VERBOSE:
-                        print('Target Tol:', tols.target_tol)
+                    tols.target_tol = max(tols.target_tol, numSpots * get_abs_approx_tol(func, 3, a, b, dim))
 
     cheb_approx_list = []
     interval_data.print_progress()
@@ -778,9 +740,6 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
                 return
 
             cheb_approx_list.append(coeff)
-
-    if VERBOSE:
-        print('GOOD APPROXIMATION')
             
     # Reduce the degree of the approximations while not introducing too much error
     coeffs, good_approx, approx_errors = trim_coeffs(cheb_approx_list, tols.abs_approx_tol, tols.rel_approx_tol, inf_norms, approx_errors)
@@ -793,42 +752,26 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
         # but no larger than the initial degree for more accurate performance.
         good_degs = [min(coeff.shape[0], deg) for coeff in coeffs]
         good_zeros_tol = max(tols.min_good_zeros_tol, sum(np.abs(approx_errors))*tols.good_zeros_factor)
-
-    if VERBOSE:
-        print('Degrees are: ', [coeff.shape for coeff in coeffs])
-        print(coeffs)
-        print('Errors:', approx_errors)
-        print('Inf Norms:', inf_norms)
-        print('Good Approx:', good_approx)
-        print('target tol:', tols.target_tol)
         
     # Check if the degree is small enough or if trim_coeffs introduced too much error
     if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > target_deg + 1) or not good_approx:
-        if VERBOSE:
-            print('Too much error after trim coeffs')
         intervals = interval_data.get_subintervals(a,b,cheb_approx_list,approx_errors,True)
         for new_a, new_b in intervals:
             subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
 
     # Check if any approx error is greater than target_tol for Macaulay method
     elif np.any(np.array(approx_errors) > np.array(tols.target_tol) + tols.rel_approx_tol*np.array(inf_norms)):
-        if VERBOSE:
-            print('Too much error after trim coeffs still')
         intervals = interval_data.get_subintervals(a,b,cheb_approx_list,approx_errors,True)
         for new_a, new_b in intervals:
             subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
 
     # Check if everything is linear
     elif np.all(np.array([coeff.shape[0] for coeff in coeffs]) == 2):
-        if VERBOSE:
-            print('Everything is linear')
         if deg != 2:
             subdivision_solve_nd(funcs,a,b,2,target_deg,interval_data,root_tracker,tols,max_level,good_degs,level, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
             return
         zero, cond = solve_linear(coeffs)
         # Store the information and exit
-        if VERBOSE:
-            print('Solving Base Case')
         zero = good_zeros_nd(zero,good_zeros_tol,good_zeros_tol)
         zero = transform(zero,a,b)
         interval_data.track_interval("Base Case", [a,b])
@@ -836,21 +779,15 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
 
     # Solve using spectral methods if stable.
     else:
-        if VERBOSE:
-            print('Trying spectral solve')
         polys = [MultiCheb(coeff, lead_term = [coeff.shape[0]-1], clean_zeros = False) for coeff in coeffs]
         res = multiplication(polys, max_cond_num=tols.max_cond_num, method=method)
         #check for a conditioning error
         if res[0] is None:
-            if VERBOSE:
-                print('Bad Spectral Solve')
             # Subdivide but run some checks on the intervals first
             intervals = interval_data.get_subintervals(a,b,cheb_approx_list,approx_errors,True)
             for new_a, new_b in intervals:
                 subdivision_solve_nd(funcs,new_a,new_b,deg, target_deg,interval_data,root_tracker,tols,max_level,good_degs,level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
         else:
-            if VERBOSE:
-                print('GOOD Spectral Solve')
             zeros = res
             zeros = good_zeros_nd(zeros,good_zeros_tol,good_zeros_tol)
             zeros = transform(zeros,a,b)
