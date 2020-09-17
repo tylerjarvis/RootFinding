@@ -171,9 +171,8 @@ class IntervalData:
             #Run checks to set mask to False
             for check in self.subinterval_checks:
                 for poly,error in zip(polys, errors):
-                    #The throwOutMask will be updated inside this function call. If anything is set to True it is thrown out.
-                    check(poly, error)
-                    self.mask &= ~self.throwOutMask
+                    #The function returns things we should throw out
+                    self.mask &= ~check(poly, error)
                     #TODO: How to store when something is thrown out efficiently?
                     #Maybe do it inside of the check itself?
         
@@ -357,7 +356,7 @@ class IntervalData:
             in the unit box, True otherwise
         """
         if test_coeff.ndim == 2:
-            self.quadratic_check_2DNew(test_coeff, tol)
+            return self.quadratic_check_2DNew(test_coeff, tol)
         elif test_coeff.ndim == 3:
             return self.quadratic_check_3D(test_coeff, tol)
         else:
@@ -386,12 +385,15 @@ class IntervalData:
             A list of the results of each interval. False if the function is guarenteed to never be zero
             in the unit box, True otherwise
         """
-#         if test_coeff.ndim != 2 or not (self.mask[0,0] or self.mask[1,0] or self.mask[0,1] or self.mask[1,1]):
-#             return
+        if not self.mask.any():
+            return self.mask
 
+        middleVal = 2*self.RAND - 1
+        middleValChebSqrd = 2*middleVal**2 - 1
+        middleValSqrd = middleVal**2
+        
         #Start out assuming we can throw out all intervals that remain.
-        self.throwOutMask = self.mask.copy()
-        self.throwOutMask.fill(True) # For Testing
+        throwOutMask = self.mask.copy()
 
         #Get the coefficients of the quadratic part
         #Need to account for when certain coefs are zero.
@@ -416,82 +418,82 @@ class IntervalData:
         otherSum = np.sum(np.abs(test_coeff)) - abs(c0)-abs(c1)-abs(c2)-abs(c3)-abs(c4)-abs(c5) + tol
 
         #MidPoint
-        midPoint = (c5+c3)*self.middleValChebSqrd + c4*self.middleValSqrd + (c2+c1)*self.middleVal + c0
+        midPoint = (c5+c3)*middleValChebSqrd + c4*middleValSqrd + (c2+c1)*middleVal + c0
         if midPoint < otherSum and midPoint > -otherSum:
-            self.throwOutMask.fill(False)
-            return
+            throwOutMask.fill(False)
+            return throwOutMask
         else:
             testfunc = (lambda x: x < otherSum) if midPoint > 0 else (lambda x: x > -otherSum)
             
-        toBeChecked = self.throwOutMask.sum()
+        toBeChecked = throwOutMask.sum()
 
         #Test x = -1
-        minusXEval = c5*self.middleValChebSqrd + (c2-c4)*self.middleVal + c0+c3-c1
+        minusXEval = c5*middleValChebSqrd + (c2-c4)*middleVal + c0+c3-c1
         if testfunc(minusXEval):
-            toBeChecked -= self.throwOutMask[0,:].sum()
-            self.throwOutMask[0,0] = False; self.throwOutMask[0,1] = False
+            toBeChecked -= throwOutMask[0,:].sum()
+            throwOutMask[0,0] = False; throwOutMask[0,1] = False
             if toBeChecked == 0:
-                return
+                return throwOutMask
 
         #Test x = 1
-        plusXEval = minusXEval + 2*(c4*self.middleVal + c1)
+        plusXEval = minusXEval + 2*(c4*middleVal + c1)
         if testfunc(plusXEval):
-            toBeChecked -= self.throwOutMask[1,:].sum()
-            self.throwOutMask[1,0] = False; self.throwOutMask[1,1] = False
+            toBeChecked -= throwOutMask[1,:].sum()
+            throwOutMask[1,0] = False; throwOutMask[1,1] = False
             if toBeChecked == 0:
-                return
+                return throwOutMask
 
         #Test y = -1
-        minusYEval = c3*self.middleValChebSqrd + (c1-c4)*self.middleVal + c0+c5-c2
+        minusYEval = c3*middleValChebSqrd + (c1-c4)*middleVal + c0+c5-c2
         if testfunc(minusYEval):
-            toBeChecked -= self.throwOutMask[:,0].sum()
-            self.throwOutMask[0,0] = False; self.throwOutMask[1,0] = False
+            toBeChecked -= throwOutMask[:,0].sum()
+            throwOutMask[0,0] = False; throwOutMask[1,0] = False
             if toBeChecked == 0:
-                return
+                return throwOutMask
 
         #Test y = 1
-        plusYEval = minusYEval + 2*(c4*self.middleVal + c2)
+        plusYEval = minusYEval + 2*(c4*middleVal + c2)
         if testfunc(plusYEval):
-            toBeChecked -= self.throwOutMask[:,1].sum()
-            self.throwOutMask[0,1] = False; self.throwOutMask[1,1] = False
+            toBeChecked -= throwOutMask[:,1].sum()
+            throwOutMask[0,1] = False; throwOutMask[1,1] = False
             if toBeChecked == 0:
-                return
+                return throwOutMask
 
         plusXplusYEval = c0 + c1 + c2 + c3 + c4 + c5
-        if self.throwOutMask[1,1]:
+        if throwOutMask[1,1]:
             #Test x = 1, y = 1
             if testfunc(plusXplusYEval):
                 toBeChecked -= 1
-                self.throwOutMask[1,1] = False
+                throwOutMask[1,1] = False
                 if toBeChecked == 0:
-                    return
+                    return throwOutMask
 
-        if self.throwOutMask[0,1]:
+        if throwOutMask[0,1]:
             #Test x = -1, y = 1
             minusXplusYEval = plusXplusYEval - 2*(c1+c4)
             if testfunc(minusXplusYEval):
                 toBeChecked -= 1
-                self.throwOutMask[0,1] = False
+                throwOutMask[0,1] = False
                 if toBeChecked == 0:
-                    return
+                    return throwOutMask
 
-        if self.throwOutMask[1,0]:
+        if throwOutMask[1,0]:
             #Test x = 1, y = -1
             plusXminusYEval = plusXplusYEval - 2*(c2+c4)
             if testfunc(plusXminusYEval):
                 toBeChecked -= 1
-                self.throwOutMask[1,0] = False
+                throwOutMask[1,0] = False
                 if toBeChecked == 0:
-                    return
+                    return throwOutMask
 
-        if self.throwOutMask[0,0]:
+        if throwOutMask[0,0]:
             #Test x = -1, y = -1
             minusXminusYEval = plusXplusYEval - 2*(c1+c2)
             if testfunc(minusXminusYEval):
                 toBeChecked -= 1
-                self.throwOutMask[0,0] = False
+                throwOutMask[0,0] = False
                 if toBeChecked == 0:
-                    return
+                    return throwOutMask
                 
         #Check the x constant boundaries
         #The partial with respect to y is zero
@@ -499,49 +501,49 @@ class IntervalData:
         if c5 != 0:
             four_c5 = 4*c5
             #When x = middleVal
-            y = (-c2-c4*self.middleVal)/four_c5
-            if self.middleVal <= y <= 1:
-                if self.throwOutMask[:,1].any() and testfunc(c0 + (c1 + c4*y)*self.middleVal + c3*self.middleValChebSqrd - c5 + (2*c5*y+c2)*y):
-                    toBeChecked -= self.throwOutMask[:,1].sum()
-                    self.throwOutMask[:,1] = False
+            y = (-c2-c4*middleVal)/four_c5
+            if middleVal <= y <= 1:
+                if throwOutMask[:,1].any() and testfunc(c0 + (c1 + c4*y)*middleVal + c3*middleValChebSqrd - c5 + (2*c5*y+c2)*y):
+                    toBeChecked -= throwOutMask[:,1].sum()
+                    throwOutMask[:,1] = False
                     if toBeChecked == 0:
-                        return
-            elif -1 <= y <= self.middleVal:
-                if self.throwOutMask[:,1].any() and testfunc(c0 + (c1 + c4*y)*self.middleVal + c3*self.middleValChebSqrd - c5 + (2*c5*y+c2)*y):
-                    toBeChecked -= self.throwOutMask[:,0].sum()
-                    self.throwOutMask[:,0] = False
+                        return throwOutMask
+            elif -1 <= y <= middleVal:
+                if throwOutMask[:,1].any() and testfunc(c0 + (c1 + c4*y)*middleVal + c3*middleValChebSqrd - c5 + (2*c5*y+c2)*y):
+                    toBeChecked -= throwOutMask[:,0].sum()
+                    throwOutMask[:,0] = False
                     if toBeChecked == 0:
-                        return
+                        return throwOutMask
             #When x = -1
-            if self.throwOutMask[0,0] or self.throwOutMask[0,1]:
+            if throwOutMask[0,0] or throwOutMask[0,1]:
                 y = (-c2+c4)/four_c5
-                if self.middleVal <= y <= 1:
-                    if self.throwOutMask[0,1] and testfunc(c0 - c1 + c3 - c5 + (2*c5*y+c2-c4)*y):
+                if middleVal <= y <= 1:
+                    if throwOutMask[0,1] and testfunc(c0 - c1 + c3 - c5 + (2*c5*y+c2-c4)*y):
                         toBeChecked -= 1
-                        self.throwOutMask[0,1] = False
+                        throwOutMask[0,1] = False
                         if toBeChecked == 0:
-                            return
-                elif -1 <= y <= self.middleVal:
-                    if self.throwOutMask[0,0] and testfunc(c0 - c1 + c3 - c5 + (2*c5*y+c2-c4)*y):
+                            return throwOutMask
+                elif -1 <= y <= middleVal:
+                    if throwOutMask[0,0] and testfunc(c0 - c1 + c3 - c5 + (2*c5*y+c2-c4)*y):
                         toBeChecked -= 1
-                        self.throwOutMask[0,0] = False
+                        throwOutMask[0,0] = False
                         if toBeChecked == 0:
-                            return
+                            return throwOutMask
             #When x = 1
-            if self.throwOutMask[1,0] or self.throwOutMask[1,1]:
+            if throwOutMask[1,0] or throwOutMask[1,1]:
                 y = (-c2-c4)/four_c5
-                if self.middleVal <= y <= 1:
-                    if self.throwOutMask[1,1] and testfunc(c0 + c1 + c3 - c5 + (2*c5*y+c2+c4)*y):
+                if middleVal <= y <= 1:
+                    if throwOutMask[1,1] and testfunc(c0 + c1 + c3 - c5 + (2*c5*y+c2+c4)*y):
                         toBeChecked -= 1
-                        self.throwOutMask[1,1] = False
+                        throwOutMask[1,1] = False
                         if toBeChecked == 0:
-                            return
-                elif -1 <= y <= self.middleVal:
-                    if self.throwOutMask[1,0] and testfunc(c0 + c1 + c3 - c5 + (2*c5*y+c2+c4)*y):
+                            return throwOutMask
+                elif -1 <= y <= middleVal:
+                    if throwOutMask[1,0] and testfunc(c0 + c1 + c3 - c5 + (2*c5*y+c2+c4)*y):
                         toBeChecked -= 1
-                        self.throwOutMask[1,0] = False
+                        throwOutMask[1,0] = False
                         if toBeChecked == 0:
-                            return
+                            return throwOutMask
 
         #Check the y constant boundaries
         #The partial with respect to x is zero
@@ -549,49 +551,49 @@ class IntervalData:
         if c3 != 0:
             four_c3 = 4*c3
             #When y = middleVal
-            x = (-c1-c4*self.middleVal)/four_c3
-            if self.middleVal <= x <= 1:
-                if self.throwOutMask[1,:].any() and testfunc(c0 + (c2 + c4*x)*self.middleVal + c5*self.middleValChebSqrd - c3 + (2*c3*x+c1)*x):
-                    toBeChecked -= self.throwOutMask[1,:].sum()
-                    self.throwOutMask[1,:] = False
+            x = (-c1-c4*middleVal)/four_c3
+            if middleVal <= x <= 1:
+                if throwOutMask[1,:].any() and testfunc(c0 + (c2 + c4*x)*middleVal + c5*middleValChebSqrd - c3 + (2*c3*x+c1)*x):
+                    toBeChecked -= throwOutMask[1,:].sum()
+                    throwOutMask[1,:] = False
                     if toBeChecked == 0:
-                        return
-            elif -1 <= x <= self.middleVal:
-                if self.throwOutMask[0,:].any() and testfunc(c0 + (c2 + c4*x)*self.middleVal + c5*self.middleValChebSqrd - c3 + (2*c3*x+c1)*x):
-                    toBeChecked -= self.throwOutMask[0,:].sum()
-                    self.throwOutMask[0,:] = False
+                        return throwOutMask
+            elif -1 <= x <= middleVal:
+                if throwOutMask[0,:].any() and testfunc(c0 + (c2 + c4*x)*middleVal + c5*middleValChebSqrd - c3 + (2*c3*x+c1)*x):
+                    toBeChecked -= throwOutMask[0,:].sum()
+                    throwOutMask[0,:] = False
                     if toBeChecked == 0:
-                        return
+                        return throwOutMask
             #When y = -1
-            if self.throwOutMask[0,0] or self.throwOutMask[1,0]:
+            if throwOutMask[0,0] or throwOutMask[1,0]:
                 x = (-c1+c4)/four_c3
-                if self.middleVal <= x <= 1:
-                    if self.throwOutMask[1,0] and testfunc(c0 - c2 + c5 - c3 + (2*c3*x+c1-c4)*x):
+                if middleVal <= x <= 1:
+                    if throwOutMask[1,0] and testfunc(c0 - c2 + c5 - c3 + (2*c3*x+c1-c4)*x):
                         toBeChecked -= 1
-                        self.throwOutMask[1,0] = False
+                        throwOutMask[1,0] = False
                         if toBeChecked == 0:
-                            return
-                elif -1 <= x <= self.middleVal:
-                    if self.throwOutMask[0,0] and testfunc(c0 - c2 + c5 - c3 + (2*c3*x+c1-c4)*x):
+                            return throwOutMask
+                elif -1 <= x <= middleVal:
+                    if throwOutMask[0,0] and testfunc(c0 - c2 + c5 - c3 + (2*c3*x+c1-c4)*x):
                         toBeChecked -= 1
-                        self.throwOutMask[0,0] = False
+                        throwOutMask[0,0] = False
                         if toBeChecked == 0:
-                            return
+                            return throwOutMask
             #When y = 1
-            if self.throwOutMask[0,0] or self.throwOutMask[0,1]:
+            if throwOutMask[0,0] or throwOutMask[0,1]:
                 x = (-c1-c4)/four_c3
-                if self.middleVal <= x <= 1:
-                    if self.throwOutMask[1,1] and testfunc(c0 + c2 + c5 - c3 + (2*c3*x+c1+c4)*x):
+                if middleVal <= x <= 1:
+                    if throwOutMask[1,1] and testfunc(c0 + c2 + c5 - c3 + (2*c3*x+c1+c4)*x):
                         toBeChecked -= 1
-                        self.throwOutMask[1,1] = False
+                        throwOutMask[1,1] = False
                         if toBeChecked == 0:
-                            return
-                elif -1 <= x <= self.middleVal:
-                    if self.throwOutMask[0,1] and testfunc(c0 + c2 + c5 - c3 + (2*c3*x+c1+c4)*x):
+                            return throwOutMask
+                elif -1 <= x <= middleVal:
+                    if throwOutMask[0,1] and testfunc(c0 + c2 + c5 - c3 + (2*c3*x+c1+c4)*x):
                         toBeChecked -= 1
-                        self.throwOutMask[0,1] = False
+                        throwOutMask[0,1] = False
                         if toBeChecked == 0:
-                            return
+                            return throwOutMask
 
         #The interior min
         #Comes from solving dx, dy = 0
@@ -603,20 +605,21 @@ class IntervalData:
             x = (c2 * c4 - 4 * c1 * c5) / det
             y = (c1 * c4 - 4 * c2 * c3) / det
             #if criteria
-            if self.middleVal <= x <= 1:
-                if self.middleVal <= y <= 1:
-                    if self.throwOutMask[1,1] and testfunc(c0-c3-c5 + (2*c3*x+c1+c4*y)*x + (2*c5*y+c2)*y):
-                        self.throwOutMask[1,1] = False
-                elif -1 <= y <= self.middleVal:
-                    if self.throwOutMask[1,0] and testfunc(c0-c3-c5 + (2*c3*x+c1+c4*y)*x + (2*c5*y+c2)*y):
-                        self.throwOutMask[1,0] = False
-            elif -1 <= x <= self.middleVal:
-                if self.middleVal <= y <= 1:
-                    if self.throwOutMask[0,1] and testfunc(c0-c3-c5 + (2*c3*x+c1+c4*y)*x + (2*c5*y+c2)*y):
-                        self.throwOutMask[0,1] = False
-                elif -1 <= y <= self.middleVal:
-                    if self.throwOutMask[0,0] and testfunc(c0-c3-c5 + (2*c3*x+c1+c4*y)*x + (2*c5*y+c2)*y):
-                        self.throwOutMask[0,0] = False
+            if middleVal <= x <= 1:
+                if middleVal <= y <= 1:
+                    if throwOutMask[1,1] and testfunc(c0-c3-c5 + (2*c3*x+c1+c4*y)*x + (2*c5*y+c2)*y):
+                        throwOutMask[1,1] = False
+                elif -1 <= y <= middleVal:
+                    if throwOutMask[1,0] and testfunc(c0-c3-c5 + (2*c3*x+c1+c4*y)*x + (2*c5*y+c2)*y):
+                        throwOutMask[1,0] = False
+            elif -1 <= x <= middleVal:
+                if middleVal <= y <= 1:
+                    if throwOutMask[0,1] and testfunc(c0-c3-c5 + (2*c3*x+c1+c4*y)*x + (2*c5*y+c2)*y):
+                        throwOutMask[0,1] = False
+                elif -1 <= y <= middleVal:
+                    if throwOutMask[0,0] and testfunc(c0-c3-c5 + (2*c3*x+c1+c4*y)*x + (2*c5*y+c2)*y):
+                        throwOutMask[0,0] = False
+        return throwOutMask
     
     def quadratic_check_2D(self, test_coeff, tol):
         """One of subinterval_checks
