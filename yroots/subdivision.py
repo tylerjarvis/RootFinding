@@ -724,8 +724,8 @@ def random_point(dim):
     # Scale the points so that they're each within [-1, 1]
     return np.random.rand(dim)*2 - 1
 
-def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
-                         root_tracker, tols, max_level, good_degs=None, level=0,
+def subdivision_solve_nd(funcs, a, b, deg, target_deg, interval_data,
+                         root_tracker, tols, max_level,good_degs=None, level=0,
                          method='svd', use_target_tol=False,
                          trust_small_evals=False):
     """Finds the common zeros of the given functions.
@@ -809,7 +809,8 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
     inf_norms = []
     approx_errors = []
     # Get the chebyshev approximations
-    for func, good_deg in zip(funcs, good_degs):
+    num_funcs = len(funcs)
+    for func_num, (func, good_deg) in enumerate(zip(funcs, good_degs)):
         if use_target_tol:
             coeff, inf_norm, approx_error = full_cheb_approximate(func, a, b, deg, tols.target_tol, tols.rel_approx_tol, good_deg)
         else:
@@ -819,10 +820,16 @@ def subdivision_solve_nd(funcs , a, b, deg, target_deg, interval_data,
         # Subdivides if a bad approximation
         if coeff is None:
             if not trust_small_evals:
-                approx_errors = [max(err, macheps) for err in approx_errors]
-            intervals = get_subintervals(og_a, og_b, get_div_dirs(dim), interval_data, cheb_approx_list, approx_errors)
+                approx_errors = [max(err,macheps) for err in approx_errors]
+            intervals = get_subintervals(og_a, og_b,get_div_dirs(dim),interval_data,cheb_approx_list,approx_errors)
+
+            #reorder funcs. TODO: fancier things like how likely it is to pass checks
+            funcs2 = funcs.copy()
+            if func_num + 1 < num_funcs:
+                del funcs2[func_num]
+                funcs2.append(func)
             for new_a, new_b in intervals:
-                subdivision_solve_nd(funcs, new_a, new_b, deg, target_deg, interval_data, root_tracker, tols, max_level, level=level+1, method=method, trust_small_evals=trust_small_evals)
+                subdivision_solve_nd(funcs2,new_a,new_b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=level+1, method=method, trust_small_evals=trust_small_evals)
             return
         else:
             # Run checks to try and throw out the interval
