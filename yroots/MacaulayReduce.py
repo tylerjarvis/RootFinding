@@ -201,11 +201,11 @@ def reduce_macaulay_tvb(M, cut, bezout_bound, max_cond=1e6):
         M[:cut,cut:] = M[:cut,cut:][:,P] # Permute columns
 
     # Check condition number before backsolve
-    cond_num_back = np.linalg.cond(M[:,:bezout_rank])
+    cond_num_back = np.linalg.cond(M[:bezout_rank,:bezout_rank])
     if cond_num_back > max_cond:
         return None, "Condition number of the Macaulay primary submatrix is {}".format(cond_num)
 
-    return solve_triangular(M[:bezout_rank,:bezout_rank],M[:bezout_rank,:]),P
+    return solve_triangular(M[:bezout_rank,:bezout_rank],M[:bezout_rank,bezout_rank:]),P
 
 def reduce_macaulay_p(M, cut, P, max_cond=1e6):
     # Compute numerical rank
