@@ -79,7 +79,7 @@ class IntervalData:
     '''
     def __init__(self,a,b):
         self.interval_checks = [constant_term_check]
-        self.subinterval_checks = [self.quadratic_check]
+        self.subinterval_checks = [quadratic_check]
         self.a = a
         self.b = b
         self.interval_results = dict()
@@ -167,31 +167,28 @@ class IntervalData:
         #Default to keeping everything
         self.mask.fill(True)
         
+        #For getting the subintervals
+        temp1 = b - a
+        temp2 = b + a        
+        
+        #Create the new intervals based on the ones we are keeping
+        newIntervals = self.subintervals.copy()
+        newIntervals[:,:1,:] = (newIntervals[:,:1,:] * temp1 + temp2) / 2
+        newIntervals[:,1:,:] = (newIntervals[:,1:,:] * temp1 + temp2) / 2
+        
         if runChecks:
             #Run checks to set mask to False
             for check in self.subinterval_checks:
                 for poly,error in zip(polys, errors):
                     #The function returns things we should throw out
-                    self.mask &= ~check(poly, error)
-                    #TODO: How to store when something is thrown out efficiently?
-                    #Maybe do it inside of the check itself?
+                    throwOutMask = check(poly, self.mask, error, self.RAND)
+                    #Throw stuff out
+                    thrownOutIntervals = newIntervals[throwOutMask]
+                    for old_a,old_b in thrownOutIntervals:
+                        self.track_interval(check.__name__, [old_a,old_b])
+                    self.mask &= ~throwOutMask
         
-        #Create the new intervals based on the ones we are keeping
-        temp1 = b - a
-        temp2 = b + a        
-        newIntervals = self.subintervals[self.mask]        
-        newIntervals[:,:1,:] = (newIntervals[:,:1,:] * temp1 + temp2) / 2
-        newIntervals[:,1:,:] = (newIntervals[:,1:,:] * temp1 + temp2) / 2
-        
-        #Track the intervals we are throwing out
-        if runChecks and not self.polishing:
-            thrownOutIntervals = self.subintervals[~self.mask]
-            thrownOutIntervals[:,:1,:] = (thrownOutIntervals[:,:1,:] * temp1 + temp2) / 2
-            thrownOutIntervals[:,1:,:] = (thrownOutIntervals[:,1:,:] * temp1 + temp2) / 2
-            for old_a,old_b in thrownOutIntervals:
-                self.track_interval("quadratic_check", [old_a,old_b])
-            
-        return newIntervals
+        return newIntervals[self.mask]
     
     def check_interval(self, coeff, error, a, b):
         ''' Runs the interval checks on the interval [a,b]
@@ -332,446 +329,6 @@ class IntervalData:
         if print_plot:
             plt.savefig('intervals.pdf', bbox_inches='tight')
         plt.show()
-
-    def quadratic_check(self, test_coeff, tol):
-        """One of subinterval_checks
-
-        Finds the min of the absolute value of the quadratic part, and compares to the sum of the
-        rest of the terms. quadratic_check_2D and quadratic_check_3D are faster so runs those if it can,
-        otherwise it runs the genereic n-dimensional version.
-
-        Parameters
-        ----------
-        test_coeff_in : numpy array
-            The coefficient matrix of the polynomial to check
-        intervals : list
-            A list of the intervals to check.
-        tol: float
-            The bound of the sup norm error of the chebyshev approximation.
-
-        Returns
-        -------
-        mask : list
-            A list of the results of each interval. False if the function is guarenteed to never be zero
-            in the unit box, True otherwise
-        """
-        if test_coeff.ndim == 2:
-            return self.quadratic_check_2DNew(test_coeff, tol)
-        elif test_coeff.ndim == 3:
-            return self.quadratic_check_3D(test_coeff, tol)
-        else:
-            return self.quadratic_check_nd(test_coeff, tol)
-
-    def quadratic_check_2DNew(self, test_coeff, tol):
-        """One of subinterval_checks
-
-        Finds the min of the absolute value of the quadratic part, and compares to the sum of the
-        rest of the terms. There can't be a root if min(extreme_values) > other_sum	or if
-        max(extreme_values) < -other_sum. We can short circuit and finish
-        faster as soon as we find one value that is < other_sum and one value that > -other_sum.
-
-        Parameters
-        ----------
-        test_coeff_in : numpy array
-            The coefficient matrix of the polynomial to check
-        intervals : list
-            A list of the intervals to check.
-        tol: float
-            The bound of the sup norm error of the chebyshev approximation.
-
-        Returns
-        -------
-        mask : list
-            A list of the results of each interval. False if the function is guarenteed to never be zero
-            in the unit box, True otherwise
-        """
-        if not self.mask.any():
-            return self.mask
-
-        middleVal = 2*self.RAND - 1
-        middleValChebSqrd = 2*middleVal**2 - 1
-        middleValSqrd = middleVal**2
-        
-        #Start out assuming we can throw out all intervals that remain.
-        throwOutMask = self.mask.copy()
-
-        #Get the coefficients of the quadratic part
-        #Need to account for when certain coefs are zero.
-        #Padding is slow, so check the shape instead.
-        shape = test_coeff.shape
-        c0 = test_coeff[0,0]
-        c1,c2,c3,c4,c5=0,0,0,0,0
-        if shape[0] > 1:
-            c1 = test_coeff[1,0]
-        if shape[1] > 1:
-            c2 = test_coeff[0,1]
-        if shape[0] > 2:
-            c3 = test_coeff[2,0]
-        if shape[0] > 1 and shape[1] > 1:
-            c4 = test_coeff[1,1]
-        if shape[1] > 2:
-            c5 = test_coeff[0,2]
-
-        # The sum of the absolute values of the other coefs
-        # Note: Overhead for instantiating a NumPy array is too costly for
-        #  small arrays, so the second sum here is faster than using numpy
-        otherSum = np.sum(np.abs(test_coeff)) - abs(c0)-abs(c1)-abs(c2)-abs(c3)-abs(c4)-abs(c5) + tol
-
-        #MidPoint
-        midPoint = (c5+c3)*middleValChebSqrd + c4*middleValSqrd + (c2+c1)*middleVal + c0
-        if midPoint < otherSum and midPoint > -otherSum:
-            throwOutMask.fill(False)
-            return throwOutMask
-        else:
-            testfunc = (lambda x: x < otherSum) if midPoint > 0 else (lambda x: x > -otherSum)
-            
-        toBeChecked = throwOutMask.sum()
-
-        #Test x = -1
-        minusXEval = c5*middleValChebSqrd + (c2-c4)*middleVal + c0+c3-c1
-        if testfunc(minusXEval):
-            toBeChecked -= throwOutMask[0,:].sum()
-            throwOutMask[0,0] = False; throwOutMask[0,1] = False
-            if toBeChecked == 0:
-                return throwOutMask
-
-        #Test x = 1
-        plusXEval = minusXEval + 2*(c4*middleVal + c1)
-        if testfunc(plusXEval):
-            toBeChecked -= throwOutMask[1,:].sum()
-            throwOutMask[1,0] = False; throwOutMask[1,1] = False
-            if toBeChecked == 0:
-                return throwOutMask
-
-        #Test y = -1
-        minusYEval = c3*middleValChebSqrd + (c1-c4)*middleVal + c0+c5-c2
-        if testfunc(minusYEval):
-            toBeChecked -= throwOutMask[:,0].sum()
-            throwOutMask[0,0] = False; throwOutMask[1,0] = False
-            if toBeChecked == 0:
-                return throwOutMask
-
-        #Test y = 1
-        plusYEval = minusYEval + 2*(c4*middleVal + c2)
-        if testfunc(plusYEval):
-            toBeChecked -= throwOutMask[:,1].sum()
-            throwOutMask[0,1] = False; throwOutMask[1,1] = False
-            if toBeChecked == 0:
-                return throwOutMask
-
-        plusXplusYEval = c0 + c1 + c2 + c3 + c4 + c5
-        if throwOutMask[1,1]:
-            #Test x = 1, y = 1
-            if testfunc(plusXplusYEval):
-                toBeChecked -= 1
-                throwOutMask[1,1] = False
-                if toBeChecked == 0:
-                    return throwOutMask
-
-        if throwOutMask[0,1]:
-            #Test x = -1, y = 1
-            minusXplusYEval = plusXplusYEval - 2*(c1+c4)
-            if testfunc(minusXplusYEval):
-                toBeChecked -= 1
-                throwOutMask[0,1] = False
-                if toBeChecked == 0:
-                    return throwOutMask
-
-        if throwOutMask[1,0]:
-            #Test x = 1, y = -1
-            plusXminusYEval = plusXplusYEval - 2*(c2+c4)
-            if testfunc(plusXminusYEval):
-                toBeChecked -= 1
-                throwOutMask[1,0] = False
-                if toBeChecked == 0:
-                    return throwOutMask
-
-        if throwOutMask[0,0]:
-            #Test x = -1, y = -1
-            minusXminusYEval = plusXplusYEval - 2*(c1+c2)
-            if testfunc(minusXminusYEval):
-                toBeChecked -= 1
-                throwOutMask[0,0] = False
-                if toBeChecked == 0:
-                    return throwOutMask
-                
-        #Check the x constant boundaries
-        #The partial with respect to y is zero
-        #Dy:  c4x + 4c5y = -c2 =>   y = (-c2-c4x)/(4c5)
-        if c5 != 0:
-            four_c5 = 4*c5
-            #When x = middleVal
-            y = (-c2-c4*middleVal)/four_c5
-            if middleVal <= y <= 1:
-                if throwOutMask[:,1].any() and testfunc(c0 + (c1 + c4*y)*middleVal + c3*middleValChebSqrd - c5 + (2*c5*y+c2)*y):
-                    toBeChecked -= throwOutMask[:,1].sum()
-                    throwOutMask[:,1] = False
-                    if toBeChecked == 0:
-                        return throwOutMask
-            elif -1 <= y <= middleVal:
-                if throwOutMask[:,1].any() and testfunc(c0 + (c1 + c4*y)*middleVal + c3*middleValChebSqrd - c5 + (2*c5*y+c2)*y):
-                    toBeChecked -= throwOutMask[:,0].sum()
-                    throwOutMask[:,0] = False
-                    if toBeChecked == 0:
-                        return throwOutMask
-            #When x = -1
-            if throwOutMask[0,0] or throwOutMask[0,1]:
-                y = (-c2+c4)/four_c5
-                if middleVal <= y <= 1:
-                    if throwOutMask[0,1] and testfunc(c0 - c1 + c3 - c5 + (2*c5*y+c2-c4)*y):
-                        toBeChecked -= 1
-                        throwOutMask[0,1] = False
-                        if toBeChecked == 0:
-                            return throwOutMask
-                elif -1 <= y <= middleVal:
-                    if throwOutMask[0,0] and testfunc(c0 - c1 + c3 - c5 + (2*c5*y+c2-c4)*y):
-                        toBeChecked -= 1
-                        throwOutMask[0,0] = False
-                        if toBeChecked == 0:
-                            return throwOutMask
-            #When x = 1
-            if throwOutMask[1,0] or throwOutMask[1,1]:
-                y = (-c2-c4)/four_c5
-                if middleVal <= y <= 1:
-                    if throwOutMask[1,1] and testfunc(c0 + c1 + c3 - c5 + (2*c5*y+c2+c4)*y):
-                        toBeChecked -= 1
-                        throwOutMask[1,1] = False
-                        if toBeChecked == 0:
-                            return throwOutMask
-                elif -1 <= y <= middleVal:
-                    if throwOutMask[1,0] and testfunc(c0 + c1 + c3 - c5 + (2*c5*y+c2+c4)*y):
-                        toBeChecked -= 1
-                        throwOutMask[1,0] = False
-                        if toBeChecked == 0:
-                            return throwOutMask
-
-        #Check the y constant boundaries
-        #The partial with respect to x is zero
-        #Dx: 4c3x +  c4y = -c1  =>  x = (-c1-c4y)/(4c3)
-        if c3 != 0:
-            four_c3 = 4*c3
-            #When y = middleVal
-            x = (-c1-c4*middleVal)/four_c3
-            if middleVal <= x <= 1:
-                if throwOutMask[1,:].any() and testfunc(c0 + (c2 + c4*x)*middleVal + c5*middleValChebSqrd - c3 + (2*c3*x+c1)*x):
-                    toBeChecked -= throwOutMask[1,:].sum()
-                    throwOutMask[1,:] = False
-                    if toBeChecked == 0:
-                        return throwOutMask
-            elif -1 <= x <= middleVal:
-                if throwOutMask[0,:].any() and testfunc(c0 + (c2 + c4*x)*middleVal + c5*middleValChebSqrd - c3 + (2*c3*x+c1)*x):
-                    toBeChecked -= throwOutMask[0,:].sum()
-                    throwOutMask[0,:] = False
-                    if toBeChecked == 0:
-                        return throwOutMask
-            #When y = -1
-            if throwOutMask[0,0] or throwOutMask[1,0]:
-                x = (-c1+c4)/four_c3
-                if middleVal <= x <= 1:
-                    if throwOutMask[1,0] and testfunc(c0 - c2 + c5 - c3 + (2*c3*x+c1-c4)*x):
-                        toBeChecked -= 1
-                        throwOutMask[1,0] = False
-                        if toBeChecked == 0:
-                            return throwOutMask
-                elif -1 <= x <= middleVal:
-                    if throwOutMask[0,0] and testfunc(c0 - c2 + c5 - c3 + (2*c3*x+c1-c4)*x):
-                        toBeChecked -= 1
-                        throwOutMask[0,0] = False
-                        if toBeChecked == 0:
-                            return throwOutMask
-            #When y = 1
-            if throwOutMask[0,0] or throwOutMask[0,1]:
-                x = (-c1-c4)/four_c3
-                if middleVal <= x <= 1:
-                    if throwOutMask[1,1] and testfunc(c0 + c2 + c5 - c3 + (2*c3*x+c1+c4)*x):
-                        toBeChecked -= 1
-                        throwOutMask[1,1] = False
-                        if toBeChecked == 0:
-                            return throwOutMask
-                elif -1 <= x <= middleVal:
-                    if throwOutMask[0,1] and testfunc(c0 + c2 + c5 - c3 + (2*c3*x+c1+c4)*x):
-                        toBeChecked -= 1
-                        throwOutMask[0,1] = False
-                        if toBeChecked == 0:
-                            return throwOutMask
-
-        #The interior min
-        #Comes from solving dx, dy = 0
-        #Dx: 4c3x +  c4y = -c1    Matrix inverse is  [4c5  -c4]
-        #Dy:  c4x + 4c5y = -c2                       [-c4  4c3]
-        # This computation is the same for all subintevals, so do it first
-        det = 16 * c3 * c5 - c4**2
-        if det != 0:
-            x = (c2 * c4 - 4 * c1 * c5) / det
-            y = (c1 * c4 - 4 * c2 * c3) / det
-            #if criteria
-            if middleVal <= x <= 1:
-                if middleVal <= y <= 1:
-                    if throwOutMask[1,1] and testfunc(c0-c3-c5 + (2*c3*x+c1+c4*y)*x + (2*c5*y+c2)*y):
-                        throwOutMask[1,1] = False
-                elif -1 <= y <= middleVal:
-                    if throwOutMask[1,0] and testfunc(c0-c3-c5 + (2*c3*x+c1+c4*y)*x + (2*c5*y+c2)*y):
-                        throwOutMask[1,0] = False
-            elif -1 <= x <= middleVal:
-                if middleVal <= y <= 1:
-                    if throwOutMask[0,1] and testfunc(c0-c3-c5 + (2*c3*x+c1+c4*y)*x + (2*c5*y+c2)*y):
-                        throwOutMask[0,1] = False
-                elif -1 <= y <= middleVal:
-                    if throwOutMask[0,0] and testfunc(c0-c3-c5 + (2*c3*x+c1+c4*y)*x + (2*c5*y+c2)*y):
-                        throwOutMask[0,0] = False
-        return throwOutMask
-    
-    def quadratic_check_2D(self, test_coeff, tol):
-        """One of subinterval_checks
-
-        Finds the min of the absolute value of the quadratic part, and compares to the sum of the
-        rest of the terms. There can't be a root if min(extreme_values) > other_sum	or if
-        max(extreme_values) < -other_sum. We can short circuit and finish
-        faster as soon as we find one value that is < other_sum and one value that > -other_sum.
-
-        Parameters
-        ----------
-        test_coeff_in : numpy array
-            The coefficient matrix of the polynomial to check
-        intervals : list
-            A list of the intervals to check.
-        tol: float
-            The bound of the sup norm error of the chebyshev approximation.
-
-        Returns
-        -------
-        mask : list
-            A list of the results of each interval. False if the function is guarenteed to never be zero
-            in the unit box, True otherwise
-        """
-        if test_coeff.ndim != 2:
-            return
-
-        #Get the coefficients of the quadratic part
-        #Need to account for when certain coefs are zero.
-        #Padding is slow, so check the shape instead.
-        c = [0]*6
-        shape = test_coeff.shape
-        c[0] = test_coeff[0,0]
-        if shape[0] > 1:
-            c[1] = test_coeff[1,0]
-        if shape[1] > 1:
-            c[2] = test_coeff[0,1]
-        if shape[0] > 2:
-            c[3] = test_coeff[2,0]
-        if shape[0] > 1 and shape[1] > 1:
-            c[4] = test_coeff[1,1]
-        if shape[1] > 2:
-            c[5] = test_coeff[0,2]
-
-        # The sum of the absolute values of the other coefs
-        # Note: Overhead for instantiating a NumPy array is too costly for
-        #  small arrays, so the second sum here is faster than using numpy
-        other_sum = np.sum(np.abs(test_coeff)) - sum([fabs(coeff) for coeff in c]) + tol
-
-        # Function for evaluating c0 + c1 T_1(x) + c2 T_1(y) +c3 T_2(x) + c4 T_1(x)T_1(y) + c5 T_2(y)
-        # Use the Horner form because it is much faster, also do any repeated computatons in advance
-        k0 = c[0]-c[3]-c[5]
-        k3 = 2*c[3]
-        k5 = 2*c[5]
-        def eval_func(x,y):
-            return k0 + (c[1] + k3 * x + c[4] * y) * x  + (c[2] + k5 * y) * y
-
-        #The interior min
-        #Comes from solving dx, dy = 0
-        #Dx: 4c3x +  c4y = -c1    Matrix inverse is  [4c5  -c4]
-        #Dy:  c4x + 4c5y = -c2                       [-c4  4c3]
-        # This computation is the same for all subintevals, so do it first
-        det = 16 * c[3] * c[5] - c[4]**2
-        if det != 0:
-            int_x = (c[2] * c[4] - 4 * c[1] * c[5]) / det
-            int_y = (c[1] * c[4] - 4 * c[2] * c[3]) / det
-        else:                      # det is zero,
-            int_x = np.inf
-            int_y = np.inf
-
-        for i, interval in enumerate(self.subintervals.reshape(4,2,2)):
-            min_satisfied, max_satisfied = False,False
-            #Check all the corners
-            eval = eval_func(interval[0][0], interval[0][1])
-            min_satisfied = min_satisfied or eval < other_sum
-            max_satisfied = max_satisfied or eval > -other_sum
-            if min_satisfied and max_satisfied:
-                continue
-                
-            eval = eval_func(interval[1][0], interval[0][1])
-            min_satisfied = min_satisfied or eval < other_sum
-            max_satisfied = max_satisfied or eval > -other_sum
-            if min_satisfied and max_satisfied:
-                continue
-
-            eval = eval_func(interval[0][0], interval[1][1])
-            min_satisfied = min_satisfied or eval < other_sum
-            max_satisfied = max_satisfied or eval > -other_sum
-            if min_satisfied and max_satisfied:
-                continue
-                
-            eval = eval_func(interval[1][0], interval[1][1])
-            min_satisfied = min_satisfied or eval < other_sum
-            max_satisfied = max_satisfied or eval > -other_sum
-            if min_satisfied and max_satisfied:
-                continue
-                
-            #Check the x constant boundaries
-            #The partial with respect to y is zero
-            #Dy:  c4x + 4c5y = -c2 =>   y = (-c2-c4x)/(4c5)
-            if c[5] != 0:
-                cc5 = 4 * c[5]
-                x = interval[0][0]
-                y = -(c[2] + c[4]*x)/cc5
-                if interval[0][1] < y < interval[1][1]:
-                    eval = eval_func(x,y)
-                    min_satisfied = min_satisfied or eval < other_sum
-                    max_satisfied = max_satisfied or eval > -other_sum
-                    if min_satisfied and max_satisfied:
-                        continue
-                x = interval[1][0]
-                y = -(c[2] + c[4]*x)/cc5
-                if interval[0][1] < y < interval[1][1]:
-                    eval = eval_func(x,y)
-                    min_satisfied = min_satisfied or eval < other_sum
-                    max_satisfied = max_satisfied or eval > -other_sum
-                    if min_satisfied and max_satisfied:
-                        continue
-  
-            #Check the y constant boundaries
-            #The partial with respect to x is zero
-            #Dx: 4c3x +  c4y = -c1  =>  x = (-c1-c4y)/(4c3)
-            if c[3] != 0:
-                cc3 = 4*c[3]
-                y = interval[0][1]
-                x = -(c[1] + c[4]*y)/cc3
-                if interval[0][0] < x < interval[1][0]:
-                    eval = eval_func(x,y)
-                    min_satisfied = min_satisfied or eval < other_sum
-                    max_satisfied = max_satisfied or eval > -other_sum
-                    if min_satisfied and max_satisfied:
-                        continue
-
-                y = interval[1][1]
-                x = -(c[1] + c[4]*y)/cc3
-                if interval[0][0] < x < interval[1][0]:
-                    eval = eval_func(x,y)
-                    min_satisfied = min_satisfied or eval < other_sum
-                    max_satisfied = max_satisfied or eval > -other_sum
-                    if min_satisfied and max_satisfied:
-                        continue
-                        
-            #Check the interior value
-            if interval[0][0] < int_x < interval[1][0] and interval[0][1] < int_y < interval[1][1]:
-                eval = eval_func(int_x,int_y)
-                min_satisfied = min_satisfied or eval < other_sum
-                max_satisfied = max_satisfied or eval > -other_sum
-                if min_satisfied and max_satisfied:
-                    continue
-
-            # No root possible
-            self.mask.reshape(4)[i] = False
         
 def constant_term_check(test_coeff, tol):
     """One of interval_checks
@@ -797,7 +354,7 @@ def constant_term_check(test_coeff, tol):
     else:
         return True
 
-def quadratic_check(test_coeff, intervals, tol):
+def quadratic_check(test_coeff, mask, tol, RAND):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
@@ -820,13 +377,13 @@ def quadratic_check(test_coeff, intervals, tol):
         in the unit box, True otherwise
     """
     if test_coeff.ndim == 2:
-        return quadratic_check_2D(test_coeff, intervals, tol)
+        return quadratic_check_2DNew(test_coeff, mask, tol, RAND)
     elif test_coeff.ndim == 3:
-        return quadratic_check_3D(test_coeff, intervals, tol)
+        return quadratic_check_3D(test_coeff, mask, tol, RAND)
     else:
-        return quadratic_check_nd(test_coeff, intervals, tol)
+        return quadratic_check_nd(test_coeff, mask, tol, RAND)
 
-def quadratic_check_2D(test_coeff, intervals, tol):
+def quadratic_check_2DNew(test_coeff, mask, tol, RAND):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
@@ -849,9 +406,208 @@ def quadratic_check_2D(test_coeff, intervals, tol):
         A list of the results of each interval. False if the function is guarenteed to never be zero
         in the unit box, True otherwise
     """
-    mask = [True]*len(intervals)
-    if test_coeff.ndim != 2:
+    if not mask.any():
         return mask
+
+    middleVal = 2*RAND - 1
+    middleValChebSqrd = 2*middleVal**2 - 1
+    middleValSqrd = middleVal**2
+
+    #Start out assuming we can throw out all intervals that remain.
+    throwOutMask = mask.copy()
+
+    #Get the coefficients of the quadratic part
+    #Need to account for when certain coefs are zero.
+    #Padding is slow, so check the shape instead.
+    shape = test_coeff.shape
+    c0 = test_coeff[0,0]
+    c1,c2,c3,c4,c5=0,0,0,0,0
+    if shape[0] > 1:
+        c1 = test_coeff[1,0]
+    if shape[1] > 1:
+        c2 = test_coeff[0,1]
+    if shape[0] > 2:
+        c3 = test_coeff[2,0]
+    if shape[0] > 1 and shape[1] > 1:
+        c4 = test_coeff[1,1]
+    if shape[1] > 2:
+        c5 = test_coeff[0,2]
+
+    #Repeated values from horners method
+    k0 = c0-c3-c5
+    k3 = 2*c3
+    k5 = 2*c5
+
+    # The sum of the absolute values of the other coefs
+    # Note: Overhead for instantiating a NumPy array is too costly for
+    #  small arrays, so the second sum here is faster than using numpy
+    otherSum = np.sum(np.abs(test_coeff)) - abs(c0)-abs(c1)-abs(c2)-abs(c3)-abs(c4)-abs(c5) + tol
+
+    #MidPoint
+    midPoint = (c5+c3)*middleValChebSqrd + c4*middleValSqrd + (c2+c1)*middleVal + c0
+    if midPoint < otherSum and midPoint > -otherSum:
+        throwOutMask.fill(False)
+        return throwOutMask
+    else:
+        testfunc = (lambda x: x < otherSum) if midPoint > 0 else (lambda x: x > -otherSum)
+
+    #Test x = -1
+    minusXEval = c5*middleValChebSqrd + (c2-c4)*middleVal + c0+c3-c1
+    if testfunc(minusXEval):
+        throwOutMask[0,0] = False; throwOutMask[0,1] = False
+
+    #Test x = 1
+    plusXEval = minusXEval + 2*(c4*middleVal + c1)
+    if testfunc(plusXEval):
+        throwOutMask[1,0] = False; throwOutMask[1,1] = False
+
+    #Test y = -1
+    minusYEval = c3*middleValChebSqrd + (c1-c4)*middleVal + c0+c5-c2
+    if testfunc(minusYEval):
+        throwOutMask[0,0] = False; throwOutMask[1,0] = False
+
+    #Test y = 1
+    plusYEval = minusYEval + 2*(c4*middleVal + c2)
+    if testfunc(plusYEval):
+        throwOutMask[0,1] = False; throwOutMask[1,1] = False
+
+    plusXplusYEval = c0 + c1 + c2 + c3 + c4 + c5
+    if throwOutMask[1,1]:
+        #Test x = 1, y = 1
+        if testfunc(plusXplusYEval):
+            throwOutMask[1,1] = False
+
+    if throwOutMask[0,1]:
+        #Test x = -1, y = 1
+        minusXplusYEval = plusXplusYEval - 2*(c1+c4)
+        if testfunc(minusXplusYEval):
+            throwOutMask[0,1] = False
+
+    if throwOutMask[1,0]:
+        #Test x = 1, y = -1
+        plusXminusYEval = plusXplusYEval - 2*(c2+c4)
+        if testfunc(plusXminusYEval):
+            throwOutMask[1,0] = False
+
+    if throwOutMask[0,0]:
+        #Test x = -1, y = -1
+        minusXminusYEval = plusXplusYEval - 2*(c1+c2)
+        if testfunc(minusXminusYEval):
+            throwOutMask[0,0] = False
+
+    #Check the x constant boundaries
+    #The partial with respect to y is zero
+    #Dy:  c4x + 4c5y = -c2 =>   y = (-c2-c4x)/(4c5)
+    if c5 != 0:
+        four_c5 = 4*c5
+        #When x = middleVal
+        y = (-c2-c4*middleVal)/four_c5
+        if middleVal <= y <= 1:
+            if throwOutMask[:,1].any() and testfunc(c0 + (c1 + c4*y)*middleVal + c3*middleValChebSqrd - c5 + (k5*y+c2)*y):
+                throwOutMask[:,1] = False
+        elif -1 <= y <= middleVal:
+            if throwOutMask[:,1].any() and testfunc(c0 + (c1 + c4*y)*middleVal + c3*middleValChebSqrd - c5 + (k5*y+c2)*y):
+                throwOutMask[:,0] = False
+        #When x = -1
+        if throwOutMask[0,0] or throwOutMask[0,1]:
+            y = (-c2+c4)/four_c5
+            if middleVal <= y <= 1:
+                if throwOutMask[0,1] and testfunc(k0 + k3 - c1 + (k5*y+c2-c4)*y):
+                    throwOutMask[0,1] = False
+            elif -1 <= y <= middleVal:
+                if throwOutMask[0,0] and testfunc(k0 + k3 - c1 + (k5*y+c2-c4)*y):
+                    throwOutMask[0,0] = False
+        #When x = 1
+        if throwOutMask[1,0] or throwOutMask[1,1]:
+            y = (-c2-c4)/four_c5
+            if middleVal <= y <= 1:
+                if throwOutMask[1,1] and testfunc(k0 + k3 + c1 + (k5*y+c2+c4)*y):
+                    throwOutMask[1,1] = False
+            elif -1 <= y <= middleVal:
+                if throwOutMask[1,0] and testfunc(k0 + k3 + c1 + (k5*y+c2+c4)*y):
+                    throwOutMask[1,0] = False
+
+    #Check the y constant boundaries
+    #The partial with respect to x is zero
+    #Dx: 4c3x +  c4y = -c1  =>  x = (-c1-c4y)/(4c3)
+    if c3 != 0:
+        four_c3 = 4*c3
+        #When y = middleVal
+        x = (-c1-c4*middleVal)/four_c3
+        if middleVal <= x <= 1:
+            if throwOutMask[1,:].any() and testfunc(c0 + (c2 + c4*x)*middleVal + c5*middleValChebSqrd - c3 + (k3*x+c1)*x):
+                throwOutMask[1,:] = False
+        elif -1 <= x <= middleVal:
+            if throwOutMask[0,:].any() and testfunc(c0 + (c2 + c4*x)*middleVal + c5*middleValChebSqrd - c3 + (k3*x+c1)*x):
+                throwOutMask[0,:] = False
+        #When y = -1
+        if throwOutMask[0,0] or throwOutMask[1,0]:
+            x = (-c1+c4)/four_c3
+            if middleVal <= x <= 1:
+                if throwOutMask[1,0] and testfunc(k0 + k5 - c2 + (k3*x+c1-c4)*x):
+                    throwOutMask[1,0] = False
+            elif -1 <= x <= middleVal:
+                if throwOutMask[0,0] and testfunc(k0 + k5 - c2 + (k3*x+c1-c4)*x):
+                    throwOutMask[0,0] = False
+        #When y = 1
+        if throwOutMask[0,0] or throwOutMask[0,1]:
+            x = (-c1-c4)/four_c3
+            if middleVal <= x <= 1:
+                if throwOutMask[1,1] and testfunc(k0 + k5 + c2 + (k3*x+c1+c4)*x):
+                    throwOutMask[1,1] = False
+            elif -1 <= x <= middleVal:
+                if throwOutMask[0,1] and testfunc(k0 + k5 + c2 + (k3*x+c1+c4)*x):
+                    throwOutMask[0,1] = False
+
+    #The interior min
+    #Comes from solving dx, dy = 0
+    #Dx: 4c3x +  c4y = -c1    Matrix inverse is  [4c5  -c4]
+    #Dy:  c4x + 4c5y = -c2                       [-c4  4c3]
+    det = 16 * c3 * c5 - c4**2
+    if det != 0:
+        x = (c2 * c4 - 4 * c1 * c5) / det
+        y = (c1 * c4 - 4 * c2 * c3) / det
+        if middleVal <= x <= 1:
+            if middleVal <= y <= 1:
+                if throwOutMask[1,1] and testfunc(k0 + (k3*x+c1+c4*y)*x + (k5*y+c2)*y):
+                    throwOutMask[1,1] = False
+            elif -1 <= y <= middleVal:
+                if throwOutMask[1,0] and testfunc(k0 + (k3*x+c1+c4*y)*x + (k5*y+c2)*y):
+                    throwOutMask[1,0] = False
+        elif -1 <= x <= middleVal:
+            if middleVal <= y <= 1:
+                if throwOutMask[0,1] and testfunc(k0 + (k3*x+c1+c4*y)*x + (k5*y+c2)*y):
+                    throwOutMask[0,1] = False
+            elif -1 <= y <= middleVal:
+                if throwOutMask[0,0] and testfunc(k0 + (k3*x+c1+c4*y)*x + (k5*y+c2)*y):
+                    throwOutMask[0,0] = False
+    return throwOutMask
+
+def quadratic_check_2D(test_coeff, mask, tol, RAND):
+    """One of subinterval_checks
+
+    Finds the min of the absolute value of the quadratic part, and compares to the sum of the
+    rest of the terms. There can't be a root if min(extreme_values) > other_sum	or if
+    max(extreme_values) < -other_sum. We can short circuit and finish
+    faster as soon as we find one value that is < other_sum and one value that > -other_sum.
+
+    Parameters
+    ----------
+    test_coeff_in : numpy array
+        The coefficient matrix of the polynomial to check
+    intervals : list
+        A list of the intervals to check.
+    tol: float
+        The bound of the sup norm error of the chebyshev approximation.
+
+    Returns
+    -------
+    mask : list
+        A list of the results of each interval. False if the function is guarenteed to never be zero
+        in the unit box, True otherwise
+    """
+    if test_coeff.ndim != 2:
+        return
 
     #Get the coefficients of the quadratic part
     #Need to account for when certain coefs are zero.
@@ -874,7 +630,7 @@ def quadratic_check_2D(test_coeff, intervals, tol):
     # Note: Overhead for instantiating a NumPy array is too costly for
     #  small arrays, so the second sum here is faster than using numpy
     other_sum = np.sum(np.abs(test_coeff)) - sum([fabs(coeff) for coeff in c]) + tol
-    
+
     # Function for evaluating c0 + c1 T_1(x) + c2 T_1(y) +c3 T_2(x) + c4 T_1(x)T_1(y) + c5 T_2(y)
     # Use the Horner form because it is much faster, also do any repeated computatons in advance
     k0 = c[0]-c[3]-c[5]
@@ -896,8 +652,11 @@ def quadratic_check_2D(test_coeff, intervals, tol):
         int_x = np.inf
         int_y = np.inf
 
-
-    for i, interval in enumerate(intervals):
+    throwOutMask = self.mask.copy().reshape(4)
+    for i, interval in enumerate(self.subintervals.reshape(4,2,2)):
+        if not throwOutMask[i]:
+            continue
+        throwOutMask[i] = False
         min_satisfied, max_satisfied = False,False
         #Check all the corners
         eval = eval_func(interval[0][0], interval[0][1])
@@ -978,8 +737,8 @@ def quadratic_check_2D(test_coeff, intervals, tol):
                 continue
 
         # No root possible
-        mask[i] = False
-    return mask
+        throwOutMask[i] = True
+    return throwOutMask.reshape(2,2)
 
 def quadratic_check_3D(test_coeff, tol):
     """One of subinterval_checks
