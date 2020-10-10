@@ -181,7 +181,7 @@ class IntervalData:
             for check in self.subinterval_checks:
                 for poly,error in zip(polys, errors):
                     #The function returns things we should throw out
-                    throwOutMask = check(poly, self.mask, error, self.RAND)
+                    throwOutMask = check(poly, self.mask, error, self.RAND, self.subintervals)
                     #Throw stuff out
                     thrownOutIntervals = newIntervals[throwOutMask]
                     for old_a,old_b in thrownOutIntervals:
@@ -354,7 +354,7 @@ def constant_term_check(test_coeff, tol):
     else:
         return True
 
-def quadratic_check(test_coeff, mask, tol, RAND):
+def quadratic_check(test_coeff, mask, tol, RAND, subintervals):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
@@ -377,13 +377,13 @@ def quadratic_check(test_coeff, mask, tol, RAND):
         in the unit box, True otherwise
     """
     if test_coeff.ndim == 2:
-        return quadratic_check_2DNew(test_coeff, mask, tol, RAND)
+        return quadratic_check_2DNew(test_coeff, mask, tol, RAND, subintervals)
     elif test_coeff.ndim == 3:
-        return quadratic_check_3D(test_coeff, mask, tol, RAND)
+        return quadratic_check_3D(test_coeff, mask, tol, RAND, subintervals)
     else:
-        return quadratic_check_nd(test_coeff, mask, tol, RAND)
+        return quadratic_check_nd(test_coeff, mask, tol, RAND, subintervals)
 
-def quadratic_check_2DNew(test_coeff, mask, tol, RAND):
+def quadratic_check_2DNew(test_coeff, mask, tol, RAND, subintervals):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
@@ -583,7 +583,7 @@ def quadratic_check_2DNew(test_coeff, mask, tol, RAND):
                     throwOutMask[0,0] = False
     return throwOutMask
 
-def quadratic_check_2D(test_coeff, mask, tol, RAND):
+def quadratic_check_2D(test_coeff, mask, tol, RAND, subintervals):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
@@ -608,7 +608,7 @@ def quadratic_check_2D(test_coeff, mask, tol, RAND):
     """
     if test_coeff.ndim != 2:
         return
-
+    
     #Get the coefficients of the quadratic part
     #Need to account for when certain coefs are zero.
     #Padding is slow, so check the shape instead.
@@ -652,8 +652,8 @@ def quadratic_check_2D(test_coeff, mask, tol, RAND):
         int_x = np.inf
         int_y = np.inf
 
-    throwOutMask = self.mask.copy().reshape(4)
-    for i, interval in enumerate(self.subintervals.reshape(4,2,2)):
+    throwOutMask = mask.copy().reshape(4)
+    for i, interval in enumerate(subintervals.reshape(4,2,2)):
         if not throwOutMask[i]:
             continue
         throwOutMask[i] = False

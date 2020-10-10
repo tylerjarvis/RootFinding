@@ -107,7 +107,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
     -------
     zeros : numpy array
         The common zeros of the polynomials. Each row is a root.
-    """
+    """    
     # Detect the dimension
     if isinstance(funcs, list):
         dim = len(funcs)
@@ -202,7 +202,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
     else:
         return root_tracker.roots
 
-@jit
+@jit(nopython=True)
 def transform(x, a, b):
     """Transforms points from the interval [-1, 1] to the interval [a, b].
 
@@ -880,8 +880,8 @@ def trim_coeffs(coeffs, abs_approx_tol, rel_approx_tol, inf_norms, errors):
         for deg0 in range(coeff.shape[0], deg+1):
             initial_mons += mon_combos_limited_wrap(deg0, dim, coeff.shape)
         mons = np.array(initial_mons).T
-        slices = [mons[i] for i in range(dim)]
-        slice_error = np.sum(np.abs(coeff[tuple(slices)]))
+        slices = tuple(mons[:dim])
+        slice_error = np.sum(np.abs(coeff[slices]))
         # increment error
         error += slice_error
         if error > abs_approx_tol+rel_approx_tol*inf_norms[num]:
@@ -889,17 +889,14 @@ def trim_coeffs(coeffs, abs_approx_tol, rel_approx_tol, inf_norms, errors):
             good_approx = False
         else:
             # try to increment the degree down
-            coeff[tuple(slices)] = 0
+            coeff[slices] = 0
             deg = coeff.shape[0]-1
             # stop when it gets linear...
             while deg > 1:
                 # try to cut off another hyperdiagonal from the coefficient matrix
                 mons = mon_combos_limited_wrap(deg, dim, coeff.shape)
-                slices = [] # becomes the indices of the terms of degree deg
                 mons = np.array(mons).T
-                for i in range(dim):
-                    slices.append(mons[i])
-                slices = tuple(slices)
+                slices = tuple(mons[:dim])
                 slice_error = np.sum(np.abs(coeff[slices]))
                 # if that introduces too much error, backtrack
                 if slice_error + error > abs_approx_tol+rel_approx_tol*inf_norms[num]:
