@@ -1,5 +1,5 @@
 """
-Computes the growth factors of random quadratics in dimensions
+Computes the conditioning ratios of random quadratics in dimensions
 2-10
 """
 from .devastating_example_test_scripts import *
@@ -17,9 +17,9 @@ from matplotlib.patches import Patch
 
 macheps = 2.220446049250313e-16
 
-def devestating_growth_factors(dims,eps,kind,newton,N=50,just_dev_root=True,
+def devestating_conditioning_ratios(dims,eps,kind,newton,N=50,just_dev_root=True,
                                 seed=468,perturb_eps=0,save=True,verbose=0):
-    """Computes the growth factors of a system of polynomails.
+    """Computes the conditioning ratios of a system of polynomails.
 
     Parameters
     ----------
@@ -35,8 +35,8 @@ def devestating_growth_factors(dims,eps,kind,newton,N=50,just_dev_root=True,
     N : int or list
         number of tests to run in each dimension
     just_dev_root : bool
-        If true, only returns growth factors for the devestating root.
-        Otherwise, returns growth factors for all roots.
+        If true, only returns conditioning ratios for the devestating root.
+        Otherwise, returns conditioning ratios for all roots.
     seed : int
         random seed to use in generating the systems
     perturb_eps : float
@@ -47,47 +47,47 @@ def devestating_growth_factors(dims,eps,kind,newton,N=50,just_dev_root=True,
         the level of verbosity
     returns
     -------
-    growth factors: (dim, N, num_roots) or (dim, N) array
-        Array of growth factors. The [i,j] spot is  the growth factor for
+    conditioning ratios: (dim, N, num_roots) or (dim, N) array
+        Array of conditioning ratios. The [i,j] spot is  the conditioning ratio for
         the i'th coordinate in the j'th test system.
     """
     if verbose>0:print('Devestating Example in dimensions',dims)
     np.random.seed(seed)
     if isinstance(N,int):
         N = [N]*len(dims)
-    gfs = dict()
+    crs = dict() #conditioning ratios dictionary
     if kind in ['power','cheb']: shifted = False
     else: shifted = True
     for n,dim in zip(N,dims):
         if save:
-            if newton: folder = 'growth_factors/dev/newton/dim{}/'.format(dim)
-            else:      folder = 'growth_factors/dev/nopol/dim{}/'.format(dim)
+            if newton: folder = 'conditioning_ratios/dev/newton/dim{}/'.format(dim)
+            else:      folder = 'conditioning_ratios/dev/nopol/dim{}/'.format(dim)
         if verbose>0:print('Dimension', dim)
-        gf = []
+        cr = []
         for _ in range(n):
             #get a random devestating example
             polys = randpoly(dim,eps,kind)
             if verbose>2: print('System Coeffs',*[p.coeff for p in polys],sep='\n')
             if perturb_eps > 0:
                 polys = perturb(polys,perturb_eps)
-            growth_factor = growthfactor(polys,dim,newton,dev=just_dev_root,shifted=shifted,verbose=verbose>1)
+            conditioning_ratio = conditioningratio(polys,dim,newton,dev=just_dev_root,shifted=shifted,verbose=verbose>1)
             if newton:
-                growth_factor, max_diff, smallest_dist_between_roots = growth_factor
+                conditioning_ratio, max_diff, smallest_dist_between_roots = conditioning_ratio
                 if 10*max_diff >= smallest_dist_between_roots:
                     print('**Potentially converging roots with polishing**')
                     print('\tNewton changed roots by at most: {}'.format(max_diff))
                     print('\tDist between root was at least:  {}'.format(smallest_dist_between_roots))
             if verbose>0:print(_+1,'done')
-            gf.append(growth_factor)
+            cr.append(conditioning_ratio)
             if save:
-                np.save(folder+'deg2_sys{}.npy'.format(_),gf)
+                np.save(folder+'deg2_sys{}.npy'.format(_),cr)
                 if verbose>0:print(_+1,'saved')
-        gfs[dim] = np.array(gf)
-        if save: np.save(folder+'deg2.npy',gfs[dim])
-    return gfs
+        crs[dim] = np.array(cr)
+        if save: np.save(folder+'deg2.npy',crs[dim])
+    return crs
 
-def growthfactor(polys,dim,newton,dev=False,shifted=None,root=None,verbose=False):
-    """Computes the growth factors of a system of polynomails.
+def conditioningratio(polys,dim,newton,dev=False,shifted=None,root=None,verbose=False):
+    """Computes the conditioning ratios of a system of polynomails.
 
     Parameters
     ----------
@@ -98,17 +98,17 @@ def growthfactor(polys,dim,newton,dev=False,shifted=None,root=None,verbose=False
     newton : bool
         whether or not to newton polish the roots
     dev : bool
-        whether or not we are computing the growth factor for a devestating
+        whether or not we are computing the conditioning ratio for a devestating
         example system, in which case we want to use the root at the origin
     shifted : bool
         for devestating systems, whether the system is
     root : 1d nparray
         optional parameter for when you know the actual
-        root you want to find the growth factor of
+        root you want to find the conditioning ratio of
     returns
     -------
-    growth factors: (dim, num_roots) array
-        Array of growth factors. The [i,j] spot is  the growth factor for
+    conditioning ratios: (dim, num_roots) array
+        Array of conditioning ratios. The [i,j] spot is  the conditioning ratio for
         the i'th coordinate of the j'th root.
     """
     roots,M = solve(polys,max_cond_num=np.inf,verbose=verbose)
@@ -118,7 +118,7 @@ def growthfactor(polys,dim,newton,dev=False,shifted=None,root=None,verbose=False
         newroots = np.array([newton_polish(polys,root,tol=10*macheps) for root in roots])
         max_diff = np.max(np.abs(newroots-roots))
         roots = newroots
-    #find the growth factors for all the roots
+    #find the conditioning ratios for all the roots
     if root is not None:
         #find the root
         idx = np.argmin(la.norm(roots-root,axis=1))
@@ -140,7 +140,7 @@ def growthfactor(polys,dim,newton,dev=False,shifted=None,root=None,verbose=False
         root_cond = 1/S[-1]
         # print(np.log10(root_cond))
         # print(np.log10(eig_conds))
-        #compute the growth factors
+        #compute the conditioning ratios
         factors = eig_conds / root_cond
         if newton: return factors, max_diff, smallest_dist_between_roots
         else: return factors
@@ -164,11 +164,11 @@ def growthfactor(polys,dim,newton,dev=False,shifted=None,root=None,verbose=False
             S = la.svd(J,compute_uv=False)
             root_cond = 1/S[-1]
             root_conds[i] = root_cond
-        #compute the growth factors
+        #compute the conditioning ratios
         factors = eig_conds / root_conds
         if newton: return factors, max_diff, smallest_dist_between_roots
         else: return factors
-    #only find the growth factor for the root at the origin
+    #only find the conditioning ratio for the root at the origin
     else:
         #find the root at the origin
         if shifted:
@@ -192,13 +192,13 @@ def growthfactor(polys,dim,newton,dev=False,shifted=None,root=None,verbose=False
             J[j] = poly.grad(roots[idx])
         S = la.svd(J,compute_uv=False)
         root_cond = 1/S[-1]
-        #compute the growth factors
+        #compute the conditioning ratios
         factors = eig_conds / root_cond
         if newton: return factors, max_diff, smallest_dist_between_roots
         else: return factors
 
-def get_growth_factors(coeffs, newton, save=True):
-    """Computes the growth factors of a bunch of systems of polynomails.
+def get_conditioning_ratios(coeffs, newton, save=True):
+    """Computes the conditioning ratios of a bunch of systems of polynomails.
 
     Parameters
     ----------
@@ -211,24 +211,24 @@ def get_growth_factors(coeffs, newton, save=True):
         whether or not to save and return the results or just return them
     returns
     -------
-    growth factors: (N, dim, deg^dim) array
-        Array of growth factors. The [k,i,j] spot is  the growth factor for
+    conditioning ratios: (N, dim, deg^dim) array
+        Array of conditioning ratios. The [k,i,j] spot is  the conditioning ratio for
         the i'th coordinate of the j'th root of the k'th system
     """
     N,dim = coeffs.shape[:2]
     deg = 2
     print((N,dim,deg**dim))
     not_full_roots = np.zeros(N,dtype=bool)
-    gfs = [0]*N
+    crs = [0]*N
     if save:
         if newton: folder = 'growth_factors/rand/newton/dim{}/'.format(dim)
         else:      folder = 'growth_factors/rand/nopol/dim{}/'.format(dim)
     for i,system in enumerate(coeffs):
         polys = [yr.MultiPower(c) for c in system]
-        gf = growthfactor(polys,dim,newton)
+        cr = conditioningratio(polys,dim,newton)
         if newton:
 
-            gf,max_diff,smallest_dist_between_roots = gf
+            cr,max_diff,smallest_dist_between_roots = cr
             if not 10*max_diff < smallest_dist_between_roots:
                 print('**Potentially converging roots with polishing**')
                 print('\tNewton changed roots by at most: {}'.format(max_diff))
@@ -236,18 +236,18 @@ def get_growth_factors(coeffs, newton, save=True):
         #only records if has the right number of roots_sort
         #TODO: why do some systems not have enough roots?
         print(i+1,'done')
-        if gf.shape[1] == deg**dim:
-            gfs[i] = gf
-            if save: np.save(folder+'deg2_sys{}.npy'.format(i),gf)
+        if cr.shape[1] == deg**dim:
+            crs[i] = cr
+            if save: np.save(folder+'deg2_sys{}.npy'.format(i),cr)
         else:
             not_full_roots[i] = True
             if save: np.save(folder+'not_full_roots_deg2.npy',not_full_roots)
         if save: print(i+1,'saved')
     #final save at the end
     if save:
-        np.save(folder+'deg2_res.npy',gfs)
+        np.save(folder+'deg2_res.npy',crs)
         print('saved all results')
-    return gfs
+    return crs
 
 '''functions to generate random systems that almost have double roots.
 
@@ -257,7 +257,7 @@ with pre-chosen roots.
 the rest of the functions use specially chosen roots to generate examples.
 '''
 def get_scalar(center,roots):
-    'solves for the scalars in the conic equation. see growth_factors.ipynb for details'
+    'solves for the scalars in the conic equation. see conditioning_ratios.ipynb for details'
     dim = roots.shape[1]
     return la.solve((roots - center)**2,np.ones(dim))
 
@@ -345,7 +345,7 @@ def gen_rand_hyperellipses(dim,seed,delta,verbose=False):
 
 def get_data(delta,gen_func,seeds = {2:range(300),3:range(300),4:range(300)}):
     """
-    Computes the growth factor of the first generated root of systems generated with gen_func(dim,seed,delta) for each
+    Computes the conditioning ratio of the first generated root of systems generated with gen_func(dim,seed,delta) for each
     seed in the seeds dictionary.
     Seeds is assumed to be a dictionary where the keys are the dimensions you want to test in, and the values
     are an iterable of random seeds to generate random systems with.
@@ -356,21 +356,21 @@ def get_data(delta,gen_func,seeds = {2:range(300),3:range(300),4:range(300)}):
         print(dim)
         for n in seeds[dim]:
             roots,polys = gen_func(dim=dim,seed=n,delta=delta)
-            data[dim].extend(growthfactor(polys,dim,newton=False,root=roots[0]))
+            data[dim].extend(conditioningratio(polys,dim,newton=False,root=roots[0]))
         data[dim] = np.array(data[dim]).flatten()
     return data
 
-def plot(datasets,labels=None,subplots=None,title=None,filename='growth_factor_plot',digits_lost=False,figsize=(6,4),dpi=400,best_fit=True):
+def plot(datasets,labels=None,subplots=None,title=None,filename='conditioning_ratio_plot',digits_lost=False,figsize=(6,4),dpi=400,best_fit=True):
     """
-    Plots growth factor data.
+    Plots conditioning ratio data.
 
     Parameters
     ----------
     datasets : list of dictionaries
         Growth factor datasets to plot. Each dataset dictionary should be
-        formatted to map dimension to an array of growth factors
+        formatted to map dimension to an array of conditioning ratios
     digits_lost : bool
-        whether the y-axis should be a log scale of the growth factors
+        whether the y-axis should be a log scale of the conditioning ratios
         or a linear scale of the digits lost
     figsize : tuple of floats
         figure size
@@ -486,11 +486,11 @@ if __name__ == "__main__":
     if test == 'rand':
         for dim in dims:
             coeffs = np.load('random_tests/coeffs/dim{}_deg2_randn.npy'.format(dim))
-            gfs = get_growth_factors(coeffs, newton)
+            crs = get_conditioning_ratios(coeffs, newton)
     elif test == 'dev':
         eps = .1
         kind = 'power'
         N = 50
-        devestating_growth_factors(dims,eps,kind,newton,N=N)
+        devestating_conditioning_ratios(dims,eps,kind,newton,N=N)
     else:
         raise ValueError("1st input must be one of 'rand' for random polys 'dev' for devestating example")
