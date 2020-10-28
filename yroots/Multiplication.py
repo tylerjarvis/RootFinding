@@ -11,6 +11,10 @@ from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list
                               newton_polish, condeigs, solve_linear, memoize
 import warnings
 from scipy.stats import ortho_group
+import sympy as sy
+from matplotlib import pyplot as plt
+from scipy.special import comb
+from scipy import linalg as la
 
 def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,method='svd'):
     '''
@@ -45,6 +49,16 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
 
     matrix, matrix_terms, cut = build_macaulay(polys, verbose)
 
+    #precondition for the devastaing example
+    # epsilon = .001
+    # matrix[:,-1] /= epsilon**dim
+
+    #for analysis of Q in the devastating example
+    which_non_squared = np.array([np.all(mon < 2) for mon in matrix_terms])
+    which_squared     = np.array([np.any(mon > 1)*(np.sum(mon)<=dim) for mon in matrix_terms])
+    reorder = np.concatenate((np.where(which_squared)[0],np.where(which_non_squared)[0])) - comb(2*dim,dim+1,exact=True)
+    #pass "reorder" into Macaulay Reduce function, and
+
     roots = np.array([])
 
     # If cut is zero, then all the polynomials are linear and we solve
@@ -72,6 +86,20 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
             E,Q = res
         else:
             raise ValueError("Method must be one of 'svd','qrt' or 'tvb'")
+
+        # account for the preconditioning in creating the MS matrix
+        # Q[-1] *= epsilon**dim
+
+        if verbose:
+            print("Basis for Algebra:")
+            num_mons_in_basis,num_roots = Q.shape
+            mons_in_basis = matrix_terms[-num_mons_in_basis:]
+            which_non_squared = np.array([np.all(mon < 2) for mon in mons_in_basis])
+            which_squared     = np.array([np.any(mon > 1)*(np.sum(mon)<=dim) for mon in mons_in_basis])
+            for colnum,col in enumerate(Q.T):
+                print('\n~~Basis Element {}~~'.format(colnum+1))
+                print('norm of nonsquared terms:', la.norm(col[which_non_squared]))
+                print('norm of squared terms:', la.norm(col[~which_non_squared]))
 
         # Construct the Möller-Stetter matrices
         # M is a 3d array containing the multiplication-by-x_i matrix in M[...,i]

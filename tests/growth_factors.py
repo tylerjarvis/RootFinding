@@ -18,7 +18,7 @@ from matplotlib.patches import Patch
 macheps = 2.220446049250313e-16
 
 def devestating_growth_factors(dims,eps,kind,newton,N=50,just_dev_root=True,
-                                seed=468,perturb_eps=0,save=True,verbose=True):
+                                seed=468,perturb_eps=0,save=True,verbose=0):
     """Computes the growth factors of a system of polynomails.
 
     Parameters
@@ -43,13 +43,15 @@ def devestating_growth_factors(dims,eps,kind,newton,N=50,just_dev_root=True,
         the amount by which to perturb the system
     save : bool
         whether to save and return the results or just return them
+    verbose : int (default 0)
+        the level of verbosity
     returns
     -------
     growth factors: (dim, N, num_roots) or (dim, N) array
         Array of growth factors. The [i,j] spot is  the growth factor for
         the i'th coordinate in the j'th test system.
     """
-    if verbose:print('Devestating Example in dimensions',dims)
+    if verbose>0:print('Devestating Example in dimensions',dims)
     np.random.seed(seed)
     if isinstance(N,int):
         N = [N]*len(dims)
@@ -60,24 +62,31 @@ def devestating_growth_factors(dims,eps,kind,newton,N=50,just_dev_root=True,
         if save:
             if newton: folder = 'growth_factors/dev/newton/dim{}/'.format(dim)
             else:      folder = 'growth_factors/dev/nopol/dim{}/'.format(dim)
-        if verbose:print(dim)
+        if verbose>0:print('Dimension', dim)
         gf = []
         for _ in range(n):
             #get a random devestating example
             polys = randpoly(dim,eps,kind)
+            if verbose>2: print('System Coeffs',*[p.coeff for p in polys],sep='\n')
             if perturb_eps > 0:
                 polys = perturb(polys,perturb_eps)
-            growth_factor = growthfactor(polys,dim,newton,dev=just_dev_root,shifted=shifted)
-            if verbose:print(_+1,'done')
+            growth_factor = growthfactor(polys,dim,newton,dev=just_dev_root,shifted=shifted,verbose=verbose>1)
+            if newton:
+                growth_factor, max_diff, smallest_dist_between_roots = growth_factor
+                if 10*max_diff >= smallest_dist_between_roots:
+                    print('**Potentially converging roots with polishing**')
+                    print('\tNewton changed roots by at most: {}'.format(max_diff))
+                    print('\tDist between root was at least:  {}'.format(smallest_dist_between_roots))
+            if verbose>0:print(_+1,'done')
             gf.append(growth_factor)
             if save:
                 np.save(folder+'deg2_sys{}.npy'.format(_),gf)
-                if verbose:print(_+1,'saved')
+                if verbose>0:print(_+1,'saved')
         gfs[dim] = np.array(gf)
         if save: np.save(folder+'deg2.npy',gfs[dim])
     return gfs
 
-def growthfactor(polys,dim,newton,dev=False,shifted=None,root=None):
+def growthfactor(polys,dim,newton,dev=False,shifted=None,root=None,verbose=False):
     """Computes the growth factors of a system of polynomails.
 
     Parameters
@@ -102,12 +111,11 @@ def growthfactor(polys,dim,newton,dev=False,shifted=None,root=None):
         Array of growth factors. The [i,j] spot is  the growth factor for
         the i'th coordinate of the j'th root.
     """
-    roots,M = solve(polys,max_cond_num=np.inf)
+    roots,M = solve(polys,max_cond_num=np.inf,verbose=verbose)
     if newton:
         dist_between_roots = la.norm(roots[:,np.newaxis]-roots,axis=2)
         smallest_dist_between_roots = np.min(dist_between_roots[np.nonzero(dist_between_roots)])
         newroots = np.array([newton_polish(polys,root,tol=10*macheps) for root in roots])
-        print(newroots)
         max_diff = np.max(np.abs(newroots-roots))
         roots = newroots
     #find the growth factors for all the roots

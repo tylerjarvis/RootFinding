@@ -167,6 +167,10 @@ def reduce_macaulay_svd(M, cut, bezout_bound, max_cond=1e6):
     if cut < M.shape[0]:
         Q = svd(M[cut:,cut:])[2].conj().T
         M[:cut,cut:] = M[:cut,cut:] @ Q # Apply column transform
+    # if reorder is not None:
+    #     maxabs = np.max(np.abs(Q))
+    #     plt.matshow(np.abs(Q[reorder]),cmap='seismic',vmax=maxabs,vmin=-maxabs)
+    #     plt.show()
 
     # Return the backsolved columns and coefficient matrix for the quotient basis
     return solve_triangular(M[:cut,:cut],M[:cut,bezout_rank:]),Q[:,-bezout_bound:]
