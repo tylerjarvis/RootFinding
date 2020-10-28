@@ -16,7 +16,7 @@ from matplotlib import pyplot as plt
 from scipy.special import comb
 from scipy import linalg as la
 
-def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,method='svd'):
+def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,method='svd', return_mult_matrices=False):
     '''
     Finds the roots of the given list of multidimensional polynomials using a multiplication matrix.
 
@@ -119,10 +119,14 @@ def multiplication(polys, max_cond_num, verbose=False, return_all_roots=True,met
         roots = msroots(M)
 
     if return_all_roots:
-        return roots,M
+        if return_mult_matrices: return roots, M
+        else: return roots
     else:
         # only return roots in the unit complex hyperbox
-        return roots[[np.all(np.abs(root) <= 1) for root in roots]],M
+        roots = roots[[np.all(np.abs(root) <= 1) for root in roots]]
+        if return_mult_matrices: return roots,M
+        else: return roots
+
 
 def indexarray(matrix_terms,m,var):
     """Compute the array mapping monomials under multiplication by x_var

@@ -60,8 +60,8 @@ def devestating_conditioning_ratios(dims,eps,kind,newton,N=50,just_dev_root=True
     else: shifted = True
     for n,dim in zip(N,dims):
         if save:
-            if newton: folder = 'conditioning_ratios/dev/newton/dim{}/'.format(dim)
-            else:      folder = 'conditioning_ratios/dev/nopol/dim{}/'.format(dim)
+            if newton: folder = 'conditioning_ratios_files/dev/newton/dim{}/'.format(dim)
+            else:      folder = 'conditioning_ratios_files/dev/nopol/dim{}/'.format(dim)
         if verbose>0:print('Dimension', dim)
         cr = []
         for _ in range(n):
@@ -111,7 +111,7 @@ def conditioningratio(polys,dim,newton,dev=False,shifted=None,root=None,verbose=
         Array of conditioning ratios. The [i,j] spot is  the conditioning ratio for
         the i'th coordinate of the j'th root.
     """
-    roots,M = solve(polys,max_cond_num=np.inf,verbose=verbose)
+    roots,M = solve(polys,max_cond_num=np.inf,verbose=verbose,return_mult_matrices=True)
     if newton:
         dist_between_roots = la.norm(roots[:,np.newaxis]-roots,axis=2)
         smallest_dist_between_roots = np.min(dist_between_roots[np.nonzero(dist_between_roots)])
@@ -131,7 +131,7 @@ def conditioningratio(polys,dim,newton,dev=False,shifted=None,root=None,verbose=
             arr = sort_eigs(vals,roots[:,d])
             vals = vals[arr]
             eig_conds[d] = eig_conds_curr[arr][idx]
-        factors = np.empty(len(roots))
+        ratios = np.empty(len(roots))
         #compute the condition numbers of the roots
         J = np.empty((dim,dim),dtype='complex')
         for j,poly in enumerate(polys):
@@ -141,9 +141,9 @@ def conditioningratio(polys,dim,newton,dev=False,shifted=None,root=None,verbose=
         # print(np.log10(root_cond))
         # print(np.log10(eig_conds))
         #compute the conditioning ratios
-        factors = eig_conds / root_cond
-        if newton: return factors, max_diff, smallest_dist_between_roots
-        else: return factors
+        ratios = eig_conds / root_cond
+        if newton: return ratios, max_diff, smallest_dist_between_roots
+        else: return ratios
     elif not dev:
         eig_conds = np.empty((dim,len(roots)))
         for d in range(dim):
@@ -154,7 +154,7 @@ def conditioningratio(polys,dim,newton,dev=False,shifted=None,root=None,verbose=
             arr = sort_eigs(vals,roots[:,d])
             vals = vals[arr]
             eig_conds[d] = eig_conds[d][arr]
-        factors = np.empty(len(roots))
+        ratios = np.empty(len(roots))
         #compute the condition numbers of the roots
         root_conds = np.empty(len(roots))
         for i,root in enumerate(roots):
@@ -165,9 +165,9 @@ def conditioningratio(polys,dim,newton,dev=False,shifted=None,root=None,verbose=
             root_cond = 1/S[-1]
             root_conds[i] = root_cond
         #compute the conditioning ratios
-        factors = eig_conds / root_conds
-        if newton: return factors, max_diff, smallest_dist_between_roots
-        else: return factors
+        ratios = eig_conds / root_conds
+        if newton: return ratios, max_diff, smallest_dist_between_roots
+        else: return ratios
     #only find the conditioning ratio for the root at the origin
     else:
         #find the root at the origin
@@ -185,7 +185,7 @@ def conditioningratio(polys,dim,newton,dev=False,shifted=None,root=None,verbose=
             arr = sort_eigs(vals,roots[:,d])
             vals = vals[arr]
             eig_conds[d] = eig_conds_curr[arr][idx]
-        factors = np.empty(len(roots))
+        ratios = np.empty(len(roots))
         #compute the condition numbers of the roots
         J = np.empty((dim,dim),dtype='complex')
         for j,poly in enumerate(polys):
@@ -193,9 +193,9 @@ def conditioningratio(polys,dim,newton,dev=False,shifted=None,root=None,verbose=
         S = la.svd(J,compute_uv=False)
         root_cond = 1/S[-1]
         #compute the conditioning ratios
-        factors = eig_conds / root_cond
-        if newton: return factors, max_diff, smallest_dist_between_roots
-        else: return factors
+        ratios = eig_conds / root_cond
+        if newton: return ratios, max_diff, smallest_dist_between_roots
+        else: return ratios
 
 def get_conditioning_ratios(coeffs, newton, save=True):
     """Computes the conditioning ratios of a bunch of systems of polynomails.
@@ -221,8 +221,8 @@ def get_conditioning_ratios(coeffs, newton, save=True):
     not_full_roots = np.zeros(N,dtype=bool)
     crs = [0]*N
     if save:
-        if newton: folder = 'conditioning_ratios/rand/newton/dim{}/'.format(dim)
-        else:      folder = 'conditioning_ratios/rand/nopol/dim{}/'.format(dim)
+        if newton: folder = 'conditioning_ratios_files/rand/newton/dim{}/'.format(dim)
+        else:      folder = 'conditioning_ratios_files/rand/nopol/dim{}/'.format(dim)
     for i,system in enumerate(coeffs):
         polys = [yr.MultiPower(c) for c in system]
         cr = conditioningratio(polys,dim,newton)
@@ -367,7 +367,7 @@ def plot(datasets,labels=None,subplots=None,title=None,filename='conditioning_ra
     Parameters
     ----------
     datasets : list of dictionaries
-        Growth factor datasets to plot. Each dataset dictionary should be
+        Conditioning ratio datasets to plot. Each dataset dictionary should be
         formatted to map dimension to an array of conditioning ratios
     digits_lost : bool
         whether the y-axis should be a log scale of the conditioning ratios
@@ -424,12 +424,12 @@ def plot(datasets,labels=None,subplots=None,title=None,filename='conditioning_ra
             for i,dataset in enumerate(datasets):
                 plot_dataset(ax,dataset,f'C{i}',labels[i])
         max_y_lim = max(dims)+1
-        ax.set_title('Growth Factors of Quadratic Polynomial Systems')
+        ax.set_title('Conditioning Ratios of Quadratic Polynomial Systems')
         if digits_lost:
             ax.set_ylim(-1,max_y_lim)
             ax.set_ylabel('Digits Lost')
         else:
-            ax.set_ylabel('Growth Factor')
+            ax.set_ylabel('Conditioning ratio')
             ax.yaxis.set_major_formatter(mticker.StrMethodFormatter("$10^{{{x:.0f}}}$"))
             ax.yaxis.set_ticks([np.log10(x) for p in range(-1,max_y_lim)
                                    for x in np.linspace(10**p, 10**(p+1), 10)], minor=True)
@@ -437,7 +437,7 @@ def plot(datasets,labels=None,subplots=None,title=None,filename='conditioning_ra
         legend_elements = [Patch(facecolor=f'C{i}') for i in range(len(datasets))]
         ax.legend(legend_elements,labels)
         if title is None:
-            ax.set_title('Growth Factors of Quadratic Polynomial Systems')
+            ax.set_title('Conditioning Ratios of Quadratic Polynomial Systems')
         else:
             ax.set_title(title)
     else:
@@ -449,12 +449,12 @@ def plot(datasets,labels=None,subplots=None,title=None,filename='conditioning_ra
             else:
                 for i,dataset in enumerate(datasets_axis):
                     plot_dataset(ax_,dataset,f'C{i}',labels_axis[i])
-            ax_.set_title('Growth Factors of Quadratic Polynomial Systems')
+            ax_.set_title('Conditioning Ratios of Quadratic Polynomial Systems')
             ax_.set_xlabel('Dimension')
             legend_elements = [Patch(facecolor=f'C{i}') for i in range(len(datasets_axis))]
             ax_.legend(legend_elements,labels_axis)
             if title is None:
-                ax_.set_title('Growth Factors of Quadratic Polynomial Systems')
+                ax_.set_title('Conditioning Ratios of Quadratic Polynomial Systems')
             else:
                 ax_.set_title(title_axis)
         if title is not None: plt.suptitle(title[-1])
@@ -465,7 +465,7 @@ def plot(datasets,labels=None,subplots=None,title=None,filename='conditioning_ra
             ax[0].set_ylim(-1,max_y_lim)
             ax[0].set_ylabel('Digits Lost')
         else:
-            ax[0].set_ylabel('Growth Factor')
+            ax[0].set_ylabel('Conditioning ratio')
             ax[0].yaxis.set_major_formatter(mticker.StrMethodFormatter("$10^{{{x:.0f}}}$"))
             ax[0].yaxis.set_ticks([np.log10(x) for p in range(-1,max_y_lim)
                                    for x in np.linspace(10**p, 10**(p+1), 10)], minor=True)
