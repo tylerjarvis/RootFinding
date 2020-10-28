@@ -221,8 +221,8 @@ def get_conditioning_ratios(coeffs, newton, save=True):
     not_full_roots = np.zeros(N,dtype=bool)
     crs = [0]*N
     if save:
-        if newton: folder = 'growth_factors/rand/newton/dim{}/'.format(dim)
-        else:      folder = 'growth_factors/rand/nopol/dim{}/'.format(dim)
+        if newton: folder = 'conditioning_ratios/rand/newton/dim{}/'.format(dim)
+        else:      folder = 'conditioning_ratios/rand/nopol/dim{}/'.format(dim)
     for i,system in enumerate(coeffs):
         polys = [yr.MultiPower(c) for c in system]
         cr = conditioningratio(polys,dim,newton)
