@@ -319,7 +319,7 @@ def constant_term_check(test_coeff, tol):
         False if the function is guarenteed to never be zero in the unit box, True otherwise
     """
     test_sum = np.sum(np.abs(test_coeff))
-    if np.abs(test_coeff[tuple([0]*test_coeff.ndim)]) * 2 > test_sum + tol:
+    if fabs(test_coeff[tuple([0]*test_coeff.ndim)]) * 2 > test_sum + tol:
         return False
     else:
         return True
@@ -939,8 +939,9 @@ def quadratic_check_nd(test_coeff, intervals, tol):
                 i,j = where_nonzero
                 #with symmetric matrices, we only need to store the lower part
                 A[j,i] = test_coeff[spot].copy()
+                A[i,j] = A[j,i]
                 #todo: see if we can store this in only one half of A
-                A[i,j] = test_coeff[spot].copy()
+
             else:
                 #coeff of pure quadratic terms
                 i = where_nonzero[0]

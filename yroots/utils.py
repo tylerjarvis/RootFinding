@@ -508,20 +508,20 @@ def makePolyCoeffMatrix(inputString):
         matrix[tuple(matrixSpot)] = coefficient
     return matrix
 
-def slice_top(matrix):
+def slice_top(matrix_shape):
     ''' Gets the n-d slices needed to slice a matrix into the top corner of another.
 
     Parameters
     ----------
-    coeff : numpy matrix.
-        The matrix of interest.
+    matrix_shape : tuple.
+        The matrix shape of interest.
     Returns
     -------
     slices : list
-        Each value of the list is a slice of the matrix in some dimension. It is exactly the size of the matrix.
+        Each value of the list is a slice of the matrix in some dimension. It is exactly the size of matrix_shape.
     '''
     slices = list()
-    for i in matrix.shape:
+    for i in matrix_shape:
         slices.append(slice(0,i))
     return tuple(slices)
 
@@ -583,9 +583,9 @@ def match_size(a,b):
     new_shape = np.maximum(a.shape, b.shape)
 
     a_new = np.zeros(new_shape)
-    a_new[slice_top(a)] = a
+    a_new[slice_top(a.shape)] = a
     b_new = np.zeros(new_shape)
-    b_new[slice_top(b)] = b
+    b_new[slice_top(b.shape)] = b
     return a_new, b_new
 
 def _fold_in_i_dir(solution_matrix, dim, fdim, size_in_fdim, fold_idx):
@@ -699,7 +699,7 @@ def _mon_mult1(initial_matrix, idx, dim_mult):
         idx = [i-j for i,j in zip(p1.shape,initial_matrix.shape)]
 
         result = np.zeros(np.array(initial_matrix.shape) + idx)
-        result[slice_top(initial_matrix)] = initial_matrix
+        result[slice_top(initial_matrix.shape)] = initial_matrix
         initial_matrix = result
     Pf = p1 + initial_matrix
     return .5*Pf
@@ -934,6 +934,7 @@ def memoize(function):
     return decorated_function
 
 memoized_arrays = memoize(arrays)
+slice_top = memoize(slice_top)
 
 def permutation_array(deg,dim,mon):
     '''Finds the permutation array to multiply a row of a matrix by a certain monomial.
