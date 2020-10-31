@@ -717,7 +717,7 @@ def quadratic_check_2D(test_coeff, mask, tol, RAND, subintervals):
         in the unit box, True otherwise
     """
     if test_coeff.ndim != 2:
-        return
+        return mask
     
     #Get the coefficients of the quadratic part
     #Need to account for when certain coefs are zero.
@@ -850,7 +850,7 @@ def quadratic_check_2D(test_coeff, mask, tol, RAND, subintervals):
         throwOutMask[i] = True
     return throwOutMask.reshape(2,2)
 
-def quadratic_check_3D(test_coeff, tol):
+def quadratic_check_3D(test_coeff, mask, tol, RAND, subintervals):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
@@ -873,8 +873,6 @@ def quadratic_check_3D(test_coeff, tol):
         A list of the results of each interval. False if the function is guarenteed to never be zero
         in the unit box, True otherwise
     """
-    mask = [True]*len(intervals)
-
     if test_coeff.ndim != 3:
         return mask
 
@@ -940,7 +938,12 @@ def quadratic_check_3D(test_coeff, tol):
         int_y = np.inf
         int_z = np.inf
 
-    for i, interval in enumerate(intervals):
+        
+    throwOutMask = mask.copy().reshape(8)
+    for i, interval in enumerate(subintervals.reshape(8,2,3)):
+        if not throwOutMask[i]:
+            continue
+        throwOutMask[i] = False
         #easier names for each value...
         x0 = interval[0][0]
         x1 = interval[1][0]
@@ -1190,9 +1193,8 @@ def quadratic_check_3D(test_coeff, tol):
                 continue
 
         # No root possible
-        mask[i] = False
-
-    return mask
+        throwOutMask[i] = True
+    return throwOutMask.reshape(2,2,2)
 
 @memoize
 def get_fixed_vars(dim):
@@ -1214,7 +1216,7 @@ def get_fixed_vars(dim):
     return list(itertools.chain.from_iterable(itertools.combinations(range(dim), r)\
                                              for r in range(dim-1,0,-1)))
 
-def quadratic_check_nd(test_coeff, tol):
+def quadratic_check_nd(test_coeff, mask, tol, RAND, subintervals):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
@@ -1237,7 +1239,6 @@ def quadratic_check_nd(test_coeff, tol):
         A list of the results of each interval. False if the function is guarenteed to never be zero
         in the unit box, True otherwise
     """
-    mask = [True]*len(intervals)
     #get the dimension and make sure the coeff tensor has all the right
     # quadratic coeff spots, set to zero if necessary
     dim = test_coeff.ndim
@@ -1306,7 +1307,12 @@ def quadratic_check_nd(test_coeff, tol):
     #iterator for sides
     fixed_vars = get_fixed_vars(dim)
 
-    for k, interval in enumerate(intervals):
+    throwOutMask = mask.copy().reshape(2**dim)
+    for k, interval in enumerate(subintervals.reshape(*[2**dim,2,dim])):
+        if not throwOutMask[i]:
+            continue
+        throwOutMask[k] = False
+        
         Done = False
         min_satisfied, max_satisfied = False,False
         #fix all variables--> corners
@@ -1385,9 +1391,9 @@ def quadratic_check_nd(test_coeff, tol):
                                 Done = True
         #no root
         if not Done:
-            mask[k] = False
+            throwOutMask[k] = True
 
-    return mask
+    return throwOutMask.reshape(*[2]*dim)
 
 def slices_max_min_check(test_coeff, intervals, tol):
     dim = test_coeff.ndim
