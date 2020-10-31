@@ -13,7 +13,7 @@ from yroots.polynomial import MultiCheb, Polynomial
 from matplotlib import patches
 from scipy import linalg as la
 from math import fabs                      # faster than np.abs for small arrays
-from yroots.utils import memoize, transform
+from yroots.utils import memoize, transform, get_var_list
 
 class IntervalData:
     '''
@@ -376,9 +376,10 @@ def getBoundingInterval(coeffs, errors):
     elif numPolys == 2:
         return getBoundingInterval2D(coeffs, errors)
     else:
-        return None, np.inf
+        return None, np.inf#getBoundingIntervalND(coeffs, errors)
 
 def getBoundingInterval2D(coeffs, errors):
+    MIN_WIDTH = .01
     P1 = coeffs[0]
     P2 = coeffs[1]
     
@@ -401,6 +402,10 @@ def getBoundingInterval2D(coeffs, errors):
     yWidth = (abs(a2*e1) + abs(a1*e2))/abs(denom)
     xWidth = (abs(b2*e1) + abs(b1*e2))/abs(denom)
     
+    #Don't subdivide too much? If we jump too small too fast things might get unstable
+    yWidth = max(yWidth, MIN_WIDTH)
+    xWidth = max(xWidth, MIN_WIDTH)
+    
     #Calculate the interval
     x1,x2 = xCenter - xWidth, xCenter + xWidth
     y1,y2 = yCenter - yWidth, yCenter + yWidth
@@ -414,7 +419,27 @@ def getBoundingInterval2D(coeffs, errors):
     size = (x2-x1) * (y2-y1)
     
     return np.array([[x1,y1], [x2,y2]]), size
-        
+
+def getBoundingIntervalND(test_coeffs,tols):
+    #create the linear system
+    dim = len(test_coeffs)
+    A = np.array([coeff[tuple(get_var_list(dim))] for coeff in test_coeffs])
+    #compute the error terms
+    consts = np.array([coeff[tuple([0]*dim)] for coeff in test_coeffs])
+    linear_sums = np.sum(np.abs(A),axis=1)
+    err = np.array([np.sum(np.abs(coeff))+tol - fabs(c) - l for coeff,tol,c,l in zip(test_coeffs,tols,consts,linear_sums)])
+    #right hand sides
+    B = np.array([consts+np.array(err_comb) for err_comb in product(*[(e,-e) for e in err])]).T
+    #solve for corners of parallelogram
+    X = la.solve(A,B)
+    #find the bounding interval
+    a = np.min(X,axis=1)
+    b = np.max(X,axis=1)
+    #keep the interval within [-1,1]
+    a = np.maximum(np.minimum(a,1),-1)
+    b = np.maximum(np.minimum(b,1),-1)
+    return np.array([a,b]), np.prod(b-a)
+
 def constant_term_check(test_coeff, tol):
     """One of interval_checks
 
