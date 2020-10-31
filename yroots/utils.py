@@ -5,6 +5,7 @@ from scipy.linalg import qr, solve_triangular, svd, norm, eig, lu
 from scipy.special import comb
 import time
 import warnings
+from numba import jit
 
 class InstabilityWarning(Warning):
     pass
@@ -1233,6 +1234,28 @@ def mons_1D(dim, deg, var):
         mon[var] = i
         mons.append(mon)
     return np.array(mons)
+
+@jit(nopython=True)
+def transform(x, a, b):
+    """Transforms points from the interval [-1, 1] to the interval [a, b].
+
+    Parameters
+    ----------
+    x : numpy array
+        The points to be tranformed.
+    a : float or numpy array
+        The lower bound on the interval. Float if one-dimensional, numpy array
+        if multi-dimensional.
+    b : float or numpy array
+        The upper bound on the interval. Float if one-dimensional, numpy array
+         if multi-dimensional.
+
+    Returns
+    -------
+    transform : numpy array
+        The transformed points.
+    """
+    return ((b-a)*x+(b+a))/2
 
 def newton_polish(polys,root,niter=100,tol=1e-5):
     """

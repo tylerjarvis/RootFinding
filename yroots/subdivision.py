@@ -12,7 +12,7 @@ from yroots.OneDimension import divCheb, divPower, multCheb, multPower
 from yroots.Multiplication import multiplication
 from yroots.utils import clean_zeros_from_matrix, slice_top, MacaulayError, \
                          get_var_list, ConditioningError, TooManyRoots, \
-                         Tolerances, solve_linear, memoize, Memoize
+                         Tolerances, solve_linear, memoize, Memoize, transform
 from yroots.polynomial import MultiCheb
 from yroots.IntervalChecks import IntervalData
 from yroots.RootTracker import RootTracker
@@ -201,29 +201,6 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
         return root_tracker.roots, root_tracker.potential_roots
     else:
         return root_tracker.roots
-
-@jit(nopython=True)
-def transform(x, a, b):
-    """Transforms points from the interval [-1, 1] to the interval [a, b].
-
-    Parameters
-    ----------
-    x : numpy array
-        The points to be tranformed.
-    a : float or numpy array
-        The lower bound on the interval. Float if one-dimensional, numpy array
-        if multi-dimensional.
-    b : float or numpy array
-        The upper bound on the interval. Float if one-dimensional, numpy array
-         if multi-dimensional.
-
-    Returns
-    -------
-    transform : numpy array
-        The transformed points.
-    """
-    return ((b-a)*x+(b+a))/2
-
 
 @Memoize
 def initialize_values_arr(dim, deg):

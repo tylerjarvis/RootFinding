@@ -13,7 +13,7 @@ from yroots.polynomial import MultiCheb, Polynomial
 from matplotlib import patches
 from scipy import linalg as la
 from math import fabs                      # faster than np.abs for small arrays
-from yroots.utils import memoize
+from yroots.utils import memoize, transform
 
 class IntervalData:
     '''
@@ -90,6 +90,7 @@ class IntervalData:
         self.interval_results["Base Case"] = []
         self.interval_results["Macaulay"] = []
         self.interval_results["Too Deep"] = []
+        self.interval_results["getBoundingInterval"] = []
         self.total_area = np.prod(self.b-self.a)
         self.current_area = 0.
         self.tick = 0
@@ -164,6 +165,17 @@ class IntervalData:
         subintervals : list
             Each element of the list is a tuple containing an a and b, the lower and upper bounds of the interval.
         """
+        #Try to find a bounding interval
+        boundingInterval, boundingSize = getBoundingInterval(polys, errors)
+        if boundingInterval is not None:
+            boundingInterval = transform(boundingInterval, a, b)
+        if boundingSize == 0:
+            self.track_interval_bounded(getBoundingInterval.__name__, [a,b], boundingInterval)
+            return []
+        elif boundingSize < 0.5: #Something to think about
+            self.track_interval_bounded(getBoundingInterval.__name__, [a,b], boundingInterval)
+            return [boundingInterval]
+        
         #Default to keeping everything
         self.mask.fill(True)
         
@@ -176,6 +188,7 @@ class IntervalData:
         newIntervals[:,:1,:] = (newIntervals[:,:1,:] * temp1 + temp2) / 2
         newIntervals[:,1:,:] = (newIntervals[:,1:,:] * temp1 + temp2) / 2
         
+        thrownOuts = []
         if runChecks:
             #Run checks to set mask to False
             for check in self.subinterval_checks:
@@ -185,8 +198,15 @@ class IntervalData:
                     #Throw stuff out
                     thrownOutIntervals = newIntervals[throwOutMask]
                     for old_a,old_b in thrownOutIntervals:
-                        self.track_interval(check.__name__, [old_a,old_b])
+                        thrownOuts.append([check.__name__, [old_a,old_b]])
                     self.mask &= ~throwOutMask
+        
+        if boundingSize < np.sum(self.mask) and boundingSize < 3: #Something to think about
+            self.track_interval_bounded(getBoundingInterval.__name__, [a,b], boundingInterval)
+            return [boundingInterval]
+        
+        for params in thrownOuts:
+            self.track_interval(*params)
         
         return newIntervals[self.mask]
     
@@ -229,6 +249,22 @@ class IntervalData:
             self.interval_results[name].append(interval)
         self.current_area += np.prod(interval[1] - interval[0])
 
+    def track_interval_bounded(self, name, interval, bounding_interval):
+        ''' Stores what happened to a given interval when we use a new bounding interval inside it
+
+        Parameters
+        ----------
+        name : string
+            The name of the check or process (Macaulay, Base Case, Too Deep) that solved this interval
+        interval: list
+            [a,b] where a and b are the lower and upper bound of the interval to track.
+        bounding_interval: list
+            [a,b] where a and b are the lower and upper bound of the bounding_interval to subdivide into.
+        '''
+        if not self.polishing:
+            self.interval_results[name].append(interval)
+        self.current_area += np.prod(interval[1] - interval[0]) - np.prod(bounding_interval[1] - bounding_interval[0])
+        
     def print_progress(self):
         ''' Prints the progress of subdivision solve. Only prints every 100th time this function is
             called to save time.
@@ -329,6 +365,55 @@ class IntervalData:
         if print_plot:
             plt.savefig('intervals.pdf', bbox_inches='tight')
         plt.show()
+
+def getBoundingInterval(coeffs, errors):
+    numPolys = len(coeffs)
+    if numPolys == 0:
+        return None, np.inf
+    dim = coeffs[0].ndim
+    if numPolys != dim:
+        return None, np.inf
+    elif numPolys == 2:
+        return getBoundingInterval2D(coeffs, errors)
+    else:
+        return None, np.inf
+
+def getBoundingInterval2D(coeffs, errors):
+    P1 = coeffs[0]
+    P2 = coeffs[1]
+    
+    #Get Variables for Calculations
+    a1 = P1[1,0]
+    b1 = P1[0,1]
+    c1 = P1[0,0]
+    e1 = np.sum(np.abs(P1)) - abs(a1) - abs(b1) - abs(c1) + errors[0]
+    a2 = P2[1,0]
+    b2 = P2[0,1]
+    c2 = P2[0,0]
+    e2 = np.sum(np.abs(P2)) - abs(a2) - abs(b2) - abs(c2) + errors[1]
+    denom = a1*b2 - a2*b1
+    
+    #Find the center of the interval
+    yCenter = (a2*c1-a1*c2)/denom
+    xCenter = (b1*c2-b2*c1)/denom
+
+    #Find the size of the interval
+    yWidth = (abs(a2*e1) + abs(a1*e2))/abs(denom)
+    xWidth = (abs(b2*e1) + abs(b1*e2))/abs(denom)
+    
+    #Calculate the interval
+    x1,x2 = xCenter - xWidth, xCenter + xWidth
+    y1,y2 = yCenter - yWidth, yCenter + yWidth
+    
+    #Keep the interval withing [-1,1]
+    x1 = max(min(x1,1),-1)
+    x2 = max(min(x2,1),-1)
+    y1 = max(min(y1,1),-1)
+    y2 = max(min(y2,1),-1)
+    
+    size = (x2-x1) * (y2-y1)
+    
+    return np.array([[x1,y1], [x2,y2]]), size
         
 def constant_term_check(test_coeff, tol):
     """One of interval_checks
@@ -353,7 +438,7 @@ def constant_term_check(test_coeff, tol):
         return False
     else:
         return True
-
+    
 def quadratic_check(test_coeff, mask, tol, RAND, subintervals):
     """One of subinterval_checks
 
