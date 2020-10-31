@@ -106,7 +106,7 @@ class IntervalData:
         #for keeping track of condition numbers
         self.cond = 0
         self.backcond = 0
-        
+
         #Variables to store for Subintervals
         dim = len(a)
         self.RAND = 0.5139303900908738
@@ -175,19 +175,19 @@ class IntervalData:
         elif boundingSize < 0.5: #Something to think about
             self.track_interval_bounded(getBoundingInterval.__name__, [a,b], boundingInterval)
             return [boundingInterval]
-        
+
         #Default to keeping everything
         self.mask.fill(True)
-        
+
         #For getting the subintervals
         temp1 = b - a
-        temp2 = b + a        
-        
+        temp2 = b + a
+
         #Create the new intervals based on the ones we are keeping
         newIntervals = self.subintervals.copy()
         newIntervals[:,:1,:] = (newIntervals[:,:1,:] * temp1 + temp2) / 2
         newIntervals[:,1:,:] = (newIntervals[:,1:,:] * temp1 + temp2) / 2
-        
+
         thrownOuts = []
         if runChecks:
             #Run checks to set mask to False
@@ -200,16 +200,16 @@ class IntervalData:
                     for old_a,old_b in thrownOutIntervals:
                         thrownOuts.append([check.__name__, [old_a,old_b]])
                     self.mask &= ~throwOutMask
-        
+
         if boundingSize < np.sum(self.mask) and boundingSize < 3: #Something to think about
             self.track_interval_bounded(getBoundingInterval.__name__, [a,b], boundingInterval)
             return [boundingInterval]
-        
+
         for params in thrownOuts:
             self.track_interval(*params)
-        
+
         return newIntervals[self.mask]
-    
+
     def check_interval(self, coeff, error, a, b):
         ''' Runs the interval checks on the interval [a,b]
 
@@ -264,7 +264,7 @@ class IntervalData:
         if not self.polishing:
             self.interval_results[name].append(interval)
         self.current_area += np.prod(interval[1] - interval[0]) - np.prod(bounding_interval[1] - bounding_interval[0])
-        
+
     def print_progress(self):
         ''' Prints the progress of subdivision solve. Only prints every 100th time this function is
             called to save time.
@@ -374,15 +374,15 @@ def getBoundingInterval(coeffs, errors):
     if numPolys != dim:
         return None, np.inf
     elif numPolys == 2:
-        return getBoundingInterval2D(coeffs, errors)
+        return getBoundingIntervalND(coeffs, errors)#getBoundingInterval2D(coeffs, errors)
     else:
-        return None, np.inf#getBoundingIntervalND(coeffs, errors)
+        return getBoundingIntervalND(coeffs, errors)#None, np.inf
 
 def getBoundingInterval2D(coeffs, errors):
     MIN_WIDTH = .01
     P1 = coeffs[0]
     P2 = coeffs[1]
-    
+
     #Get Variables for Calculations
     a1 = P1[1,0]
     b1 = P1[0,1]
@@ -393,7 +393,7 @@ def getBoundingInterval2D(coeffs, errors):
     c2 = P2[0,0]
     e2 = np.sum(np.abs(P2)) - abs(a2) - abs(b2) - abs(c2) + errors[1]
     denom = a1*b2 - a2*b1
-    
+
     #Find the center of the interval
     yCenter = (a2*c1-a1*c2)/denom
     xCenter = (b1*c2-b2*c1)/denom
@@ -401,23 +401,23 @@ def getBoundingInterval2D(coeffs, errors):
     #Find the size of the interval
     yWidth = (abs(a2*e1) + abs(a1*e2))/abs(denom)
     xWidth = (abs(b2*e1) + abs(b1*e2))/abs(denom)
-    
+
     #Don't subdivide too much? If we jump too small too fast things might get unstable
     yWidth = max(yWidth, MIN_WIDTH)
     xWidth = max(xWidth, MIN_WIDTH)
-    
+
     #Calculate the interval
     x1,x2 = xCenter - xWidth, xCenter + xWidth
     y1,y2 = yCenter - yWidth, yCenter + yWidth
-    
+
     #Keep the interval withing [-1,1]
     x1 = max(min(x1,1),-1)
     x2 = max(min(x2,1),-1)
     y1 = max(min(y1,1),-1)
     y2 = max(min(y2,1),-1)
-    
+
     size = (x2-x1) * (y2-y1)
-    
+
     return np.array([[x1,y1], [x2,y2]]), size
 
 def getBoundingIntervalND(test_coeffs,tols):
@@ -429,7 +429,7 @@ def getBoundingIntervalND(test_coeffs,tols):
     linear_sums = np.sum(np.abs(A),axis=1)
     err = np.array([np.sum(np.abs(coeff))+tol - fabs(c) - l for coeff,tol,c,l in zip(test_coeffs,tols,consts,linear_sums)])
     #right hand sides
-    B = np.array([consts+np.array(err_comb) for err_comb in product(*[(e,-e) for e in err])]).T
+    B = np.array([-consts+np.array(err_comb) for err_comb in product(*[(e,-e) for e in err])]).T
     #solve for corners of parallelogram
     X = la.solve(A,B)
     #find the bounding interval
@@ -463,7 +463,7 @@ def constant_term_check(test_coeff, tol):
         return False
     else:
         return True
-    
+
 def quadratic_check(test_coeff, mask, tol, RAND, subintervals):
     """One of subinterval_checks
 
@@ -718,7 +718,7 @@ def quadratic_check_2D(test_coeff, mask, tol, RAND, subintervals):
     """
     if test_coeff.ndim != 2:
         return
-    
+
     #Get the coefficients of the quadratic part
     #Need to account for when certain coefs are zero.
     #Padding is slow, so check the shape instead.
@@ -1280,7 +1280,7 @@ def quadratic_check_nd(test_coeff, tol):
                 A[j,i] = test_coeff[spot].copy()
                 A[i,j] = A[j,i]
                 #todo: see if we can store this in only one half of A
-               
+
             else:
                 #coeff of pure quadratic terms
                 i = where_nonzero[0]
