@@ -378,7 +378,7 @@ def getBoundingInterval(coeffs, errors):
     elif numPolys == 2:
         return getBoundingInterval2D(coeffs, errors)
     else:
-        return None, np.inf#getBoundingIntervalND(coeffs, errors)
+        return getBoundingIntervalND(coeffs, errors)
 
 def getBoundingInterval2D(coeffs, errors):
     MIN_WIDTH = .01
@@ -431,15 +431,25 @@ def getBoundingIntervalND(test_coeffs,tols):
     linear_sums = np.sum(np.abs(A),axis=1)
     err = np.array([np.sum(np.abs(coeff))+tol - fabs(c) - l for coeff,tol,c,l in zip(test_coeffs,tols,consts,linear_sums)])
     #right hand sides
-    B = np.array([consts+np.array(err_comb) for err_comb in product(*[(e,-e) for e in err])]).T
+    B = np.array([-consts+np.array(err_comb) for err_comb in product(*[(e,-e) for e in err])]).T
     #solve for corners of parallelogram
     X = la.solve(A,B)
     #find the bounding interval
     a = np.min(X,axis=1)
     b = np.max(X,axis=1)
+    
+    #Fix the Widths
+    MIN_WIDTH = .01
+    centers = (a+b)/2
+    widths = b - centers
+    widths = np.maximum(widths, MIN_WIDTH)
+    a = centers - widths
+    b = centers + widths
+    
     #keep the interval within [-1,1]
     a = np.maximum(np.minimum(a,1),-1)
     b = np.maximum(np.minimum(b,1),-1)
+        
     return np.array([a,b]), np.prod(b-a)
 
 def constant_term_check(test_coeff, tol):
