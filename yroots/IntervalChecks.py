@@ -13,7 +13,7 @@ from yroots.polynomial import MultiCheb, Polynomial
 from matplotlib import patches
 from scipy import linalg as la
 from math import fabs                      # faster than np.abs for small arrays
-from yroots.utils import memoize, transform, get_var_list
+from yroots.utils import memoize, transform, get_var_list, isNumber
 
 class IntervalData:
     '''
@@ -108,6 +108,8 @@ class IntervalData:
         self.backcond = 0
         
         #Variables to store for Subintervals
+        if isNumber(a):
+            return
         dim = len(a)
         self.RAND = 0.5139303900908738
         self.mask = np.zeros([2]*dim, dtype = bool)
@@ -1309,7 +1311,7 @@ def quadratic_check_nd(test_coeff, mask, tol, RAND, subintervals):
 
     throwOutMask = mask.copy().reshape(2**dim)
     for k, interval in enumerate(subintervals.reshape(*[2**dim,2,dim])):
-        if not throwOutMask[i]:
+        if not throwOutMask[k]:
             continue
         throwOutMask[k] = False
         
