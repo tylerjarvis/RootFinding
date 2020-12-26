@@ -360,7 +360,7 @@ def get_data(delta,gen_func,seeds = {2:range(300),3:range(300),4:range(300)}):
         data[dim] = np.array(data[dim]).flatten()
     return data
 
-def plot(datasets,labels=None,subplots=None,title=None,filename='conditioning_ratio_plot',digits_lost=False,figsize=(6,4),dpi=400,best_fit=True):
+def plot(datasets,labels=None,subplots=None,title=None,filename='conditioning_ratio_plot',digits_lost=False,figsize=(6,4),dpi=400,best_fit=True, 2nd_plot=None, min_ylim=None, max_ylim=None):
     """
     Plots conditioning ratio data.
 
@@ -378,7 +378,8 @@ def plot(datasets,labels=None,subplots=None,title=None,filename='conditioning_ra
         dpi of the image
     """
     if subplots is None: fig, ax = plt.subplots(nrows=1, ncols=1, figsize=figsize,dpi=dpi)
-    else: fig, ax = plt.subplots(nrows=subplots[0], ncols=subplots[1], figsize=figsize,dpi=dpi,sharey=True,sharex=True)
+    #else: fig, ax = plt.subplots(nrows=subplots[0], ncols=subplots[1], figsize=figsize,dpi=dpi,sharey=True,sharex=True)
+    else: fig, ax = plt.subplots(nrows=subplots[0], ncols=subplots[1], figsize=figsize,dpi=dpi,sharey=False,sharex=False)
     def plot_dataset(ax,data,color,label=None):
         pos = 2+np.arange(len(data))
         #log before plot
@@ -423,15 +424,21 @@ def plot(datasets,labels=None,subplots=None,title=None,filename='conditioning_ra
         else:
             for i,dataset in enumerate(datasets):
                 plot_dataset(ax,dataset,f'C{i}',labels[i])
-        max_y_lim = max(dims)+1
+        #max_y_lim = max(dims)+1
         ax.set_title('Conditioning Ratios of Quadratic Polynomial Systems')
         if digits_lost:
             ax.set_ylim(-1,max_y_lim)
             ax.set_ylabel('Digits Lost')
         else:
-            ax.set_ylabel('Conditioning ratio')
+            ax.set_ylabel('Conditioning Ratio')
             ax.yaxis.set_major_formatter(mticker.StrMethodFormatter("$10^{{{x:.0f}}}$"))
-            ax.yaxis.set_ticks([np.log10(x) for p in range(-1,max_y_lim)
+            if min_ylim is not None:
+                # do things
+                ax.yaxis.set_ticks([np.log10(x) for p in range(min_ylim,max_ylim)
+                                   for x in np.linspace(10**p, 10**(p+1), 10)], minor=True)
+            else: 
+                max_y_lim = max(dims)+1
+                ax.yaxis.set_ticks([np.log10(x) for p in range(-1,max_y_lim)
                                    for x in np.linspace(10**p, 10**(p+1), 10)], minor=True)
         ax.set_xlabel('Dimension')
         legend_elements = [Patch(facecolor=f'C{i}') for i in range(len(datasets))]
@@ -440,7 +447,7 @@ def plot(datasets,labels=None,subplots=None,title=None,filename='conditioning_ra
             ax.set_title('Conditioning Ratios of Quadratic Polynomial Systems')
         else:
             ax.set_title(title)
-    else:
+    else:  # for subplots ##################################################################
         for ax_,datasets_axis,title_axis,labels_axis in zip(ax,datasets,title,labels):
             ax_.yaxis.grid(color='gray',alpha=.15,linewidth=1,which='major')
             if labels is None:
@@ -465,10 +472,25 @@ def plot(datasets,labels=None,subplots=None,title=None,filename='conditioning_ra
             ax[0].set_ylim(-1,max_y_lim)
             ax[0].set_ylabel('Digits Lost')
         else:
-            ax[0].set_ylabel('Conditioning ratio')
+            ax[0].set_ylabel('Conditioning Ratio')
             ax[0].yaxis.set_major_formatter(mticker.StrMethodFormatter("$10^{{{x:.0f}}}$"))
-            ax[0].yaxis.set_ticks([np.log10(x) for p in range(-1,max_y_lim)
+            if min_ylim is not None:
+                # do things
+                ax[0].yaxis.set_ticks([np.log10(x) for p in range(min_ylim,max_ylim)
                                    for x in np.linspace(10**p, 10**(p+1), 10)], minor=True)
+            else: 
+                max_y_lim = max(dims)+1
+                ax[0].yaxis.set_ticks([np.log10(x) for p in range(-1,max_y_lim)
+                                   for x in np.linspace(10**p, 10**(p+1), 10)], minor=True)
+        # insert slopes subplot stuff here ####################################################
+        #######################################################################################
+        if 2nd_plot is not None:
+            ax[1].clear()
+            ax[1].plot(2nd_plot[0], 2nd_plot[1])
+            ax[1].set_xlabel(r'Standard Deviation of Perturbation, $\delta$')
+            ax[1].set_ylabel('Slope')
+            ax[1].set_title('Slopes of the Base-10 Log of C. Ratios')
+            plt.tight_layout()
     plt.savefig(fname=filename+'.pdf',bbox_inches='tight',dpi=dpi,format='pdf')
     plt.show()
 
