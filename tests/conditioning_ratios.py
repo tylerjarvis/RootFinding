@@ -14,11 +14,13 @@ import sys
 from matplotlib import ticker as mticker
 from scipy.stats import linregress
 from matplotlib.patches import Patch
+from matplotlib import ticker
+from matplotlib.ticker import FormatStrFormatter
 
 macheps = 2.220446049250313e-16
 
 def devestating_conditioning_ratios(dims,eps,kind,newton,N=50,just_dev_root=True,
-                                seed=468,perturb_eps=0,save=True,verbose=0):
+                                seed=468,perturb_eps=0,save=True,verbose=0,detailed=False):
     """Computes the conditioning ratios of a system of polynomails.
 
     Parameters
@@ -56,6 +58,9 @@ def devestating_conditioning_ratios(dims,eps,kind,newton,N=50,just_dev_root=True
     if isinstance(N,int):
         N = [N]*len(dims)
     crs = dict() #conditioning ratios dictionary
+    if detailed:
+        rcs = dict()
+        ecs = dict()
     if kind in ['power','cheb']: shifted = False
     else: shifted = True
     for n,dim in zip(N,dims):
@@ -64,29 +69,47 @@ def devestating_conditioning_ratios(dims,eps,kind,newton,N=50,just_dev_root=True
             else:      folder = 'conditioning_ratios_files/dev/nopol/dim{}/'.format(dim)
         if verbose>0:print('Dimension', dim)
         cr = []
+        if detailed:
+            ec = []
+            rc = []
         for _ in range(n):
             #get a random devestating example
             polys = randpoly(dim,eps,kind)
             if verbose>2: print('System Coeffs',*[p.coeff for p in polys],sep='\n')
             if perturb_eps > 0:
                 polys = perturb(polys,perturb_eps)
-            conditioning_ratio = conditioningratio(polys,dim,newton,dev=just_dev_root,shifted=shifted,verbose=verbose>1)
+            conditioning_ratio = conditioningratio(polys,dim,newton,dev=just_dev_root,shifted=shifted,verbose=verbose>1,detailed=detailed)
             if newton:
-                conditioning_ratio, max_diff, smallest_dist_between_roots = conditioning_ratio
-                if 10*max_diff >= smallest_dist_between_roots:
-                    print('**Potentially converging roots with polishing**')
-                    print('\tNewton changed roots by at most: {}'.format(max_diff))
-                    print('\tDist between root was at least:  {}'.format(smallest_dist_between_roots))
+                if detailed:
+                    conditioning_ratio, max_diff, smallest_dist_between_roots, eig_conds, root_conds = conditioning_ratio
+                    if 10*max_diff >= smallest_dist_between_roots:
+                        print('**Potentially converging roots with polishing**')
+                        print('\tNewton changed roots by at most: {}'.format(max_diff))
+                        print('\tDist between root was at least:  {}'.format(smallest_dist_between_roots))
+                else:
+                    conditioning_ratio, max_diff, smallest_dist_between_roots = conditioning_ratio
+                    if 10*max_diff >= smallest_dist_between_roots:
+                        print('**Potentially converging roots with polishing**')
+                        print('\tNewton changed roots by at most: {}'.format(max_diff))
+                        print('\tDist between root was at least:  {}'.format(smallest_dist_between_roots))
+            elif detailed:
+                    conditioning_ratio, eig_conds, root_cond = conditioning_ratio
+                    ec.append(eig_conds)
+                    rc.append(root_cond)
             if verbose>0:print(_+1,'done')
             cr.append(conditioning_ratio)
             if save:
                 np.save(folder+'deg2_sys{}.npy'.format(_),cr)
                 if verbose>0:print(_+1,'saved')
         crs[dim] = np.array(cr)
+        if detailed:
+            rcs[dim] = np.array(rc)
+            ecs[dim] = np.array(ec)
         if save: np.save(folder+'deg2.npy',crs[dim])
-    return crs
+    if detailed: return crs, ecs, rcs
+    else: return crs
 
-def conditioningratio(polys,dim,newton,dev=False,shifted=None,root=None,verbose=False):
+def conditioningratio(polys,dim,newton,dev=False,shifted=None,root=None,verbose=False,detailed=False,longdouble=False):
     """Computes the conditioning ratios of a system of polynomails.
 
     Parameters
@@ -142,8 +165,12 @@ def conditioningratio(polys,dim,newton,dev=False,shifted=None,root=None,verbose=
         # print(np.log10(eig_conds))
         #compute the conditioning ratios
         ratios = eig_conds / root_cond
-        if newton: return ratios, max_diff, smallest_dist_between_roots
-        else: return ratios
+        if detailed:
+            if newton: return ratios, max_diff, smallest_dist_between_roots, eig_conds, root_cond
+            else: return ratios, eig_conds, root_cond
+        else:
+            if newton: return ratios, max_diff, smallest_dist_between_roots
+            else: return ratios
     elif not dev:
         eig_conds = np.empty((dim,len(roots)))
         for d in range(dim):
@@ -166,8 +193,12 @@ def conditioningratio(polys,dim,newton,dev=False,shifted=None,root=None,verbose=
             root_conds[i] = root_cond
         #compute the conditioning ratios
         ratios = eig_conds / root_conds
-        if newton: return ratios, max_diff, smallest_dist_between_roots
-        else: return ratios
+        if detailed:
+            if newton: return ratios, max_diff, smallest_dist_between_roots, eig_conds, root_conds
+            else: return ratios, eig_conds, root_conds
+        else:
+            if newton: return ratios, max_diff, smallest_dist_between_roots
+            else: return ratios
     #only find the conditioning ratio for the root at the origin
     else:
         #find the root at the origin
@@ -194,8 +225,12 @@ def conditioningratio(polys,dim,newton,dev=False,shifted=None,root=None,verbose=
         root_cond = 1/S[-1]
         #compute the conditioning ratios
         ratios = eig_conds / root_cond
-        if newton: return ratios, max_diff, smallest_dist_between_roots
-        else: return ratios
+        if detailed:
+            if newton: return ratios, max_diff, smallest_dist_between_roots, eig_conds, root_cond
+            else: return ratios, eig_conds, root_cond
+        else:
+            if newton: return ratios, max_diff, smallest_dist_between_roots
+            else: return ratios
 
 def get_conditioning_ratios(coeffs, newton, save=True):
     """Computes the conditioning ratios of a bunch of systems of polynomails.
@@ -343,7 +378,7 @@ def gen_rand_hyperellipses(dim,seed,delta,verbose=False):
     if verbose: print('Roots:',roots,sep='\n')
     return roots,[get_MultiPower(c,roots) for c in centers]
 
-def get_data(delta,gen_func,seeds = {2:range(300),3:range(300),4:range(300)}):
+def get_data(delta,gen_func,seeds = {2:range(300),3:range(300),4:range(300)},detailed=False):#,longdouble=False):
     """
     Computes the conditioning ratio of the first generated root of systems generated with gen_func(dim,seed,delta) for each
     seed in the seeds dictionary.
@@ -352,15 +387,26 @@ def get_data(delta,gen_func,seeds = {2:range(300),3:range(300),4:range(300)}):
     """
     dims = seeds.keys()
     data = {d:[] for d in dims}
+    root_conds = {d:[] for d in dims}
+    eig_conds = {d:[] for d in dims}
     for dim in dims:
         print(dim)
         for n in seeds[dim]:
-            roots,polys = gen_func(dim=dim,seed=n,delta=delta)
-            data[dim].extend(conditioningratio(polys,dim,newton=False,root=roots[0]))
+            roots,polys = gen_func(dim=dim,seed=n,delta=delta,longdouble=False)
+            cr = conditioningratio(polys,dim,newton=False,root=roots[0],detailed=detailed)#,longdouble=longdouble)
+            if detailed:
+                cr, eig_cond, root_cond = cr
+                root_conds[dim].append(root_cond)
+                eig_conds[dim].append(eig_cond)
+            data[dim].extend(cr)
         data[dim] = np.array(data[dim]).flatten()
-    return data
+        if detailed:
+            root_conds[dim] = np.array(root_conds[dim]).flatten()
+            eig_conds[dim] = np.array(eig_conds[dim]).flatten()
+    if detailed: return data,eig_conds,root_conds
+    else: return data
 
-def plot(datasets,labels=None,subplots=None,title=None,filename='conditioning_ratio_plot',digits_lost=False,figsize=(6,4),dpi=400,best_fit=True, 2nd_plot=None, min_ylim=None, max_ylim=None):
+def plot(datasets,labels=None,subplots=None,title=None,filename='conditioning_ratio_plot',digits_lost=False,figsize=(6,4),dpi=400,best_fit=True, _2nd_plot=None, min_ylim=None, max_ylim=None):
     """
     Plots conditioning ratio data.
 
@@ -399,21 +445,24 @@ def plot(datasets,labels=None,subplots=None,title=None,filename='conditioning_ra
         ax.hlines(maxs,pos-.02,pos+.02,lw=1)
         ax.hlines(mins,pos-.02,pos+.02,lw=1)
         ax.vlines(pos,mins,maxs,lw=.5,linestyles='dashed')
-        box_props = dict(facecolor='w')
+        box_props = dict(facecolor='w',color=color)
         median_props = dict(color=color)
-        ax.boxplot(data_log10,positions=pos,
+        box = ax.boxplot(data_log10,positions=pos,
                    vert=True,
                    showfliers=False,
                    patch_artist=True,
                    boxprops=box_props,
                    widths=.35,
                    medianprops=median_props)
+        plt.setp(box['whiskers'], color=color)
+        plt.setp(box['caps'], color=color)
         if best_fit:
             points = np.array([[d,val] for i,d in enumerate(data.keys()) for val in data_log10[i]])
             slope, intercept = linregress(points)[:2]
+            growth_rate = 10**slope-1
             if label is not None:
                 print(label)
-            print('Slope:',slope, '\nIntercept:',intercept,end='\n\n')
+            print('Slope:',slope, '\nIntercept:',intercept,'\nExponential Growth Rate:',growth_rate,end='\n\n')
             ax.plot(pos,pos*slope+intercept,c=color)
     if subplots is None:
         dims = 2+np.arange(np.max([len(data.keys()) for data in datasets]))
@@ -433,12 +482,7 @@ def plot(datasets,labels=None,subplots=None,title=None,filename='conditioning_ra
             ax.set_ylabel('Conditioning Ratio')
             ax.yaxis.set_major_formatter(mticker.StrMethodFormatter("$10^{{{x:.0f}}}$"))
             if min_ylim is not None:
-                # do things
                 ax.yaxis.set_ticks([np.log10(x) for p in range(min_ylim,max_ylim)
-                                   for x in np.linspace(10**p, 10**(p+1), 10)], minor=True)
-            else: 
-                max_y_lim = max(dims)+1
-                ax.yaxis.set_ticks([np.log10(x) for p in range(-1,max_y_lim)
                                    for x in np.linspace(10**p, 10**(p+1), 10)], minor=True)
         ax.set_xlabel('Dimension')
         legend_elements = [Patch(facecolor=f'C{i}') for i in range(len(datasets))]
@@ -467,30 +511,29 @@ def plot(datasets,labels=None,subplots=None,title=None,filename='conditioning_ra
         if title is not None: plt.suptitle(title[-1])
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
         dims = 2+np.arange(np.max([len(data.keys()) for data in datasets[0]]))
-        max_y_lim = 9
         if digits_lost:
+            max_y_lim = 9
             ax[0].set_ylim(-1,max_y_lim)
             ax[0].set_ylabel('Digits Lost')
         else:
             ax[0].set_ylabel('Conditioning Ratio')
             ax[0].yaxis.set_major_formatter(mticker.StrMethodFormatter("$10^{{{x:.0f}}}$"))
             if min_ylim is not None:
-                # do things
                 ax[0].yaxis.set_ticks([np.log10(x) for p in range(min_ylim,max_ylim)
-                                   for x in np.linspace(10**p, 10**(p+1), 10)], minor=True)
-            else: 
-                max_y_lim = max(dims)+1
-                ax[0].yaxis.set_ticks([np.log10(x) for p in range(-1,max_y_lim)
                                    for x in np.linspace(10**p, 10**(p+1), 10)], minor=True)
         # insert slopes subplot stuff here ####################################################
         #######################################################################################
-        if 2nd_plot is not None:
+        if _2nd_plot is not None:
             ax[1].clear()
-            ax[1].plot(2nd_plot[0], 2nd_plot[1])
+            ax[1].semilogy(_2nd_plot[0], _2nd_plot[1])
             ax[1].set_xlabel(r'Standard Deviation of Perturbation, $\delta$')
-            ax[1].set_ylabel('Slope')
-            ax[1].set_title('Slopes of the Base-10 Log of C. Ratios')
-            plt.tight_layout()
+            ax[1].set_ylabel('Growth Rate, $r$')
+            ax[1].set_title(title[1])
+            ax[1].set_xscale('log')
+            ax[1].xaxis.set_ticks([x for p in range(-6,-1)
+                               for x in np.linspace(10**p, 10**(p+1), 10)],minor=True)
+            ax[1].xaxis.set_ticks([10**p for p in range(-6,0)],minor=False)
+            plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     plt.savefig(fname=filename+'.pdf',bbox_inches='tight',dpi=dpi,format='pdf')
     plt.show()
 

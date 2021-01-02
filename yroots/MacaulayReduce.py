@@ -4,7 +4,7 @@ from scipy.linalg import qr, solve_triangular, qr_multiply, svd
 from yroots.polynomial import Polynomial, MultiCheb, MultiPower
 from yroots.utils import row_swap_matrix, MacaulayError, slice_top, mon_combos, \
                               num_mons_full, memoized_all_permutations, mons_ordered, \
-                              all_permutations_cheb, ConditioningError, TooManyRoots
+                              all_permutations_cheb, TooManyRoots
 from matplotlib import pyplot as plt
 from warnings import warn
 
@@ -86,7 +86,6 @@ def reduce_macaulay_qrt(M, cut, bezout_bound, max_cond=1e6):
         being the coefficients for the ith basis element
     Raises
     ------
-    ConditioningError if reduce_macaulay() raises a ConditioningError.
     TooManyRoots if the macaulay matrix returns more roots than the Bezout bound.
     """
     # Compute numerical rank
