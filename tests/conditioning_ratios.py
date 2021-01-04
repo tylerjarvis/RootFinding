@@ -109,7 +109,7 @@ def devestating_conditioning_ratios(dims,eps,kind,newton,N=50,just_dev_root=True
     if detailed: return crs, ecs, rcs
     else: return crs
 
-def conditioningratio(polys,dim,newton,dev=False,shifted=None,root=None,verbose=False,detailed=False,longdouble=False):
+def conditioningratio(polys,dim,newton,dev=False,shifted=None,root=None,verbose=False,detailed=False):
     """Computes the conditioning ratios of a system of polynomails.
 
     Parameters
@@ -145,7 +145,7 @@ def conditioningratio(polys,dim,newton,dev=False,shifted=None,root=None,verbose=
     if root is not None:
         #find the root
         idx = np.argmin(la.norm(roots-root,axis=1))
-
+        #compute eigenvalue condition numbers
         eig_conds = np.empty(dim)
         for d in range(dim):
             M_ = M[...,d]
@@ -154,15 +154,12 @@ def conditioningratio(polys,dim,newton,dev=False,shifted=None,root=None,verbose=
             arr = sort_eigs(vals,roots[:,d])
             vals = vals[arr]
             eig_conds[d] = eig_conds_curr[arr][idx]
-        ratios = np.empty(len(roots))
         #compute the condition numbers of the roots
         J = np.empty((dim,dim),dtype='complex')
         for j,poly in enumerate(polys):
             J[j] = poly.grad(root)
         S = la.svd(J,compute_uv=False)
         root_cond = 1/S[-1]
-        # print(np.log10(root_cond))
-        # print(np.log10(eig_conds))
         #compute the conditioning ratios
         ratios = eig_conds / root_cond
         if detailed:
@@ -294,7 +291,8 @@ the rest of the functions use specially chosen roots to generate examples.
 def get_scalar(center,roots):
     'solves for the scalars in the conic equation. see conditioning_ratios.ipynb for details'
     dim = roots.shape[1]
-    return la.solve((roots - center)**2,np.ones(dim))
+    RHS = np.ones(dim)
+    return la.solve((roots - center)**2,RHS)
 
 def get_coeff(center,roots):
     """
@@ -378,7 +376,7 @@ def gen_rand_hyperellipses(dim,seed,delta,verbose=False):
     if verbose: print('Roots:',roots,sep='\n')
     return roots,[get_MultiPower(c,roots) for c in centers]
 
-def get_data(delta,gen_func,seeds = {2:range(300),3:range(300),4:range(300)},detailed=False):#,longdouble=False):
+def get_data(delta,gen_func,seeds = {2:range(300),3:range(300),4:range(300)},detailed=False):
     """
     Computes the conditioning ratio of the first generated root of systems generated with gen_func(dim,seed,delta) for each
     seed in the seeds dictionary.
@@ -392,8 +390,8 @@ def get_data(delta,gen_func,seeds = {2:range(300),3:range(300),4:range(300)},det
     for dim in dims:
         print(dim)
         for n in seeds[dim]:
-            roots,polys = gen_func(dim=dim,seed=n,delta=delta,longdouble=False)
-            cr = conditioningratio(polys,dim,newton=False,root=roots[0],detailed=detailed)#,longdouble=longdouble)
+            roots,polys = gen_func(dim=dim,seed=n,delta=delta)
+            cr = conditioningratio(polys,dim,newton=False,root=roots[0],detailed=detailed)
             if detailed:
                 cr, eig_cond, root_cond = cr
                 root_conds[dim].append(root_cond)
