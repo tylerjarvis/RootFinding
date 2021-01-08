@@ -4,7 +4,32 @@ import itertools
 from scipy.linalg import qr, solve_triangular, svd, norm, eig, lu
 from scipy.special import comb
 import time
+from numba import jit
 import warnings
+
+class Memoize:
+    """
+    A Memoization class taken from Stack Overflow
+    https://stackoverflow.com/questions/1988804/what-is-memoization-and-how-can-i-use-it-in-python
+    """
+    def __init__(self, f):
+        self.f = f
+        self.memo = {}
+    def __call__(self, *args):
+        if not args in self.memo:
+            self.memo[args] = self.f(*args)
+        return self.memo[args]
+
+def memoize(function):
+    cache = {}
+    def decorated_function(*args):
+        if args in cache:
+            return cache[args]
+        else:
+            val = function(*args)
+            cache[args] = val
+            return val
+    return decorated_function
 
 class InstabilityWarning(Warning):
     pass
@@ -261,6 +286,7 @@ def row_swap_matrix(matrix):
         leading_mon_columns.append(np.where(row!=0)[0][0])
     return matrix[np.argsort(leading_mon_columns)]
 
+@memoize
 def get_var_list(dim):
     '''Returns a list of the variables [x_1, x_2, ..., x_n] as tuples.'''
     _vars = []
@@ -908,30 +934,6 @@ def arrays(deg,dim,mon):
         return temp
     else:
         return memoized_arrays(deg-1,dim,mon)+memoized_arrays(deg,dim-1,mon)
-
-class Memoize:
-    """
-    A Memoization class taken from Stack Overflow
-    https://stackoverflow.com/questions/1988804/what-is-memoization-and-how-can-i-use-it-in-python
-    """
-    def __init__(self, f):
-        self.f = f
-        self.memo = {}
-    def __call__(self, *args):
-        if not args in self.memo:
-            self.memo[args] = self.f(*args)
-        return self.memo[args]
-
-def memoize(function):
-    cache = {}
-    def decorated_function(*args):
-        if args in cache:
-            return cache[args]
-        else:
-            val = function(*args)
-            cache[args] = val
-            return val
-    return decorated_function
 
 memoized_arrays = memoize(arrays)
 slice_top = memoize(slice_top)
