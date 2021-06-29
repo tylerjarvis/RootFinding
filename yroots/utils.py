@@ -1433,11 +1433,11 @@ def condeig(A,eig,x,condvec=False):
     Q = householder(x)
     B = ((Q.conj().T)@A@Q)
     R = qr(B[1:,1:]-eig*np.eye(n-1),mode='r')[0]
-    v = solve_triangular(R,-B[0,1:],trans=2)
+    v = solve_triangular(R,-B[0,1:].conj(),trans=2)
     if condvec:
-        return (1+norm(v))**.5,1/(svd(R,compute_uv=False)[-1])
+        return (1+norm(v)**2)**.5,1/(svd(R,compute_uv=False)[-1])
     else:
-        return (1+norm(v))**.5
+        return (1+norm(v)**2)**.5
 
 def condeigs(A,w,v,condvec=False):
     """Estimates the condition numbers of the eigenvalues of A. Optionally
