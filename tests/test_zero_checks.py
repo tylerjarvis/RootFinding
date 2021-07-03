@@ -114,8 +114,7 @@ def test_zero_check2D():
     b = np.ones(2)
     interval_data = IntervalData(a, b, [])
     tol = 1.e-4
-    interval_checks.extend([lambda x, tol: linear_check(x, [(a,b)], tol)[0]])
-    interval_checks.extend([lambda x, tol: ~quadratic_check(x, interval_data.mask, tol, interval_data.RAND, np.array([(a, b)] * 4))[0]])
+    interval_checks.extend([lambda x, tol: ~quadratic_check(x, interval_data.mask, tol, interval_data.RAND, np.array([(a, b)] * 4))[0][0]])
 
     test_cases =[
     np.array([
@@ -148,12 +147,9 @@ def test_zero_check2D():
     ])]
     correct_results = [False,True,True,True,True,True]
 
-    for method in interval_checks[:-2]:
+    for method in interval_checks:
         for res,c in zip(correct_results,test_cases):
             assert res == method(c,tol)
-    for res, c in zip(correct_results, test_cases):
-        assert res == ~interval_checks[-1](c, tol)[0]
-        print(~interval_checks[-1](c, tol)[0])
 
 def test_quadratic_check():
     #keep this updated with the deg_dim used in subdivision solve
@@ -166,14 +162,14 @@ def test_quadratic_check():
         deg = deg_dim[dim]
         interval_data = IntervalData(-np.ones(dim), np.ones(dim), [])
         subintervals = interval_data.get_subintervals(interval_data.a, interval_data.b, [], tol, False)
-        _quadratic_check = lambda c, tol: quadratic_check(c, interval_data.mask, tol, interval_data.RAND, subintervals)
+        _quadratic_check = lambda c, tol: ~quadratic_check(c, interval_data.mask, tol, interval_data.RAND, subintervals)
         np.random.seed(42)
         rand_test_cases = np.random.rand(*[tests_per_batch]+[deg]*dim)*2-1
         randn_test_cases = np.random.randn(*[tests_per_batch]+[deg]*dim)
         for c in rand_test_cases:
-            assert base_quadratic_check(c,tol) == list(_quadratic_check(c,tol))
+            assert np.allclose(base_quadratic_check(c,tol), _quadratic_check(c,tol).flatten())
         for c in randn_test_cases:
-            assert base_quadratic_check(c,tol) == list(_quadratic_check(c,tol))
+            assert np.allclose(base_quadratic_check(c,tol), _quadratic_check(c,tol).flatten())
 
 def test_quadratic_check3D():
     #test 1

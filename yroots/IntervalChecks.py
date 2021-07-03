@@ -119,7 +119,7 @@ class IntervalData:
             return
         dim = len(a)
         self.RAND = 0.5139303900908738
-        self.mask = np.zeros([2]*dim, dtype = bool)
+        self.mask = np.ones([2]*dim, dtype = bool)
         self.throwOutMask = np.zeros([2]*dim, dtype = bool)
         self.middleVal = 2*self.RAND - 1
         self.middleValChebSqrd = 2*self.middleVal**2 - 1
