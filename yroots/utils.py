@@ -6,6 +6,7 @@ from scipy.special import comb
 import time
 from numba import jit
 import warnings
+from numba import jit
 
 class Memoize:
     """
@@ -1236,6 +1237,26 @@ def mons_1D(dim, deg, var):
         mons.append(mon)
     return np.array(mons)
 
+@jit(nopython=True)
+def transform(x, a, b):
+    """Transforms points from the interval [-1, 1] to the interval [a, b].
+    Parameters
+    ----------
+    x : numpy array
+        The points to be tranformed.
+    a : float or numpy array
+        The lower bound on the interval. Float if one-dimensional, numpy array
+        if multi-dimensional.
+    b : float or numpy array
+        The upper bound on the interval. Float if one-dimensional, numpy array
+         if multi-dimensional.
+    Returns
+    -------
+    transform : numpy array
+        The transformed points.
+    """
+    return ((b-a)*x+(b+a))/2
+
 def newton_polish(polys,root,niter=100,tol=1e-5):
     """
     Perform Newton's method on a system of N polynomials in M variables.
@@ -1371,6 +1392,13 @@ class Tolerances:
 
         self.currTol = -1
         self.numTols = numTols
+
+    def getTolDict(self):
+        tolDict = dict()
+        for name in self.__dict__:
+            if hasattr(self.__dict__[name], '__iter__'):
+                tolDict[name] = self.__dict__[name]
+        return tolDict
 
     def nextTols(self):
         """Determines the next tolerances

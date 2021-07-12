@@ -1,8 +1,7 @@
 import numpy as np
-from yroots.IntervalChecks import constant_term_check, quadratic_check
+from yroots.IntervalChecks import constant_term_check, quadratic_check, IntervalData
 from yroots.old_code.OldIntervalChecks import full_quad_check, full_cubic_check, curvature_check, linear_check
 from yroots.polynomial import MultiCheb,MultiPower
-from yroots.subdivision import get_subintervals
 import itertools
 from scipy import linalg as la
 
@@ -13,7 +12,8 @@ def base_quadratic_check(test_coeff,tol):
     #get the dimension and make sure the coeff tensor has all the right
     # quadratic coeff spots, set to zero if necessary
     dim = test_coeff.ndim
-    intervals = get_subintervals(-np.ones(dim),np.ones(dim),np.arange(dim),None,None,tol)
+    interval_data = IntervalData(-np.ones(dim), np.ones(dim), [])
+    intervals = interval_data.get_subintervals(interval_data.a, interval_data.b, [], tol, False)
     padding = [(0,max(0,3-i)) for i in test_coeff.shape]
     test_coeff = np.pad(test_coeff.copy(), padding, mode='constant')
 
@@ -110,11 +110,11 @@ def base_quadratic_check(test_coeff,tol):
 def test_zero_check2D():
     #curvature_check was causing import errors so it's not included...
     interval_checks = [constant_term_check,full_quad_check, full_cubic_check]
-    subinterval_checks = [linear_check,quadratic_check]
     a = -np.ones(2)
     b = np.ones(2)
+    interval_data = IntervalData(a, b, [])
     tol = 1.e-4
-    interval_checks.extend([lambda x, tol: f(x, [(a,b)], tol)[0]  for f in subinterval_checks])
+    interval_checks.extend([lambda x, tol: ~quadratic_check(x, interval_data.mask, tol, interval_data.RAND, np.array([(a, b)] * 4))[0][0]])
 
     test_cases =[
     np.array([
@@ -160,15 +160,16 @@ def test_quadratic_check():
     for dim in deg_dim.keys():
         print(dim)
         deg = deg_dim[dim]
-        subintervals = get_subintervals(-np.ones(dim),np.ones(dim),np.arange(dim),None,None,tol)
-        _quadratic_check = lambda c, tol: quadratic_check(c,subintervals,tol)
+        interval_data = IntervalData(-np.ones(dim), np.ones(dim), [])
+        subintervals = interval_data.get_subintervals(interval_data.a, interval_data.b, [], tol, False)
+        _quadratic_check = lambda c, tol: ~quadratic_check(c, interval_data.mask, tol, interval_data.RAND, subintervals)
         np.random.seed(42)
         rand_test_cases = np.random.rand(*[tests_per_batch]+[deg]*dim)*2-1
         randn_test_cases = np.random.randn(*[tests_per_batch]+[deg]*dim)
         for c in rand_test_cases:
-            assert base_quadratic_check(c,tol) == _quadratic_check(c,tol)
+            assert np.allclose(base_quadratic_check(c,tol), _quadratic_check(c,tol).flatten())
         for c in randn_test_cases:
-            assert base_quadratic_check(c,tol) == _quadratic_check(c,tol)
+            assert np.allclose(base_quadratic_check(c,tol), _quadratic_check(c,tol).flatten())
 
 def test_quadratic_check3D():
     #test 1
