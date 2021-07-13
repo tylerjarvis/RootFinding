@@ -85,7 +85,7 @@ class IntervalData:
         Plots the results of subdivision solve
     '''
     def __init__(self, a, b, intervalReductions):
-        self.interval_checks = [constant_term_check]
+        self.interval_checks = []
         self.subinterval_checks = [quadratic_check]
         self.a = a
         self.b = b
