@@ -106,7 +106,7 @@ class IntervalData:
         #for keeping track of condition numbers
         self.cond = 0
         self.backcond = 0
-        
+
         #Variables to store for Subintervals
         if isNumber(a):
             return
@@ -180,19 +180,19 @@ class IntervalData:
         elif boundingSize < 0.5: #Something to think about
             self.track_interval_bounded(getBoundingInterval.__name__, [a,b], boundingInterval)
             return [boundingInterval]
-        
+
         #Default to keeping everything
         self.mask.fill(True)
-        
+
         #For getting the subintervals
         temp1 = b - a
-        temp2 = b + a        
-        
+        temp2 = b + a
+
         #Create the new intervals based on the ones we are keeping
         newIntervals = self.subintervals.copy()
         newIntervals[:,:1,:] = (newIntervals[:,:1,:] * temp1 + temp2) / 2
         newIntervals[:,1:,:] = (newIntervals[:,1:,:] * temp1 + temp2) / 2
-        
+
         thrownOuts = []
         if runChecks:
             #Run checks to set mask to False
@@ -205,16 +205,16 @@ class IntervalData:
                     for old_a,old_b in thrownOutIntervals:
                         thrownOuts.append([check.__name__, [old_a,old_b]])
                     self.mask &= ~throwOutMask
-        
+
         if boundingSize < np.sum(self.mask) and boundingSize < 3: #Something to think about
             self.track_interval_bounded(getBoundingInterval.__name__, [a,b], boundingInterval)
             return [boundingInterval]
-        
+
         for params in thrownOuts:
             self.track_interval(*params)
-        
+
         return newIntervals[self.mask]
-    
+
     def check_interval(self, coeff, error, a, b):
         ''' Runs the interval checks on the interval [a,b]
 
@@ -269,7 +269,7 @@ class IntervalData:
         if not self.polishing:
             self.interval_results[name].append(interval)
         self.current_area += np.prod(interval[1] - interval[0]) - np.prod(bounding_interval[1] - bounding_interval[0])
-        
+
     def print_progress(self):
         ''' Prints the progress of subdivision solve. Only prints every 100th time this function is
             called to save time.
@@ -379,7 +379,7 @@ def getBoundingInterval(coeffs, errors):
     if numPolys != dim:
         return None
     elif numPolys == 2:
-        return getBoundingInterval2D(coeffs, errors)
+        return getBoundingIntervalND(coeffs, errors)#getBoundingInterval2D(coeffs, errors)
     else:
         return getBoundingIntervalND(coeffs, errors)
 
@@ -526,7 +526,7 @@ def constant_term_check(test_coeff, tol):
         return False
     else:
         return True
-    
+
 def quadratic_check(test_coeff, mask, tol, RAND, subintervals):
     """One of subinterval_checks
 
@@ -1344,7 +1344,7 @@ def quadratic_check_nd(test_coeff, mask, tol, RAND, subintervals):
                 A[j,i] = test_coeff[spot].copy()
                 A[i,j] = A[j,i]
                 #todo: see if we can store this in only one half of A
-               
+
             else:
                 #coeff of pure quadratic terms
                 i = where_nonzero[0]
