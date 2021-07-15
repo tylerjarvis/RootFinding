@@ -13,7 +13,7 @@ from yroots.polynomial import MultiCheb, Polynomial
 from matplotlib import patches
 from scipy import linalg as la
 from math import fabs                      # faster than np.abs for small arrays
-from yroots.utils import memoize, transform, get_var_list
+from yroots.utils import memoize, transform, get_var_list, isNumber
 
 class IntervalData:
     '''
@@ -108,6 +108,8 @@ class IntervalData:
         self.backcond = 0
 
         #Variables to store for Subintervals
+        if isNumber(a):
+            return
         dim = len(a)
         self.RAND = 0.5139303900908738
         self.mask = np.zeros([2]*dim, dtype = bool)
@@ -166,9 +168,12 @@ class IntervalData:
             Each element of the list is a tuple containing an a and b, the lower and upper bounds of the interval.
         """
         #Try to find a bounding interval
-        boundingInterval, boundingSize = getBoundingInterval(polys, errors)
+        boundingSize = np.inf
+        boundingInterval = getBoundingInterval(polys, errors)
         if boundingInterval is not None:
+            boundingSize = np.product(boundingInterval[1] - boundingInterval[0])
             boundingInterval = transform(boundingInterval, a, b)
+        #See we should use it
         if boundingSize == 0:
             self.track_interval_bounded(getBoundingInterval.__name__, [a,b], boundingInterval)
             return []
@@ -369,20 +374,51 @@ class IntervalData:
 def getBoundingInterval(coeffs, errors):
     numPolys = len(coeffs)
     if numPolys == 0:
-        return None, np.inf
+        return None
     dim = coeffs[0].ndim
     if numPolys != dim:
-        return None, np.inf
+        return None
     elif numPolys == 2:
         return getBoundingIntervalND(coeffs, errors)#getBoundingInterval2D(coeffs, errors)
     else:
-        return getBoundingIntervalND(coeffs, errors)#None, np.inf
+        return getBoundingIntervalND(coeffs, errors)
 
-def getBoundingInterval2D(coeffs, errors):
+def mergeIntervals(intervals):
+    if len(intervals) == 0:
+        return [-1, 1]
+    result = [max([interval[0] for interval in intervals]), min([interval[1] for interval in intervals])]
+    if result[0] > result[1]:
+        return [0,0]
+    return result
+    
+def boundingIntervalWidthAndBoundCheck(interval):
     MIN_WIDTH = .01
+    a,b = interval
+    
+    #Bound a,b by [-1,1]
+    a = max(min(a,1),-1)
+    b = max(min(b,1),-1)
+    #If the interval is now empty, return
+    if a == b:
+        return [0,0]
+    
+    #Apply the minnimum width
+    width = (b-a)
+    if width < MIN_WIDTH:
+        center = (a+b)/2
+        a = center - MIN_WIDTH/2
+        b = center + MIN_WIDTH/2
+        #Bound a,b by [-1,1] again it case it is now outside it
+        a = max(min(a,1),-1)
+        b = max(min(b,1),-1)
+    return [a,b]
+    
+def getBoundingInterval2D(coeffs, errors):
     P1 = coeffs[0]
     P2 = coeffs[1]
-
+    xIntervals = []
+    yIntervals = []
+    
     #Get Variables for Calculations
     a1 = P1[1,0]
     b1 = P1[0,1]
@@ -392,35 +428,47 @@ def getBoundingInterval2D(coeffs, errors):
     b2 = P2[0,1]
     c2 = P2[0,0]
     e2 = np.sum(np.abs(P2)) - abs(a2) - abs(b2) - abs(c2) + errors[1]
+    
+    #Get a basic bound on X from y being in [-1, 1]
+    if a1 != 0:
+        width = (abs(e1) + abs(b1)) / abs(a1)
+        center = -c1/a1
+        xIntervals.append([center - width, center + width])
+    if a2 != 0:
+        width = (abs(e2) + abs(b2)) / abs(a2)
+        center = -c2/a2
+        xIntervals.append([center - width, center + width])
+    #Get a basic bound on Y from x being in [-1, 1]
+    if a1 != 0:
+        width = (abs(e1) + abs(a1)) / abs(b1)
+        center = -c1/b1
+        yIntervals.append([center - width, center + width])
+    if b2 != 0:
+        width = (abs(e2) + abs(a2)) / abs(b2)
+        center = -c2/b2
+        yIntervals.append([center - width, center + width])
+    
+    #Get a bound from the parallelogram
     denom = a1*b2 - a2*b1
-
-    #Find the center of the interval
-    yCenter = (a2*c1-a1*c2)/denom
-    xCenter = (b1*c2-b2*c1)/denom
-
-    #Find the size of the interval
-    yWidth = (abs(a2*e1) + abs(a1*e2))/abs(denom)
-    xWidth = (abs(b2*e1) + abs(b1*e2))/abs(denom)
-
-    #Don't subdivide too much? If we jump too small too fast things might get unstable
-    yWidth = max(yWidth, MIN_WIDTH)
-    xWidth = max(xWidth, MIN_WIDTH)
-
-    #Calculate the interval
-    x1,x2 = xCenter - xWidth, xCenter + xWidth
-    y1,y2 = yCenter - yWidth, yCenter + yWidth
-
-    #Keep the interval withing [-1,1]
-    x1 = max(min(x1,1),-1)
-    x2 = max(min(x2,1),-1)
-    y1 = max(min(y1,1),-1)
-    y2 = max(min(y2,1),-1)
-
-    size = (x2-x1) * (y2-y1)
-
-    return np.array([[x1,y1], [x2,y2]]), size
+    if denom != 0:
+        yCenter = (a2*c1-a1*c2)/denom
+        xCenter = (b1*c2-b2*c1)/denom
+        yWidth = (abs(a2*e1) + abs(a1*e2))/abs(denom)
+        xWidth = (abs(b2*e1) + abs(b1*e2))/abs(denom)
+        xIntervals.append([xCenter - xWidth, xCenter + xWidth])
+        yIntervals.append([yCenter - yWidth, yCenter + yWidth])
+        
+    #Merge the intervals and check the bounds and min width
+    xInterval = boundingIntervalWidthAndBoundCheck(mergeIntervals(xIntervals))
+    yInterval = boundingIntervalWidthAndBoundCheck(mergeIntervals(yIntervals))
+            
+    return np.array([xInterval, yInterval]).T
 
 def getBoundingIntervalND(test_coeffs,tols):
+    dim = len(test_coeffs)
+    allIntervals = [[] for i in range(dim)]
+    
+    #Solve the bounding parallelogram
     #create the linear system
     dim = len(test_coeffs)
     A = np.array([coeff[tuple(get_var_list(dim))] for coeff in test_coeffs])
@@ -431,14 +479,29 @@ def getBoundingIntervalND(test_coeffs,tols):
     #right hand sides
     B = np.array([-consts+np.array(err_comb) for err_comb in product(*[(e,-e) for e in err])]).T
     #solve for corners of parallelogram
+    #We should probably check to make sure A is full rank first?
     X = la.solve(A,B)
     #find the bounding interval
     a = np.min(X,axis=1)
     b = np.max(X,axis=1)
-    #keep the interval within [-1,1]
-    a = np.maximum(np.minimum(a,1),-1)
-    b = np.maximum(np.minimum(b,1),-1)
-    return np.array([a,b]), np.prod(b-a)
+    for i in range(dim):
+        allIntervals[i].append([a[i], b[i]])
+    
+    #Get a basic bound on each variable from the others being in [-1, 1]
+    for funcNum in range(dim):
+        totalError = sum([abs(num) for num in A[funcNum]]) + abs(err[funcNum])
+        for var in range(dim):
+            if abs(A[funcNum][var]) == 0:
+                continue
+            width = totalError / abs(A[funcNum][var]) - 1
+            center = -consts[funcNum]/A[funcNum][var]
+            allIntervals[var].append([center - width, center + width])
+    
+    #Merge the intervals and check the bounds and min width
+    for i in range(dim):
+        allIntervals[i] = boundingIntervalWidthAndBoundCheck(mergeIntervals(allIntervals[i]))
+        
+    return np.array(allIntervals).T
 
 def constant_term_check(test_coeff, tol):
     """One of interval_checks
@@ -717,8 +780,8 @@ def quadratic_check_2D(test_coeff, mask, tol, RAND, subintervals):
         in the unit box, True otherwise
     """
     if test_coeff.ndim != 2:
-        return
-
+        return mask
+    
     #Get the coefficients of the quadratic part
     #Need to account for when certain coefs are zero.
     #Padding is slow, so check the shape instead.
@@ -850,7 +913,7 @@ def quadratic_check_2D(test_coeff, mask, tol, RAND, subintervals):
         throwOutMask[i] = True
     return throwOutMask.reshape(2,2)
 
-def quadratic_check_3D(test_coeff, tol):
+def quadratic_check_3D(test_coeff, mask, tol, RAND, subintervals):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
@@ -873,8 +936,6 @@ def quadratic_check_3D(test_coeff, tol):
         A list of the results of each interval. False if the function is guarenteed to never be zero
         in the unit box, True otherwise
     """
-    mask = [True]*len(intervals)
-
     if test_coeff.ndim != 3:
         return mask
 
@@ -940,7 +1001,12 @@ def quadratic_check_3D(test_coeff, tol):
         int_y = np.inf
         int_z = np.inf
 
-    for i, interval in enumerate(intervals):
+        
+    throwOutMask = mask.copy().reshape(8)
+    for i, interval in enumerate(subintervals.reshape(8,2,3)):
+        if not throwOutMask[i]:
+            continue
+        throwOutMask[i] = False
         #easier names for each value...
         x0 = interval[0][0]
         x1 = interval[1][0]
@@ -1190,9 +1256,8 @@ def quadratic_check_3D(test_coeff, tol):
                 continue
 
         # No root possible
-        mask[i] = False
-
-    return mask
+        throwOutMask[i] = True
+    return throwOutMask.reshape(2,2,2)
 
 @memoize
 def get_fixed_vars(dim):
@@ -1214,7 +1279,7 @@ def get_fixed_vars(dim):
     return list(itertools.chain.from_iterable(itertools.combinations(range(dim), r)\
                                              for r in range(dim-1,0,-1)))
 
-def quadratic_check_nd(test_coeff, tol):
+def quadratic_check_nd(test_coeff, mask, tol, RAND, subintervals):
     """One of subinterval_checks
 
     Finds the min of the absolute value of the quadratic part, and compares to the sum of the
@@ -1237,7 +1302,6 @@ def quadratic_check_nd(test_coeff, tol):
         A list of the results of each interval. False if the function is guarenteed to never be zero
         in the unit box, True otherwise
     """
-    mask = [True]*len(intervals)
     #get the dimension and make sure the coeff tensor has all the right
     # quadratic coeff spots, set to zero if necessary
     dim = test_coeff.ndim
@@ -1306,7 +1370,12 @@ def quadratic_check_nd(test_coeff, tol):
     #iterator for sides
     fixed_vars = get_fixed_vars(dim)
 
-    for k, interval in enumerate(intervals):
+    throwOutMask = mask.copy().reshape(2**dim)
+    for k, interval in enumerate(subintervals.reshape(*[2**dim,2,dim])):
+        if not throwOutMask[k]:
+            continue
+        throwOutMask[k] = False
+        
         Done = False
         min_satisfied, max_satisfied = False,False
         #fix all variables--> corners
@@ -1385,9 +1454,9 @@ def quadratic_check_nd(test_coeff, tol):
                                 Done = True
         #no root
         if not Done:
-            mask[k] = False
+            throwOutMask[k] = True
 
-    return mask
+    return throwOutMask.reshape(*[2]*dim)
 
 def slices_max_min_check(test_coeff, intervals, tol):
     dim = test_coeff.ndim
