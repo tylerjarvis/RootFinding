@@ -29,7 +29,7 @@ macheps = 2.220446049250313e-16
 def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
           max_cond_num=1e5, good_zeros_factor=100, min_good_zeros_tol=1e-5,
           check_eval_error=True, check_eval_freq=1, plot=False,
-          plot_intervals=False, deg=None, target_deg=2,
+          plot_intervals=False, deg=None, target_deg=1,
           return_potentials=False, method='svd', target_tol=1.01*macheps,
           trust_small_evals=False):
     """
@@ -163,7 +163,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
     # intervals cannot possibly be smaller than 2^-51
     max_level = 52
 
-    
+
 
     # Initial Solve
     solve_func(funcs, a, b, deg, target_deg, interval_data,
@@ -597,7 +597,7 @@ def zeros_in_interval(zeros, a, b, dim, within_interval_tol=1e-9):
             The upper bounds of the interval for each variable.
         dim : int
             The dimension of the system.
-    
+
     Returns
     -------
         zeros : numpy array
@@ -607,7 +607,7 @@ def zeros_in_interval(zeros, a, b, dim, within_interval_tol=1e-9):
     for i in range(dim):
         zeros = zeros[zeros[:, i] - a[i] >= -within_interval_tol]
         zeros = zeros[zeros[:, i] - b[i] <= within_interval_tol]
-    
+
     return zeros
 
 
