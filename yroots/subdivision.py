@@ -29,7 +29,7 @@ macheps = 2.220446049250313e-16
 def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
           max_cond_num=1e5, good_zeros_factor=100, min_good_zeros_tol=1e-5,
           check_eval_error=True, check_eval_freq=1, plot=False,
-          plot_intervals=False, deg=None, target_deg=2,
+          plot_intervals=False, deg=None, target_deg=1,
           return_potentials=False, method='svd', target_tol=1.01*macheps,
           trust_small_evals=False, intervalReductions=["improveBound", "getBoundingParallelogram"]):
     """
