@@ -153,7 +153,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
     interval_data = IntervalData(a, b, intervalReductions)
     root_tracker = RootTracker()
     values_arr.memo = {}
-    initialize_values_arr(dim, 2*(deg+3))
+    initialize_values_arr(dim, deg+3)
 
     if dim == 1:
         # In one dimension, we don't use target_deg; it's the same as deg
@@ -864,7 +864,7 @@ def trim_coeffs(coeffs, abs_approx_tol, rel_approx_tol, inf_norms, errors):
         # Try to zero out everything below the lower-reverse-hyperdiagonal
         # that's a fancy way of saying monomials that are more than the specified degree
         dim = coeff.ndim
-        deg = np.sum(coeff.shape) - dim
+        deg = np.sum(coeff.shape) - dim - 1
         initial_mons = []
         for deg0 in range(coeff.shape[0], deg+1):
             initial_mons += mon_combos_limited_wrap(deg0, dim, coeff.shape)
