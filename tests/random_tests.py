@@ -27,6 +27,7 @@ def gen_tests(dim,degrees,N,kind):
 def save_tests(dim,degrees,N,kind,filefmt=filefmt):
     arrs = gen_tests(dim,degrees,N,kind)
     for i,deg in enumerate(degrees):
+        np.random.seed(2)
         np.save(filefmt.format(dim=dim,deg=deg,kind=kind),arrs[i])
         print(f"dim {dim}/deg {deg}: saved N={N} systems")
 
