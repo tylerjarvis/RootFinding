@@ -157,6 +157,7 @@ class IntervalData:
         self.current_area = 0.
 
     def get_subintervals(self, a, b, polys, errors, runChecks):
+            #print("running get subints")
             """Gets the subintervals to divide a search interval into.
 
             Parameters
@@ -184,8 +185,21 @@ class IntervalData:
                 boundingInterval = getBoundingInterval(polys, errors, self.__intervalReductionMethodsToUse)
             else:
                 boundingInterval = None
+
+            # temp_int = copy(boundingInterval)
+            # if temp_int is not None:
+            #     diffs = temp_int[1] - temp_int[0]
+            #     ratio = max(diffs)/min(diffs)
+            #
+            #     while ratio > 10.0:
+            #         pass
+
+
             if boundingInterval is not None:
                 boundingSize = np.product(boundingInterval[1] - boundingInterval[0])
+                print(f"bounding interval: {boundingInterval[1], boundingInterval[0]}")
+                print(f"difference: {boundingInterval[1] - boundingInterval[0]}")
+                print(f"bounding size: {boundingSize}")
                 boundingInterval = transform(boundingInterval, a, b)
             #See we should use it
             if boundingSize == 0:
@@ -506,8 +520,9 @@ def improveBoundND(intervals, A, consts, errors):
                 continue
             width = totalError / abs(A[funcNum][var]) - 1
             center = -consts[funcNum]/A[funcNum][var]
+            print(f"width: {width}")
             allIntervals[var].append([center - width, center + width])
-
+            #print(f"new int: {allIntervals[var][-1]}")
     return allIntervals
 
 def getBoundingParallelogram2D(intervals, x_terms, y_terms, consts, errors):
@@ -573,12 +588,15 @@ def getBoundingParallelogramND(intervals, A, consts, errors):
     """
     allIntervals = copy(intervals)
     dim = len(allIntervals)
-    #right hand sides
+    # right hand sides
     B = np.array([-consts+np.array(err_comb) for err_comb in product(*[(e,-e) for e in errors])]).T
-    #solve for corners of parallelogram
-    #We should probably check to make sure A is full rank first?
-    X = la.solve(A,B)
-    #find the bounding interval
+    # solve for corners of parallelogram
+    # We should probably check to make sure A is full rank first?
+    try:
+        X = la.solve(A,B)
+    except:
+        return allIntervals
+    # find the bounding interval
     a = np.min(X,axis=1)
     b = np.max(X,axis=1)
     for i in range(dim):
@@ -614,6 +632,9 @@ def getBoundingInterval2D(coeffs, errors, intervalReductionMethodsToUse):
     yInterval = boundingIntervalWidthAndBoundCheck(mergeIntervals(yIntervals))
 
     return np.array([xInterval, yInterval]).T
+
+
+
 
 def getBoundingIntervalND(test_coeffs, tols, intervalReductionMethodsToUse):
     dim = len(test_coeffs)
