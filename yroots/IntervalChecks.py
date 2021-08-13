@@ -186,22 +186,20 @@ class IntervalData:
             else:
                 boundingInterval = None
 
-            temp_int = copy(boundingInterval)
-            if temp_int is not None:
-                diffs = temp_int[1] - temp_int[0]
-                ratio = max(diffs)/min(diffs)
-                # check how smalll min is, if less than 10*machine eps
-                # IN MIN DIMENSION take middle, and that is coordiante of any root
-                # want to return small dimension and value to plug into funcs for solve
-                # TODO: all dimensions small? return potential root
-                # TODO: recursion depth now not 52, but sizes of intervals
-                #bad_dir = 
-                while ratio > 10.0:
-                    pass
+            # temp_int = copy(boundingInterval)
+            # if temp_int is not None:
+            #     diffs = temp_int[1] - temp_int[0]
+            #     ratio = max(diffs)/min(diffs)
+            #
+            #     while ratio > 10.0:
+            #         pass
 
 
             if boundingInterval is not None:
                 boundingSize = np.product(boundingInterval[1] - boundingInterval[0])
+                print(f"bounding interval: {boundingInterval[1], boundingInterval[0]}")
+                print(f"difference: {boundingInterval[1] - boundingInterval[0]}")
+                print(f"bounding size: {boundingSize}")
                 boundingInterval = transform(boundingInterval, a, b)
             #See we should use it
             if boundingSize == 0:
@@ -522,7 +520,6 @@ def improveBoundND(intervals, A, consts, errors):
                 continue
             width = totalError / abs(A[funcNum][var]) - 1
             center = -consts[funcNum]/A[funcNum][var]
-            print(f"width: {width}")
             allIntervals[var].append([center - width, center + width])
             #print(f"new int: {allIntervals[var][-1]}")
     return allIntervals
@@ -554,7 +551,7 @@ def getBoundingParallelogram2D(intervals, x_terms, y_terms, consts, errors):
     allIntervals = copy(intervals)
     #Get a bound from the parallelogram
     denom = x_terms[0]*y_terms[1] - x_terms[1]*y_terms[0]
-    ep = 1E-15
+    ep = 1E-15 # TODO: make this relative to size of xterms/yterms?
     if abs(denom) > ep:
         yCenter = (x_terms[1]*consts[0]-x_terms[0]*consts[1])/denom
         xCenter = (y_terms[0]*consts[1]-y_terms[1]*consts[0])/denom
