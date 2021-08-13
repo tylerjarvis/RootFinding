@@ -197,9 +197,6 @@ class IntervalData:
 
             if boundingInterval is not None:
                 boundingSize = np.product(boundingInterval[1] - boundingInterval[0])
-                print(f"bounding interval: {boundingInterval[1], boundingInterval[0]}")
-                print(f"difference: {boundingInterval[1] - boundingInterval[0]}")
-                print(f"bounding size: {boundingSize}")
                 boundingInterval = transform(boundingInterval, a, b)
             #See we should use it
             if boundingSize == 0:
