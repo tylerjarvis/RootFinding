@@ -728,14 +728,14 @@ if __name__ == "__main__":
                         test_roots_6_2,
                         test_roots_6_3,
                         test_roots_7_1,
-                        test_roots_7_2,
+                        #test_roots_7_2,
                         test_roots_7_3,
-                        test_roots_7_4,
+                        #test_roots_7_4,
                         test_roots_8_1,
                         test_roots_8_2,
                         test_roots_9_1,
-                        test_roots_9_2,
-                        test_roots_10])
+                        test_roots_9_2])
+                        #test_roots_10])
     res_passes = np.zeros_like(tests,dtype=bool)
     norm_passes = np.zeros_like(tests,dtype=bool)
     times = np.zeros_like(tests)
@@ -754,4 +754,6 @@ if __name__ == "__main__":
     where_failed_norm = np.where(~norm_passes)[0]
     failed_norm_tests = tests[where_failed_norm]
     print(f'Failed Norm Test on \n{[t.__name__ for t in failed_norm_tests]}')
+    with open('py_cheb_timings.npy', 'wb') as f:
+        np.save(f, times)
     plot_timings(tests,times)
