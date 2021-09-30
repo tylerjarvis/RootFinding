@@ -85,7 +85,7 @@ class IntervalData:
         Plots the results of subdivision solve
     '''
     def __init__(self, a, b, intervalReductions):
-        self.interval_checks = [constant_term_check]
+        self.interval_checks = []
         self.subinterval_checks = [quadratic_check]
         self.a = a
         self.b = b
@@ -327,9 +327,10 @@ class IntervalData:
         #3D plot with small alpha, matplotlib interactive, animation
         #make logo
         #make easier to input lower/upper bounds as a list
-        plt.figure(dpi=600)
+        #plt.figure(dpi=300)
         fig,ax = plt.subplots(1)
-        fig.set_size_inches(6.5, 3)
+        fig.set_size_inches(6.5, 6.5)
+        fig.set_dpi(300)
         plt.xlim(self.a[0],self.b[0])
         plt.xlabel('$x$')
         plt.ylim(self.a[1],self.b[1])
@@ -348,18 +349,23 @@ class IntervalData:
                 Z = np.zeros_like(X)
                 for spot,num in np.ndenumerate(X):
                     Z[spot] = funcs[i]([X[spot],Y[spot]])
-                plt.contour(X,Y,Z,levels=[0],colors=contour_colors[i])
+                plt.contour(X,Y,Z,levels=[0],colors=contour_colors[i],zorder=20)
             else:
-                plt.contour(X,Y,funcs[i](X,Y),levels=[0],colors=contour_colors[i])
+                plt.contour(X,Y,funcs[i](X,Y),levels=[0],colors=contour_colors[i],zorder=20)
 
-        colors = ['w','#c3c3c3', 'C8', '#708090', '#897A57', '#D6C7A4','#73e600','#ccff99']
+                colors = ['w', '#101010', '#b3b3b3','#707070', '#E8E8E8', '#D3D3D3','#202020','#303030']
+                #colors = ['w','#c3c3c3', 'C8', '#708090', '#897A57', '#D6C7A4','#73e600','#ccff99']
         #colors = ['w','#d3d3d3', '#708090', '#c5af7d', '#897A57', '#D6C7A4','#73e600','#ccff99']
 
         if plot_intervals:
-            plt.title('')
+            plt.title('Interval Tracking')
             #plt.title('What happened to the intervals')
             #plot results
             i = -1
+            ordering = {i:i for i in range(len(self.interval_results))}
+            ordering[1] = 9
+            ordering[4] = 0
+            ordering[0] = 2
             for check in self.interval_results:
                 i += 1
                 results = self.interval_results[check]
@@ -368,17 +374,20 @@ class IntervalData:
                     a0,b0 = data
                     if first:
                         first = False
-                        rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.1,\
-                                                 edgecolor='red',facecolor=colors[i], label=check)
+                        rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],
+                                                 linewidth=.1, edgecolor='k',
+                                                 facecolor=colors[i],
+                                                 zorder=ordering[i], label=check)
                     else:
-                        rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],linewidth=.1,\
-                                                 edgecolor='red',facecolor=colors[i])
-                    ax.add_patch(rect)
+                        rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],
+                                                 linewidth=.1, edgecolor='k',
+                                                 facecolor=colors[i], zorder=ordering[i])
+                    ax.add_patch(rect)                    
             plt.legend()
 
         #Plot the zeros
         if len(zeros) > 0:
-            plt.plot(np.real(zeros[:,0]), np.real(zeros[:,1]),'o',color='#ff0000',markeredgecolor='#ff0000',markersize=3,
+            ax.plot(np.real(zeros[:,0]), np.real(zeros[:,1]),'o',color='#ff0000',markeredgecolor='#ff0000',markersize=3,alpha=0.5,
                  zorder=22)
 
         if print_plot:
