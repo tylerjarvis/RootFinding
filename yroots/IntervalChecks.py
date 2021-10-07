@@ -281,7 +281,6 @@ class IntervalData:
             '''
             if not self.polishing:
                 self.interval_results[name].append(interval)
-            self.current_area += np.prod(interval[1] - interval[0])
             self.current_area += np.prod(interval[1] - interval[0]) - np.prod(bounding_interval[1] - bounding_interval[0])
 
     def print_progress(self):
@@ -382,7 +381,7 @@ class IntervalData:
                         rect = patches.Rectangle((a0[0],a0[1]),b0[0]-a0[0],b0[1]-a0[1],
                                                  linewidth=.1, edgecolor='k',
                                                  facecolor=colors[i], zorder=ordering[i])
-                    ax.add_patch(rect)                    
+                    ax.add_patch(rect)
             plt.legend()
 
         #Plot the zeros
