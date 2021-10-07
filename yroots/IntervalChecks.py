@@ -15,9 +15,12 @@ from scipy import linalg as la
 from math import fabs                      # faster than np.abs for small arrays
 from yroots.utils import memoize, transform, get_var_list, isNumber
 from copy import copy
+import pdb
 
 
-INTERVAL_REDUCTION_FUNCS = ["improveBound", "getBoundingParallelogram"]
+from numpy.polynomial.chebyshev import chebval2d
+import numpy.polynomial.chebyshev as cheb
+INTERVAL_REDUCTION_FUNCS = ["getBoundingParallelogram",  "lipschitzLine"]
 
 class IntervalData:
     '''
@@ -292,7 +295,7 @@ class IntervalData:
             '''
             if not self.polishing:
                 self.interval_results[name].append(interval)
-            self.current_area += np.prod(interval[1] - interval[0])
+           # self.current_area += np.prod(interval[1] - interval[0])
             self.current_area += np.prod(interval[1] - interval[0]) - np.prod(bounding_interval[1] - bounding_interval[0])
 
     def print_progress(self):
@@ -463,6 +466,7 @@ def improveBound2D(intervals, x_terms, y_terms, consts, errors):
         bound found added.
     """
     allIntervals = copy(intervals)
+    # pdb.set_trace()
     #Get a basic bound on X from y being in [-1, 1]
     if x_terms[0] != 0:
         width = (abs(errors[0]) + abs(y_terms[0])) / abs(x_terms[0])
@@ -601,14 +605,211 @@ def getBoundingParallelogramND(intervals, A, consts, errors):
 
     return allIntervals
 
-INTERVAL_REDUCTION_FUNCS_2D = [improveBound2D, getBoundingParallelogram2D]
+########## BEGIN LIPSCHITZ ###########
+def chebval1D(x, cc):
+    if len(cc) == 1:
+        c0 = cc[0]
+        c1 = 0
+    elif len(cc) == 2:
+        c0 = cc[0]
+        c1 = cc[1]
+    else:
+        x2 = 2*x
+        c0 = cc[-2]
+        c1 = cc[-1]
+        for i in range(3, len(cc) + 1):
+            tmp = c0
+            c0 = cc[-i] - c1
+            c1 = tmp + c1*x2
+    return c0 + c1*x
+
+def chebvalND(x, cc):
+    # pdb.set_trace()
+    if len(cc) == 1:
+        c0 = cc[0]
+        c1 = np.zeros_like(c0)
+    elif len(cc) == 2:
+        c0 = cc[0]
+        c1 = cc[1]
+    else:
+        x2 = 2*x
+        c0 = cc[-2]
+        c1 = cc[-1]
+        for i in range(3, len(cc) + 1):
+            tmp = c0
+            c0 = cc[-i] - c1
+            #print(f'c1: {c1} \ntmp: {tmp} \nx2: {x2}\n\n')
+            c1 = tmp + c1*x2
+    return c0 + c1*x
+
+def getlipschitzConstants2D(M):
+    Mx = 0
+    My = 0
+    for [i,j], val in np.ndenumerate(M):
+        Mx += abs(val) * i**2
+        My += abs(val) * j**2
+    return Mx, My
+
+def getOneDCheb(M, dim, value):
+    # dim determines whether you're evaluating in x or y, i think
+    assert len(M.shape) == 2, "This only works on 2D functions!"
+    if dim == 1:
+        return chebvalND(value, M.T)
+    else:
+        return chebvalND(value, M)
+
+#TODO: These checks could be better if they took in all the functions at the same time.
+#For example, the linear term bound might have one function take an extreme at -1, and another at +1
+#So by looking at them together, you get the furthest bound from 0.
+
+def extremeOneD0(v, low, high): #Constant Term Extremes
+    return [v[0]], np.sum(np.abs(v[1:]))
+
+def extremeOneD1(v, low, high): #Linear Approximation Extremes.
+    error = np.sum(np.abs(v[2:]))
+    b,a = v[:2]
+    extremes = [b + low * a, b + high * a]
+    return extremes, error
+
+def extremeOneD2(v, low, high): #Quadratic Approximation Extremes
+    error = np.sum(np.abs(v[3:]))
+    approx = v[:3]
+    extremes = [chebval1D(low, approx), chebval1D(high, approx)]
+    c,b,a = approx
+    if a != 0:
+        der0point = -b/(4*a)
+        if der0point > low and der0point < high:
+            extremes.append(chebval1D(der0point, approx))
+    return extremes, error
+
+def extremeOneD3(v, low, high): #Cubic Approximation Extremes
+    error = np.sum(np.abs(v[4:]))
+    approx = v[:4]
+    extremes = [chebval1D(low, approx), chebval1D(high, approx)]
+    d,c,b,a = approx
+    # discr = b**2 - 3*a**2*(c-3*a) #erics code
+    discr = b**2 - 3*a*(c-3*a) #kates code
+    if a != 0 and discr >= 0:
+        der0point1 = (-b+np.sqrt(discr))/(6*a)
+        der0point2 = (-b-np.sqrt(discr))/(6*a)
+        if der0point1 > low and der0point1 < high:
+            extremes.append(chebval1D(der0point1, approx))
+        if der0point2 > low and der0point2 < high:
+            extremes.append(chebval1D(der0point2, approx))
+    return extremes, error
+
+def getOneDExtremes(v, low, high, approxToUse = 3):
+    if len(v) > 3 and approxToUse >= 3:
+        extremes, error = extremeOneD3(v, low, high)
+    elif len(v) >= 3 and approxToUse >= 2:
+        extremes, error = extremeOneD2(v, low, high)
+    elif len(v) >= 2  and approxToUse >= 1:
+        extremes, error = extremeOneD1(v, low, high)
+    else:
+        extremes, error = extremeOneD0(v, low, high)
+
+    #Check how they compare to the error
+    minVal = np.min(extremes)
+    maxVal = np.max(extremes)
+
+    if minVal > error:
+        return minVal - error
+    elif maxVal < -error:
+        return -maxVal - error
+    else:
+        return 0
+
+def getBoundIncrease1D(M, error, lipschitzBound, interval, approxToUse = 3):
+    maxAbs = getOneDExtremes(M, interval[0], interval[1], approxToUse = approxToUse)
+    if maxAbs > 0:
+        return (maxAbs - error) / lipschitzBound
+    else:
+        return 0
+
+
+
+def lipschitzLine2D(Ms, intervals, errors, approxToUse = 3):
+    assert len(Ms) == 2, "This check only works on 2D functions!"
+    #Start with the worst result
+    xIntervals, yIntervals = [], []
+    
+    # pdb.set_trace()
+    xInterval = intervals[0]
+    yInterval = intervals[1]
+    
+    #Find M_x and M_y
+    Mxs = []
+    Mys = []
+    for M in Ms:
+        Mx, My = getlipschitzConstants2D(M)
+        Mxs.append(Mx)
+        Mys.append(My)
+
+    #Iterate until nothing changes. Probably not the fastest way to do it.
+    changed = True
+    minStep = 1e-3
+    while changed:
+        changed = False
+        #Run it on each poly (linear combos?)
+        for M, M_x, M_y, error in zip(Ms, Mxs, Mys, errors):
+            #Get the 1-D chebyshev polys on each line
+            M_hat_x1 = getOneDCheb(M, 0, xInterval[0])
+            M_hat_x2 = getOneDCheb(M, 0, xInterval[1])
+            M_hat_y1 = getOneDCheb(M, 1, yInterval[0])
+            M_hat_y2 = getOneDCheb(M, 1, yInterval[1])
+
+            #Optimize over each line
+            deltaX1 = getBoundIncrease1D(M_hat_x1, error, M_x, yInterval, approxToUse)
+            if deltaX1 > minStep:
+                changed = True
+                xInterval[0] += deltaX1
+
+            deltaX2 = getBoundIncrease1D(M_hat_x2, error, M_x, yInterval, approxToUse)
+            if deltaX2 > minStep:
+                changed = True
+                xInterval[1] -= deltaX2
+
+            deltaY1 = getBoundIncrease1D(M_hat_y1, error, M_y, xInterval, approxToUse)
+            if deltaY1 > minStep:
+                changed = True
+                yInterval[0] += deltaY1
+
+            deltaY2 = getBoundIncrease1D(M_hat_y2, error, M_y, xInterval, approxToUse)
+            if deltaY2 > minStep:
+                changed = True
+                yInterval[1] -= deltaY2
+                
+            lenx = xInterval[1] - xInterval[0]
+            leny = yInterval[1] - yInterval[0]
+            ratio = max(lenx / leny, leny / lenx)
+            if ratio >= 1000:
+                changed = False
+
+        #Check if we've ruled out everything
+        if xInterval[0] > xInterval[1]:
+            xInterval[0] = 0
+            xInterval[1] = 0
+            changed = False
+        if yInterval[0] > yInterval[1]:
+            yInterval[0] = 0
+            yInterval[1] = 0
+            changed = False
+    xIntervals.append(xInterval)
+    yIntervals.append(yInterval)
+    return xIntervals, yIntervals
+############ END LIPSCHITZ ###########
+
+
+
+INTERVAL_REDUCTION_FUNCS_2D = [getBoundingParallelogram2D, lipschitzLine2D]
 INTERVAL_REDUCTION_FUNCS_ND = [improveBoundND, getBoundingParallelogramND]
 
 def getBoundingInterval2D(coeffs, errors, intervalReductionMethodsToUse):
+    # pdb.set_trace()
     P1 = coeffs[0]
     P2 = coeffs[1]
-    xIntervals = []
-    yIntervals = []
+    xIntervals = [-1,1]
+    yIntervals = [-1,1]
 
     #Get Variables for Calculations
     a1 = P1[1,0]
@@ -621,8 +822,16 @@ def getBoundingInterval2D(coeffs, errors, intervalReductionMethodsToUse):
     e2 = np.sum(np.abs(P2)) - abs(a2) - abs(b2) - abs(c2) + errors[1]
 
     # Run through all of the interval reduction methods specified by the user.
-    for idx in intervalReductionMethodsToUse:
-        xIntervals, yIntervals = INTERVAL_REDUCTION_FUNCS_2D[idx]([xIntervals, yIntervals], [a1, a2], [b1, b2], [c1, c2], [e1, e2])
+    xIntervals, yIntervals = lipschitzLine2D(coeffs, [xIntervals, yIntervals], errors)
+    
+    xIntervals, yIntervals = getBoundingParallelogram2D([xIntervals, yIntervals], [a1, a2], [b1, b2], [c1, c2], [e1, e2])
+    #xIntervals, yIntervals = improveBound2D([xIntervals, yIntervals], [a1, a2], [b1, b2], [c1, c2], [e1, e2])
+
+    # for idx in intervalReductionMethodsToUse:
+    #     if idx == 1:
+    #         xIntervals, yIntervals = INTERVAL_REDUCTION_FUNCS_2D[idx](coeffs, [xIntervals, yIntervals], errors)
+    #     else:
+    #         xIntervals, yIntervals = INTERVAL_REDUCTION_FUNCS_2D[idx]([xIntervals, yIntervals], [a1, a2], [b1, b2], [c1, c2], [e1, e2])
 
     #Merge the intervals and check the bounds and min width
     xInterval = boundingIntervalWidthAndBoundCheck(mergeIntervals(xIntervals))

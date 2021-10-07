@@ -31,7 +31,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
           check_eval_error=True, check_eval_freq=1, plot=False,
           plot_intervals=False, deg=None, target_deg=1,
           return_potentials=False, method='svd', target_tol=1.01*macheps,
-          trust_small_evals=False, intervalReductions=["improveBound", "getBoundingParallelogram"]):
+          trust_small_evals=False, intervalReductions=["improveBound", "getBoundingParallelogram","lipschitzLine"]):
     """
     Finds the real roots of the given list of functions on a given interval.
 
@@ -153,7 +153,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
     interval_data = IntervalData(a, b, intervalReductions)
     root_tracker = RootTracker()
     values_arr.memo = {}
-    initialize_values_arr(dim, deg+3)
+    initialize_values_arr(dim, 2*(deg+3))
 
     if dim == 1:
         # In one dimension, we don't use target_deg; it's the same as deg
@@ -429,6 +429,8 @@ def interval_approximate_nd(f, a, b, deg, return_inf_norm=False):
         inf_norm = np.max(np.abs(values_block))
 
     x0_slicer, deg_slicer, slices, rescale = interval_approx_slicers(dim, deg)
+    
+    
     coeffs = fftn(values/rescale).real
     for x0sl, degsl in zip(x0_slicer, deg_slicer):
         # halve the coefficients in each slice
