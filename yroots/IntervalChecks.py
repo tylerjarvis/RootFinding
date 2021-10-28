@@ -728,15 +728,15 @@ def getBoundIncrease1D(M, error, lipschitzBound, interval, approxToUse = 3):
 
 
 
-def lipschitzLine2D(Ms, intervals, errors, approxToUse = 3):
+def lipschitzLine2D(Ms, intervals, errors, approxToUse = 3, maxiter=10):
     assert len(Ms) == 2, "This check only works on 2D functions!"
     #Start with the worst result
     xIntervals, yIntervals = [], []
-    
+
     # pdb.set_trace()
     xInterval = intervals[0]
     yInterval = intervals[1]
-    
+
     #Find M_x and M_y
     Mxs = []
     Mys = []
@@ -748,7 +748,11 @@ def lipschitzLine2D(Ms, intervals, errors, approxToUse = 3):
     #Iterate until nothing changes. Probably not the fastest way to do it.
     changed = True
     minStep = 1e-3
+    loops = 0
+
     while changed:
+        if loops == maxiter: break
+        loops +=1
         changed = False
         #Run it on each poly (linear combos?)
         for M, M_x, M_y, error in zip(Ms, Mxs, Mys, errors):
@@ -778,12 +782,13 @@ def lipschitzLine2D(Ms, intervals, errors, approxToUse = 3):
             if deltaY2 > minStep:
                 changed = True
                 yInterval[1] -= deltaY2
-                
+
             lenx = xInterval[1] - xInterval[0]
             leny = yInterval[1] - yInterval[0]
             ratio = max(lenx / leny, leny / lenx)
-            if ratio >= 1000:
+            if ratio>=100 or lenx<0 or  leny<0:
                 changed = False
+                break
 
         #Check if we've ruled out everything
         if xInterval[0] > xInterval[1]:
@@ -794,6 +799,7 @@ def lipschitzLine2D(Ms, intervals, errors, approxToUse = 3):
             yInterval[0] = 0
             yInterval[1] = 0
             changed = False
+
     xIntervals.append(xInterval)
     yIntervals.append(yInterval)
     return xIntervals, yIntervals
@@ -823,7 +829,7 @@ def getBoundingInterval2D(coeffs, errors, intervalReductionMethodsToUse):
 
     # Run through all of the interval reduction methods specified by the user.
     xIntervals, yIntervals = lipschitzLine2D(coeffs, [xIntervals, yIntervals], errors)
-    
+
     xIntervals, yIntervals = getBoundingParallelogram2D([xIntervals, yIntervals], [a1, a2], [b1, b2], [c1, c2], [e1, e2])
     #xIntervals, yIntervals = improveBound2D([xIntervals, yIntervals], [a1, a2], [b1, b2], [c1, c2], [e1, e2])
 
