@@ -205,7 +205,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
     if return_potentials:
         return root_tracker.roots, root_tracker.potential_roots
     else:
-        return root_tracker.roots
+        return root_tracker.roots, interval_data.total_intervals
 
 @Memoize
 def initialize_values_arr(dim, deg):
@@ -429,8 +429,8 @@ def interval_approximate_nd(f, a, b, deg, return_inf_norm=False):
         inf_norm = np.max(np.abs(values_block))
 
     x0_slicer, deg_slicer, slices, rescale = interval_approx_slicers(dim, deg)
-    
-    
+
+
     coeffs = fftn(values/rescale).real
     for x0sl, degsl in zip(x0_slicer, deg_slicer):
         # halve the coefficients in each slice
@@ -755,11 +755,13 @@ def subdivision_solve_nd(funcs, a, b, deg, target_deg, interval_data,
         inf_norms.append(inf_norm)
         approx_errors.append(approx_error)
         # Subdivides if a bad approximation
+        subdivide_dims = np.array([i for i in range(len(a))])
         if coeff is None:
             if not trust_small_evals:
                 approx_errors = [max(err,macheps) for err in approx_errors]
-            intervals = interval_data.get_subintervals(og_a, og_b, cheb_approx_list, approx_errors, False)
-
+            print('trying')
+            intervals = interval_data.get_subintervals(og_a, og_b, subdivide_dims, cheb_approx_list, approx_errors, False)
+            print('subdivided!')
             #reorder funcs. TODO: fancier things like how likely it is to pass checks
             funcs2 = funcs.copy()
             if func_num + 1 < num_funcs:
@@ -788,16 +790,16 @@ def subdivision_solve_nd(funcs, a, b, deg, target_deg, interval_data,
         # but no larger than the initial degree for more accurate performance.
         good_degs = [min(coeff.shape[0], deg) for coeff in coeffs]
         good_zeros_tol = max(tols.min_good_zeros_tol, sum(np.abs(approx_errors))*tols.good_zeros_factor)
-
+    subdivide_dims = np.array([i for i in range(len(a))])
     # Check if the degree is small enough or if trim_coeffs introduced too much error
     if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > target_deg + 1) or not good_approx:
-        intervals = interval_data.get_subintervals(og_a, og_b, cheb_approx_list, approx_errors, True)
+        intervals = interval_data.get_subintervals(og_a, og_b, subdivide_dims, cheb_approx_list, approx_errors, True)
         for new_a, new_b in intervals:
             subdivision_solve_nd(funcs, new_a, new_b, deg, target_deg, interval_data, root_tracker, tols, max_level, good_degs, level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
 
     # Check if any approx error is greater than target_tol for Macaulay method
     elif np.any(np.array(approx_errors) > np.array(tols.target_tol) + tols.rel_approx_tol*np.array(inf_norms)):
-        intervals = interval_data.get_subintervals(og_a, og_b, cheb_approx_list, approx_errors, True)
+        intervals = interval_data.get_subintervals(og_a, og_b, subdivide_dims, cheb_approx_list, approx_errors, True)
         for new_a, new_b in intervals:
             subdivision_solve_nd(funcs, new_a, new_b, deg, target_deg, interval_data, root_tracker, tols, max_level, good_degs, level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
 
@@ -821,7 +823,7 @@ def subdivision_solve_nd(funcs, a, b, deg, target_deg, interval_data,
         #check for a conditioning error
         if res[0] is None:
             # Subdivide but run some checks on the intervals first
-            intervals = interval_data.get_subintervals(og_a, og_b, cheb_approx_list, approx_errors, True)
+            intervals = interval_data.get_subintervals(og_a, og_b, subdivide_dims, cheb_approx_list, approx_errors, True)
             for new_a, new_b in intervals:
                 subdivision_solve_nd(funcs, new_a, new_b, deg, target_deg, interval_data, root_tracker, tols, max_level, good_degs, level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
         else:

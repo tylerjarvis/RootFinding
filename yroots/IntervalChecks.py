@@ -121,7 +121,7 @@ class IntervalData:
         if isNumber(a):
             return
         dim = len(a)
-        self.RAND = 0.5139303900908738
+        self.RAND = 0.5#139303900908738
         self.mask = np.ones([2]*dim, dtype = bool)
         self.throwOutMask = np.zeros([2]*dim, dtype = bool)
         self.middleVal = 2*self.RAND - 1
@@ -129,7 +129,7 @@ class IntervalData:
         self.middleValSqrd = self.middleVal**2
         self.subintervals = np.zeros([2]*dim + [2, dim])
         for spot in product([0,1], repeat=dim):
-            for i,val in enumerate(spot):
+            for i,val in enumerate(spot): # first subdivision
                 self.subintervals[spot][0][i] = -1 if val == 0 else self.middleVal
                 self.subintervals[spot][1][i] = self.middleVal if val == 0 else 1
         self.__intervalReductionMethodsToUse = []
@@ -159,8 +159,7 @@ class IntervalData:
         self.total_area = np.prod(self.polish_b-self.polish_a)
         self.current_area = 0.
 
-    def get_subintervals(self, a, b, polys, errors, runChecks):
-            #print("running get subints")
+    def get_subintervals(self, a, b, dimensions, polys, errors, runChecks):
             """Gets the subintervals to divide a search interval into.
 
             Parameters
@@ -198,6 +197,8 @@ class IntervalData:
             #         pass
 
 
+
+
             if boundingInterval is not None:
                 boundingSize = np.product(boundingInterval[1] - boundingInterval[0])
                 boundingInterval = transform(boundingInterval, a, b)
@@ -216,10 +217,28 @@ class IntervalData:
             temp1 = b - a
             temp2 = b + a
 
+            print(f'subints: \n{self.subintervals}')
             #Create the new intervals based on the ones we are keeping
             newIntervals = self.subintervals.copy()
             newIntervals[:,:1,:] = (newIntervals[:,:1,:] * temp1 + temp2) / 2
             newIntervals[:,1:,:] = (newIntervals[:,1:,:] * temp1 + temp2) / 2
+            print(f'old subdivision new int shape: \n{newIntervals.shape}')
+
+            diffs1 = ((b-a)*self.RAND)[dimensions]
+            diffs2 = ((b-a)-(b-a)*self.RAND)[dimensions]
+            newIntervals = []
+
+            print(f'subints: \n{a,b}')
+            print('dims to subdivide',dimensions)
+            for subset in product([False,True], repeat=len(dimensions)):
+                subset = np.array(subset)
+                aTemp = a.copy()
+                bTemp = b.copy()
+                aTemp[dimensions] += (~subset)*diffs1
+                bTemp[dimensions] -= subset*diffs2
+                newIntervals.append((aTemp,bTemp))
+            newIntervals = np.array(newIntervals)
+            print(f'new subdivision new int shape: \n{newIntervals.shape}')
 
             thrownOuts = []
             if runChecks:
@@ -1011,19 +1030,16 @@ def quadratic_check_2D(test_coeff, mask, tol, RAND, subintervals):
         max_satisfied = max_satisfied or eval > -other_sum
         if min_satisfied and max_satisfied:
             continue
-
         eval = eval_func(interval[0][0], interval[1][1])
         min_satisfied = min_satisfied or eval < other_sum
         max_satisfied = max_satisfied or eval > -other_sum
         if min_satisfied and max_satisfied:
             continue
-
         eval = eval_func(interval[1][0], interval[1][1])
         min_satisfied = min_satisfied or eval < other_sum
         max_satisfied = max_satisfied or eval > -other_sum
         if min_satisfied and max_satisfied:
             continue
-
         #Check the x constant boundaries
         #The partial with respect to y is zero
         #Dy:  c4x + 4c5y = -c2 =>   y = (-c2-c4x)/(4c5)
