@@ -88,10 +88,15 @@ class IntervalData:
         Plots the results of subdivision solve
     '''
     def __init__(self, a, b, intervalReductions):
-        self.interval_checks = []
-        self.subinterval_checks = [quadratic_check]
+        self.interval_checks = [constant_term_check]
+        self.subinterval_checks = [quadratic_check] # elimiation  checks
         self.a = a
         self.b = b
+
+        if len(a) == 1:
+            self.interval_checks = [BF, constant_term_check]
+
+
         self.interval_results = dict()
         for check in self.interval_checks:
             self.interval_results[check.__name__] = []
@@ -121,7 +126,7 @@ class IntervalData:
         if isNumber(a):
             return
         dim = len(a)
-        self.RAND = 0.5#139303900908738
+        self.RAND = 0.5139303900908738
         self.mask = np.ones([2]*dim, dtype = bool)
         self.throwOutMask = np.zeros([2]*dim, dtype = bool)
         self.middleVal = 2*self.RAND - 1
@@ -134,7 +139,7 @@ class IntervalData:
                 self.subintervals[spot][1][i] = self.middleVal if val == 0 else 1
         self.__intervalReductionMethodsToUse = []
         for methodName in intervalReductions:
-            if methodName in INTERVAL_REDUCTION_FUNCS:
+            if methodName in INTERVAL_REDUCTION_FUNCS: #  reductions
                 self.__intervalReductionMethodsToUse.append(INTERVAL_REDUCTION_FUNCS.index(methodName))
 
     def add_polish_intervals(self, polish_intervals):
@@ -159,7 +164,7 @@ class IntervalData:
         self.total_area = np.prod(self.polish_b-self.polish_a)
         self.current_area = 0.
 
-    def get_subintervals(self, a, b, dimensions, polys, errors, runChecks):
+    def get_subintervals(self, a, b, polys, errors, runChecks):
             """Gets the subintervals to divide a search interval into.
 
             Parameters
@@ -217,28 +222,10 @@ class IntervalData:
             temp1 = b - a
             temp2 = b + a
 
-            print(f'subints: \n{self.subintervals}')
             #Create the new intervals based on the ones we are keeping
             newIntervals = self.subintervals.copy()
             newIntervals[:,:1,:] = (newIntervals[:,:1,:] * temp1 + temp2) / 2
             newIntervals[:,1:,:] = (newIntervals[:,1:,:] * temp1 + temp2) / 2
-            print(f'old subdivision new int shape: \n{newIntervals.shape}')
-
-            diffs1 = ((b-a)*self.RAND)[dimensions]
-            diffs2 = ((b-a)-(b-a)*self.RAND)[dimensions]
-            newIntervals = []
-
-            print(f'subints: \n{a,b}')
-            print('dims to subdivide',dimensions)
-            for subset in product([False,True], repeat=len(dimensions)):
-                subset = np.array(subset)
-                aTemp = a.copy()
-                bTemp = b.copy()
-                aTemp[dimensions] += (~subset)*diffs1
-                bTemp[dimensions] -= subset*diffs2
-                newIntervals.append((aTemp,bTemp))
-            newIntervals = np.array(newIntervals)
-            print(f'new subdivision new int shape: \n{newIntervals.shape}')
 
             thrownOuts = []
             if runChecks:
@@ -283,6 +270,7 @@ class IntervalData:
         for check in self.interval_checks:
             if not check(coeff, error):
                 if not self.polishing:
+                    print(check.__name__)
                     self.track_interval(check.__name__, [a,b])
                 return True
         return False
@@ -906,13 +894,58 @@ def constant_term_check(test_coeff, tol):
     Returns
     -------
     constant_term_check : bool
-        False if the function is guarenteed to never be zero in the unit box, True otherwise
+        False if the function is guaranteed to never be zero in the unit box, True otherwise
     """
     test_sum = np.sum(np.abs(test_coeff))
     if abs(test_coeff[tuple([0]*test_coeff.ndim)]) * 2 > test_sum + tol:
         return False
     else:
         return True
+
+# BUDHAN FOURIER
+def BF(c, tol):
+    #c will be array of Chebyshev coeffs
+    n = len(c) - 1      #subtract 1 bc coefficients c include constant term
+    one_deriv = []      #store all 1 endpoint deriv
+    negone_deriv = []   #store all -1 endpoint deriv
+
+    #get derivatives
+    for p in range(n+1):
+        one_terms = []  #store all indiv deriv need sum to get each p deriv
+        negone_terms = []
+        for i in range(p, n+1):
+            if p == 0:  #get 0th derivative
+                one_terms.append(1 * c[i])   #if at 1 endpt: deriv is 1
+                if i%2 == 0:  #if at -1 endpt: deriv will change depending on if degree even, odd
+                    negone_terms.append(c[i])      #if even: deriv is 1
+                else:
+                    negone_terms.append(-1*c[i])   #if odd: deriv is -1
+            else:       #get all other p derivatives, besides 0th one
+                wiki = np.prod([(i**2-k**2) / (2*k+1) for k in range(p)])   #wikipedia formula
+                indiv_term = c[i] * wiki
+                one_terms.append(indiv_term)  #if at endpt 1: wld multiply deriv by 1, so just append it
+                if ((i+p) % 2) != 0:          #if at endpt -1: multiply by -1 if i+p odd
+                    negone_terms.append(-1*indiv_term)
+                else:                         #multiply by 1 if i+p even
+                    negone_terms.append(indiv_term)
+
+        #sum all terms for each pth deriv before move on to next p deriv in outer for loop:
+        one_deriv.append(sum(one_terms))
+        negone_deriv.append(sum(negone_terms))
+
+    #count number of sign changes in 1, -1 endpoint derivs:
+    one_var = len(list(itertools.groupby(one_deriv, lambda one_deriv: one_deriv > 0)))
+    one_var = one_var - 1
+
+    negone_var = len(list(itertools.groupby(negone_deriv, lambda negone_deriv: negone_deriv > 0)))
+    negone_var = negone_var - 1
+
+    bound =  negone_var - one_var      #return the upper bound for number of roots on [-1, 1]
+
+    if bound == 0:
+        return False # ie no roots
+
+
 
 def quadratic_check(test_coeff, mask, tol, RAND, subintervals):
     """One of subinterval_checks
