@@ -3,8 +3,7 @@ import itertools
 from scipy.linalg import solve_triangular, eig, schur
 from yroots.LinearProjection import nullspace
 from yroots.polynomial import MultiCheb, MultiPower, is_power
-from yroots.MacaulayReduce import reduce_macaulay_qrt, find_degree, \
-                              add_polys, reduce_macaulay_tvb, reduce_macaulay_svd
+
 from yroots.utils import row_swap_matrix, MacaulayError, slice_top, get_var_list, \
                               mon_combos, mon_combosHighest, sort_polys_by_degree, \
                               deg_d_polys, all_permutations_cheb,\

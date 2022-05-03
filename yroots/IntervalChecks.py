@@ -270,7 +270,7 @@ class IntervalData:
         for check in self.interval_checks:
             if not check(coeff, error):
                 if not self.polishing:
-                    print(check.__name__)
+                    # print(check.__name__)
                     self.track_interval(check.__name__, [a,b])
                 return True
         return False
