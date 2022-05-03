@@ -31,7 +31,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
           check_eval_error=True, check_eval_freq=1, plot=False,
           plot_intervals=False, deg=None, target_deg=1,
           return_potentials=False, method='svd', target_tol=1.01*macheps,
-          trust_small_evals=False, intervalReductions=["improveBound", "getBoundingParallelogram","lipschitzLine"]):
+          trust_small_evals=False, intervalReductions=["improveBound", "getBoundingParallelogram","lipschitzLine"],verbose=True):
     """
     Finds the real roots of the given list of functions on a given interval.
 
@@ -173,7 +173,7 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
     # Initial Solve
     solve_func(funcs, a, b, deg, target_deg, interval_data,
                root_tracker, tols, max_level, method=method,
-               trust_small_evals=trust_small_evals)
+               trust_small_evals=trust_small_evals,verbose=verbose)
     root_tracker.keep_possible_duplicates()
 
     # Polishing
@@ -184,10 +184,11 @@ def solve(funcs, a, b, rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,
             interval_data.start_polish_interval()
             solve_func(funcs, new_a, new_b, deg, target_deg, interval_data, root_tracker, tols, max_level, method=method)
             root_tracker.keep_possible_duplicates(),
-    print("\rPercent Finished: 100%{}".format(' '*50))
 
     # Print results
-    interval_data.print_results()
+    if verbose:
+        print("\rPercent Finished: 100%{}".format(' '*50))
+        interval_data.print_results()
 
     # Plotting
     if plot:
@@ -663,7 +664,7 @@ def random_point(dim):
 def subdivision_solve_nd(funcs, a, b, deg, target_deg, interval_data,
                          root_tracker, tols, max_level,good_degs=None, level=0,
                          method='svd', use_target_tol=False,
-                         trust_small_evals=False):
+                         trust_small_evals=False,verbose=True):
     """Finds the common zeros of the given functions.
 
     All the zeros will be stored in root_tracker.
@@ -739,7 +740,8 @@ def subdivision_solve_nd(funcs, a, b, deg, target_deg, interval_data,
     b += interval_buffer_size
 
     cheb_approx_list = []
-    interval_data.print_progress()
+    if verbose:
+        interval_data.print_progress()
     if good_degs is None:
         good_degs = [None]*len(funcs)
     inf_norms = []
@@ -764,7 +766,7 @@ def subdivision_solve_nd(funcs, a, b, deg, target_deg, interval_data,
                 del funcs2[func_num]
                 funcs2.append(func)
             for new_a, new_b in intervals:
-                subdivision_solve_nd(funcs2,new_a,new_b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=level+1, method=method, trust_small_evals=trust_small_evals)
+                subdivision_solve_nd(funcs2,new_a,new_b,deg,target_deg,interval_data,root_tracker,tols,max_level,level=level+1, method=method, trust_small_evals=trust_small_evals, verbose=verbose)
             return
         else:
             # Run checks to try and throw out the interval
@@ -790,18 +792,18 @@ def subdivision_solve_nd(funcs, a, b, deg, target_deg, interval_data,
     if np.any(np.array([coeff.shape[0] for coeff in coeffs]) > target_deg + 1) or not good_approx:
         intervals = interval_data.get_subintervals(og_a, og_b, cheb_approx_list, approx_errors, True)
         for new_a, new_b in intervals:
-            subdivision_solve_nd(funcs, new_a, new_b, deg, target_deg, interval_data, root_tracker, tols, max_level, good_degs, level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
+            subdivision_solve_nd(funcs, new_a, new_b, deg, target_deg, interval_data, root_tracker, tols, max_level, good_degs, level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True, verbose=verbose)
 
     # Check if any approx error is greater than target_tol for Macaulay method
     elif np.any(np.array(approx_errors) > np.array(tols.target_tol) + tols.rel_approx_tol*np.array(inf_norms)):
         intervals = interval_data.get_subintervals(og_a, og_b, cheb_approx_list, approx_errors, True)
         for new_a, new_b in intervals:
-            subdivision_solve_nd(funcs, new_a, new_b, deg, target_deg, interval_data, root_tracker, tols, max_level, good_degs, level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
+            subdivision_solve_nd(funcs, new_a, new_b, deg, target_deg, interval_data, root_tracker, tols, max_level, good_degs, level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True, verbose=verbose)
 
     # Check if everything is linear
     elif np.all(np.array([coeff.shape[0] for coeff in coeffs]) == 2):
         if deg != 2:
-            subdivision_solve_nd(funcs, a, b, 2, target_deg, interval_data, root_tracker, tols, max_level, good_degs, level, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
+            subdivision_solve_nd(funcs, a, b, 2, target_deg, interval_data, root_tracker, tols, max_level, good_degs, level, method=method, trust_small_evals=trust_small_evals, use_target_tol=True, verbose=verbose)
             return
         zero, cond = solve_linear(coeffs)
         # Store the information and exit
@@ -820,7 +822,7 @@ def subdivision_solve_nd(funcs, a, b, deg, target_deg, interval_data,
             # Subdivide but run some checks on the intervals first
             intervals = interval_data.get_subintervals(og_a, og_b, cheb_approx_list, approx_errors, True)
             for new_a, new_b in intervals:
-                subdivision_solve_nd(funcs, new_a, new_b, deg, target_deg, interval_data, root_tracker, tols, max_level, good_degs, level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True)
+                subdivision_solve_nd(funcs, new_a, new_b, deg, target_deg, interval_data, root_tracker, tols, max_level, good_degs, level+1, method=method, trust_small_evals=trust_small_evals, use_target_tol=True, verbose=verbose)
         else:
             zeros = res
             zeros = good_zeros_nd(zeros, good_zeros_tol, good_zeros_tol)
@@ -993,7 +995,7 @@ def good_zeros_1d(zeros, imag_tol, real_tol):
 
 def subdivision_solve_1d(f, a, b, deg, target_deg, interval_data, root_tracker,
                          tols, max_level, level=0, method='svd',
-                         trust_small_evals=False):
+                         trust_small_evals=False,verbose=True):
     """Finds the roots of a one-dimensional function using subdivision and
     chebyshev approximation.
 
@@ -1033,7 +1035,8 @@ def subdivision_solve_1d(f, a, b, deg, target_deg, interval_data, root_tracker,
 
     # Determine the point at which to subdivide the interval
     RAND = 0.5139303900908738
-    interval_data.print_progress()
+    if verbose:
+        interval_data.print_progress()
 
     # Approximate the function using Chebyshev polynomials
     coeff = interval_approximate_1d(f, a, b, deg)
@@ -1049,8 +1052,8 @@ def subdivision_solve_1d(f, a, b, deg, target_deg, interval_data, root_tracker,
         # Subdivide the interval and recursively call the function.
         div_spot = a + (b-a)*RAND
         good_deg = deg
-        subdivision_solve_1d(f, a, div_spot, good_deg, target_deg, interval_data, root_tracker, tols, max_level, level+1)
-        subdivision_solve_1d(f, div_spot, b, good_deg, target_deg, interval_data, root_tracker, tols, max_level, level+1)
+        subdivision_solve_1d(f, a, div_spot, good_deg, target_deg, interval_data, root_tracker, tols, max_level, level+1,verbose=verbose)
+        subdivision_solve_1d(f, div_spot, b, good_deg, target_deg, interval_data, root_tracker, tols, max_level, level+1,verbose=verbose)
     else:
         # Trim the coefficient array (reduce the degree) as much as we can.
         # This identifies a 'good degree' with which to approximate the function
@@ -1081,5 +1084,5 @@ def subdivision_solve_1d(f, a, b, deg, target_deg, interval_data, root_tracker,
             root_tracker.add_roots(zeros, a, b, "Macaulay")
         except (ConditioningError, TooManyRoots) as e:
             div_spot = a + (b-a)*RAND
-            subdivision_solve_1d(f, a, div_spot, good_deg, target_deg, interval_data, root_tracker, tols, max_level, level+1)
-            subdivision_solve_1d(f, div_spot, b, good_deg, target_deg, interval_data, root_tracker, tols, max_level, level+1)
+            subdivision_solve_1d(f, a, div_spot, good_deg, target_deg, interval_data, root_tracker, tols, max_level, level+1, verbose=verbose)
+            subdivision_solve_1d(f, div_spot, b, good_deg, target_deg, interval_data, root_tracker, tols, max_level, level+1, verbose=verbose)
