@@ -311,7 +311,7 @@ def test_roots_1_1():
         t = time() - start
         actual_roots = np.load('Polished_results/polished_1.1.npy')
         chebfun_roots = np.loadtxt('Chebfun_results/test_roots_1.1.csv', delimiter=',')
-        print(yroots)
+        
         return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 1.1, cheb_roots=chebfun_roots)
 
 
@@ -728,14 +728,14 @@ if __name__ == "__main__":
                         test_roots_6_2,
                         test_roots_6_3,
                         test_roots_7_1,
-                        #test_roots_7_2,
+                        test_roots_7_2,
                         test_roots_7_3,
-                        #test_roots_7_4,
+                        test_roots_7_4,
                         test_roots_8_1,
                         test_roots_8_2,
                         test_roots_9_1,
-                        test_roots_9_2])
-                        #test_roots_10])
+                        test_roots_9_2,
+                        test_roots_10])
     res_passes = np.zeros_like(tests,dtype=bool)
     norm_passes = np.zeros_like(tests,dtype=bool)
     times = np.zeros_like(tests)
