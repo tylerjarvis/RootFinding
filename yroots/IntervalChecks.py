@@ -93,7 +93,7 @@ class IntervalData:
         self.a = a
         self.b = b
 
-        if len(a) == 1:
+        if np.isscalar(a):
             self.interval_checks = [BF, constant_term_check]
 
 
