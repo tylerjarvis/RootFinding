@@ -62,9 +62,9 @@ def BoundingIntervalLinearSystem(Ms, errors):
         Ainv = np.linalg.inv(A)
     except np.linalg.LinAlgError as e: #If it's not invertible we can't zoom in
         if len(A) == 1:
-            return np.array([[-1,1]]), False
+            return np.array([[-1.0,1.0]]), False
         else:
-            return np.vstack([[-1]*len(A),[1]*len(A)]), False
+            return np.vstack([[-1.0]*len(A),[1.0]*len(A)]), False
     center = -Ainv@consts
         
     #Ainv transforms the hyperrectangle of side lengths err into a parallelogram with these as the principal direction
@@ -73,8 +73,8 @@ def BoundingIntervalLinearSystem(Ms, errors):
     a = center - width
     b = center + width
     #Bound at [-1,1]. TODO: Kate has a good way to bound this even more.
-    a[a < -1] = -1
-    b[b > 1] = 1
+    a[a < -1] = -1.0
+    b[b > 1] = 1.0
     changed = np.any(a > -1) or np.any(b < 1)
     return np.vstack([a,b]).T, changed
 
@@ -233,6 +233,8 @@ def zoomInOnIntervalIter(Ms, errors, result):
     #Transform the chebyshev polynomials
     Ms = transformChebToInterval(Ms, interval)
     #result is the overall interval
+    #TODO: Make sure that when interval contains -1 or 1, the transformation stays exact! This will help with matching
+    #up intervals that are touching each other later.
     result = np.array([transform(i, *r) for i,r in zip(interval, result)])
     return Ms, result, changed
     
@@ -284,10 +286,11 @@ class Subdivider():
             newResults = []
             for oldInterval in results:
                 #Transform the interval
+                transformedMidpoint = transform(self.subdivisionPoint, *oldInterval[thisDim])
                 newInterval = oldInterval.copy()
-                newInterval[thisDim] = transform(np.array([-1, self.subdivisionPoint]), *oldInterval[thisDim])
+                newInterval[thisDim] = [oldInterval[thisDim][0], transformedMidpoint]
                 newResults.append(newInterval.copy())
-                newInterval[thisDim] = transform(np.array([self.subdivisionPoint, 1]), *oldInterval[thisDim])
+                newInterval[thisDim] = [transformedMidpoint, oldInterval[thisDim][1]]
                 newResults.append(newInterval.copy())
             results = newResults
         return results
@@ -362,19 +365,27 @@ def trimMs(Ms, errors, absErrorIncrease, relErrorIncrease):
 def combineTouchingIntervals(intervals):
     """Combines intervals that are touching into one interval the contains them
 
+    It might be useful to pass in the boundaries so we can check which itervals lie on a boundary and which ones don't.
+    That will be a floating point equality check but each interval on the boundary, but as long as transform()
+    always handled the -1,1 case exactly, this should be fine, as the boudnary points will be exactly the same everywhere.
+
     Parameters
     ----------
-    intervals : list of numpy arrays
-        A list of intervals
+    intervals : list of lists of numpy arrays
+        Each list corresponds to one of the 2^n subintervals from the last step of subdivision, and contains a list of
+        all the intervals in the subinterval in which there could be a root. Intervals in the same list will not be touching.
     
     Returns
     -------
     intervals : list of numpy arrays
-        A new list of intervals such that each interval in the old list is contained in some interval in
+        A new list of intervals such that each interval in the any of the old lists is contained in some interval in
         the new list, but none of the intervals in the new list are touching.
-    """    
+    """
     #TODO: WRITE THIS!!!
-    return intervals
+    newIntervals = []
+    for interval in intervals:
+        newIntervals += interval
+    return newIntervals
 
 def shouldStopSubdivision(interval):
     #TODO: WRITE THIS!!!
@@ -451,7 +462,7 @@ def solvePolyRecursive(Ms, interval, errors):
         allMs = [mySubdivider.subdivide(M) for M in Ms]
         #Run each interval
         for i in range(len(newInts)):
-            result += solvePolyRecursive([allM[i] for allM in allMs], newInts[i], errors)
+            result.append(solvePolyRecursive([allM[i] for allM in allMs], newInts[i], errors))
         return combineTouchingIntervals(result)
 
 def solveChebyshevSubdivision(Ms, interval, errors, returnBoundingBoxes = False):
@@ -478,6 +489,9 @@ def solveChebyshevSubdivision(Ms, interval, errors, returnBoundingBoxes = False)
     #Transform interval to [-1,1]^n
     transformedMs = transformChebToInterval(Ms, interval)
     boundingBoxes = solvePolyRecursive(transformedMs, interval, errors)
+    #TODO: Have an options to reRun all the bounding boxes with tight precision after a first run at lower precision.
+    #For Example: 
+    #boundingBoxes = [solvePolyRecursive(transformedMs, box, errors, <tigher tolerance params>) for box in boundingBoxes]
     roots = [(interval[:,1] + interval[:,0]) / 2 for interval in boundingBoxes]
     if returnBoundingBoxes:
         return roots, boundingBoxes
