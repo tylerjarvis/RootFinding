@@ -367,7 +367,7 @@ def combineTouchingIntervals(intervals):
 
     It might be useful to pass in the boundaries so we can check which itervals lie on a boundary and which ones don't.
     That will be a floating point equality check but each interval on the boundary, but as long as transform()
-    always handled the -1,1 case exactly, this should be fine, as the boudnary points will be exactly the same everywhere.
+    always handled the -1,1 case exactly, this should be fine, as the boundary points will be exactly the same everywhere.
 
     Parameters
     ----------
