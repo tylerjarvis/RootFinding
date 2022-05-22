@@ -145,9 +145,58 @@ def makeMatrix(n,a,b,subMatrix=None):
             M[i,j] = val
     return M
 
-def transform(x, a, b):
-    """Transforms x from [-1,1] onto [a,b]"""
+def transformPoint(x, a, b):
+    """Transforms x from [-1,1] onto [a,b]
+    
+    This function guarantees the following two conditions.
+    
+    1. If x is exactly -1 or 1, the result will be exactly a or b, respectively. It does this right now with 
+        explicit checks. We want this so that all the edges of our boundaries match up exactly.
+    
+    2. If a <= b and x1 <= x2, then transformPoint(x1, a, b) <= transformPoint(x2, a, b). 
+        We want this to avoid throwing out an interval incorrectly. Because of this we can't use
+        "return (b*(1.0+x)+a*(1.0-x))/2.0", which would solve condition 1.
+    
+    Parameters
+    ----------
+    x : float
+        The point to transform
+    a : float
+        The min of the interval we are transforming to
+    b : float
+        The max of the interval we are transforming to
+    
+    Returns
+    -------
+    x : float
+        The transformed point
+    """
+    if x == -1.0:
+        return a
+    elif x == 1.0:
+        return b
     return ((b-a)*x+(b+a))/2
+
+def transformArray(x, a, b):
+    """Transforms x from [-1,1] onto [a,b]
+    
+    Does so using transformPoint, which gives the same guarantees as that function.
+    
+    Parameters
+    ----------
+    x : list or numpy array
+        A list of points to transform
+    a : float
+        The min of the interval we are transforming to
+    b : float
+        The max of the interval we are transforming to
+    
+    Returns
+    -------
+    x : numpy array
+        The transformed points
+    """
+    return np.array([transformPoint(x_, a, b) for x_ in x])
 
 def getTransformPoints(a,b):
     """Given the new interval [a,b], gives c,d for reduction xHat = cx+d"""
@@ -233,9 +282,7 @@ def zoomInOnIntervalIter(Ms, errors, result):
     #Transform the chebyshev polynomials
     Ms = transformChebToInterval(Ms, interval)
     #result is the overall interval
-    #TODO: Make sure that when interval contains -1 or 1, the transformation stays exact! This will help with matching
-    #up intervals that are touching each other later.
-    result = np.array([transform(i, *r) for i,r in zip(interval, result)])
+    result = np.array([transformArray(i, *r) for i,r in zip(interval, result)])
     return Ms, result, changed
     
 def getTransposeDims(dim,transformDim):
@@ -286,7 +333,7 @@ class Subdivider():
             newResults = []
             for oldInterval in results:
                 #Transform the interval
-                transformedMidpoint = transform(self.subdivisionPoint, *oldInterval[thisDim])
+                transformedMidpoint = transformPoint(self.subdivisionPoint, *oldInterval[thisDim])
                 newInterval = oldInterval.copy()
                 newInterval[thisDim] = [oldInterval[thisDim][0], transformedMidpoint]
                 newResults.append(newInterval.copy())
@@ -366,8 +413,8 @@ def combineTouchingIntervals(intervals):
     """Combines intervals that are touching into one interval the contains them
 
     It might be useful to pass in the boundaries so we can check which itervals lie on a boundary and which ones don't.
-    That will be a floating point equality check but each interval on the boundary, but as long as transform()
-    always handled the -1,1 case exactly, this should be fine, as the boundary points will be exactly the same everywhere.
+    That will be a floating point equality check but each interval on the boundary, but as long as transformPoint()
+    always handles the -1,1 case exactly, this should be fine, as the boundary points will be exactly the same everywhere.
 
     Parameters
     ----------
