@@ -29,8 +29,14 @@ class M_maker:
         the degree of the approximation
         values_block: ndarray
         the evaluation of the approximating polynomial at the chebyshev critical points in the region
+        M: ndarray
+        Chebyshev approximation
+        M2: ndarray
+        Chebyshev approximation of double degree
         err: float
         the error on the approximation
+        inf_norm: float
+        the sup norm on the approximation
 
         Parameters
         ----------
@@ -42,8 +48,6 @@ class M_maker:
         the upper bounds on the region
         guess_deg: int
         the user's guess on the degree of approximation
-        rescale: bool
-        whether to rescale by self.inf_norm or not
         rel_approx_tol: float
         relative approximation tolerance
         abs_approx_tol: float
@@ -89,9 +93,7 @@ class M_maker:
         error: float
         The absolute value of the difference of the sum of abs values of M and M2
         rel_approx_tol: float
-        some input I might want to cover my bases about
         abs_approx_tol: float
-        some input I might want to cover my bases about
         inf_norm: float
         the sup norm on the approximation
 
@@ -117,10 +119,6 @@ class M_maker:
         The lower bound on the interval.
         b : numpy array
         The upper bound on the interval.
-
-        Returns
-        -------
-        deg: the correct approximation degree
         """
         self.M, self.inf_norm = self.interval_approximate_nd(f, a, b, deg, return_inf_norm=True)
         self.M2 = self.interval_approximate_nd(f,a,b,deg*2)
@@ -161,7 +159,7 @@ class M_maker:
         b : numpy array
             The upper bound on the interval.
         deg : numpy array
-            The degree of the interpolation in each dimension. #Question THIS IS A NUMPY ARRAY
+            The degree of the interpolation in each dimension.
         return_inf_norm : bool
             whether to return the inf norm of the function
         save_values_block : bool
