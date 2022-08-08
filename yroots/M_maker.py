@@ -1,39 +1,84 @@
-from yroots import eriks_code
-from yroots.subdivision import solve
 import numpy as np
 from yroots.utils import transform, slice_top
 from scipy.fftpack import fftn
 from itertools import product
-from time import time
-from tests.chebfun2_suite import norm_pass_or_fail,residuals,residuals_pass_or_fail,verbose_pass_or_fail
-from matplotlib import pyplot as plt
 
 class M_maker:
-    def __init__(self,f,a,b,guess_deg,return_inf_norm=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12):
-        dim = len(a)
-        if dim != len(b): #a,b must have same length, maybe should catch errors where a>b
-            raise ValueError("dimension mismatch")
-        if np.mean(a>b)>0: #upper bounds must be graeter than lower bound
-            raise ValueError("at least on lower bound is greater than the upper bound")
+    def __init__(self,f,a,b,guess_deg,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12):
+        """
+        Used to find M, an array of Chebyshev coefficients.
 
+        Attributes
+        ----------
+        dim: int
+        the dimension of the space we approximate in
+        f: vectorized, callable function
+        the function from R^n --> R that we approximate
+        a: ndarray
+        the lower bounds on the region
+        b: ndarray
+        the upper bounds on the region
+        rel_approx_tol: float
+        relative approximation tolerance
+        abs_approx_tol: float
+        absolute approximation tolerance
+        memo_dict: dictionary
+        the evaluation of an approximating polynomial at each chebyshev point in the region
+        keys are degree, values are arrays of evaluations
+        deg: int
+        the degree of the approximation
+        values_block: ndarray
+        the evaluation of the approximating polynomial at the chebyshev critical points in the region
+        err: float
+        the error on the approximation
+
+        Parameters
+        ----------
+        f: vectorized, callable function
+        the function from R^n --> R that we approximate
+        a: ndarray
+        the lower bounds on the region
+        b: ndarray
+        the upper bounds on the region
+        guess_deg: int
+        the user's guess on the degree of approximation
+        rescale: bool
+        whether to rescale by self.inf_norm or not
+        rel_approx_tol: float
+        relative approximation tolerance
+        abs_approx_tol: float
+        absolute approximation tolerance
+
+        Methods
+        -------
+        error_test: determines whether the approximation is sufficiently accurate
+        find_good_deg: uses error_test by doubling up to a good deg until error_test is passed
+        interval_approximate_nd: calculates the chebyshev coefficients
+        chebyshev_block_copy: preparatory step to Fast Fourier Transform, so as to save time complexity in getting the chebyshev coeffs
+        block_copy_slicers: WRITE SOMETHING
+        interval_approx_slicers: WRITE SOMETHING
+        """
+        self.max_deg = {1: 100000, 2:1000, 3:9, 4:9, 5:2, 6:2, 7:2, 8:2, 9:2, 10:2} #need to experiment with this
+        
+        dim = len(a)
+        if dim != len(b):
+            raise ValueError("dimension mismatch")
         self.dim = dim
         self.f = f
         self.a = a
         self.b = b
         self.rel_approx_tol = rel_approx_tol
         self.abs_approx_tol = abs_approx_tol
-        self.return_inf_norm = return_inf_norm
-        self.deg = self.find_good_deg(f,guess_deg,dim,a,b) #takes the guess_deg and turns it into a satisfactory deg
+        self.memo_dict = {}
 
-        if self.return_inf_norm == True:
-            self.M, self.inf_norm = self.interval_approximate_nd(self.f,self.a,self.b,self.deg,self.return_inf_norm)
-        else:
-            self.M = self.interval_approximate_nd(self.f,self.a,self.b,self.deg)
+        self.values_block = None
+        self.M = None
+        self.M2 = None
+        self.err = None
+        self.inf_norm = None
 
-        #ERROR CALCULATION
-        self.M2 = self.interval_approximate_nd(self.f,self.a,self.b,2*self.deg)
-        self.M2[slice_top(self.M.shape)] -= self.M
-        self.err = np.sum(np.abs(self.M2))
+        self.find_good_approx(f,guess_deg,dim,a,b)        
+        self.M_rescaled = self.M / self.inf_norm
 
     def error_test(self,error,abs_approx_tol,rel_approx_tol,inf_norm): 
         """
@@ -56,15 +101,7 @@ class M_maker:
         """
         return error < abs_approx_tol+rel_approx_tol*inf_norm
 
-    def max_deg(self,dim):
-        max_deg = {1: 100000, 2:1000, 3:9, 4:9, 5:2, 6:2, 7:2, 8:2, 9:2, 10:2} #maximum degree by the dimensionality of the function
-                                                                               #need to experiment with optimal max_deg when dim>2
-        if dim <= 10:
-            return max_deg[dim]
-        if dim > 10:
-            return 2
-
-    def find_good_deg(self,f,deg,dim,a,b):
+    def find_good_approx(self,f,deg,dim,a,b):
         """
         Finds the right degree with which to approximate on the interval.
 
@@ -85,35 +122,33 @@ class M_maker:
         -------
         deg: the correct approximation degree
         """
-        #ERROR CALCULATION
-        coeff = self.interval_approximate_nd(f, a, b, deg)
-        coeff2, inf_norm = self.interval_approximate_nd(f, a, b, deg*2, return_inf_norm=True)
-        coeff2[slice_top(coeff.shape)] -= coeff
+        self.M, self.inf_norm = self.interval_approximate_nd(f, a, b, deg, return_inf_norm=True)
+        self.M2 = self.interval_approximate_nd(f,a,b,deg*2)
+        coeff2 = self.M2
+        coeff2[slice_top(self.M.shape)] -= self.M
         self.err = np.sum(np.abs(coeff2))
 
-        max_deg = self.max_deg(dim)
+        if deg >= self.max_deg[dim]:
+            deg = self.max_deg[dim]
 
-        if deg >= max_deg: #might be able to stream line this if branch and the while loop
-            return max_deg
-
-        while deg < max_deg:
-            if self.error_test(self.err,self.abs_approx_tol,self.rel_approx_tol,inf_norm):
+        while deg < self.max_deg[dim]: #maybe save double_deg as you go through this loop
+            if self.error_test(self.err,self.abs_approx_tol,self.rel_approx_tol,self.inf_norm):
                 break
-            elif 2*deg > max_deg:
-                deg = max_deg
+            elif 2*deg > self.max_deg[dim]:
+                deg = self.max_deg[dim]
                 break
             else:
                 deg = 2*deg
-                double_deg = 2*deg
-                #ERROR CALCULATION
-                coeff = self.interval_approximate_nd(f, a, b, deg)
-                coeff2, inf_norm = self.interval_approximate_nd(f, a, b, double_deg, return_inf_norm=True)
-                coeff2[slice_top(coeff.shape)] -= coeff
-                self.err = np.sum(np.abs(coeff2))
-        
-        return deg
 
-    def interval_approximate_nd(self,f, a, b, deg, return_inf_norm=False):
+                self.M, self.inf_norm = self.interval_approximate_nd(f, a, b, deg, return_inf_norm=True)
+                self.M2 = self.interval_approximate_nd(f,a,b,deg*2)
+                coeff2 = self.M2
+                coeff2[slice_top(self.M.shape)] -= self.M
+                self.err = np.sum(np.abs(coeff2))
+
+        self.deg = deg
+
+    def interval_approximate_nd(self,f, a, b, deg, return_inf_norm=False, save_values_block=False):
         """Finds the chebyshev approximation of an n-dimensional function on an
         interval.
 
@@ -129,6 +164,8 @@ class M_maker:
             The degree of the interpolation in each dimension. #Question THIS IS A NUMPY ARRAY
         return_inf_norm : bool
             whether to return the inf norm of the function
+        save_values_block : bool
+            whether to save the values block as an attribute
 
         Returns
         -------
@@ -137,29 +174,51 @@ class M_maker:
         inf_norm : float
             The inf_norm of the function
         """
-        if hasattr(f,"evaluate_grid"): #function is endowed with evaluate_grid from MultiCheb
+        half_deg = deg / 2
+
+        if hasattr(f,"evaluate_grid"):
             cheb_values = np.cos(np.arange(deg+1)*np.pi/deg)
             chepy_pts =  np.column_stack([cheb_values]*self.dim)
             cheb_pts = transform(chepy_pts,a,b)
-            self.values_block = f.evaluate_grid(cheb_pts)
+            values_block = f.evaluate_grid(cheb_pts) #version 0 no memoization here
         else:
             cheb_vals = np.cos(np.arange(deg+1)*np.pi/deg)
             cheb_grid = np.meshgrid(*([cheb_vals]*self.dim),indexing='ij')
             flatten = lambda x: x.flatten()
             cheby_pts = np.column_stack(tuple(map(flatten, cheb_grid)))
             cheb_pts = transform(cheby_pts,a,b)
-            self.values_block = f(*cheb_pts.T).reshape(*([deg+1]*self.dim))
+            
+            if deg in self.memo_dict.keys():
+                values_block = self.memo_dict[deg]
 
-        self.values = self.chebyshev_block_copy(self.values_block)
+            elif half_deg in self.memo_dict.keys():
+                half_deg_arr = self.memo_dict[half_deg].flatten()
+                slices = tuple([slice(0, deg+1,2)]*self.dim)
+                mask = np.ones([deg+1]*self.dim,dtype=bool)
+                mask[slices] = False 
+                unknowns_mask = mask.flatten() #this mask will say where the unknown stuff is in the array
+                knowns_mask = ~unknowns_mask #this mask will say where the known stuff is
+                values_arr = np.empty((deg+1)**self.dim)
+                values_arr[knowns_mask] = half_deg_arr
+                values_arr[unknowns_mask] = f(*cheb_pts[unknowns_mask].T)
+                values_block = values_arr.reshape(*([deg+1]*self.dim))
+            else:
+                values_block = f(*cheb_pts.T).reshape(*([deg+1]*self.dim))
+            
+            if save_values_block == True:
+                self.values_block = values_block
+            
+            self.memo_dict[deg] = values_block
+
+        values = self.chebyshev_block_copy(values_block)
 
         if return_inf_norm:
-            inf_norm = np.max(np.abs(self.values))
+            inf_norm = np.max(np.abs(values))
 
         x0_slicer, deg_slicer, slices, rescale = self.interval_approx_slicers(self.dim,deg)
-        coeffs = fftn(self.values/rescale).real
+        coeffs = fftn(values/rescale).real
 
         for x0sl, degsl in zip(x0_slicer, deg_slicer):
-            #halve the coefficients in each slice
             coeffs[x0sl] /= 2
             coeffs[degsl] /= 2
 
@@ -186,13 +245,13 @@ class M_maker:
         dim = values_block.ndim
         deg = values_block.shape[0] - 1
         values_cheb = np.empty(tuple([2*deg])*dim, dtype=np.float64)
-        block_slicers, cheb_slicers, slicer = self.block_copy_slicers(dim, deg) #slicers for making a block copy
+        block_slicers, cheb_slicers, slicer = self.block_copy_slicers(dim, deg)
 
         for cheb_idx, block_idx in zip(cheb_slicers, block_slicers):
             try:
                 values_cheb[cheb_idx] = values_block[block_idx]
             except ValueError as e:
-                if str(e)[:42] == 'could not broadcast input array from shape':
+                if str(e)[:42] == 'could not broadcast input array from shape': 
                     values_cheb = np.empty(tuple([2*deg])*dim, dtype=np.float64)
                     values_cheb[cheb_idx] = values_block[block_idx]
                 else:
