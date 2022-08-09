@@ -1,12 +1,8 @@
-from asyncio.windows_events import NULL
-from asyncore import ExitNow
-from cmath import isclose
 import numpy as np
 from numba import njit
 from itertools import product
 from scipy.spatial import HalfspaceIntersection
 from scipy.optimize import linprog
-from sklearn import exceptions
 
 def getLinearTerms(M):
     """Helper Function, returns the linear terms of a matrix
