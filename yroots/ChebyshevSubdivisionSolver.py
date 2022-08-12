@@ -1,12 +1,8 @@
-from asyncio.windows_events import NULL
-from asyncore import ExitNow
-from cmath import isclose
 import numpy as np
 from numba import njit
 from itertools import product
 from scipy.spatial import HalfspaceIntersection
 from scipy.optimize import linprog
-from sklearn import exceptions
 
 @njit
 def TransformChebInPlace1D(coeffs, alpha, beta):
@@ -466,7 +462,7 @@ def BoundingIntervalLinearSystem(Ms, errors):
 
     dim = A.shape[0]
     
-    if dim == 1 or dim == 2 or dim == 3 or dim == 4:
+    if dim <= 4:
         #Erik's method for shrinking the interval
         #Solve for the extrema
         #We use the matrix inverse to find the width, so might as well use it both spots. Should be fine as dim is small.
