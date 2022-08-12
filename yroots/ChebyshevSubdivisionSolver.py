@@ -1,6 +1,12 @@
+from asyncio.windows_events import NULL
+from asyncore import ExitNow
+from cmath import isclose
 import numpy as np
 from numba import njit
 from itertools import product
+from scipy.spatial import HalfspaceIntersection
+from scipy.optimize import linprog
+from sklearn import exceptions
 
 @njit
 def TransformChebInPlace1D(coeffs, alpha, beta):
@@ -376,6 +382,61 @@ def getLinearTerms(M):
         A.append(MArray[spot])
     return A[::-1]
 
+
+
+def find_vertices(A_ub, b_ub):
+    # This calcualtes the feasible point that is MOST inside the halfspace
+    #It then feeds that feasible point into a halfspace intersection solver and finds
+    #the intersection of the hyper-polygon and the hyper-cube. It returns these intersections, which when
+    #we take the min and max of, give the set of intervals that we should shrink down to.
+    #I am going to document exactly what the function does, but wanted to get it pushed because I will be
+    #working on finals and out of town for the next week.
+
+    m, n = A_ub.shape
+
+    arr = np.hstack([np.vstack([np.identity(n, dtype = float), -np.identity(n, dtype = float)]), -np.ones(2 * n, dtype = float).reshape(2 * n, 1)])
+
+    o = arr.shape[0]
+
+    # Create the halfspaces array in the format the scipy solver needs it
+    halfspaces = np.zeros((m + o, n + 1), dtype = float)
+    halfspaces[:m, :n] = A_ub
+    halfspaces[:m, n:] = -b_ub
+    halfspaces[m:, :] = arr
+
+    # Find a feasible point that is MOST inside the halfspace
+    norm_vector = np.reshape(np.linalg.norm(halfspaces[:, :-1], axis=1), (halfspaces.shape[0], 1))
+    c = np.zeros((halfspaces.shape[1],), dtype = float)
+    c[-1] = -1
+    A = np.hstack((halfspaces[:, :-1], norm_vector))
+    b = - halfspaces[:, -1:]
+    
+    L = linprog(c, A, b, bounds = (-1,1))
+    
+    #If L.status == 0, it means the linear programming proceeded as normal, so there is shrinkage that can occur in the interval
+    if L.status == 0:
+        feasible_point = L.x[:-1]
+    else: 
+        #If L.status is not 0, then there is no feasible point, meaning the entire interval can be thrown out
+        return 1, None
+
+    #If the last entry in the feasible point is negative, it also means there was not a suitable feasible point,
+    #so the entire interval can be throw out
+    if L.x[-1] < 0:
+        return 1, None
+      
+    #Try solving the halfspace problem
+    try:
+        intersects = HalfspaceIntersection(halfspaces, feasible_point).intersections
+    except:
+        #If the halfspaces failed, it means the coefficnets were really tiny.
+        #In this case it also means that we want to keep the entire interval because there is a root in this interval
+        return 2, np.vstack([np.ones(n),-np.ones(n)])
+
+    #If the problem can be solved, it means the interval was shrunk, so return the intersections
+    return 3, intersects
+
+
 def BoundingIntervalLinearSystem(Ms, errors):
     """Finds a smaller region in which any root must be.
 
@@ -393,6 +454,7 @@ def BoundingIntervalLinearSystem(Ms, errors):
     changed : bool
         Whether the interval has shrunk at all
     """
+    
     #Get the matrix of the linear terms
     A = np.array([getLinearTerms(M) for M in Ms])
     #Get the Vector of the constant terms
@@ -401,27 +463,56 @@ def BoundingIntervalLinearSystem(Ms, errors):
     #TODO: We could have catastrophic cancelation on this subtraction. Add sum(abs(M))/2**52 to err for safety?
     linear_sums = np.sum(np.abs(A),axis=1)
     err = np.array([np.sum(np.abs(M))-abs(c)-l+e for M,e,c,l in zip(Ms,errors,consts,linear_sums)])
-    #Solve for the extrema
-    #We use the matrix inverse to find the width, so might as well use it both spots. Should be fine as dim is small.
-    try:
-        Ainv = np.linalg.inv(A)
-    except np.linalg.LinAlgError as e: #If it's not invertible we can't zoom in
-        if len(A) == 1:
-            return np.array([[-1.0,1.0]]), False
-        else:
-            return np.vstack([[-1.0]*len(A),[1.0]*len(A)]), False
-    center = -Ainv@consts
+
+    dim = A.shape[0]
+    
+    if dim == 1 or dim == 2 or dim == 3 or dim == 4:
+        #Erik's method for shrinking the interval
+        #Solve for the extrema
+        #We use the matrix inverse to find the width, so might as well use it both spots. Should be fine as dim is small.
+        try:
+            Ainv = np.linalg.inv(A)
+        except np.linalg.LinAlgError as e: #If it's not invertible we can't zoom in
+            if len(A) == 1:
+                return np.array([[-1.0,1.0]]), False
+            else:
+                return np.vstack([[-1.0]*len(A),[1.0]*len(A)]).T, False
+        center = -Ainv@consts
         
-    #Ainv transforms the hyperrectangle of side lengths err into a parallelogram with these as the principal direction
-    #So summing over them gets the farthest the parallelogram can reach in each dimension.
-    width = np.sum(np.abs(Ainv*err),axis=1)
-    a = center - width
-    b = center + width
-    #Bound at [-1,1]. TODO: Kate has a good way to bound this even more.
-    a[a < -1] = -1.0
-    b[b > 1] = 1.0
-    changed = np.any(a > -1) or np.any(b < 1)
-    return np.vstack([a,b]).T, changed
+        #Ainv transforms the hyperrectangle of side lengths err into a parallelogram with these as the principal direction
+        #So summing over them gets the farthest the parallelogram can reach in each dimension.
+        width = np.sum(np.abs(Ainv*err),axis=1)
+        a = center - width
+        b = center + width
+        #Bound at [-1,1]. TODO: Kate has a good way to bound this even more.
+        a[a < -1] = -1.0
+        b[b > 1] = 1.0
+
+        changed = np.any(a > -1) or np.any(b < 1)
+        return np.vstack([a,b]).T, changed
+
+    ##NEW CODE## I will document this much better, but wanted to get it pushed before finals/I leave town.
+    #Define the A_ub and b_ub matrices in the correct form to feed into the linear programming problem.
+    A_ub = np.vstack([A, -A])
+    b_ub = np.hstack([err - consts, consts + err]).T.reshape(-1, 1)
+
+    # Use the find_vertices function to return the vertices of the intersection of halfspaces
+    tell, P = find_vertices(A_ub, b_ub)
+    if tell == 1:
+        #No feasible Point, throw out the entire interval
+        return np.vstack([[1.0]*len(A),[-1.0]*len(A)]).T, True
+    elif tell == 2:
+        #No shrinkage possible, keep the entire interval
+        return np.vstack([[-1.0]*len(A),[1.0]*len(A)]).T, False
+    else:
+        #Return the reduced interval
+        a = P.min(axis=0)
+        b = P.max(axis=0)     
+
+        changed = np.any(a > -1) or np.any(b < 1)
+        return np.vstack([a,b]).T, changed
+        
+        
 
 @njit
 def isValidSpot(i,j):
