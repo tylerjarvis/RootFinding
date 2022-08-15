@@ -17,4 +17,4 @@ matplotlib==2.2.2
 pytest==5.4.1
 pytest-cov==2.7.1
 pytest-runner==2.11.1
-codecov==2.0.15
+codecov==2.0.16
