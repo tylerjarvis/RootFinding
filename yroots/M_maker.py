@@ -29,14 +29,8 @@ class M_maker:
         the degree of the approximation
         values_block: ndarray
         the evaluation of the approximating polynomial at the chebyshev critical points in the region
-        M: ndarray
-        Chebyshev approximation
-        M2: ndarray
-        Chebyshev approximation of double degree
         err: float
         the error on the approximation
-        inf_norm: float
-        the sup norm on the approximation
 
         Parameters
         ----------
@@ -48,6 +42,8 @@ class M_maker:
         the upper bounds on the region
         guess_deg: int
         the user's guess on the degree of approximation
+        rescale: bool
+        whether to rescale by self.inf_norm or not
         rel_approx_tol: float
         relative approximation tolerance
         abs_approx_tol: float
@@ -83,6 +79,26 @@ class M_maker:
 
         self.find_good_approx(f,guess_deg,dim,a,b)        
         self.M_rescaled = self.M / self.inf_norm
+        self.values_block = list(self.memo_dict.values())[-2]
+
+    def get_err(self,M,M2):
+        """
+        Calculates the error of the approximation
+
+        Parameters
+        ----------
+        M: array
+        The coefficient tensor
+        M2: array
+        The coefficient tensor for a double degree approximation
+
+        Returns
+        -------
+        (float) the error
+        """
+        coeff2 = M2.copy()
+        coeff2[slice_top(M.shape)] -= M
+        return np.sum(np.abs(coeff2))
 
     def error_test(self,error,abs_approx_tol,rel_approx_tol,inf_norm): 
         """
@@ -99,7 +115,7 @@ class M_maker:
 
         Returns
         -------
-        Bool: if the error test has been passed or not
+        (bool) if the error test has been passed or not
         """
         return error < abs_approx_tol+rel_approx_tol*inf_norm
 
@@ -119,30 +135,35 @@ class M_maker:
         The lower bound on the interval.
         b : numpy array
         The upper bound on the interval.
+
+        Returns
+        -------
+        deg: the correct approximation degree
         """
         self.M, self.inf_norm = self.interval_approximate_nd(f, a, b, deg, return_inf_norm=True)
         self.M2 = self.interval_approximate_nd(f,a,b,deg*2)
-        coeff2 = self.M2
-        coeff2[slice_top(self.M.shape)] -= self.M
-        self.err = np.sum(np.abs(coeff2))
+        self.err = self.get_err(self.M,self.M2)
 
         if deg >= self.max_deg[dim]:
             deg = self.max_deg[dim]
 
-        while deg < self.max_deg[dim]: #maybe save double_deg as you go through this loop
+        while deg < self.max_deg[dim]:
             if self.error_test(self.err,self.abs_approx_tol,self.rel_approx_tol,self.inf_norm):
                 break
             elif 2*deg > self.max_deg[dim]:
                 deg = self.max_deg[dim]
+
+                self.M, self.inf_norm = self.interval_approximate_nd(f, a, b, deg, return_inf_norm=True)
+                self.M2 = self.interval_approximate_nd(f,a,b,deg*2)
+                self.err = self.get_err(self.M,self.M2)
+                
                 break
             else:
                 deg = 2*deg
 
                 self.M, self.inf_norm = self.interval_approximate_nd(f, a, b, deg, return_inf_norm=True)
                 self.M2 = self.interval_approximate_nd(f,a,b,deg*2)
-                coeff2 = self.M2
-                coeff2[slice_top(self.M.shape)] -= self.M
-                self.err = np.sum(np.abs(coeff2))
+                self.err = self.get_err(self.M,self.M2)
 
         self.deg = deg
 
