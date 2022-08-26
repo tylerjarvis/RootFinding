@@ -31,6 +31,14 @@ class M_maker:
         the evaluation of the approximating polynomial at the chebyshev critical points in the region
         err: float
         the error on the approximation
+        M: array
+        the coefficient tensor
+        M2: array
+        the coefficient tensor of double degree
+        M_rescaled: array 
+        the coeffficient tensor divided by inf_norm
+        inf_norm: float
+        the max of the absolute values of the coefficients
 
         Parameters
         ----------
