@@ -63,8 +63,8 @@ class M_maker:
         find_good_deg: uses error_test by doubling up to a good deg until error_test is passed
         interval_approximate_nd: calculates the chebyshev coefficients
         chebyshev_block_copy: preparatory step to Fast Fourier Transform, so as to save time complexity in getting the chebyshev coeffs
-        block_copy_slicers: WRITE SOMETHING
-        interval_approx_slicers: WRITE SOMETHING
+        block_copy_slicers: slicers to make the block copy of the values block
+        interval_approx_slicers: slicers to make the whole approximation
         """
         self.max_deg = {1: 100000, 2:1000, 3:9, 4:9, 5:2, 6:2, 7:2, 8:2, 9:2, 10:2} #need to experiment with this
         
