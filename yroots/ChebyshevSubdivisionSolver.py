@@ -515,7 +515,7 @@ def find_vertices(A_ub, b_ub):
       
     #Try solving the halfspace problem
     try:
-        intersects = HalfspaceIntersection(halfspaces, feasible_point, qhull_options="Qj").intersections
+        intersects = HalfspaceIntersection(halfspaces, feasible_point).intersections
     except:
         #If the halfspaces failed, it means the coefficnets were really tiny.
         #In this case it also means that we want to keep the entire interval because there is a root in this interval
@@ -542,6 +542,8 @@ def BoundingIntervalLinearSystem(Ms, errors):
     changed : bool
         Whether the interval has shrunk at all
     """
+    errorToAdd = 1e-10
+    
     #Get the matrix of the linear terms
     A = np.array([getLinearTerms(M) for M in Ms])
     #Get the Vector of the constant terms
@@ -563,7 +565,7 @@ def BoundingIntervalLinearSystem(Ms, errors):
 
             #Ainv transforms the hyperrectangle of side lengths err into a parallelogram with these as the principal direction
             #So summing over them gets the farthest the parallelogram can reach in each dimension.
-            width = np.sum(np.abs(Ainv*err),axis=1)
+            width = np.sum(np.abs(Ainv*err),axis=1) + errorToAdd
             a = center - width
             b = center + width
             #Bound at [-1,1]. TODO: Kate has a good way to bound this even more.
@@ -588,8 +590,8 @@ def BoundingIntervalLinearSystem(Ms, errors):
         return np.vstack([[-1.0]*len(A),[1.0]*len(A)]).T, False
     else:
         #Return the reduced interval
-        a = P.min(axis=0)
-        b = P.max(axis=0)
+        a = P.min(axis=0) - errorToAdd
+        b = P.max(axis=0) + errorToAdd
         a[a < -1.] = -1.0
         b[b > 1.] = 1.0
         changed = np.any(a > -1.) or np.any(b < 1.)
