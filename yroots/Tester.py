@@ -30,9 +30,10 @@ intervals = np.vstack([-np.ones(dim),np.ones(dim)]).T
 errs = np.zeros(dim)
 
 ms = getMs(dim, deg)
+ms = [x*1000 for x in ms]
 
 start = time.time()
-roots = solveChebyshevSubdivision(ms,intervals,errs)
+roots = solveChebyshevSubdivision(ms,errs)
 end = time.time() 
 print(roots)
 print(end - start)
