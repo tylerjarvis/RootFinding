@@ -3,14 +3,14 @@ from scipy import linalg
 from matplotlib import pyplot as plt
 
 
+a_space = np.linspace(0,1,11)
+b_space = np.linspace(-1,1,11)
 
-for a in [10**k for k in range(4)]:
+for a in a_space:
     C_1_cond = []
     C_2_cond = []
     C_3_cond = []
-    mults = [10**-j for j in range(1,4)]
-    betas = [a*(1+mult) for mult in mults]
-    for b in betas:
+    for b in b_space:
 
         C_1 = np.array([[1,b],
                         [0,a]])
@@ -36,9 +36,9 @@ for a in [10**k for k in range(4)]:
         cond3 = sing3[0] / sing3[-1]
         C_3_cond.append(cond3)
 
-    plt.scatter(betas,C_1_cond,label="C1 (2x2")
-    plt.scatter(betas,C_2_cond,label="C2 (3x3)")
-    plt.scatter(betas,C_3_cond,label="C3 (4x4")
+    plt.scatter(b_space,C_1_cond,label="C1 (2x2)")
+    plt.scatter(b_space,C_2_cond,label="C2 (3x3)")
+    plt.scatter(b_space,C_3_cond,label="C3 (4x4)")
     #plt.set_yscale("log")
     plt.title("a={}".format(a))
     plt.legend()

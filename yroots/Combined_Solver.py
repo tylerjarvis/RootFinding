@@ -1,3 +1,4 @@
+from multiprocessing.sharedctypes import Value
 from operator import is_
 import numpy as np
 from yroots import ChebyshevSubdivisionSolver, M_maker
@@ -36,11 +37,14 @@ def solver(funcs,a,b,guess_degs,rescale=False,rel_approx_tol=1.e-15, abs_approx_
     #maybe the SHOULD know what degree to input
     #handle for when the input deg is too high
     #handle for when there is no input deg
-
-
-
+    if len(a) != len(b):
+        raise ValueError("Dimension mismatch in intervals.")
+    
+    if (b>=a).any():
+        raise ValueError("At least one lower bound is >= an upper bound.")
+    
     is_neg1_1 = True
-    arr_neg1 = np.array([-1]*len(a))
+    arr_neg1 = np.array([-1]*len(a)) #what if a>b
     arr_1 = np.ones(len(a))
 
     if arr_neg1 == a and arr_1 == b:
@@ -67,19 +71,18 @@ def solver(funcs,a,b,guess_degs,rescale=False,rel_approx_tol=1.e-15, abs_approx_
 
     for idx in non_MultiCheb_idxs:
         approx = M_maker.M_maker(funcs[idx],arr_neg1,arr_1,guess_degs[idx],rel_approx_tol,abs_approx_tol)
-        if rescale: #rescale option
-            funcs[idx] = approx.M_rescaled
+        if rescale:
+            funcs[idx] = MultiCheb(approx.M_rescaled)
         else:
-            funcs[idx] = approx.M
+            funcs[idx] = MultiCheb(approx.M)
         errs[idx] = approx.err
 
     for idx in MultiCheb_idxs:
         approx = M_maker.M_maker(funcs[idx],arr_neg1,arr_1,guess_degs[idx],rel_approx_tol,abs_approx_tol)
         if rescale:
-            funcs[idx] = approx.M_rescaled
+            funcs[idx] = MultiCheb(approx.M_rescaled)
         else:
-            funcs[idx] = approx.M
-        errs[idx] = 0
+            funcs[idx] = MultiCheb(approx.M)
 
     funcs = list(funcs)
     yroots = np.array(ChebyshevSubdivisionSolver.solveChebyshevSubdivision(funcs,errs))

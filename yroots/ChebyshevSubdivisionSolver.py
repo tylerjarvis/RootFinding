@@ -35,7 +35,7 @@ def TransformChebInPlace1D(coeffs, alpha, beta):
     arr2[0] = beta
     arr2[1] = alpha
     transformedCoeffs[0] += beta * coeffs[1]
-    transformedCoeffs[1] += alpha *coeffs[1]
+    transformedCoeffs[1] += alpha * coeffs[1]
     #Loop
     maxRow = 2
     for col in range(2, len(coeffs)):
