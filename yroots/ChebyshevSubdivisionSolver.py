@@ -562,15 +562,13 @@ def BoundingIntervalLinearSystem(Ms, errors):
     A = np.array([getLinearTerms(M) for M in Ms])
     #Get the Vector of the constant terms
     consts = np.array([M.ravel()[0] for M in Ms])
-    #Get the Error of everything else combined.
-    #TODO: We could have catastrophic cancelation on this subtraction. Add sum(abs(M))/2**52 to err for safety?
-    totalErrs = np.array([np.sum(np.abs(M)) + e for M,e in zip(Ms, errors)])
-
-    #Use the other interval shrinking method
-    a, b = linearCheck1(totalErrs, A, consts)
-#     changed = np.any(a > -1.) or np.any(b < 1.)
-    #Check if worth trying linear
-    if True and (np.any(a > -1.) or np.any(b < 1.)): #TODO: Only if changed?
+    dim = A.shape[0]
+    if dim <= 4:
+        #Get the Error of everything else combined.
+        totalErrs = np.array([np.sum(np.abs(M)) + e for M,e in zip(Ms, errors)])
+        #Use the other interval shrinking method
+        a, b = linearCheck1(totalErrs, A, consts)
+        #Now do the linear solve check
         linear_sums = np.sum(np.abs(A),axis=1)
         err = np.array([tE-abs(c)-l for tE,c,l in zip(totalErrs,consts,linear_sums)])    
         #Erik's method for shrinking the interval
@@ -586,25 +584,8 @@ def BoundingIntervalLinearSystem(Ms, errors):
             #Bound with previous result
             a = np.maximum(center - width, a)
             b = np.minimum(center + width, b)
-    changed = np.any(a > -1.) or np.any(b < 1.)
-    return np.vstack([a,b]).T, changed
-
-    #Use the other interval shrinking method
-    a = -np.ones(dim)
-    b = np.ones(dim)
-    for row in range(dim):
-        for col in range(dim):
-            if A[row,col] != 0:
-                v1 = totalErrs[row] / abs(A[row,col]) - 1
-                v2 = 2 * consts[row] / A[row,col]
-                if v2 >= 0:
-                    a_, b_ = -v1, v1-v2
-                else:
-                    a_, b_ = -v2-v1, v1
-                a[col] = max(a[col], a_)
-                b[col] = min(b[col], b_)
-    changed = np.any(a > -1.) or np.any(b < 1.)
-    return np.vstack([a,b]).T, changed
+        changed = np.any(a > -1.) or np.any(b < 1.)
+        return np.vstack([a,b]).T, changed
         
     ##NEW CODE## I will document this much better, but wanted to get it pushed before finals/I leave town.
     #Define the A_ub and b_ub matrices in the correct form to feed into the linear programming problem.
@@ -1122,7 +1103,6 @@ def solvePolyRecursive(Ms, trackedInterval, errors, trimErrorRelBound = 1e-16, t
     originalIntervalSize = trackedInterval.size()
     #The choosing when to stop zooming logic is really ugly. Needs more analysis.
     #Keep zooming while it's larger than minIntervalSize.
-#     print("Start Zoom", trackedInterval.interval[:,1] - trackedInterval.interval[:,0])
     while changed and np.max(trackedInterval.interval[:,1] - trackedInterval.interval[:,0]) > minIntervalSize:
         #If we've zoomed more than maxZoomCount1 and haven't shrunk the size by zoomRatioToZip, assume
         #we aren't making progress and subdivide. Once we get to zoomRatioToZip, assume we will just converge
@@ -1136,8 +1116,6 @@ def solvePolyRecursive(Ms, trackedInterval, errors, trimErrorRelBound = 1e-16, t
                 break
         #Zoom in until we stop changing or we hit machine epsilon
         Ms, errors, trackedInterval, changed = zoomInOnIntervalIter(Ms, errors, trackedInterval)
-#         if changed:
-#             print("Zoom Result", trackedInterval.interval[:,1] - trackedInterval.interval[:,0])
         if trackedInterval.empty: #Throw out the interval
             return [], []
         zoomCount += 1
