@@ -1045,7 +1045,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, trimErrorRelBound = 1e-16, t
     consts = np.array([M.ravel()[0] for M in Ms]) 
     err = np.array([np.sum(np.abs(M))-abs(c)+e for M,e,c in zip(Ms,errors,consts)])
     if np.any(np.abs(consts) > err):
-        return []
+        return [], []
 
     #The random numbers used below. TODO: Choose these better
     #Error For Trim trimMs
