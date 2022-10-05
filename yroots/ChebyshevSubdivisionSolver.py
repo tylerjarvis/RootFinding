@@ -1088,6 +1088,15 @@ def solvePolyRecursive(Ms, trackedInterval, errors, trimErrorRelBound = 1e-16, t
 #         printV("Not in Search")
 #         return [],[]
     #TODO: Check if trackedInterval.interval has width 0 in some dimension, in which case we should get rid of that dimension.
+    
+    #Constant term check, runs at the beginning of the solve and before each subdivision
+    #If the absolute value of the constant term for any of the chebyshev polynomials is greater than the sum of the
+    #absoulte values of any of the other terms, it will return that there are no zeros on that interval
+    consts = np.array([M.ravel()[0] for M in Ms]) 
+    err = np.array([np.sum(np.abs(M))-abs(c)+e for M,e,c in zip(Ms,errors,consts)])
+    if np.any(np.abs(consts) > err):
+        return [], []
+
     #The random numbers used below. TODO: Choose these better
     #Error For Trim trimMs
 #     trimErrorAbsBound = 1e-32
