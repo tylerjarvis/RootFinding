@@ -8,6 +8,11 @@ from scipy.optimize import linprog
 from mpmath import mp
 from itertools import permutations, product
 
+VERBOSE = False
+def printV(*args):
+    if VERBOSE:
+        print(*args)
+
 def sortRoots(roots, seed = 12398):
     if len(roots) == 0:
         return roots
@@ -525,6 +530,23 @@ def find_vertices(A_ub, b_ub):
     return 3, intersects
 
 
+def linearCheck1(totalErrs, A, consts):
+    dim = len(A)
+    a = -np.ones(dim)
+    b = np.ones(dim)
+    for row in range(dim):
+        for col in range(dim):
+            if A[row,col] != 0:
+                v1 = totalErrs[row] / abs(A[row,col]) - 1
+                v2 = 2 * consts[row] / A[row,col]
+                if v2 >= 0:
+                    a_, b_ = -v1, v1-v2
+                else:
+                    a_, b_ = -v2-v1, v1
+                a[col] = max(a[col], a_)
+                b[col] = min(b[col], b_)
+    return a, b
+
 def BoundingIntervalLinearSystem(Ms, errors):
     """Finds a smaller region in which any root must be.
 
@@ -550,12 +572,15 @@ def BoundingIntervalLinearSystem(Ms, errors):
     consts = np.array([M.ravel()[0] for M in Ms])
     #Get the Error of everything else combined.
     #TODO: We could have catastrophic cancelation on this subtraction. Add sum(abs(M))/2**52 to err for safety?
-    linear_sums = np.sum(np.abs(A),axis=1)
-    err = np.array([np.sum(np.abs(M))-abs(c)-l+e for M,e,c,l in zip(Ms,errors,consts,linear_sums)])
+    totalErrs = np.array([np.sum(np.abs(M)) + e for M,e in zip(Ms, errors)])
 
-    dim = A.shape[0]
-    
-    if dim <= 4:
+    #Use the other interval shrinking method
+    a, b = linearCheck1(totalErrs, A, consts)
+#     changed = np.any(a > -1.) or np.any(b < 1.)
+    #Check if worth trying linear
+    if True and (np.any(a > -1.) or np.any(b < 1.)): #TODO: Only if changed?
+        linear_sums = np.sum(np.abs(A),axis=1)
+        err = np.array([tE-abs(c)-l for tE,c,l in zip(totalErrs,consts,linear_sums)])    
         #Erik's method for shrinking the interval
         #Solve for the extrema
         #We use the matrix inverse to find the width, so might as well use it both spots. Should be fine as dim is small.
@@ -566,15 +591,30 @@ def BoundingIntervalLinearSystem(Ms, errors):
             #Ainv transforms the hyperrectangle of side lengths err into a parallelogram with these as the principal direction
             #So summing over them gets the farthest the parallelogram can reach in each dimension.
             width = np.sum(np.abs(Ainv*err),axis=1) + errorToAdd
-            a = center - width
-            b = center + width
-            #Bound at [-1,1]. TODO: Kate has a good way to bound this even more.
-            a[a < -1.] = -1.0
-            b[b > 1.] = 1.0
+            #Bound with previous result
+            a = np.maximum(center - width, a)
+            b = np.minimum(center + width, b)
+    changed = np.any(a > -1.) or np.any(b < 1.)
+    return np.vstack([a,b]).T, changed
 
-            changed = np.any(a > -1) or np.any(b < 1)
-            return np.vstack([a,b]).T, changed
-
+    #Use the other interval shrinking method
+    a = -np.ones(dim)
+    b = np.ones(dim)
+    for row in range(dim):
+        for col in range(dim):
+            if A[row,col] != 0:
+                v1 = totalErrs[row] / abs(A[row,col]) - 1
+                v2 = 2 * consts[row] / A[row,col]
+                if v2 >= 0:
+                    a_, b_ = -v1, v1-v2
+                else:
+                    a_, b_ = -v2-v1, v1
+                a[col] = max(a[col], a_)
+                b[col] = min(b[col], b_)
+    changed = np.any(a > -1.) or np.any(b < 1.)
+    return np.vstack([a,b]).T, changed
+        
+    printV("Use Old Code")
     ##NEW CODE## I will document this much better, but wanted to get it pushed before finals/I leave town.
     #Define the A_ub and b_ub matrices in the correct form to feed into the linear programming problem.
     A_ub = np.vstack([A, -A])
@@ -583,9 +623,11 @@ def BoundingIntervalLinearSystem(Ms, errors):
     # Use the find_vertices function to return the vertices of the intersection of halfspaces
     tell, P = find_vertices(A_ub, b_ub)
     if tell == 1:
+        printV("No Feasible")
         #No feasible Point, throw out the entire interval
         return np.vstack([[1.0]*len(A),[-1.0]*len(A)]).T, True
     elif tell == 2:
+        printV("No Shrink")
         #No shrinkage possible, keep the entire interval
         return np.vstack([[-1.0]*len(A),[1.0]*len(A)]).T, False
     else:
@@ -594,6 +636,7 @@ def BoundingIntervalLinearSystem(Ms, errors):
         b = P.max(axis=0) + errorToAdd
         a[a < -1.] = -1.0
         b[b > 1.] = 1.0
+        printV("Zoom to", a, b)
         changed = np.any(a > -1.) or np.any(b < 1.)
         return np.vstack([a,b]).T, changed
         
@@ -1016,7 +1059,7 @@ def shouldStopSubdivision(trackedInterval):
 def isExteriorInterval(originalInterval, trackedInterval):
     return np.any(trackedInterval.interval == originalInterval.interval)
 
-def solvePolyRecursive(Ms, trackedInterval, errors, trimErrorRelBound = 1e-16, trimErrorAbsBound = 1e-16, level = 0):
+def solvePolyRecursive(Ms, trackedInterval, errors, trimErrorRelBound = 1e-16, trimErrorAbsBound = 1e-32, level = 0):
     """Recursively finds regions in which any common roots of functions must be using subdivision
 
     Parameters
@@ -1037,11 +1080,17 @@ def solvePolyRecursive(Ms, trackedInterval, errors, trimErrorRelBound = 1e-16, t
         Each element of the list is an interval in which there may be a root. The interval is on the exterior of the current
         interval
     """
+#     checkSpot = np.array([-5.0534786876784167e-52, -5.5557023301960218e-01])
+#     printV("\nStart", trackedInterval.interval)
+#     if checkSpot in trackedInterval:
+#         pass
+#     else:
+#         printV("Not in Search")
+#         return [],[]
     #TODO: Check if trackedInterval.interval has width 0 in some dimension, in which case we should get rid of that dimension.
-
     #The random numbers used below. TODO: Choose these better
     #Error For Trim trimMs
-#     trimErrorAbsBound = 1e-16
+#     trimErrorAbsBound = 1e-32
 #     trimErrorRelBound = 1e-16
     #How long we are allowed to zoom before giving up
     maxZoomCount1 = 10
@@ -1067,6 +1116,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, trimErrorRelBound = 1e-16, t
     originalIntervalSize = trackedInterval.size()
     #The choosing when to stop zooming logic is really ugly. Needs more analysis.
     #Keep zooming while it's larger than minIntervalSize.
+#     print("Start Zoom", trackedInterval.interval[:,1] - trackedInterval.interval[:,0])
     while changed and np.max(trackedInterval.interval[:,1] - trackedInterval.interval[:,0]) > minIntervalSize:
         #If we've zoomed more than maxZoomCount1 and haven't shrunk the size by zoomRatioToZip, assume
         #we aren't making progress and subdivide. Once we get to zoomRatioToZip, assume we will just converge
@@ -1080,7 +1130,10 @@ def solvePolyRecursive(Ms, trackedInterval, errors, trimErrorRelBound = 1e-16, t
                 break
         #Zoom in until we stop changing or we hit machine epsilon
         Ms, errors, trackedInterval, changed = zoomInOnIntervalIter(Ms, errors, trackedInterval)
+#         if changed:
+#             print("Zoom Result", trackedInterval.interval[:,1] - trackedInterval.interval[:,0])
         if trackedInterval.empty: #Throw out the interval
+            printV("EMPTY")
             return [], []
         zoomCount += 1
     secondaryInterval = trackedInterval.copy() #TODO: USE THIS WHERE NEEDED
@@ -1090,6 +1143,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, trimErrorRelBound = 1e-16, t
         #Or zoom in assuming no error and take the result of that.
             #If that throws it out, tag that root as being a possible root? It isn't a root of the approx but
             #may be a root of the function.
+        printV("BASE CASE")
         if isExteriorInterval(originalInterval, trackedInterval):
             return [], [trackedInterval]
         else:
@@ -1134,7 +1188,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, trimErrorRelBound = 1e-16, t
                     #Update the current subinterval. Use the best transform we can get here, but use the exact combined
                     #interval for tracking
                     combinedInterval.addTransform(currSubinterval)
-                    combinedInterval.interval = np.array([newAs, newBs]).T#.copy().T
+                    combinedInterval.interval = np.array([newAs, newBs]).T
                     combinedInterval.reRun = True
                     del resultExterior[idx2]
                     del resultExterior[idx1]
@@ -1188,7 +1242,7 @@ def solveChebyshevSubdivision(Ms, errors, returnBoundingBoxes = False, polish = 
     """
     #Solve
     originalInterval = TrackedInterval(np.array([[-1.,1.]]*Ms[0].ndim))
-    b1, b2 = solvePolyRecursive(Ms, originalInterval, errors, 1e-16, 1e-16)
+    b1, b2 = solvePolyRecursive(Ms, originalInterval, errors)
     boundingIntervals = b1 + b2
         
     #Polish. Testing seems to show no benefit for this. If anything makes it worse.
@@ -1199,7 +1253,7 @@ def solveChebyshevSubdivision(Ms, errors, returnBoundingBoxes = False, polish = 
             newInterval = interval.copy()
             newInterval.interval = finalInterval
             tempMs, tempErrors = transformChebToInterval(Ms, interval.finalAlpha, interval.finalBeta, errors)
-            b1, b2 = solvePolyRecursive(tempMs, newInterval, tempErrors, 1e-16, 1e-16)
+            b1, b2 = solvePolyRecursive(tempMs, newInterval, tempErrors)
             newIntervals += b1 + b2
         boundingIntervals = newIntervals
 
