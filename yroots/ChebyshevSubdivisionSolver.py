@@ -563,27 +563,30 @@ def BoundingIntervalLinearSystem(Ms, errors):
     #Get the Vector of the constant terms
     consts = np.array([M.ravel()[0] for M in Ms])
     dim = A.shape[0]
+    #Get the Error of everything else combined.
+    totalErrs = np.array([np.sum(np.abs(M)) + e for M,e in zip(Ms, errors)])
+    linear_sums = np.sum(np.abs(A),axis=1)
+    err = np.array([tE-abs(c)-l for tE,c,l in zip(totalErrs,consts,linear_sums)])    
     if dim <= 4:
-        #Get the Error of everything else combined.
-        totalErrs = np.array([np.sum(np.abs(M)) + e for M,e in zip(Ms, errors)])
         #Use the other interval shrinking method
         a, b = linearCheck1(totalErrs, A, consts)
         #Now do the linear solve check
-        linear_sums = np.sum(np.abs(A),axis=1)
-        err = np.array([tE-abs(c)-l for tE,c,l in zip(totalErrs,consts,linear_sums)])    
-        #Erik's method for shrinking the interval
-        #Solve for the extrema
         #We use the matrix inverse to find the width, so might as well use it both spots. Should be fine as dim is small.
-        if np.linalg.cond(A) < 1e10:
+        if np.linalg.cond(A) < 1e10: #Make sure conditioning is ok.
             Ainv = np.linalg.inv(A)
             center = -Ainv@consts
 
             #Ainv transforms the hyperrectangle of side lengths err into a parallelogram with these as the principal direction
             #So summing over them gets the farthest the parallelogram can reach in each dimension.
-            width = np.sum(np.abs(Ainv*err),axis=1) + errorToAdd
+            width = np.sum(np.abs(Ainv*err),axis=1)
             #Bound with previous result
             a = np.maximum(center - width, a)
             b = np.minimum(center + width, b)
+        #Add error and bound
+        a -= errorToAdd
+        b += errorToAdd
+        a[a < -1] = -1
+        b[b > 1] = 1
         changed = np.any(a > -1.) or np.any(b < 1.)
         return np.vstack([a,b]).T, changed
         
