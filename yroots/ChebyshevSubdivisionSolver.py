@@ -1,5 +1,6 @@
 import numpy as np
-from numba import njit
+from numba import njit, float64
+from numba.types import UniTuple
 from itertools import product
 from scipy.spatial import HalfspaceIntersection
 from scipy.optimize import linprog
@@ -7,11 +8,6 @@ from scipy.optimize import linprog
 #Code for testing. TODO: Set up unit tests and add this to it!
 from mpmath import mp
 from itertools import permutations, product
-
-VERBOSE = False
-def printV(*args):
-    if VERBOSE:
-        print(*args)
 
 def sortRoots(roots, seed = 12398):
     if len(roots) == 0:
@@ -179,12 +175,9 @@ def TransformChebInPlace1DErrorFree(coeffs, alpha, beta):
     -------
     coeffs : numpy array
         The new coefficient array following the transformation
-    """    
-    if alpha == 0.5:
-        if beta == 0.5:
-            return TransformChebInPlace1DErrorFreeSplit(coeffs, True)
-        elif beta == -0.5:
-            return TransformChebInPlace1DErrorFreeSplit(coeffs, False)
+    """
+    if alpha == 0.5 and abs(beta) == 0.5:
+        return TransformChebInPlace1DErrorFreeSplit(coeffs, np.sign(beta))
     transformedCoeffs = np.zeros_like(coeffs)
     arr1 = np.zeros(len(coeffs))
     arr2 = np.zeros(len(coeffs))
@@ -277,11 +270,9 @@ def TransformChebInPlace1DErrorFree(coeffs, alpha, beta):
     return transformedCoeffs[:maxRow]
 
 @njit
-def TransformChebInPlace1DErrorFreeSplit(coeffs, positiveBeta):
+def TransformChebInPlace1DErrorFreeSplit(coeffs, betaSign):
     #alpha = 0.5
-    #beta = 0.5 if positiveBeta else -0.5
-    
-    betaSign = 1 if positiveBeta else -1
+    #beta = 0.5 if betaSign == 1 else -0.5 (betaSign must be -1)
     transformedCoeffs = np.zeros_like(coeffs)
     arr1 = np.zeros(len(coeffs))
     arr2 = np.zeros(len(coeffs))
@@ -410,19 +401,20 @@ class TrackedInterval:
     def getFinalInterval(self):
         #Use the transformations and the topInterval
         #TODO: Make this a seperate function so it can use njit.
+        #Make these _NoNumba calls use floats so they call call the numba functions without a seperate compile
         finalInterval = self.topInterval.T
         finalIntervalError = np.zeros_like(finalInterval)
         for alpha,beta in self.transforms[::-1]:
-            finalInterval, temp = TwoProd(finalInterval, alpha)
+            finalInterval, temp = TwoProd_NoNumba(finalInterval, alpha)
             finalIntervalError = alpha * finalIntervalError + temp
-            finalInterval, temp = TwoSum(finalInterval,beta)
+            finalInterval, temp = TwoSum_NoNumba(finalInterval,beta)
             finalIntervalError += temp
         finalInterval = finalInterval.T
         finalIntervalError = finalIntervalError.T
         self.finalInterval = finalInterval + finalIntervalError
-        self.finalAlpha, alphaError = TwoSum(-finalInterval[:,0]/2,finalInterval[:,1]/2)
+        self.finalAlpha, alphaError = TwoSum_NoNumba(-finalInterval[:,0]/2,finalInterval[:,1]/2)
         self.finalAlpha += alphaError + (finalIntervalError[:,1] - finalIntervalError[:,0])/2
-        self.finalBeta, betaError = TwoSum(finalInterval[:,0]/2,finalInterval[:,1]/2)
+        self.finalBeta, betaError = TwoSum_NoNumba(finalInterval[:,0]/2,finalInterval[:,1]/2)
         self.finalBeta += betaError + (finalIntervalError[:,1] + finalIntervalError[:,0])/2
         return self.finalInterval
     
@@ -614,7 +606,6 @@ def BoundingIntervalLinearSystem(Ms, errors):
     changed = np.any(a > -1.) or np.any(b < 1.)
     return np.vstack([a,b]).T, changed
         
-    printV("Use Old Code")
     ##NEW CODE## I will document this much better, but wanted to get it pushed before finals/I leave town.
     #Define the A_ub and b_ub matrices in the correct form to feed into the linear programming problem.
     A_ub = np.vstack([A, -A])
@@ -623,11 +614,9 @@ def BoundingIntervalLinearSystem(Ms, errors):
     # Use the find_vertices function to return the vertices of the intersection of halfspaces
     tell, P = find_vertices(A_ub, b_ub)
     if tell == 1:
-        printV("No Feasible")
         #No feasible Point, throw out the entire interval
         return np.vstack([[1.0]*len(A),[-1.0]*len(A)]).T, True
     elif tell == 2:
-        printV("No Shrink")
         #No shrinkage possible, keep the entire interval
         return np.vstack([[-1.0]*len(A),[1.0]*len(A)]).T, False
     else:
@@ -636,7 +625,6 @@ def BoundingIntervalLinearSystem(Ms, errors):
         b = P.max(axis=0) + errorToAdd
         a[a < -1.] = -1.0
         b[b > 1.] = 1.0
-        printV("Zoom to", a, b)
         changed = np.any(a > -1.) or np.any(b < 1.)
         return np.vstack([a,b]).T, changed
         
@@ -723,29 +711,45 @@ def makeMatrix(n,a,b,subMatrix=None):
 #                 break
     return M[:maxRow+1]
 
-@njit
+@njit(UniTuple(float64,2)(float64, float64))
 def TwoSum(a,b):
     x = a+b
     z = x-a
     y = (a-(x-z)) + (b-z)
     return x,y
+def TwoSum_NoNumba(a,b):
+    x = a+b
+    z = x-a
+    y = (a-(x-z)) + (b-z)
+    return x,y
 
-@njit
+@njit(UniTuple(float64,2)(float64))
 def Split(a):
     c = (2**27 + 1) * a
     x = c-(c-a)
     y = a-x
     return x,y
+def Split_NoNumba(a):
+    c = (2**27 + 1) * a
+    x = c-(c-a)
+    y = a-x
+    return x,y
 
-@njit
+@njit(UniTuple(float64,2)(float64, float64))
 def TwoProd(a,b):
     x = a*b
     a1,a2 = Split(a)
     b1,b2 = Split(b)
     y=a2*b2-(((x-a1*b1)-a2*b1)-a1*b2)
     return x,y
+def TwoProd_NoNumba(a,b):
+    x = a*b
+    a1,a2 = Split_NoNumba(a)
+    b1,b2 = Split_NoNumba(b)
+    y=a2*b2-(((x-a1*b1)-a2*b1)-a1*b2)
+    return x,y
 
-@njit
+@njit(UniTuple(float64,2)(float64, float64, float64, float64))
 def TwoProdWithSplit(a,b,a1,a2):
     x = a*b
     b1,b2 = Split(b)
@@ -1080,13 +1084,6 @@ def solvePolyRecursive(Ms, trackedInterval, errors, trimErrorRelBound = 1e-16, t
         Each element of the list is an interval in which there may be a root. The interval is on the exterior of the current
         interval
     """
-#     checkSpot = np.array([-5.0534786876784167e-52, -5.5557023301960218e-01])
-#     printV("\nStart", trackedInterval.interval)
-#     if checkSpot in trackedInterval:
-#         pass
-#     else:
-#         printV("Not in Search")
-#         return [],[]
     #TODO: Check if trackedInterval.interval has width 0 in some dimension, in which case we should get rid of that dimension.
     
     #Constant term check, runs at the beginning of the solve and before each subdivision
@@ -1142,7 +1139,6 @@ def solvePolyRecursive(Ms, trackedInterval, errors, trimErrorRelBound = 1e-16, t
 #         if changed:
 #             print("Zoom Result", trackedInterval.interval[:,1] - trackedInterval.interval[:,0])
         if trackedInterval.empty: #Throw out the interval
-            printV("EMPTY")
             return [], []
         zoomCount += 1
     secondaryInterval = trackedInterval.copy() #TODO: USE THIS WHERE NEEDED
@@ -1152,7 +1148,6 @@ def solvePolyRecursive(Ms, trackedInterval, errors, trimErrorRelBound = 1e-16, t
         #Or zoom in assuming no error and take the result of that.
             #If that throws it out, tag that root as being a possible root? It isn't a root of the approx but
             #may be a root of the function.
-        printV("BASE CASE")
         if isExteriorInterval(originalInterval, trackedInterval):
             return [], [trackedInterval]
         else:
