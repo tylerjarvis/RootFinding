@@ -116,7 +116,7 @@ def TransformChebInPlace1D(coeffs, alpha, beta):
     arr2[0] = beta
     arr2[1] = alpha
     transformedCoeffs[0] += beta * coeffs[1]
-    transformedCoeffs[1] += alpha *coeffs[1]
+    transformedCoeffs[1] += alpha * coeffs[1]
     #Loop
     maxRow = 2
     for col in range(2, len(coeffs)):
@@ -988,6 +988,7 @@ def trimMs(Ms, errors, absErrorIncrease, relErrorIncrease):
     """
     dim = Ms[0].ndim
     for polyNum in range(len(Ms)): #Loop through the polynomials
+        print(errors) #DELETE THIS LINE
         allowedErrorIncrease = max(relErrorIncrease * errors[polyNum], absErrorIncrease)
         totalSum = np.sum(np.abs(Ms[polyNum]))
         #Use these to look at a slice of the highest degree in the dimension we want to trim
