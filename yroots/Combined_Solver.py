@@ -1,9 +1,7 @@
-from multiprocessing.sharedctypes import Value
-from operator import is_
 import numpy as np
-from yroots import ChebyshevSubdivisionSolver, M_maker
+import ChebyshevSubdivisionSolver, M_maker
 from utils import transform
-from yroots.polynomial import MultiCheb
+from polynomial import MultiCheb
 
 def solver(funcs,a,b,guess_degs,rescale=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12):
     """
@@ -47,14 +45,14 @@ def solver(funcs,a,b,guess_degs,rescale=False,rel_approx_tol=1.e-15, abs_approx_
     arr_neg1 = np.array([-1]*len(a)) #what if a>b
     arr_1 = np.ones(len(a))
 
-    if arr_neg1 == a and arr_1 == b:
+    if np.allclose(arr_neg1,a,rtol=1e-08) and np.allclose(arr_1,b,rtol=1e-08):
         pass
     else:
         is_neg1_1 = False
     
     is_multi_cheb_arr = []
 
-    for func in func: #USE
+    for func in funcs: #USE
         if isinstance(func,MultiCheb):
             is_multi_cheb_arr.append(True)
             pass
@@ -84,10 +82,11 @@ def solver(funcs,a,b,guess_degs,rescale=False,rel_approx_tol=1.e-15, abs_approx_
         else:
             funcs[idx] = MultiCheb(approx.M)
 
-    funcs = list(funcs)
+    funcs = [func.coeff for func in funcs]
     yroots = np.array(ChebyshevSubdivisionSolver.solveChebyshevSubdivision(funcs,errs))
 
-    if is_neg1_1 == False:
+    #transform doesn't work on empty arrays
+    if is_neg1_1 == False and len(yroots) > 0:
         yroots = transform(yroots,a,b)
 
     return yroots
