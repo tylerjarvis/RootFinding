@@ -4,84 +4,84 @@ from itertools import product
 from scipy.spatial import HalfspaceIntersection
 from scipy.optimize import linprog
 
-#Code for testing. TODO: Set up unit tests and add this to it!
-# from mpmath import mp
-# from itertools import permutations, product
+# Code for testing. TODO: Set up unit tests and add this to it!
+from mpmath import mp
+from itertools import permutations, product
 
-# def sortRoots(roots, seed = 12398):
-#     if len(roots) == 0:
-#         return roots
-#     np.random.seed(seed)
-#     dim = roots.shape[1]
-#     r = np.array(np.random.rand(dim))
-#     order = np.argsort(roots@r)
-#     return roots[order]
+def sortRoots(roots, seed = 12398):
+    if len(roots) == 0:
+        return roots
+    np.random.seed(seed)
+    dim = roots.shape[1]
+    r = np.array(np.random.rand(dim))
+    order = np.argsort(roots@r)
+    return roots[order]
 
-# def runSystem(degList):
-#     #Each row of degList is the degrees of 1 polynomial
-#     degList = np.array(degList)
-#     dim = len(degList)
-#     #Get the actual roots
-#     mp.dps = 50
-#     actualRoots = []
-#     for i in permutations(range(dim)):
-#         currDegs = np.array([degList[i[j],j] for j in range(dim)])
-#         currRootList = []
-#         for deg in currDegs:
-#             d = int(deg)
-#             theseRoots = [float(mp.cos(mp.pi*(mp.mpf(num)+0.5)/mp.mpf(d))) for num in mp.arange(d)]
-#             currRootList.append(np.array(theseRoots))
-#         for root in product(*currRootList):
-#             actualRoots.append(np.array(root))
-#     actualRoots = sortRoots(np.array(actualRoots))
-#     #Construct the problem
-#     Ms = []
-#     for degs in degList:
-#         M = np.zeros(degs+1)
-#         M[tuple(degs)] = 1.0
-#         Ms.append(M)
-#     errors = np.zeros(dim)
-#     #Solve
-#     foundRoots = solveChebyshevSubdivision(Ms, errors)
-#     return sortRoots(np.array(foundRoots)), actualRoots
+def runSystem(degList):
+    #Each row of degList is the degrees of 1 polynomial
+    degList = np.array(degList)
+    dim = len(degList)
+    #Get the actual roots
+    mp.dps = 50
+    actualRoots = []
+    for i in permutations(range(dim)):
+        currDegs = np.array([degList[i[j],j] for j in range(dim)])
+        currRootList = []
+        for deg in currDegs:
+            d = int(deg)
+            theseRoots = [float(mp.cos(mp.pi*(mp.mpf(num)+0.5)/mp.mpf(d))) for num in mp.arange(d)]
+            currRootList.append(np.array(theseRoots))
+        for root in product(*currRootList):
+            actualRoots.append(np.array(root))
+    actualRoots = sortRoots(np.array(actualRoots))
+    #Construct the problem
+    Ms = []
+    for degs in degList:
+        M = np.zeros(degs+1)
+        M[tuple(degs)] = 1.0
+        Ms.append(M)
+    errors = np.zeros(dim)
+    #Solve
+    foundRoots = solveChebyshevSubdivision(Ms, errors)
+    return sortRoots(np.array(foundRoots)), actualRoots
 
-# def isGoodSystem(degList):
-#     zeros = [[float(mp.cos(mp.pi*(num+0.5)/d)) for num in mp.arange(d)] for d in degList]
-#     zeros = np.sort(np.hstack(zeros).ravel())
-#     return len(zeros) <= 1 or np.min(np.diff(zeros)) > 1e-12
+def isGoodSystem(degList):
+    zeros = [[float(mp.cos(mp.pi*(num+0.5)/d)) for num in mp.arange(d)] for d in degList]
+    zeros = np.sort(np.hstack(zeros).ravel())
+    return len(zeros) <= 1 or np.min(np.diff(zeros)) > 1e-12
 
-# def getTestSystems(dim, maxDeg):
-#     systems = []
-#     for degrees in product(range(1, maxDeg+1), repeat=dim):
-#         if isGoodSystem(degrees):
-#             systems.append(degrees)
-#     return systems
+def getTestSystems(dim, maxDeg):
+    systems = []
+    for degrees in product(range(1, maxDeg+1), repeat=dim):
+        if isGoodSystem(degrees):
+            systems.append(degrees)
+    return systems
 
-# def runChebMonomialsTests(dims, maxDegs, verboseLevel = 0, returnErrors = False):
-#     allErrors = []
-#     for dim, maxDeg in zip(dims, maxDegs):
-#         currErrors = []
-#         if verboseLevel > 0:
-#             print(f"Running Cheb Monomial Test Dimension: {dim}, Max Degree: {maxDeg}")
-#         testSytems = getTestSystems(dim, maxDeg)
-#         numTests = len(testSytems)**dim
-#         count = 0
-#         for degrees in product(testSytems, repeat = dim):
-#             count += 1
-#             polyDegs = np.array(degrees).T
-#             if verboseLevel > 1:
-#                 print(f"Running Cheb Monomial Test {count}/{numTests} Degrees: {polyDegs}")
-#             errorString = "Test on degrees: " + str(polyDegs)
-#             foundRoots, actualRoots = runSystem(polyDegs)
-#             assert(len(foundRoots) == len(actualRoots)), "Wrong Number of Roots! " + errorString
-#             maxError = np.max(np.abs(foundRoots - actualRoots))
-#             if returnErrors:
-#                 currErrors.append(np.linalg.norm(foundRoots - actualRoots, axis=1))
-#             assert(maxError < 1e-15), "Error Too Large! " + errorString
-#         if returnErrors:
-#             allErrors.append(np.hstack(currErrors))
-#     if returnErrors:
-#         return allErrors
+def runChebMonomialsTests(dims, maxDegs, verboseLevel = 0, returnErrors = False):
+    allErrors = []
+    for dim, maxDeg in zip(dims, maxDegs):
+        currErrors = []
+        if verboseLevel > 0:
+            print(f"Running Cheb Monomial Test Dimension: {dim}, Max Degree: {maxDeg}")
+        testSytems = getTestSystems(dim, maxDeg)
+        numTests = len(testSytems)**dim
+        count = 0
+        for degrees in product(testSytems, repeat = dim):
+            count += 1
+            polyDegs = np.array(degrees).T
+            if verboseLevel > 1:
+                print(f"Running Cheb Monomial Test {count}/{numTests} Degrees: {polyDegs}")
+            errorString = "Test on degrees: " + str(polyDegs)
+            foundRoots, actualRoots = runSystem(polyDegs)
+            assert(len(foundRoots) == len(actualRoots)), "Wrong Number of Roots! " + errorString
+            maxError = np.max(np.abs(foundRoots - actualRoots))
+            if returnErrors:
+                currErrors.append(np.linalg.norm(foundRoots - actualRoots, axis=1))
+            assert(maxError < 1e-15), "Error Too Large! " + errorString
+        if returnErrors:
+            allErrors.append(np.hstack(currErrors))
+    if returnErrors:
+        return allErrors
 
 #The actual Code
 
