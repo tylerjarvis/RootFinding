@@ -208,6 +208,7 @@ class M_maker:
             chepy_pts =  np.column_stack([cheb_values]*self.dim)
             cheb_pts = transform(chepy_pts,a,b)
             values_block = f.evaluate_grid(cheb_pts) #version 0 no memoization here
+            self.memo_dict[deg] = values_block
         else:
             cheb_vals = np.cos(np.arange(deg+1)*np.pi/deg)
             cheb_grid = np.meshgrid(*([cheb_vals]*self.dim),indexing='ij')
