@@ -826,7 +826,7 @@ def getTransformationError(M, dim):
     error = M.shape[dim] * machEps * np.sum(np.abs(M))
     return error #TODO: Figure out a more rigurous bound!
     
-def transformCheb(M, As, Bs, error, exact):
+def transformCheb(M, As, Bs, error):
     """Transforms the chebyshev coefficient matrix M to the new interval [As, Bs].
 
     Parameters
@@ -839,8 +839,6 @@ def transformCheb(M, As, Bs, error, exact):
         The max values of the interval we are transforming to
     error : float
         A bound on the error of the chebyshev approximation
-    exact : bool
-        Whether the transformation should be done without error
     
     Returns
     -------
@@ -852,10 +850,10 @@ def transformCheb(M, As, Bs, error, exact):
     #This just does the matrix multiplication on each dimension. Except it's by a tensor.
     for dim,n,a,b in zip(range(M.ndim),M.shape,As,Bs):
         error += getTransformationError(M, dim)
-        M = TransformChebInPlaceND(M,dim,a,b,exact)
+        M = TransformChebInPlaceND(M,dim,a,b,True)
     return M, error
 
-def transformChebToInterval(Ms, As, Bs, errors, exact):
+def transformChebToInterval(Ms, As, Bs, errors):
     """Transforms chebyshev coefficient matrices to a new interval.
 
     Parameters
@@ -868,9 +866,7 @@ def transformChebToInterval(Ms, As, Bs, errors, exact):
         The current interval on which Ms are valid
     errors : numpy array
         A bound on the error of each chebyshev approximation
-    exact : bool
-        Whether the transformation should be done without error
-
+    
     Returns
     -------
     newMs : list of numpy arrays
@@ -882,12 +878,12 @@ def transformChebToInterval(Ms, As, Bs, errors, exact):
     newMs = []
     newErrors = []
     for M,e in zip(Ms, errors):
-        newM, newE = transformCheb(M, As, Bs, e, exact)
+        newM, newE = transformCheb(M, As, Bs, e)
         newMs.append(newM)
         newErrors.append(newE)
     return newMs, np.array(newErrors)
     
-def zoomInOnIntervalIter(Ms, errors, trackedInterval, exact):
+def zoomInOnIntervalIter(Ms, errors, trackedInterval):
     """One iteration of the linear check and transforming to a new interval.
 
     Parameters
@@ -898,8 +894,6 @@ def zoomInOnIntervalIter(Ms, errors, trackedInterval, exact):
         A bound on the error of each chebyshev approximation
     trackedInterval : TrackedInterval
         The current interval that the chebyshev approximations are valid for
-    exact : bool
-        Whether the transformation should be done without error
 
 
     Returns
@@ -925,14 +919,14 @@ def zoomInOnIntervalIter(Ms, errors, trackedInterval, exact):
         return Ms, errors, trackedInterval, changed
     #Transform the chebyshev polynomials
     trackedInterval.addTransform(interval)
-    Ms, errors = transformChebToInterval(Ms, *trackedInterval.getLastTransform(), errors, exact)
+    Ms, errors = transformChebToInterval(Ms, *trackedInterval.getLastTransform(), errors)
     return Ms, errors, trackedInterval, changed
     
 def getTransposeDims(dim,transformDim):
     """Helper function for chebTransform1D"""
     return [i for i in range(transformDim,dim)] + [i for i in range(transformDim)]
 
-def chebTransform1D(M, alpha, beta, transformDim, exact):
+def chebTransform1D(M, alpha, beta, transformDim):
     """Transform a chebyshev polynomial in a single dimension"""
     return TransformChebInPlaceND(M, transformDim, alpha, beta, exact), getTransformationError(M, transformDim)
 
@@ -978,7 +972,7 @@ class Subdivider():
             results = newResults
         return results
         
-    def subdivide(self, M, error, exact):
+    def subdivide(self, M, error):
         #Get the new Chebyshev approximations on the 2^n subintervals
         dim = M.ndim
         degs = M.shape
@@ -990,8 +984,8 @@ class Subdivider():
             newResults = []
             for T,E in resultMs:
                 #Transform the polys
-                P1, E1 = chebTransform1D(T, *self.transformPoints1, thisDim, exact)
-                P2, E2 = chebTransform1D(T, *self.transformPoints2, thisDim, exact)
+                P1, E1 = chebTransform1D(T, *self.transformPoints1, thisDim)
+                P2, E2 = chebTransform1D(T, *self.transformPoints2, thisDim)
                 newResults.append([P1, E1 + E])
                 newResults.append([P2, E2 + E])
             resultMs = newResults
@@ -1055,6 +1049,7 @@ def isExteriorInterval(originalInterval, trackedInterval):
     return np.any(trackedInterval.interval == originalInterval.interval)
 
 
+
 def solvePolyRecursive(Ms, trackedInterval, errors, trimErrorRelBound = 1e-16, trimErrorAbsBound = 1e-32, level = 0):
 
     """Recursively finds regions in which any common roots of functions must be using subdivision
@@ -1067,8 +1062,6 @@ def solvePolyRecursive(Ms, trackedInterval, errors, trimErrorRelBound = 1e-16, t
         The information about the interval we are solving on.
     errors : numpy array
         The max error of the chebyshev approximation from the function on the interval
-    exact : bool
-        Whether the transformation should be done without error
     
     Returns
     -------
@@ -1129,7 +1122,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, trimErrorRelBound = 1e-16, t
             elif zoomCount > maxZoomCount2:
                 break
         #Zoom in until we stop changing or we hit machine epsilon
-        Ms, errors, trackedInterval, changed = zoomInOnIntervalIter(Ms, errors, trackedInterval, exact)
+        Ms, errors, trackedInterval, changed = zoomInOnIntervalIter(Ms, errors, trackedInterval)
         if trackedInterval.empty: #Throw out the interval
             return [], []
         zoomCount += 1
@@ -1149,10 +1142,10 @@ def solvePolyRecursive(Ms, trackedInterval, errors, trimErrorRelBound = 1e-16, t
         resultInterior, resultExterior = [], []
         #Get the new intervals and polynomials
         newInts = mySubdivider.subdivideInterval(trackedInterval)
-        allMs = [mySubdivider.subdivide(M, e, exact) for M,e in zip(Ms, errors)]
+        allMs = [mySubdivider.subdivide(M, e) for M,e in zip(Ms, errors)]
         #Run each interval
         for i in range(len(newInts)):
-            newInterior, newExterior = solvePolyRecursive([allM[i][0] for allM in allMs], newInts[i], [allM[i][1] for allM in allMs], exact, trimErrorRelBound, trimErrorAbsBound, level=level+1)
+            newInterior, newExterior = solvePolyRecursive([allM[i][0] for allM in allMs], newInts[i], [allM[i][1] for allM in allMs], trimErrorRelBound, trimErrorAbsBound, level=level+1)
             resultInterior += newInterior
             resultExterior += newExterior
         #Rerun the touching intervals
@@ -1204,8 +1197,8 @@ def solvePolyRecursive(Ms, trackedInterval, errors, trimErrorRelBound = 1e-16, t
                     #Project the MS onto the interval, then recall the function.
                     #TODO: Instead of using the originalMs, use Ms, and then don't use the original interval, use the one
                     #we started subdivision with.
-                    tempMs, tempErrors = transformChebToInterval(originalMs, *tempInterval.getLastTransform(), errors, exact)
-                    tempResultsInterior, tempResultsExterior = solvePolyRecursive(tempMs, tempInterval, tempErrors, exact, level=level+1)
+                    tempMs, tempErrors = transformChebToInterval(originalMs, *tempInterval.getLastTransform(), errors)
+                    tempResultsInterior, tempResultsExterior = solvePolyRecursive(tempMs, tempInterval, tempErrors, level=level+1)
                     #We can assume that nothing in these has to be recombined
                     resultInterior += tempResultsInterior
                     newResultExterior += tempResultsExterior
@@ -1215,7 +1208,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, trimErrorRelBound = 1e-16, t
                 resultInterior.append(tempInterval)                
         return resultInterior, newResultExterior
 
-def solveChebyshevSubdivision(Ms, errors, returnBoundingBoxes = False, polish = False, exact = False):
+def solveChebyshevSubdivision(Ms, errors, returnBoundingBoxes = False, polish = False):
     """Finds regions in which any common roots of functions must be
 
     Parameters
@@ -1228,9 +1221,6 @@ def solveChebyshevSubdivision(Ms, errors, returnBoundingBoxes = False, polish = 
         Defaults to False. If True, returns the bounding boxes around each root as well as the roots.
     polish : bool (Optional)
         Defaults to True. Whether or not to polish the roots at the end by zooming all they way back in.
-    exact : bool (Optional)
-        Defaults to False. Whether the transformation of a smaller interval to -1 to 1 should be done without error (quadruple precision vs double precision).
-        The exact = True option takes significantly longer on the first execution due to just in time compiling, but is significantly more accurate.
     
     Returns
     -------
