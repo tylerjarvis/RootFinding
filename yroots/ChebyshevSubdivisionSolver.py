@@ -903,7 +903,7 @@ def getTransposeDims(dim,transformDim):
 
 def chebTransform1D(M, alpha, beta, transformDim, exact):
     """Transform a chebyshev polynomial in a single dimension"""
-    return TransformChebInPlaceND(M,transformDim,alpha, beta, exact), getTransformationError(M, transformDim)
+    return TransformChebInPlaceND(M, transformDim, alpha, beta, exact), getTransformationError(M, transformDim)
 
 def getInverseOrder(order, dim):
     """Helper function to make the subdivide order match the subdivideInterval order"""
@@ -1208,7 +1208,7 @@ def solveChebyshevSubdivision(Ms, errors, returnBoundingBoxes = False, polish = 
     """
     #Solve
     originalInterval = TrackedInterval(np.array([[-1.,1.]]*Ms[0].ndim))
-    b1, b2 = solvePolyRecursive(Ms, originalInterval, errors, exact, 1e-16, 1e-16)
+    b1, b2 = solvePolyRecursive(Ms, originalInterval, errors, exact)
     boundingIntervals = b1 + b2
         
     #Polish. Testing seems to show no benefit for this. If anything makes it worse.
@@ -1218,8 +1218,8 @@ def solveChebyshevSubdivision(Ms, errors, returnBoundingBoxes = False, polish = 
             finalInterval = interval.getFinalInterval()
             newInterval = interval.copy()
             newInterval.interval = finalInterval
-            tempMs, tempErrors = transformChebToInterval(Ms, interval.finalAlpha, interval.finalBeta, errors)
-            b1, b2 = solvePolyRecursive(tempMs, newInterval, tempErrors, exact, 1e-16, 1e-16)
+            tempMs, tempErrors = transformChebToInterval(Ms, interval.finalAlpha, interval.finalBeta, errors, exact)
+            b1, b2 = solvePolyRecursive(tempMs, newInterval, tempErrors, exact)
             newIntervals += b1 + b2
         boundingIntervals = newIntervals
 
