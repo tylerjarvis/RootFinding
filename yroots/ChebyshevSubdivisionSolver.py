@@ -1,5 +1,6 @@
 import numpy as np
-from numba import njit
+from numba import njit, float64
+from numba.types import UniTuple
 from itertools import product
 from scipy.spatial import HalfspaceIntersection
 from scipy.optimize import linprog
@@ -174,12 +175,9 @@ def TransformChebInPlace1DErrorFree(coeffs, alpha, beta):
     -------
     coeffs : numpy array
         The new coefficient array following the transformation
-    """    
-    if alpha == 0.5:
-        if beta == 0.5:
-            return TransformChebInPlace1DErrorFreeSplit(coeffs, True)
-        elif beta == -0.5:
-            return TransformChebInPlace1DErrorFreeSplit(coeffs, False)
+    """
+    if alpha == 0.5 and abs(beta) == 0.5:
+        return TransformChebInPlace1DErrorFreeSplit(coeffs, np.sign(beta))
     transformedCoeffs = np.zeros_like(coeffs)
     arr1 = np.zeros(len(coeffs))
     arr2 = np.zeros(len(coeffs))
@@ -272,11 +270,9 @@ def TransformChebInPlace1DErrorFree(coeffs, alpha, beta):
     return transformedCoeffs[:maxRow]
 
 @njit
-def TransformChebInPlace1DErrorFreeSplit(coeffs, positiveBeta):
+def TransformChebInPlace1DErrorFreeSplit(coeffs, betaSign):
     #alpha = 0.5
-    #beta = 0.5 if positiveBeta else -0.5
-    
-    betaSign = 1 if positiveBeta else -1
+    #beta = 0.5 if betaSign == 1 else -0.5 (betaSign must be -1)
     transformedCoeffs = np.zeros_like(coeffs)
     arr1 = np.zeros(len(coeffs))
     arr2 = np.zeros(len(coeffs))
@@ -405,19 +401,20 @@ class TrackedInterval:
     def getFinalInterval(self):
         #Use the transformations and the topInterval
         #TODO: Make this a seperate function so it can use njit.
+        #Make these _NoNumba calls use floats so they call call the numba functions without a seperate compile
         finalInterval = self.topInterval.T
         finalIntervalError = np.zeros_like(finalInterval)
         for alpha,beta in self.transforms[::-1]:
-            finalInterval, temp = TwoProd(finalInterval, alpha)
+            finalInterval, temp = TwoProd_NoNumba(finalInterval, alpha)
             finalIntervalError = alpha * finalIntervalError + temp
-            finalInterval, temp = TwoSum(finalInterval,beta)
+            finalInterval, temp = TwoSum_NoNumba(finalInterval,beta)
             finalIntervalError += temp
         finalInterval = finalInterval.T
         finalIntervalError = finalIntervalError.T
         self.finalInterval = finalInterval + finalIntervalError
-        self.finalAlpha, alphaError = TwoSum(-finalInterval[:,0]/2,finalInterval[:,1]/2)
+        self.finalAlpha, alphaError = TwoSum_NoNumba(-finalInterval[:,0]/2,finalInterval[:,1]/2)
         self.finalAlpha += alphaError + (finalIntervalError[:,1] - finalIntervalError[:,0])/2
-        self.finalBeta, betaError = TwoSum(finalInterval[:,0]/2,finalInterval[:,1]/2)
+        self.finalBeta, betaError = TwoSum_NoNumba(finalInterval[:,0]/2,finalInterval[:,1]/2)
         self.finalBeta += betaError + (finalIntervalError[:,1] + finalIntervalError[:,0])/2
         return self.finalInterval
     
@@ -525,6 +522,23 @@ def find_vertices(A_ub, b_ub):
     return 3, intersects
 
 
+def linearCheck1(totalErrs, A, consts):
+    dim = len(A)
+    a = -np.ones(dim)
+    b = np.ones(dim)
+    for row in range(dim):
+        for col in range(dim):
+            if A[row,col] != 0:
+                v1 = totalErrs[row] / abs(A[row,col]) - 1
+                v2 = 2 * consts[row] / A[row,col]
+                if v2 >= 0:
+                    a_, b_ = -v1, v1-v2
+                else:
+                    a_, b_ = -v2-v1, v1
+                a[col] = max(a[col], a_)
+                b[col] = min(b[col], b_)
+    return a, b
+
 def BoundingIntervalLinearSystem(Ms, errors):
     """Finds a smaller region in which any root must be.
 
@@ -548,33 +562,34 @@ def BoundingIntervalLinearSystem(Ms, errors):
     A = np.array([getLinearTerms(M) for M in Ms])
     #Get the Vector of the constant terms
     consts = np.array([M.ravel()[0] for M in Ms])
-    #Get the Error of everything else combined.
-    #TODO: We could have catastrophic cancelation on this subtraction. Add sum(abs(M))/2**52 to err for safety?
-    linear_sums = np.sum(np.abs(A),axis=1)
-    err = np.array([np.sum(np.abs(M))-abs(c)-l+e for M,e,c,l in zip(Ms,errors,consts,linear_sums)])
-
     dim = A.shape[0]
-    
+    #Get the Error of everything else combined.
+    totalErrs = np.array([np.sum(np.abs(M)) + e for M,e in zip(Ms, errors)])
+    linear_sums = np.sum(np.abs(A),axis=1)
+    err = np.array([tE-abs(c)-l for tE,c,l in zip(totalErrs,consts,linear_sums)])    
     if dim <= 4:
-        #Erik's method for shrinking the interval
-        #Solve for the extrema
+        #Use the other interval shrinking method
+        a, b = linearCheck1(totalErrs, A, consts)
+        #Now do the linear solve check
         #We use the matrix inverse to find the width, so might as well use it both spots. Should be fine as dim is small.
-        if np.linalg.cond(A) < 1e10:
+        if np.linalg.cond(A) < 1e10: #Make sure conditioning is ok.
             Ainv = np.linalg.inv(A)
             center = -Ainv@consts
 
             #Ainv transforms the hyperrectangle of side lengths err into a parallelogram with these as the principal direction
             #So summing over them gets the farthest the parallelogram can reach in each dimension.
-            width = np.sum(np.abs(Ainv*err),axis=1) + errorToAdd
-            a = center - width
-            b = center + width
-            #Bound at [-1,1]. TODO: Kate has a good way to bound this even more.
-            a[a < -1.] = -1.0
-            b[b > 1.] = 1.0
-
-            changed = np.any(a > -1) or np.any(b < 1)
-            return np.vstack([a,b]).T, changed
-
+            width = np.sum(np.abs(Ainv*err),axis=1)
+            #Bound with previous result
+            a = np.maximum(center - width, a)
+            b = np.minimum(center + width, b)
+        #Add error and bound
+        a -= errorToAdd
+        b += errorToAdd
+        a[a < -1] = -1
+        b[b > 1] = 1
+        changed = np.any(a > -1.) or np.any(b < 1.)
+        return np.vstack([a,b]).T, changed
+        
     ##NEW CODE## I will document this much better, but wanted to get it pushed before finals/I leave town.
     #Define the A_ub and b_ub matrices in the correct form to feed into the linear programming problem.
     A_ub = np.vstack([A, -A])
@@ -680,29 +695,45 @@ def makeMatrix(n,a,b,subMatrix=None):
 #                 break
     return M[:maxRow+1]
 
-@njit
+@njit(UniTuple(float64,2)(float64, float64))
 def TwoSum(a,b):
     x = a+b
     z = x-a
     y = (a-(x-z)) + (b-z)
     return x,y
+def TwoSum_NoNumba(a,b):
+    x = a+b
+    z = x-a
+    y = (a-(x-z)) + (b-z)
+    return x,y
 
-@njit
+@njit(UniTuple(float64,2)(float64))
 def Split(a):
     c = (2**27 + 1) * a
     x = c-(c-a)
     y = a-x
     return x,y
+def Split_NoNumba(a):
+    c = (2**27 + 1) * a
+    x = c-(c-a)
+    y = a-x
+    return x,y
 
-@njit
+@njit(UniTuple(float64,2)(float64, float64))
 def TwoProd(a,b):
     x = a*b
     a1,a2 = Split(a)
     b1,b2 = Split(b)
     y=a2*b2-(((x-a1*b1)-a2*b1)-a1*b2)
     return x,y
+def TwoProd_NoNumba(a,b):
+    x = a*b
+    a1,a2 = Split_NoNumba(a)
+    b1,b2 = Split_NoNumba(b)
+    y=a2*b2-(((x-a1*b1)-a2*b1)-a1*b2)
+    return x,y
 
-@njit
+@njit(UniTuple(float64,2)(float64, float64, float64, float64))
 def TwoProdWithSplit(a,b,a1,a2):
     x = a*b
     b1,b2 = Split(b)
@@ -1023,7 +1054,9 @@ def shouldStopSubdivision(trackedInterval):
 def isExteriorInterval(originalInterval, trackedInterval):
     return np.any(trackedInterval.interval == originalInterval.interval)
 
-def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1e-16, trimErrorAbsBound = 1e-16, level = 0):
+
+def solvePolyRecursive(Ms, trackedInterval, errors, trimErrorRelBound = 1e-16, trimErrorAbsBound = 1e-32, level = 0):
+
     """Recursively finds regions in which any common roots of functions must be using subdivision
 
     Parameters
@@ -1058,7 +1091,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
 
     #The random numbers used below. TODO: Choose these better
     #Error For Trim trimMs
-#     trimErrorAbsBound = 1e-16
+#     trimErrorAbsBound = 1e-32
 #     trimErrorRelBound = 1e-16
     #How long we are allowed to zoom before giving up
     maxZoomCount1 = 10
@@ -1151,7 +1184,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
                     #Update the current subinterval. Use the best transform we can get here, but use the exact combined
                     #interval for tracking
                     combinedInterval.addTransform(currSubinterval)
-                    combinedInterval.interval = np.array([newAs, newBs]).T#.copy().T
+                    combinedInterval.interval = np.array([newAs, newBs]).T
                     combinedInterval.reRun = True
                     del resultExterior[idx2]
                     del resultExterior[idx1]
@@ -1208,7 +1241,9 @@ def solveChebyshevSubdivision(Ms, errors, returnBoundingBoxes = False, polish = 
     """
     #Solve
     originalInterval = TrackedInterval(np.array([[-1.,1.]]*Ms[0].ndim))
-    b1, b2 = solvePolyRecursive(Ms, originalInterval, errors, exact, 1e-16, 1e-16)
+
+    b1, b2 = solvePolyRecursive(Ms, originalInterval, errors)
+
     boundingIntervals = b1 + b2
         
     #Polish. Testing seems to show no benefit for this. If anything makes it worse.
@@ -1219,7 +1254,9 @@ def solveChebyshevSubdivision(Ms, errors, returnBoundingBoxes = False, polish = 
             newInterval = interval.copy()
             newInterval.interval = finalInterval
             tempMs, tempErrors = transformChebToInterval(Ms, interval.finalAlpha, interval.finalBeta, errors)
-            b1, b2 = solvePolyRecursive(tempMs, newInterval, tempErrors, exact, 1e-16, 1e-16)
+
+            b1, b2 = solvePolyRecursive(tempMs, newInterval, tempErrors)
+
             newIntervals += b1 + b2
         boundingIntervals = newIntervals
 
