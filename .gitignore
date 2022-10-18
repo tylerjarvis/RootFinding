@@ -27,3 +27,8 @@ Time_plots/*
 *.csv
 .gitignore
 *.pdf
+.vs/
+tests/Constant_term_testing/
+tests/Progress_testing/
+yroots/.vs/
+Tester.py
