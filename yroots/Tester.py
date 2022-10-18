@@ -18,47 +18,47 @@ def getMs(dim=2, deg=5, divisor = 3):
     return Ms
 
 
-#Test one degree and dimension at a time
-dim = 2
-deg = 5
-print("dim: ", end = '')
-print(dim,end='')
-print(" deg: ", end = '')
-print(deg)
+# #Test one degree and dimension at a time
+# dim = 2
+# deg = 5
+# print("dim: ", end = '')
+# print(dim,end='')
+# print(" deg: ", end = '')
+# print(deg)
 
-intervals = np.vstack([-np.ones(dim),np.ones(dim)]).T
-errs = np.zeros(dim)
+# intervals = np.vstack([-np.ones(dim),np.ones(dim)]).T
+# errs = np.zeros(dim)
 
-ms = getMs(dim, deg)
-# ms = [x*1000 for x in ms]
+# ms = getMs(dim, deg)
+# # ms = [x*1000 for x in ms]
 
-start = time.time()
-roots = solveChebyshevSubdivision(ms,errs)
-end = time.time() 
-print(roots)
-print(end - start)
-
-
-# # Test many different degrees at a time in any dimension
-# dim = 3
-
-# for j in range(3,30):
-#     deg = j
-#     print("dim: ", end = '')
-#     print(dim,end='')
-#     print(" deg: ", end = '')
-#     print(deg)
-
-#     intervals = np.vstack([-np.ones(dim),np.ones(dim)]).T
-#     errs = np.zeros(dim)
-
-#     ms = getMs(dim, deg)
-#     # ms = [x*1000 for x in ms]
-
-#     start = time.time()
-#     roots = solveChebyshevSubdivision(ms, errs, exact = False)
-#     end = time.time()
+# start = time.time()
+# roots = solveChebyshevSubdivision(ms,errs, exact = False)
+# end = time.time() 
+# print(roots)
+# print(end - start)
 
 
-#     print(roots)
-#     print(end - start)
+# Test many different degrees at a time in any dimension
+dim = 4
+
+for j in range(3,30):
+    deg = j
+    print("dim: ", end = '')
+    print(dim,end='')
+    print(" deg: ", end = '')
+    print(deg)
+
+    intervals = np.vstack([-np.ones(dim),np.ones(dim)]).T
+    errs = np.zeros(dim)
+
+    ms = getMs(dim, deg)
+    # ms = [x*1000 for x in ms]
+
+    start = time.time()
+    roots = solveChebyshevSubdivision(ms, errs, exact = False)
+    end = time.time()
+
+
+    print(roots)
+    print(end - start)
