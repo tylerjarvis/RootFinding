@@ -30,19 +30,19 @@ intervals = np.vstack([-np.ones(dim),np.ones(dim)]).T
 errs = np.zeros(dim)
 
 ms = getMs(dim, deg)
-ms = [x*1000 for x in ms]
+# ms = [x*1000 for x in ms]
 
 start = time.time()
-roots = solveChebyshevSubdivision(ms,errs, exact = True)
+roots = solveChebyshevSubdivision(ms,errs)
 end = time.time() 
 print(roots)
 print(end - start)
 
 
 # # Test many different degrees at a time in any dimension
-# dim = 4
+# dim = 3
 
-# for j in range(4,6):
+# for j in range(3,30):
 #     deg = j
 #     print("dim: ", end = '')
 #     print(dim,end='')
@@ -56,7 +56,7 @@ print(end - start)
 #     # ms = [x*1000 for x in ms]
 
 #     start = time.time()
-#     roots = solveChebyshevSubdivision(ms, errs, exact = True)
+#     roots = solveChebyshevSubdivision(ms, errs, exact = False)
 #     end = time.time()
 
 
