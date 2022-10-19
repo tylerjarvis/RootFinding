@@ -19,8 +19,8 @@ def getMs(dim=2, deg=5, divisor = 3):
 
 
 # #Test one degree and dimension at a time
-# dim = 2
-# deg = 5
+# dim = 3
+# deg = 3
 # print("dim: ", end = '')
 # print(dim,end='')
 # print(" deg: ", end = '')
@@ -42,7 +42,7 @@ def getMs(dim=2, deg=5, divisor = 3):
 # Test many different degrees at a time in any dimension
 dim = 3
 
-for j in range(3,30):
+for j in range(4,30):
     deg = j
     print("dim: ", end = '')
     print(dim,end='')

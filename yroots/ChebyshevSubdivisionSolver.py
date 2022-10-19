@@ -1200,8 +1200,12 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
                     oldAsFinal, oldBsFinal = originalInterval.getFinalInterval().T
                     #Find the final A and B values exactly. Then do the currSubinterval calculation exactly.
                     #Look at what was done on the example that's failing and see why.
+                    equalMask = oldBsFinal == oldAsFinal
+                    oldBsFinal[equalMask] = oldBsFinal[equalMask] + 1 #Avoid a divide by zero on the next line
                     currSubinterval = ((2*np.array([newAsFinal, newBsFinal]) - oldAsFinal - oldBsFinal)/(oldBsFinal - oldAsFinal)).T
                     #If the interval is exactly -1 or 1, make sure that shows up as exact.
+                    currSubinterval[equalMask,0] = -1
+                    currSubinterval[equalMask,1] = 1
                     currSubinterval[:,0][oldAs == newAs] = -1
                     currSubinterval[:,1][oldBs == newBs] = 1
                     #Update the current subinterval. Use the best transform we can get here, but use the exact combined
