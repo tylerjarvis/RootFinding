@@ -42,6 +42,7 @@ def getMs(dim=2, deg=5, divisor = 3):
 # Test many different degrees at a time in any dimension
 dim = 3
 
+
 for j in range(4,30):
     deg = j
     print("dim: ", end = '')

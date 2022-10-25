@@ -555,7 +555,7 @@ def BoundingIntervalLinearSystem(Ms, errors):
         Whether the interval has shrunk at all
     """
     errorToAdd = 1e-10
-    
+
     #Get the matrix of the linear terms
     A = np.array([getLinearTerms(M) for M in Ms])
     #Get the Vector of the constant terms
@@ -587,6 +587,10 @@ def BoundingIntervalLinearSystem(Ms, errors):
             b += errorToAdd
             a[a < -1] = -1
             b[b > 1] = 1
+
+            print(f"{a = }")
+            print(f"{b = }")
+
             changed = np.any(a > -1.) or np.any(b < 1.)
 
             if i == 0 and changed:
@@ -597,7 +601,7 @@ def BoundingIntervalLinearSystem(Ms, errors):
                 #and then try running through the loop again with a tighter error to see if we shrink then
                 a_orig = a
                 b_orig = b
-                err = errors
+                err = [i*2 for i in errors]
             elif changed:
                 #If it is the second time through the loop and it did change, it means we didn't change on the first time,
                 #but that the interval did shrink with tighter errors. So return the original interval with changed = False and is_done = False 
