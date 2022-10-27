@@ -19,8 +19,8 @@ def getMs(dim=2, deg=5, divisor = 3):
 
 
 # #Test one degree and dimension at a time
-# dim = 3
-# deg = 3
+# dim = 5
+# deg = 4
 # print("dim: ", end = '')
 # print(dim,end='')
 # print(" deg: ", end = '')
@@ -30,7 +30,7 @@ def getMs(dim=2, deg=5, divisor = 3):
 # errs = np.zeros(dim)
 
 # ms = getMs(dim, deg)
-# # ms = [x*1000 for x in ms]
+# ms = [x*1000 for x in ms]
 
 # start = time.time()
 # roots = solveChebyshevSubdivision(ms,errs, exact = False)
@@ -40,9 +40,9 @@ def getMs(dim=2, deg=5, divisor = 3):
 
 
 # Test many different degrees at a time in any dimension
-dim = 3
+dim = 4
 
-
+start = time.time()
 for j in range(4,30):
     deg = j
     print("dim: ", end = '')
@@ -56,10 +56,12 @@ for j in range(4,30):
     ms = getMs(dim, deg)
     # ms = [x*1000 for x in ms]
 
-    start = time.time()
+    start2 = time.time()
     roots = solveChebyshevSubdivision(ms, errs, exact = False)
-    end = time.time()
+    end2 = time.time()
 
 
     print(roots)
-    print(end - start)
+    print(end2 - start2)
+end = time.time()
+print(f"Final Time: {end-start}")

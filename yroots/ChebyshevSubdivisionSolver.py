@@ -588,10 +588,12 @@ def BoundingIntervalLinearSystem(Ms, errors):
             a[a < -1] = -1
             b[b > 1] = 1
 
-            print(f"{a = }")
-            print(f"{b = }")
-
-            changed = np.any(a > -1.) or np.any(b < 1.)
+            if i == 0:
+                changed = np.any(a > -1.) or np.any(b < 1.)
+            else:
+                old_size = np.prod(b_orig - a_orig)
+                new_size = np.prod(b - a)
+                changed = new_size < old_size * .9
 
             if i == 0 and changed:
                 #If it is the first time through the loop and there was a change, return the interval it shrunk down to and set "is_done" to false
@@ -620,10 +622,12 @@ def BoundingIntervalLinearSystem(Ms, errors):
     tell, P = find_vertices(A_ub, b_ub)
     if tell == 1:
         #No feasible Point, throw out the entire interval
-        return np.vstack([[1.0]*len(A),[-1.0]*len(A)]).T, True
+        return np.vstack([[1.0]*len(A),[-1.0]*len(A)]).T, True, True
     elif tell == 2:
-        #No shrinkage possible, keep the entire interval
-        return np.vstack([[-1.0]*len(A),[1.0]*len(A)]).T, False
+        # This means the linear programming found a point that was not "clearly inside the halfspaces". This occurs when the coefficeints are all really tiny.
+        # No shrinkage possible, keep the entire interval
+        return np.vstack([[-1.0]*len(A),[1.0]*len(A)]).T, False, True
+    #Else tell == 3:
     else:
         #Return the reduced interval
         a = P.min(axis=0) - errorToAdd
@@ -631,7 +635,8 @@ def BoundingIntervalLinearSystem(Ms, errors):
         a[a < -1.] = -1.0
         b[b > 1.] = 1.0
         changed = np.any(a > -1.) or np.any(b < 1.)
-        return np.vstack([a,b]).T, changed
+        
+        return np.vstack([a,b]).T, changed, False
         
         
 
@@ -1172,6 +1177,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
 
 
     else:
+        # print(Ms)
         #Otherwise, Subdivide
         resultInterior, resultExterior = [], []
         #Get the new intervals and polynomials
