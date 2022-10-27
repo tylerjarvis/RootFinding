@@ -571,8 +571,9 @@ def BoundingIntervalLinearSystem(Ms, errors):
             #Use the other interval shrinking method
             a, b = linearCheck1(totalErrs, A, consts)
             #Now do the linear solve check
+            wellConditioned = np.linalg.cond(A) < 1e10
             #We use the matrix inverse to find the width, so might as well use it both spots. Should be fine as dim is small.
-            if np.linalg.cond(A) < 1e10: #Make sure conditioning is ok.
+            if wellConditioned: #Make sure conditioning is ok.
                 Ainv = np.linalg.inv(A)
                 center = -Ainv@consts
 
@@ -611,7 +612,7 @@ def BoundingIntervalLinearSystem(Ms, errors):
             else:
                 #If it is the second time through the loop and it did NOT change, it means we will not shrink the interval even if we subdivide,
                 #so return the original interval with changed = False and is_done = True 
-                return np.vstack([a_orig,b_orig]).T, False, True
+                return np.vstack([a_orig,b_orig]).T, False, wellConditioned
             
     #If dim > 4
     #Define the A_ub and b_ub matrices in the correct form to feed into the linear programming problem.
