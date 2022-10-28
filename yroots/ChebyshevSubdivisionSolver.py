@@ -587,14 +587,17 @@ def BoundingIntervalLinearSystem(Ms, errors):
             a -= errorToAdd
             b += errorToAdd
             a[a < -1] = -1
+            a[a > 1] = 1
+            b[b < -1] = -1
             b[b > 1] = 1
+            
 
             if i == 0:
                 changed = np.any(a > -1.) or np.any(b < 1.)
             else:
                 old_size = np.prod(b_orig - a_orig)
                 new_size = np.prod(b - a)
-                changed = new_size < old_size * .9
+                changed = new_size < old_size * .04**dim
 
             if i == 0 and changed:
                 #If it is the first time through the loop and there was a change, return the interval it shrunk down to and set "is_done" to false
@@ -612,7 +615,7 @@ def BoundingIntervalLinearSystem(Ms, errors):
             else:
                 #If it is the second time through the loop and it did NOT change, it means we will not shrink the interval even if we subdivide,
                 #so return the original interval with changed = False and is_done = True 
-                return np.vstack([a_orig,b_orig]).T, False, wellConditioned
+                return np.vstack([a_orig,b_orig]).T, False, True
             
     #If dim > 4
     #Define the A_ub and b_ub matrices in the correct form to feed into the linear programming problem.
@@ -1178,7 +1181,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
 
 
     else:
-        # print(Ms)
+        print(Ms)
         #Otherwise, Subdivide
         resultInterior, resultExterior = [], []
         #Get the new intervals and polynomials
