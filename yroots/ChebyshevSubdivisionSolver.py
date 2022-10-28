@@ -5,84 +5,84 @@ from itertools import product
 from scipy.spatial import HalfspaceIntersection
 from scipy.optimize import linprog
 
-# # Code for testing. TODO: Set up unit tests and add this to it!
-# from mpmath import mp
-# from itertools import permutations, product
+# Code for testing. TODO: Set up unit tests and add this to it!
+from mpmath import mp
+from itertools import permutations, product
 
-# def sortRoots(roots, seed = 12398):
-#     if len(roots) == 0:
-#         return roots
-#     np.random.seed(seed)
-#     dim = roots.shape[1]
-#     r = np.array(np.random.rand(dim))
-#     order = np.argsort(roots@r)
-#     return roots[order]
+def sortRoots(roots, seed = 12398):
+    if len(roots) == 0:
+        return roots
+    np.random.seed(seed)
+    dim = roots.shape[1]
+    r = np.array(np.random.rand(dim))
+    order = np.argsort(roots@r)
+    return roots[order]
 
-# def runSystem(degList):
-#     #Each row of degList is the degrees of 1 polynomial
-#     degList = np.array(degList)
-#     dim = len(degList)
-#     #Get the actual roots
-#     mp.dps = 50
-#     actualRoots = []
-#     for i in permutations(range(dim)):
-#         currDegs = np.array([degList[i[j],j] for j in range(dim)])
-#         currRootList = []
-#         for deg in currDegs:
-#             d = int(deg)
-#             theseRoots = [float(mp.cos(mp.pi*(mp.mpf(num)+0.5)/mp.mpf(d))) for num in mp.arange(d)]
-#             currRootList.append(np.array(theseRoots))
-#         for root in product(*currRootList):
-#             actualRoots.append(np.array(root))
-#     actualRoots = sortRoots(np.array(actualRoots))
-#     #Construct the problem
-#     Ms = []
-#     for degs in degList:
-#         M = np.zeros(degs+1)
-#         M[tuple(degs)] = 1.0
-#         Ms.append(M)
-#     errors = np.zeros(dim)
-#     #Solve
-#     foundRoots = solveChebyshevSubdivision(Ms, errors)
-#     return sortRoots(np.array(foundRoots)), actualRoots
+def runSystem(degList):
+    #Each row of degList is the degrees of 1 polynomial
+    degList = np.array(degList)
+    dim = len(degList)
+    #Get the actual roots
+    mp.dps = 50
+    actualRoots = []
+    for i in permutations(range(dim)):
+        currDegs = np.array([degList[i[j],j] for j in range(dim)])
+        currRootList = []
+        for deg in currDegs:
+            d = int(deg)
+            theseRoots = [float(mp.cos(mp.pi*(mp.mpf(num)+0.5)/mp.mpf(d))) for num in mp.arange(d)]
+            currRootList.append(np.array(theseRoots))
+        for root in product(*currRootList):
+            actualRoots.append(np.array(root))
+    actualRoots = sortRoots(np.array(actualRoots))
+    #Construct the problem
+    Ms = []
+    for degs in degList:
+        M = np.zeros(degs+1)
+        M[tuple(degs)] = 1.0
+        Ms.append(M)
+    errors = np.zeros(dim)
+    #Solve
+    foundRoots = solveChebyshevSubdivision(Ms, errors)
+    return sortRoots(np.array(foundRoots)), actualRoots
 
-# def isGoodSystem(degList):
-#     zeros = [[float(mp.cos(mp.pi*(num+0.5)/d)) for num in mp.arange(d)] for d in degList]
-#     zeros = np.sort(np.hstack(zeros).ravel())
-#     return len(zeros) <= 1 or np.min(np.diff(zeros)) > 1e-12
+def isGoodSystem(degList):
+    zeros = [[float(mp.cos(mp.pi*(num+0.5)/d)) for num in mp.arange(d)] for d in degList]
+    zeros = np.sort(np.hstack(zeros).ravel())
+    return len(zeros) <= 1 or np.min(np.diff(zeros)) > 1e-12
 
-# def getTestSystems(dim, maxDeg):
-#     systems = []
-#     for degrees in product(range(1, maxDeg+1), repeat=dim):
-#         if isGoodSystem(degrees):
-#             systems.append(degrees)
-#     return systems
+def getTestSystems(dim, maxDeg):
+    systems = []
+    for degrees in product(range(1, maxDeg+1), repeat=dim):
+        if isGoodSystem(degrees):
+            systems.append(degrees)
+    return systems
 
-# def runChebMonomialsTests(dims, maxDegs, verboseLevel = 0, returnErrors = False):
-#     allErrors = []
-#     for dim, maxDeg in zip(dims, maxDegs):
-#         currErrors = []
-#         if verboseLevel > 0:
-#             print(f"Running Cheb Monomial Test Dimension: {dim}, Max Degree: {maxDeg}")
-#         testSytems = getTestSystems(dim, maxDeg)
-#         numTests = len(testSytems)**dim
-#         count = 0
-#         for degrees in product(testSytems, repeat = dim):
-#             count += 1
-#             polyDegs = np.array(degrees).T
-#             if verboseLevel > 1:
-#                 print(f"Running Cheb Monomial Test {count}/{numTests} Degrees: {polyDegs}")
-#             errorString = "Test on degrees: " + str(polyDegs)
-#             foundRoots, actualRoots = runSystem(polyDegs)
-#             assert(len(foundRoots) == len(actualRoots)), "Wrong Number of Roots! " + errorString
-#             maxError = np.max(np.abs(foundRoots - actualRoots))
-#             if returnErrors:
-#                 currErrors.append(np.linalg.norm(foundRoots - actualRoots, axis=1))
-#             assert(maxError < 1e-15), "Error Too Large! " + errorString
-#         if returnErrors:
-#             allErrors.append(np.hstack(currErrors))
-#     if returnErrors:
-#         return allErrors
+def runChebMonomialsTests(dims, maxDegs, verboseLevel = 0, returnErrors = False):
+    allErrors = []
+    for dim, maxDeg in zip(dims, maxDegs):
+        currErrors = []
+        if verboseLevel > 0:
+            print(f"Running Cheb Monomial Test Dimension: {dim}, Max Degree: {maxDeg}")
+        testSytems = getTestSystems(dim, maxDeg)
+        numTests = len(testSytems)**dim
+        count = 0
+        for degrees in product(testSytems, repeat = dim):
+            count += 1
+            polyDegs = np.array(degrees).T
+            if verboseLevel > 1:
+                print(f"Running Cheb Monomial Test {count}/{numTests} Degrees: {polyDegs}")
+            errorString = "Test on degrees: " + str(polyDegs)
+            foundRoots, actualRoots = runSystem(polyDegs)
+            assert(len(foundRoots) == len(actualRoots)), "Wrong Number of Roots! " + errorString
+            maxError = np.max(np.abs(foundRoots - actualRoots))
+            if returnErrors:
+                currErrors.append(np.linalg.norm(foundRoots - actualRoots, axis=1))
+            assert(maxError < 1e-15), "Error Too Large! " + errorString
+        if returnErrors:
+            allErrors.append(np.hstack(currErrors))
+    if returnErrors:
+        return allErrors
 
 #The actual Code
 
@@ -375,6 +375,8 @@ class TrackedInterval:
         self.transforms = []
         self.ndim = len(self.interval)
         self.empty = False
+        #TODO: Use these!
+        self.finalStep = False
     
     def addTransform(self, subInterval):
         #This function assumes the interval has non zero size.
@@ -391,9 +393,13 @@ class TrackedInterval:
         for dim in range(self.ndim):
             for i in range(2):
                 x = subInterval[dim][i]
-                if x == -1.0 or x == 1.0:
-                    continue #Don't change the current interval
-                self.interval[dim][i] = alpha2[dim]*x+beta2[dim]
+                #Be exact and +-1
+                if x == -1.0:
+                    self.interval[dim][i] = self.interval[dim][0]
+                elif x == 1.0:
+                    self.interval[dim][i] = self.interval[dim][1]
+                else:
+                    self.interval[dim][i] = alpha2[dim]*x+beta2[dim]
     
     def getLastTransform(self):
         return self.transforms[-1]
@@ -404,7 +410,8 @@ class TrackedInterval:
         #Make these _NoNumba calls use floats so they call call the numba functions without a seperate compile
         finalInterval = self.topInterval.T
         finalIntervalError = np.zeros_like(finalInterval)
-        for alpha,beta in self.transforms[::-1]:
+        transformsToUse = self.transforms if not self.finalStep else self.preFinalTransforms
+        for alpha,beta in transformsToUse[::-1]:
             finalInterval, temp = TwoProd_NoNumba(finalInterval, alpha)
             finalIntervalError = alpha * finalIntervalError + temp
             finalInterval, temp = TwoSum_NoNumba(finalInterval,beta)
@@ -425,6 +432,11 @@ class TrackedInterval:
         newone = TrackedInterval(self.topInterval)
         newone.interval = self.interval.copy()
         newone.transforms = self.transforms.copy()
+        newone.empty = self.empty
+        if self.finalStep:
+            newone.finalStep = True
+            newone.preFinalInterval = self.preFinalInterval.copy()
+            newone.preFinalTransforms = self.preFinalTransforms.copy()
         return newone
     
     def __contains__(self, point):
@@ -432,10 +444,18 @@ class TrackedInterval:
 
     def overlapsWith(self, otherInterval):
         #Has to overlap in every dimension.
-        for (a1,b1),(a2,b2) in zip(self.interval, otherInterval.interval):
+        for (a1,b1),(a2,b2) in zip(self.getIntervalForCombining(), otherInterval.getIntervalForCombining()):
             if a1 > b2 or a2 > b1:
                 return False
         return True
+    
+    def startFinalStep(self):
+        self.finalStep = True
+        self.preFinalInterval = self.interval.copy()
+        self.preFinalTransforms = self.transforms.copy()
+        
+    def getIntervalForCombining(self):
+        return self.interval if not self.finalStep else self.preFinalInterval
 
     
 def getLinearTerms(M):
@@ -566,7 +586,7 @@ def BoundingIntervalLinearSystem(Ms, errors):
     linear_sums = np.sum(np.abs(A),axis=1)
     err = np.array([tE-abs(c)-l for tE,c,l in zip(totalErrs,consts,linear_sums)])    
     
-    if dim <= 4:
+    if dim <= 4000:
         for i in range(2):
             #Use the other interval shrinking method
             a, b = linearCheck1(totalErrs, A, consts)
@@ -586,53 +606,65 @@ def BoundingIntervalLinearSystem(Ms, errors):
             #Add error and bound
             a -= errorToAdd
             b += errorToAdd
+            throwOut = np.any(a > b)
             a[a < -1] = -1
+            b[b < -1] = -1
+            a[a > 1] = 1
             b[b > 1] = 1
+#             print("Linear Check: ", i, a, b)
 
-            print(f"{a = }")
-            print(f"{b = }")
+#             print(f"{a = }")
+#             print(f"{b = }")
 
-            changed = np.any(a > -1.) or np.any(b < 1.)
+            newRatio = np.product(b - a) / 2**dim
+            if i == 0:
+                changed = newRatio < 0.99
+            else:
+                changed = newRatio < 0.4**dim
+#             changed = np.any(a > -1.) or np.any(b < 1.)
 
             if i == 0 and changed:
                 #If it is the first time through the loop and there was a change, return the interval it shrunk down to and set "is_done" to false
-                return np.vstack([a,b]).T, changed, False
+                return np.vstack([a,b]).T, changed, False, throwOut
             elif i == 0 and not changed:
                 #If it is the first time through the loop and there was not a change, save the a and b as the original values to return,
                 #and then try running through the loop again with a tighter error to see if we shrink then
                 a_orig = a
                 b_orig = b
-                err = [i*2 for i in errors]
+                err = [i for i in errors]
             elif changed:
                 #If it is the second time through the loop and it did change, it means we didn't change on the first time,
                 #but that the interval did shrink with tighter errors. So return the original interval with changed = False and is_done = False 
-                return np.vstack([a_orig, b_orig]).T, False, False
+                return np.vstack([a_orig, b_orig]).T, False, False, False
             else:
                 #If it is the second time through the loop and it did NOT change, it means we will not shrink the interval even if we subdivide,
                 #so return the original interval with changed = False and is_done = True 
-                return np.vstack([a_orig,b_orig]).T, False, wellConditioned
+                return np.vstack([a_orig,b_orig]).T, False, wellConditioned, False
             
-    #If dim > 4
-    #Define the A_ub and b_ub matrices in the correct form to feed into the linear programming problem.
-    A_ub = np.vstack([A, -A])
-    b_ub = np.hstack([err - consts, consts + err]).T.reshape(-1, 1)
+#     #If dim > 4
+#     #Define the A_ub and b_ub matrices in the correct form to feed into the linear programming problem.
+#     A_ub = np.vstack([A, -A])
+#     b_ub = np.hstack([err - consts, consts + err]).T.reshape(-1, 1)
 
-    # Use the find_vertices function to return the vertices of the intersection of halfspaces
-    tell, P = find_vertices(A_ub, b_ub)
-    if tell == 1:
-        #No feasible Point, throw out the entire interval
-        return np.vstack([[1.0]*len(A),[-1.0]*len(A)]).T, True
-    elif tell == 2:
-        #No shrinkage possible, keep the entire interval
-        return np.vstack([[-1.0]*len(A),[1.0]*len(A)]).T, False
-    else:
-        #Return the reduced interval
-        a = P.min(axis=0) - errorToAdd
-        b = P.max(axis=0) + errorToAdd
-        a[a < -1.] = -1.0
-        b[b > 1.] = 1.0
-        changed = np.any(a > -1.) or np.any(b < 1.)
-        return np.vstack([a,b]).T, changed
+#     # Use the find_vertices function to return the vertices of the intersection of halfspaces
+#     tell, P = find_vertices(A_ub, b_ub)
+#     if tell == 1:
+#         #No feasible Point, throw out the entire interval
+#         return np.vstack([[1.0]*len(A),[-1.0]*len(A)]).T, True, True
+#     elif tell == 2:
+#         #No shrinkage possible, keep the entire interval
+#         return np.vstack([[-1.0]*len(A),[1.0]*len(A)]).T, False, False
+#     else:
+#         #Return the reduced interval
+#         a = P.min(axis=0) - errorToAdd
+#         b = P.max(axis=0) + errorToAdd
+#         throwOut = np.any(a > b)
+#         a[a < -1.] = -1.0
+#         b[b < -1] = -1
+#         a[a > 1] = 1
+#         b[b > 1.] = 1.0
+#         changed = np.any(a > -1.) or np.any(b < 1.)
+#         return np.vstack([a,b]).T, changed, throwOut
         
         
 
@@ -937,9 +969,16 @@ def zoomInOnIntervalIter(Ms, errors, trackedInterval, exact):
 
     dim = len(Ms)
     #Zoom in on the current interval
-    interval, changed, should_stop = BoundingIntervalLinearSystem(Ms, errors)
+    if trackedInterval.finalStep:
+        errors = np.zeros_like(errors)
+    interval, changed, should_stop, throwOut = BoundingIntervalLinearSystem(Ms, errors)
+    #We can't throw out on the final step
+    if trackedInterval.finalStep and throwOut:
+        throwOut = False
+        should_stop = True
+        changed = True
     #Check if we can throw out the whole thing
-    if np.any(interval[:,0] > interval[:,1]):
+    if throwOut:
         trackedInterval.empty = True
         return Ms, errors, trackedInterval, True, True
     #Check if we are done interating
@@ -948,6 +987,10 @@ def zoomInOnIntervalIter(Ms, errors, trackedInterval, exact):
     #Transform the chebyshev polynomials
     trackedInterval.addTransform(interval)
     Ms, errors = transformChebToInterval(Ms, *trackedInterval.getLastTransform(), errors, exact)
+    #We should stop in the final step once the interval has become a point
+    if trackedInterval.finalStep and np.all(trackedInterval.interval[:,0] == trackedInterval.interval[:,1]):
+        should_stop = True
+        changed = False
     
     return Ms, errors, trackedInterval, changed, should_stop
     
@@ -1075,9 +1118,7 @@ def shouldStopSubdivision(trackedInterval):
     return np.all(trackedInterval.interval[:,1]-trackedInterval.interval[:,0] < 1e-10)
 
 def isExteriorInterval(originalInterval, trackedInterval):
-    return np.any(trackedInterval.interval == originalInterval.interval)
-
-
+    return np.any(trackedInterval.getIntervalForCombining() == originalInterval.getIntervalForCombining())
 
 def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1e-16, trimErrorAbsBound = 1e-32, level = 0):
 
@@ -1102,8 +1143,15 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
     boundingBoxesExterior : list of numpy arrays (optional)
         Each element of the list is an interval in which there may be a root. The interval is on the exterior of the current
         interval
-    """
+    """    
     #TODO: Check if trackedInterval.interval has width 0 in some dimension, in which case we should get rid of that dimension.
+    
+#     print("Start", trackedInterval.interval)
+#     print("MS", Ms, errors)
+    
+    #If the interval is a point, return it
+    if np.all(trackedInterval.interval[:,0] == trackedInterval.interval[:,1]):
+        return [], [trackedInterval]
     
     #Constant term check, runs at the beginning of the solve and before each subdivision
     #If the absolute value of the constant term for any of the chebyshev polynomials is greater than the sum of the
@@ -1118,7 +1166,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
 #     trimErrorAbsBound = 1e-32
 #     trimErrorRelBound = 1e-16
     #How long we are allowed to zoom before giving up
-    maxZoomCount = 10
+    maxZoomCount = 25
     # maxZoomCount2 = 50
     # #When to stop, again, maybe this should just be 0???
     # minIntervalSize = 1e-16
@@ -1155,23 +1203,14 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
         #Or zoom in assuming no error and take the result of that.
         #If that throws it out, tag that root as being a possible root? It isn't a root of the approx but
         #may be a root of the function.
-        if isExteriorInterval(originalInterval, trackedInterval):
-            return [], [trackedInterval]
+        if trackedInterval.finalStep or True:
+            if isExteriorInterval(originalInterval, trackedInterval):
+                return [], [trackedInterval]
+            else:
+                return [trackedInterval], []
         else:
-            return [trackedInterval], []
-    
-    # if shouldStopSubdivision(trackedInterval):
-    #     #Return the interval. Maybe we should return the linear approximation of the root here as well as the interval?
-    #     #Might be better than just taking the midpoint later.
-    #     #Or zoom in assuming no error and take the result of that.
-    #         #If that throws it out, tag that root as being a possible root? It isn't a root of the approx but
-    #         #may be a root of the function.
-    #     if isExteriorInterval(originalInterval, trackedInterval):
-    #         return [], [trackedInterval]
-    #     else:
-    #         return [trackedInterval], []
-
-
+            trackedInterval.startFinalStep()
+            return solvePolyRecursive(Ms, trackedInterval, errors, exact, 0, 0, level + 1)
     else:
         #Otherwise, Subdivide
         resultInterior, resultExterior = [], []
@@ -1191,11 +1230,15 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
             tempInterval.reRun = False
         while idx1 < len(resultExterior):
             while idx2 < len(resultExterior):
+#                 print("Check Combine", resultExterior[idx1].interval, resultExterior[idx2].interval)
                 if resultExterior[idx1].overlapsWith(resultExterior[idx2]):
                     #Combine, throw at the back. Set reRun to true.
                     combinedInterval = originalInterval.copy()
-                    newAs = np.min([resultExterior[idx1].interval[:,0], resultExterior[idx2].interval[:,0]], axis=0)
-                    newBs = np.max([resultExterior[idx1].interval[:,1], resultExterior[idx2].interval[:,1]], axis=0)
+                    if combinedInterval.finalStep:
+                        combinedInterval.interval = combinedInterval.preFinalInterval.copy()
+                        combinedInterval.transforms = combinedInterval.preFinalTransforms.copy()
+                    newAs = np.min([resultExterior[idx1].getIntervalForCombining()[:,0], resultExterior[idx2].getIntervalForCombining()[:,0]], axis=0)
+                    newBs = np.max([resultExterior[idx1].getIntervalForCombining()[:,1], resultExterior[idx2].getIntervalForCombining()[:,1]], axis=0)
                     final1 = resultExterior[idx1].getFinalInterval()
                     final2 = resultExterior[idx2].getFinalInterval()
                     newAsFinal = np.min([final1[:,0], final2[:,0]], axis=0)
