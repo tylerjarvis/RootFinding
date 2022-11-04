@@ -12,7 +12,7 @@ f = lambda x,y: (x-1)*(np.cos(x*y**2)+2)
 g = lambda x,y: np.sin(8*np.pi*y)*(np.cos(x*y)+2)
 f_deg,g_deg = 20,20
 
-def solver(funcs,a,b,guess_degs,rescale=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12):
+def solver(funcs,a,b,guess_degs,rescale=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,exact=False):
     """
     Finds the roots of the system of functions
 
@@ -38,20 +38,20 @@ def solver(funcs,a,b,guess_degs,rescale=False,rel_approx_tol=1.e-15, abs_approx_
     ndarray:
     the yroots of the system of functions
     """
-    #TODO: allow for a,b to default to neg1_1, require input dim? it's tedious (-), it's a good sanity check (+)
-    #handle for when input deg is less than the approximation degree used to build that Multicheb object
-    #guess deg input default
-    #maybe the SHOULD know what degree to input
-    #handle for when the input deg is too high
-    #handle for when there is no input deg
+    #TODO: allow for a,b to deafult to ones and negative ones
+    #TODO: handle case for when input degree is less than the approximation degree that was used
+    #TODO: decide whether to have the guess_deg input default, and what it would be (could the approximation degree used work), maybe they need to know their degree
+    #TODO: handle for case that input degree is above max_deg (provide a warning)
+    #TODO: maybe next we can include an option to return the bounding boxes
+
     if len(a) != len(b):
         raise ValueError("Dimension mismatch in intervals.")
     
-    if (a>=b).any():
+    if (b<=a).any():
         raise ValueError("At least one lower bound is >= an upper bound.")
     
     is_neg1_1 = True
-    arr_neg1 = np.array([-1]*len(a))
+    arr_neg1 = np.array([-1]*len(a)) #what if a>b
     arr_1 = np.ones(len(a))
 
     if np.allclose(arr_neg1,a,rtol=1e-08) and np.allclose(arr_1,b,rtol=1e-08):
@@ -90,11 +90,11 @@ def solver(funcs,a,b,guess_degs,rescale=False,rel_approx_tol=1.e-15, abs_approx_
             funcs[idx] = MultiCheb(approx.M_rescaled)
         else:
             funcs[idx] = MultiCheb(approx.M)
-        errs[idx] = approx.err
 
     funcs = [func.coeff for func in funcs]
-    yroots = np.array(ChebyshevSubdivisionSolver.solveChebyshevSubdivision(funcs,errs))
+    yroots = np.array(ChebyshevSubdivisionSolver.solveChebyshevSubdivision(funcs,errs,exact))
 
+    #transform doesn't work on empty arrays
     if is_neg1_1 == False and len(yroots) > 0:
         yroots = transform(yroots,a,b)
 
@@ -155,6 +155,37 @@ def test_bad_intervals():
     print(excinfo)
     assert excinfo.value.args[0] == "Dimension mismatch in intervals."
 
+
+def test_exact_option():
+    f = lambda x,y: np.sin(4*(x + y/10 + np.pi/10))
+    g = lambda x,y: np.cos(2*(x-2*y+ np.pi/7))
+    a,b = np.array([-1,-1]),np.array([1,1])
+
+    funcs = [f,g]
+    f_deg, g_deg = 16,32
+    guess_degs = [f_deg,g_deg]
+    yroots_non_exact = solver(funcs,a,b,guess_degs,exact=False)
+    yroots_exact = solver(funcs,a,b,guess_degs,exact=True)
+
+    actual_roots_2_3 = np.array([[-0.35797059,  0.43811326],
+    [-0.28317077, -0.30988499],
+    [ 0.39002766,  0.81211239],
+    [ 0.46482748,  0.06411414],
+    [ 0.53962731, -0.68388412]])
+
+    print(len(yroots_exact))
+    print(len(yroots_non_exact))
+    print(len(actual_roots_2_3))
+
+    assert len(yroots_non_exact) == len(actual_roots_2_3)
+    assert len(yroots_exact) == len(actual_roots_2_3)
+
+    norm_yroots_non_exact = np.linalg.norm(yroots_non_exact-actual_roots_2_3)
+    norm_yroots_exact = np.linalg.norm(yroots_exact-actual_roots_2_3)
+
+    assert norm_yroots_exact <= norm_yroots_non_exact
+
+
 #WHAT CAN WE TEST ABOUT THIS CODE
 #WE CAN CHECK THAT IT PRESERVES WHAT ERIKs solver does when it is given the approximations
     #CASES
@@ -164,3 +195,4 @@ def test_bad_intervals():
     #both neg1_1 and all multicheb
 
     #value error check for a and b
+

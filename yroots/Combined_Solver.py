@@ -3,7 +3,7 @@ import ChebyshevSubdivisionSolver, M_maker
 from utils import transform
 from polynomial import MultiCheb
 
-def solver(funcs,a,b,guess_degs,rescale=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12):
+def solver(funcs,a,b,guess_degs,rescale=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,exact=False):
     """
     Finds the roots of the system of functions
 
@@ -29,16 +29,16 @@ def solver(funcs,a,b,guess_degs,rescale=False,rel_approx_tol=1.e-15, abs_approx_
     ndarray:
     the yroots of the system of functions
     """
-    #TODO: allow for a,b to default to neg1_1, require input dim? it's tedious (-), it's a good sanity check (+)
-    #handle for when input deg is less than the approximation degree used to build that Multicheb object
-    #guess deg input default
-    #maybe the SHOULD know what degree to input
-    #handle for when the input deg is too high
-    #handle for when there is no input deg
+    #TODO: allow for a,b to deafult to ones and negative ones
+    #TODO: handle case for when input degree is less than the approximation degree that was used
+    #TODO: decide whether to have the guess_deg input default, and what it would be (could the approximation degree used work), maybe they need to know their degree
+    #TODO: handle for case that input degree is above max_deg (provide a warning)
+    #TODO: maybe next we can include an option to return the bounding boxes
+
     if len(a) != len(b):
         raise ValueError("Dimension mismatch in intervals.")
     
-    if (b>=a).any():
+    if (b<=a).any():
         raise ValueError("At least one lower bound is >= an upper bound.")
     
     is_neg1_1 = True
@@ -83,7 +83,7 @@ def solver(funcs,a,b,guess_degs,rescale=False,rel_approx_tol=1.e-15, abs_approx_
             funcs[idx] = MultiCheb(approx.M)
 
     funcs = [func.coeff for func in funcs]
-    yroots = np.array(ChebyshevSubdivisionSolver.solveChebyshevSubdivision(funcs,errs))
+    yroots = np.array(ChebyshevSubdivisionSolver.solveChebyshevSubdivision(funcs,errs,exact))
 
     #transform doesn't work on empty arrays
     if is_neg1_1 == False and len(yroots) > 0:
