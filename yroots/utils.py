@@ -1302,11 +1302,41 @@ def newton_polish(polys,root,niter=100,tol=1e-5):
         delta = np.linalg.solve(Df(x0),-f(x0))
         norm = np.linalg.norm(delta)
         x1 = delta + x0
-        if norm < tol or norm > .1:
+        if norm < tol:
             break
         x0 = x1
         i+=1
     return x1
+
+def getRootSample(polys, tests = 100):
+    """Searches for roots of polys in the [-1,1]^n space via guessing and Newton Polishing
+
+    Parameters
+    ----------
+    polys : MultiCheb or MultiPower polynomials
+        The polynomials to search for roots of.
+    tests : int
+        The number of guesses to make looking for a root.
+
+    Returns
+    -------
+    roots : numpy array
+        Each row is a root of polys.
+    """
+    realRoots = []
+    for i in range(tests):
+        testRoot = np.random.rand(len(polys)) * 2 - 1
+        realRoot = newton_polish(polys, testRoot, niter=100, tol=1e-10).real
+        if np.any(np.abs(realRoot) > 1):
+            continue
+        exists = False
+        for root in realRoots:
+            if np.linalg.norm(realRoot - root) < 1e-5:
+                exists = True
+                break
+        if not exists:
+            realRoots.append(realRoot)
+    return np.vstack(realRoots)
 
 def isNumber(x):
     """Determines if x is a number
