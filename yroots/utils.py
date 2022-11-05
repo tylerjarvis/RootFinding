@@ -1338,7 +1338,7 @@ def getRootSample(polys, tests = 100):
             realRoots.append(realRoot)
     if len(realRoots) > 0:
         realRoots = np.vstack(realRoots)
-    return np.vstack(realRoots)
+    return realRoots
 
 def isNumber(x):
     """Determines if x is a number
