@@ -1336,6 +1336,8 @@ def getRootSample(polys, tests = 100):
                 break
         if not exists:
             realRoots.append(realRoot)
+    if len(realRoots) > 0:
+        realRoots = np.vstack(realRoots)
     return np.vstack(realRoots)
 
 def isNumber(x):
