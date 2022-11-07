@@ -620,7 +620,9 @@ def BoundingIntervalLinearSystem(Ms, errors):
 #             print(f"{b = }")
 
             newRatio = np.product(b - a) / 2**dim
-            if i == 0:
+            if throwOut:
+                changed = True
+            elif i == 0:
                 changed = newRatio < 0.99
             else:
                 changed = newRatio < 0.4**dim
@@ -641,8 +643,8 @@ def BoundingIntervalLinearSystem(Ms, errors):
                 return np.vstack([a_orig, b_orig]).T, False, False, False
             else:
                 #If it is the second time through the loop and it did NOT change, it means we will not shrink the interval even if we subdivide,
-                #so return the original interval with changed = False and is_done = True 
-                return np.vstack([a_orig,b_orig]).T, False, True, False
+                #so return the original interval with changed = False and is_done = wellConditioned 
+                return np.vstack([a_orig,b_orig]).T, False, wellConditioned, False
 
     #order of returns: interval, changed, should_stop, throwOut
 
