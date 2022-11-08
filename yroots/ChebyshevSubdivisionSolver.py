@@ -516,6 +516,7 @@ def find_vertices(A_ub, b_ub):
     A = np.hstack((halfspaces[:, :-1], norm_vector))
     b = - halfspaces[:, -1:]
 
+
     L = linprog(c, A, b, bounds = (-1,1))
     
     
@@ -614,10 +615,6 @@ def BoundingIntervalLinearSystem(Ms, errors):
             b[b < -1] = -1
             a[a > 1] = 1
             b[b > 1] = 1
-#             print("Linear Check: ", i, a, b)
-
-#             print(f"{a = }")
-#             print(f"{b = }")
 
             newRatio = np.product(b - a) / 2**dim
             if throwOut:
@@ -626,7 +623,6 @@ def BoundingIntervalLinearSystem(Ms, errors):
                 changed = newRatio < 0.99
             else:
                 changed = newRatio < 0.4**dim
-#             changed = np.any(a > -1.) or np.any(b < 1.)
 
             if i == 0 and changed:
                 #If it is the first time through the loop and there was a change, return the interval it shrunk down to and set "is_done" to false
@@ -646,45 +642,87 @@ def BoundingIntervalLinearSystem(Ms, errors):
                 #so return the original interval with changed = False and is_done = wellConditioned 
                 return np.vstack([a_orig,b_orig]).T, False, wellConditioned, False
 
-    #order of returns: interval, changed, should_stop, throwOut
-
     #If dim > 4
     #Define the A_ub and b_ub matrices in the correct form to feed into the linear programming problem.
     A_ub = np.vstack([A, -A])
-    b_ub = np.hstack([err - consts, consts + err]).T.reshape(-1, 1)
+    
+    for i in range(2):
+        b_ub = np.hstack([err - consts, consts + err]).T.reshape(-1, 1)
 
-    # Use the find_vertices function to return the vertices of the intersection of halfspaces
-    tell, P = find_vertices(A_ub, b_ub)
-    if tell == 1:
-        #No feasible Point, throw out the entire interval
-        return np.vstack([[1.0]*len(A),[-1.0]*len(A)]).T, True, True, True
-    elif tell == 2:
-        #No shrinkage possible, keep the entire interval
-        return np.vstack([[-1.0]*len(A),[1.0]*len(A)]).T, False, True, False
-    else:
-        #Find the reduced interval
-        a = P.min(axis=0) - errorToAdd
-        b = P.max(axis=0) + errorToAdd
+        # Use the find_vertices function to return the vertices of the intersection of halfspaces
+        tell, P = find_vertices(A_ub, b_ub)
         
-        #If any a is greater than b, throw out the whole interval
-        throwOut = np.any(a > b)
-        if throwOut:
-            return np.vstack([a,b]).T, True, True, True
-        
-        #Set any entries > 1 or < -1 to 1 and -1 respectively
-        a[a < -1.] = -1.0
-        b[b < -1] = -1
-        a[a > 1] = 1
-        b[b > 1.] = 1.0
+        if i == 0 and tell == 1:
+            #First time through and no feasible point so throw out the entire interval
+            return np.vstack([[1.0]*len(A),[-1.0]*len(A)]).T, True, True, True
 
-        #Test if changed
-        changed = np.any(a > -1.) or np.any(b < 1.)
+        elif i == 0 and tell != 1:
+            if tell == 2:
+                #This means we have zoomed up on a root and we should be done.
+                return np.vstack([[-1.0]*len(A),[1.0]*len(A)]).T, False, True, False
+            
+            #Get the a and b arrays
+            a = P.min(axis=0) - errorToAdd
+            b = P.max(axis=0) + errorToAdd
 
-        return np.vstack([a,b]).T, changed, False, False
+            #Adjust the a's and b's to account for slight error in the halfspaces code
+            a -= errorToAdd
+            b += errorToAdd
+            a[a < -1] = -1
+            b[b < -1] = -1
+            a[a > 1] = 1
+            b[b > 1] = 1
+            
+            #Calculate the newRatio, the changed, and the throwout variables
+            throwOut = np.any(a > b)
+            newRatio = np.product(b - a) / 2**dim
+            changed = newRatio < 0.99
+            
+            if changed:
+                #If it is the first time through and there was a change, return the interval it shrunk down to and set "is_done" to false
+                return np.vstack([a,b]).T, True, False, throwOut
+            else:
+                #If it is the first time through the loop and there was not a change, save the a and b as the original values to return.
+                #Then try running through the loop again with a tighter error to see if we shrink with smaller error
+                a_orig = a
+                b_orig = b
+                err = errors
 
+        #If second time through:
+        elif i == 1:
+            
+            if tell == 1 or tell == 2:
+                #This means there was an issue when we ran the code with the smaller error, so some intervals may be good but some bad.
+                #We will need to shrink down to find out. So return with is_done = False so that we subdivide.
+                return np.vstack([a_orig, b_orig]).T, False, False, False
 
-        
-        
+            else: #The system proceeded as normal
+                
+                #Get the a and b arrays
+                a = P.min(axis=0) - errorToAdd
+                b = P.max(axis=0) + errorToAdd
+
+                #Adjust the a's and b's to account for slight error in the halfspaces code
+                a -= errorToAdd
+                b += errorToAdd
+                a[a < -1] = -1
+                b[b < -1] = -1
+                a[a > 1] = 1
+                b[b > 1] = 1
+                
+                #Calculate the newRatio, the changed, and the throwout variables
+                newRatio = np.product(b - a) / 2**dim
+                changed = newRatio < 0.4**dim
+
+                if changed:
+                    #IThis means it didn't change the first time, but with tighter errors it did.
+                    #Thus we should continue shrinking in, so set is_done = False.
+                    return np.vstack([a_orig, b_orig]).T, False, False, False
+                else:
+                    #If it is the second time through the loop and it did NOT change, it means we will not shrink the interval 
+                    #even if we subdivide, so return the original interval with changed = False and is_done = True
+                    return np.vstack([a_orig, b_orig]).T, False, True, False
+   
 
 @njit
 def isValidSpot(i,j):

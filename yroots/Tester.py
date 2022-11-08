@@ -4,7 +4,7 @@ import numpy as np
 import yroots as yr
 from ChebyshevSubdivisionSolver import solveChebyshevSubdivision
 
-np.random.seed(17)
+np.random.seed(22)
 def getMs(dim=2, deg=5, divisor = 3):
     #This returns functions that look hopefully kind of lke Chebyshev approximations
     Ms = []
