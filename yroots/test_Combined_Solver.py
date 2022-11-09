@@ -167,6 +167,8 @@ def test_exact_option():
     yroots_non_exact = solver(funcs,a,b,guess_degs,exact=False)
     yroots_exact = solver(funcs,a,b,guess_degs,exact=True)
 
+
+    # gotta sort these
     actual_roots_2_3 = np.array([[-0.35797059,  0.43811326],
     [-0.28317077, -0.30988499],
     [ 0.39002766,  0.81211239],

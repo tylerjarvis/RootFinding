@@ -83,7 +83,7 @@ def solver(funcs,a,b,guess_degs,rescale=False,rel_approx_tol=1.e-15, abs_approx_
             funcs[idx] = MultiCheb(approx.M)
 
     funcs = [func.coeff for func in funcs]
-    yroots = np.array(ChebyshevSubdivisionSolver.solveChebyshevSubdivision(funcs,errs,exact))
+    yroots = np.array(ChebyshevSubdivisionSolver.solveChebyshevSubdivision(funcs,errs,exact=True))
 
     #transform doesn't work on empty arrays
     if is_neg1_1 == False and len(yroots) > 0:
