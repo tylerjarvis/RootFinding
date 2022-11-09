@@ -78,12 +78,15 @@ def test_exact_option():
     yroots_non_exact = solver(funcs,a,b,guess_degs,exact=False)
     yroots_exact = solver(funcs,a,b,guess_degs,exact=True)
 
-    # gotta sort these
     actual_roots_2_3 = np.array([[-0.35797059,  0.43811326],
     [-0.28317077, -0.30988499],
     [ 0.39002766,  0.81211239],
     [ 0.46482748,  0.06411414],
     [ 0.53962731, -0.68388412]])
+
+    actual_roots_2_3 = ChebyshevSubdivisionSolver.sortRoots(actual_roots_2_3) #sort the roots
+    yroots_non_exact = ChebyshevSubdivisionSolver.sortRoots(yroots_non_exact)
+    yroots_exact = ChebyshevSubdivisionSolver.sortRoots(yroots_exact)
 
     assert len(yroots_non_exact) == len(actual_roots_2_3)
     assert len(yroots_exact) == len(actual_roots_2_3)
