@@ -490,20 +490,38 @@ def getLinearTerms(M):
     return A[::-1]
 
 
-
 def find_vertices(A_ub, b_ub):
-    # This calcualtes the feasible point that is MOST inside the halfspace
-    #It then feeds that feasible point into a halfspace intersection solver and finds
-    #the intersection of the hyper-polygon and the hyper-cube. It returns these intersections, which when
-    #we take the min and max of, give the set of intervals that we should shrink down to.
+    """This calcualtes the feasible point that is most inside the halfspace. 
+    It then feeds that feasible point into the halfspace intersection solver and finds the intersection of the hyper-polygon and the hyper-cube. 
+    It returns these intersection points (which when we take the min and max of, gives the interval we should shrink down to).
 
+    Parameters
+    ----------
+    A_ub : Numpy array
+        #This is created as: A_ub = np.vstack([A, -A]), where A is the matrix A from BoundingIntervalLinearSystem
+    b_ub : Numpy vector (1D)
+        #This is created as: b_ub = np.hstack([err - consts, consts + err]).T.reshape(-1, 1), where err and consts are from BoundingIntervalLinearSystem
+
+    Returns
+    -------
+    tell : int
+        This is a variable that is used to tell how the linear programming proceeded:
+            1 : The linear programming found no feasible point, so the interval should be thrown out.
+            2 : The linear programming found a feasible point, but the halfspaces code said it was not "clearly inside" the halfspace.
+                This happens when the coefficients and error are all really tiny. In this case we are zooming in on a root, so we should keep the entire interval.
+            3 : This means the linear programming and halfspace code ran without error, and a new interval was found
+    intersects : Numpy array
+        An array of the vertices of the intersection of the hyper-polygon and hyper-cube 
+    """
+    
+    #Get the shape of the A_ub matrix
     m, n = A_ub.shape
 
+    #Create an array used as part of the halfspaces array below, and find its number of rows
     arr = np.hstack([np.vstack([np.identity(n, dtype = float), -np.identity(n, dtype = float)]), -np.ones(2 * n, dtype = float).reshape(2 * n, 1)])
-
     o = arr.shape[0]
 
-    # Create the halfspaces array in the format the scipy solver needs it
+    # Create the halfspaces array in the format the scipy halfspace solver needs it
     halfspaces = np.zeros((m + o, n + 1), dtype = float)
     halfspaces[:m, :n] = A_ub
     halfspaces[:m, n:] = -b_ub
@@ -516,9 +534,8 @@ def find_vertices(A_ub, b_ub):
     A = np.hstack((halfspaces[:, :-1], norm_vector))
     b = - halfspaces[:, -1:]
 
-
+    #Run the linear programming code
     L = linprog(c, A, b, bounds = (-1,1))
-    
     
     #If L.status == 0, it means the linear programming proceeded as normal, so there is shrinkage that can occur in the interval
     if L.status == 0:
@@ -527,8 +544,7 @@ def find_vertices(A_ub, b_ub):
         #If L.status is not 0, then there is no feasible point, meaning the entire interval can be thrown out
         return 1, None
 
-    #If the last entry in the feasible point is negative, it also means there was not a suitable feasible point,
-    #so the entire interval can be throw out
+    #If the last entry in the feasible point is negative, it also means there was not a suitable feasible point, so the entire interval can be throw out
     if L.x[-1] < 0:
         return 1, None
       
@@ -537,7 +553,7 @@ def find_vertices(A_ub, b_ub):
         intersects = HalfspaceIntersection(halfspaces, feasible_point).intersections
     except:
         #If the halfspaces failed, it means the coefficnets were really tiny.
-        #In this case it also means that we want to keep the entire interval because there is a root in this interval
+        #In this case it also means that we want to keep the entire interval because we have zoomed up on a root in this interval
         return 2, np.vstack([np.ones(n),-np.ones(n)])
 
     #If the problem can be solved, it means the interval was shrunk, so return the intersections
@@ -577,6 +593,10 @@ def BoundingIntervalLinearSystem(Ms, errors):
         The smaller interval where any root must be
     changed : bool
         Whether the interval has shrunk at all
+    should_stop : bool
+        Whether we should stop subdividing
+    throwout :
+        Whether we should throw out the interval entirely
     """
     errorToAdd = 1e-10
 
@@ -616,6 +636,7 @@ def BoundingIntervalLinearSystem(Ms, errors):
             a[a > 1] = 1
             b[b > 1] = 1
 
+            # Calculate the "changed" variable
             newRatio = np.product(b - a) / 2**dim
             if throwOut:
                 changed = True
@@ -642,15 +663,17 @@ def BoundingIntervalLinearSystem(Ms, errors):
                 #so return the original interval with changed = False and is_done = wellConditioned 
                 return np.vstack([a_orig,b_orig]).T, False, wellConditioned, False
 
-    #If dim > 4
-    #Define the A_ub and b_ub matrices in the correct form to feed into the linear programming problem.
+    #Use the halfspaces code in the case where dim > 4
+    
+    #Define the A_ub matrix
     A_ub = np.vstack([A, -A])
     
     for i in range(2):
+        #Define the b_ub vector
         b_ub = np.hstack([err - consts, consts + err]).T.reshape(-1, 1)
 
         # Use the find_vertices function to return the vertices of the intersection of halfspaces
-        tell, P = find_vertices(A_ub, b_ub)
+        tell, vertices = find_vertices(A_ub, b_ub)
         
         if i == 0 and tell == 1:
             #First time through and no feasible point so throw out the entire interval
@@ -662,8 +685,8 @@ def BoundingIntervalLinearSystem(Ms, errors):
                 return np.vstack([[-1.0]*len(A),[1.0]*len(A)]).T, False, True, False
             
             #Get the a and b arrays
-            a = P.min(axis=0) - errorToAdd
-            b = P.max(axis=0) + errorToAdd
+            a = vertices.min(axis=0) - errorToAdd
+            b = vertices.max(axis=0) + errorToAdd
 
             #Adjust the a's and b's to account for slight error in the halfspaces code
             a -= errorToAdd
@@ -699,8 +722,8 @@ def BoundingIntervalLinearSystem(Ms, errors):
             else: #The system proceeded as normal
                 
                 #Get the a and b arrays
-                a = P.min(axis=0) - errorToAdd
-                b = P.max(axis=0) + errorToAdd
+                a = vertices.min(axis=0) - errorToAdd
+                b = vertices.max(axis=0) + errorToAdd
 
                 #Adjust the a's and b's to account for slight error in the halfspaces code
                 a -= errorToAdd
