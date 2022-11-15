@@ -4,7 +4,7 @@ import numpy as np
 import yroots as yr
 from ChebyshevSubdivisionSolver import solveChebyshevSubdivision
 
-np.random.seed(22)
+np.random.seed(15)
 def getMs(dim=2, deg=5, divisor = 3):
     #This returns functions that look hopefully kind of lke Chebyshev approximations
     Ms = []
@@ -30,7 +30,6 @@ def getMs(dim=2, deg=5, divisor = 3):
 # errs = np.zeros(dim)
 
 # ms = getMs(dim, deg)
-# ms = [x*1000 for x in ms]
 
 # start = time.time()
 # roots = solveChebyshevSubdivision(ms,errs, exact = False)
@@ -54,8 +53,6 @@ for j in range(2,30):
     errs = np.zeros(dim)
 
     ms = getMs(dim, deg)
-    # ms = [x*1000 for x in ms]
-
     start2 = time.time()
     roots = solveChebyshevSubdivision(ms, errs, exact = False)
     end2 = time.time()

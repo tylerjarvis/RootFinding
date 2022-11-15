@@ -497,9 +497,9 @@ def find_vertices(A_ub, b_ub):
 
     Parameters
     ----------
-    A_ub : Numpy array
+    A_ub : numpy array
         #This is created as: A_ub = np.vstack([A, -A]), where A is the matrix A from BoundingIntervalLinearSystem
-    b_ub : Numpy vector (1D)
+    b_ub : numpy vector (1D)
         #This is created as: b_ub = np.hstack([err - consts, consts + err]).T.reshape(-1, 1), where err and consts are from BoundingIntervalLinearSystem
 
     Returns
@@ -510,7 +510,7 @@ def find_vertices(A_ub, b_ub):
             2 : The linear programming found a feasible point, but the halfspaces code said it was not "clearly inside" the halfspace.
                 This happens when the coefficients and error are all really tiny. In this case we are zooming in on a root, so we should keep the entire interval.
             3 : This means the linear programming and halfspace code ran without error, and a new interval was found
-    intersects : Numpy array
+    intersects : numpy array (ND)
         An array of the vertices of the intersection of the hyper-polygon and hyper-cube 
     """
     
@@ -535,7 +535,7 @@ def find_vertices(A_ub, b_ub):
     b = - halfspaces[:, -1:]
 
     #Run the linear programming code
-    L = linprog(c, A, b, bounds = (-1,1))
+    L = linprog(c, A, b, bounds = (-1,1), method = "highs")
     
     #If L.status == 0, it means the linear programming proceeded as normal, so there is shrinkage that can occur in the interval
     if L.status == 0:
@@ -663,7 +663,7 @@ def BoundingIntervalLinearSystem(Ms, errors):
                 #so return the original interval with changed = False and is_done = wellConditioned 
                 return np.vstack([a_orig,b_orig]).T, False, wellConditioned, False
 
-    #Use the halfspaces code in the case where dim > 4
+    #Use the halfspaces code in the case where dim >= 5
     
     #Define the A_ub matrix
     A_ub = np.vstack([A, -A])
