@@ -1,7 +1,8 @@
 import numpy as np
-import ChebyshevSubdivisionSolver, M_maker
-from utils import transform
-from polynomial import MultiCheb
+import yroots.ChebyshevSubdivisionSolver as ChebyshevSubdivisionSolver 
+import yroots.M_maker as M_maker
+from yroots.utils import transform
+from yroots.polynomial import MultiCheb
 
 def solver(funcs,a,b,guess_degs,rescale=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12, returnBoundingBoxes = False, exact=False):
     """
