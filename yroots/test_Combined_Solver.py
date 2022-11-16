@@ -82,12 +82,12 @@ def test_exact_option():
     [ 0.46482748,  0.06411414],
     [ 0.53962731, -0.68388412]])
 
-    actual_roots_2_3 = ChebyshevSubdivisionSolver.sortRoots(actual_roots_2_3) #sort the roots
-    yroots_non_exact = ChebyshevSubdivisionSolver.sortRoots(yroots_non_exact)
-    yroots_exact = ChebyshevSubdivisionSolver.sortRoots(yroots_exact)
-
     assert len(yroots_non_exact) == len(actual_roots_2_3)
     assert len(yroots_exact) == len(actual_roots_2_3)
+
+    actual_roots_2_3 = ChebyshevSubdivisionSolver.sortRoots(actual_roots_2_3)
+    yroots_non_exact = ChebyshevSubdivisionSolver.sortRoots(yroots_non_exact)
+    yroots_exact = ChebyshevSubdivisionSolver.sortRoots(yroots_exact) #sort the roots
 
     norm_yroots_non_exact = np.linalg.norm(yroots_non_exact-actual_roots_2_3)
     norm_yroots_exact = np.linalg.norm(yroots_exact-actual_roots_2_3)
