@@ -58,13 +58,11 @@ def test_bad_intervals():
     funcs = [f,g]
     with pytest.raises(ValueError) as excinfo:
         solver([f,g],a,b,[f_deg,g_deg])
-    print(excinfo)
     assert excinfo.value.args[0] == "At least one lower bound is >= an upper bound."
 
     a = [a[0]]
     with pytest.raises(ValueError) as excinfo:
         solver([f,g],a,b,[f_deg,g_deg])
-    print(excinfo)
     assert excinfo.value.args[0] == "Dimension mismatch in intervals."
 
 def test_exact_option():
@@ -84,12 +82,12 @@ def test_exact_option():
     [ 0.46482748,  0.06411414],
     [ 0.53962731, -0.68388412]])
 
-    print(len(yroots_exact))
-    print(len(yroots_non_exact))
-    print(len(actual_roots_2_3))
-
     assert len(yroots_non_exact) == len(actual_roots_2_3)
     assert len(yroots_exact) == len(actual_roots_2_3)
+
+    actual_roots_2_3 = ChebyshevSubdivisionSolver.sortRoots(actual_roots_2_3)
+    yroots_non_exact = ChebyshevSubdivisionSolver.sortRoots(yroots_non_exact)
+    yroots_exact = ChebyshevSubdivisionSolver.sortRoots(yroots_exact) #sort the roots
 
     norm_yroots_non_exact = np.linalg.norm(yroots_non_exact-actual_roots_2_3)
     norm_yroots_exact = np.linalg.norm(yroots_exact-actual_roots_2_3)
