@@ -109,6 +109,22 @@ def testreturnBoundingBoxes():
         box = ChebyshevSubdivisionSolver.TrackedInterval(box)
         assert box.__contains__(root) == True
 
+def testoutside_neg1_pos1():
+    f = lambda x,y: 2*x*y*np.cos(y**2)*np.cos(2*x)-np.cos(x*y)
+    g = lambda x,y: 2*np.sin(x*y**2)*np.sin(3*x*y)-np.sin(x*y)
+    a,b = np.array([-2,-2]), np.array([2,2])
+    funcs = [f,g]
+    f_deg,g_deg = 16,16
+    guess_degs = [f_deg,g_deg]
+    
+    yroots, boxes = solver(funcs,a,b,guess_degs,returnBoundingBoxes=True)
+    for root, box in zip(yroots,boxes):
+        box = ChebyshevSubdivisionSolver.TrackedInterval(box)
+        assert box.__contains__(root) == True
+
+
+
+
 #TODO: can I delete all the stuff below?
 
 #WHAT CAN WE TEST ABOUT THIS CODE
