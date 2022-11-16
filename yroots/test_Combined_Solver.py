@@ -73,26 +73,29 @@ def test_exact_option():
     funcs = [f,g]
     f_deg, g_deg = 16,32
     guess_degs = [f_deg,g_deg]
-    yroots_non_exact = solver(funcs,a,b,guess_degs,exact=False)
-    yroots_exact = solver(funcs,a,b,guess_degs,exact=True)
+    yroots_non_exact = solver(funcs,a,b,guess_degs,exact=False) #FALSE --> non_exact
+    yroots_exact = solver(funcs,a,b,guess_degs,exact=True) #TRUE --> exact
 
-    actual_roots_2_3 = np.array([[-0.35797059,  0.43811326],
-    [-0.28317077, -0.30988499],
-    [ 0.39002766,  0.81211239],
-    [ 0.46482748,  0.06411414],
-    [ 0.53962731, -0.68388412]])
+    actual_roots = np.load('Polished_results/polished_2.3.npy')
+    chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.3.csv', delimiter=',')
 
-    assert len(yroots_non_exact) == len(actual_roots_2_3)
-    assert len(yroots_exact) == len(actual_roots_2_3)
+    assert len(yroots_non_exact) == len(actual_roots)
+    assert len(yroots_exact) == len(actual_roots)
+    assert len(yroots_exact) == len(chebfun_roots)
 
-    actual_roots_2_3 = ChebyshevSubdivisionSolver.sortRoots(actual_roots_2_3)
+    actual_roots = ChebyshevSubdivisionSolver.sortRoots(actual_roots)
     yroots_non_exact = ChebyshevSubdivisionSolver.sortRoots(yroots_non_exact)
-    yroots_exact = ChebyshevSubdivisionSolver.sortRoots(yroots_exact) #sort the roots
+    yroots_exact = ChebyshevSubdivisionSolver.sortRoots(yroots_exact) 
+    chebfun_roots = ChebyshevSubdivisionSolver.sortRoots(chebfun_roots) #sort the Roots
 
-    norm_yroots_non_exact = np.linalg.norm(yroots_non_exact-actual_roots_2_3)
-    norm_yroots_exact = np.linalg.norm(yroots_exact-actual_roots_2_3)
+    diff_yroots_non_exact_polished = np.linalg.norm(yroots_non_exact-actual_roots) #polished roots
+    diff_yroots_exact_polished = np.linalg.norm(yroots_exact-actual_roots)
 
-    assert norm_yroots_exact <= norm_yroots_non_exact
+    diff_yroots_non_exact_chebfun = np.linalg.norm(yroots_non_exact-chebfun_roots) #chebfun roots
+    diff_yroots_exact_chebfun = np.linalg.norm(yroots_exact-chebfun_roots)
+
+    assert diff_yroots_exact_chebfun <= diff_yroots_non_exact_chebfun
+    assert diff_yroots_exact_polished <= diff_yroots_non_exact_polished
 
 def testreturnBoundingBoxes():
     f = lambda x,y: np.sin(4*(x + y/10 + np.pi/10))
