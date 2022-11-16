@@ -88,14 +88,10 @@ def test_exact_option():
     yroots_exact = ChebyshevSubdivisionSolver.sortRoots(yroots_exact) 
     chebfun_roots = ChebyshevSubdivisionSolver.sortRoots(chebfun_roots) #sort the Roots
 
-    diff_yroots_non_exact_polished = np.linalg.norm(yroots_non_exact-actual_roots) #polished roots
-    diff_yroots_exact_polished = np.linalg.norm(yroots_exact-actual_roots)
-
-    diff_yroots_non_exact_chebfun = np.linalg.norm(yroots_non_exact-chebfun_roots) #chebfun roots
-    diff_yroots_exact_chebfun = np.linalg.norm(yroots_exact-chebfun_roots)
-
-    assert diff_yroots_exact_chebfun <= diff_yroots_non_exact_chebfun
-    assert diff_yroots_exact_polished <= diff_yroots_non_exact_polished
+    assert np.allclose(yroots_exact,actual_roots)
+    assert np.allclose(yroots_exact,chebfun_roots)
+    assert np.allclose(yroots_non_exact,actual_roots)
+    assert np.allclose(yroots_non_exact,chebfun_roots)
 
 def testreturnBoundingBoxes():
     f = lambda x,y: np.sin(4*(x + y/10 + np.pi/10))
