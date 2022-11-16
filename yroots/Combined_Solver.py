@@ -1,9 +1,10 @@
 import numpy as np
-import ChebyshevSubdivisionSolver, M_maker
-from utils import transform
-from polynomial import MultiCheb
+import yroots.ChebyshevSubdivisionSolver as ChebyshevSubdivisionSolver 
+import yroots.M_maker as M_maker
+from yroots.utils import transform
+from yroots.polynomial import MultiCheb
 
-def solver(funcs,a,b,guess_degs,rescale=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12,exact=False):
+def solver(funcs,a,b,guess_degs,rescale=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12, returnBoundingBoxes = False, exact=False):
     """
     Finds the roots of the system of functions
 
@@ -83,10 +84,18 @@ def solver(funcs,a,b,guess_degs,rescale=False,rel_approx_tol=1.e-15, abs_approx_
             funcs[idx] = MultiCheb(approx.M)
 
     funcs = [func.coeff for func in funcs]
-    yroots = np.array(ChebyshevSubdivisionSolver.solveChebyshevSubdivision(funcs,errs,exact=True))
 
-    #transform doesn't work on empty arrays
-    if is_neg1_1 == False and len(yroots) > 0:
-        yroots = transform(yroots,a,b)
+    if returnBoundingBoxes:
+        yroots, boundingBoxes = np.array(ChebyshevSubdivisionSolver.solveChebyshevSubdivision(funcs,errs,returnBoundingBoxes,exact))
+        boundingBoxes = np.array([boundingBox.interval for boundingBox in boundingBoxes])
+        if is_neg1_1 == False and len(yroots) > 0:
+            yroots = transform(yroots,a,b)
+            boundingBoxes = np.array([boundingBox.interval for boundingBox in boundingBoxes])
+            boundingBoxes = np.array([transform(boundingBox.T,a,b).T for boundingBox in boundingBoxes]) #xx yy, roots are xy xy each row
+        return yroots, boundingBoxes
 
-    return yroots
+    else:
+        yroots = np.array(ChebyshevSubdivisionSolver.solveChebyshevSubdivision(funcs,errs,returnBoundingBoxes,exact))
+        if is_neg1_1 == False and len(yroots) > 0:
+            yroots = transform(yroots,a,b)
+        return yroots

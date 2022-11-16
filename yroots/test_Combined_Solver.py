@@ -2,12 +2,12 @@
 A solid 2 dimensional check before I hit the pull request.
 """
 import numpy as np
-from Combined_Solver import solver
-import M_maker
-import ChebyshevSubdivisionSolver
+import yroots.M_maker as M_maker
+import yroots.ChebyshevSubdivisionSolver as ChebyshevSubdivisionSolver
 import pytest
-from polynomial import MultiCheb
-from utils import transform
+from yroots.polynomial import MultiCheb
+from yroots.utils import transform
+from yroots.Combined_Solver import solver
 
 f = lambda x,y: (x-1)*(np.cos(x*y**2)+2)
 g = lambda x,y: np.sin(8*np.pi*y)*(np.cos(x*y)+2)
@@ -53,7 +53,6 @@ def test_solver():
     a,b = np.array([-0.9,-0.9]), np.array([0.9,0.9])
     assert solver_check([h,k],a,b) == True
 
-
 def test_bad_intervals():
     a,b = np.array([1,-1]),np.array([1,1])
     funcs = [f,g]
@@ -65,7 +64,6 @@ def test_bad_intervals():
     with pytest.raises(ValueError) as excinfo:
         solver([f,g],a,b,[f_deg,g_deg])
     assert excinfo.value.args[0] == "Dimension mismatch in intervals."
-
 
 def test_exact_option():
     f = lambda x,y: np.sin(4*(x + y/10 + np.pi/10))
@@ -96,6 +94,22 @@ def test_exact_option():
 
     assert norm_yroots_exact <= norm_yroots_non_exact
 
+def testreturnBoundingBoxes():
+    f = lambda x,y: np.sin(4*(x + y/10 + np.pi/10))
+    g = lambda x,y: np.cos(2*(x-2*y+ np.pi/7))
+    a,b = np.array([-1,-1]),np.array([1,1])
+
+    funcs = [f,g]
+    f_deg, g_deg = 16,32
+    guess_degs = [f_deg,g_deg]
+
+    yroots, boxes = solver(funcs,a,b,guess_degs,returnBoundingBoxes=True)
+
+    for root, box in zip(yroots,boxes):
+        box = ChebyshevSubdivisionSolver.TrackedInterval(box)
+        assert box.__contains__(root) == True
+
+#TODO: can I delete all the stuff below?
 
 #WHAT CAN WE TEST ABOUT THIS CODE
 #WE CAN CHECK THAT IT PRESERVES WHAT ERIKs solver does when it is given the approximations
