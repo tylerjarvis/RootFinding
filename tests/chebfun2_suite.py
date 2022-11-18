@@ -1,5 +1,5 @@
 import numpy as np
-from yroots.subdivision import solve
+from yroots.Combined_Solver import solver
 from time import time
 from matplotlib import pyplot as plt
 # TODO Description of where these tests come from, links to relevant papers,
@@ -302,31 +302,42 @@ def verbose_pass_or_fail(funcs, yroots, polished_roots, test_num, cheb_roots=Non
     print("=========================================================")
     return residuals_pass,norm_pass
 
+#TODO: include test cases for for returnbounding boxes, exact, rescale
+
 def test_roots_1_1():
     # Test 1.1
-        f = lambda x,y: 144*(x**4+y**4)-225*(x**2+y**2) + 350*x**2*y**2+81
-        g = lambda x,y: y-x**6
-        start = time()
-        yroots = solve([f,g],[-1,-1],[1,1], plot=False)
-        t = time() - start
-        actual_roots = np.load('Polished_results/polished_1.1.npy')
-        chebfun_roots = np.loadtxt('Chebfun_results/test_roots_1.1.csv', delimiter=',')
+    f = lambda x,y: 144*(x**4+y**4)-225*(x**2+y**2) + 350*x**2*y**2+81
+    g = lambda x,y: y-x**6
+    f_deg, g_deg = 4,6
+    guess_degs = [f_deg,g_deg]
+    funcs = [f,g]
+    a, b = np.array([-1,-1]), np.array([1,1])
+    start = time()
+    yroots = solver(funcs,guess_degs,a,b)
+    t = time() - start
+    actual_roots = np.load('Polished_results/polished_1.1.npy')
+    chebfun_roots = np.loadtxt('Chebfun_results/test_roots_1.1.csv', delimiter=',')
 
-        return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 1.1, cheb_roots=chebfun_roots)
+    return t, verbose_pass_or_fail([f,g], yroots, actual_roots, 1.1, cheb_roots=chebfun_roots)
 
 
 def test_roots_1_2():
     # Test 1.2
     f = lambda x,y: (y**2-x**3)*((y-0.7)**2-(x-0.3)**3)*((y+0.2)**2-(x+0.8)**3)*((y+0.2)**2-(x-0.8)**3)
     g = lambda x,y: ((y+.4)**3-(x-.4)**2)*((y+.3)**3-(x-.3)**2)*((y-.5)**3-(x+.6)**2)*((y+0.3)**3-(2*x-0.8)**3)
+    f_deg, g_deg = 100,100
+    guess_degs = [f_deg,g_deg]
+    funcs = [f,g]
+    a,b = np.array([-1,-1]), np.array([1,1])
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solver(funcs,guess_degs,a,b)
     t = time() - start
 
+    #TODO: maybe talk to Kate about this, see if we still want to use this
     # Get Polished results (Newton polishing misses roots)
-    yroots2 = solve([f,g],[-1,-1],[1,1], abs_approx_tol=[1e-8, 1e-12], rel_approx_tol=[1e-15, 1e-18],\
-                max_cond_num=[1e5, 1e2], good_zeros_factor=[100,100], min_good_zeros_tol=[1e-5, 1e-5],\
-                check_eval_error=[True,True], check_eval_freq=[1,2], plot=False, target_tol=[1e-13, 1e-13])
+    # yroots2 = solve([f,g],[-1,-1],[1,1], abs_approx_tol=[1e-8, 1e-12], rel_approx_tol=[1e-15, 1e-18],\
+    #             max_cond_num=[1e5, 1e2], good_zeros_factor=[100,100], min_good_zeros_tol=[1e-5, 1e-5],\
+    #             check_eval_error=[True,True], check_eval_freq=[1,2], plot=False, target_tol=[1e-13, 1e-13])
     actual_roots = np.load('Polished_results/polished_1.2.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_1.2.csv', delimiter=',')
 
@@ -337,8 +348,12 @@ def test_roots_1_3():
     # Test 1.3
     f = lambda x,y: y**2-x**3
     g = lambda x,y: (y+.1)**3-(x-.1)**2
+    f_deg, g_deg = 100,100
+    guess_degs = [f_deg,g_deg]
+    funcs = [f,g]
+    a,b = np.array([-1,-1]), np.array([1,1])
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solver(funcs,guess_degs,a,b)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_1.3.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_1.3.csv', delimiter=',')
@@ -349,8 +364,12 @@ def test_roots_1_4():
     # Test 1.4
     f = lambda x,y: x - y + .5
     g = lambda x,y: x + y
+    f_deg, g_deg = 100,100
+    guess_degs = [f_deg,g_deg]
+    funcs = [f,g]
+    a,b = np.array([-1,-1]), np.array([1,1])
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solver(funcs,guess_degs,a,b)
     t = time() - start
     # Single root has to be in matrix form because yroots
     # returns the roots in matrix form.
@@ -363,8 +382,12 @@ def test_roots_1_5():
     # Test 1.5
     f = lambda x,y: y + x/2 + 1/10
     g = lambda x,y: y - 2.1*x + 2
+    f_deg, g_deg = 100,100
+    guess_degs = [f_deg,g_deg]
+    funcs = [f,g]
+    a,b = np.array([-1,-1]), np.array([1,1])
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solver(funcs,guess_degs,a,b)
     t = time() - start
     # Single root has to be in matrix form because yroots
     # returns the roots in matrix form.
@@ -379,8 +402,12 @@ def test_roots_2_1():
     # Test 2.1
     f = lambda x,y: np.cos(10*x*y)
     g = lambda x,y: x + y**2
+    f_deg, g_deg = 100,100
+    guess_degs = [f_deg,g_deg]
+    funcs = [f,g]
+    a,b = np.array([-1,-1]), np.array([1,1])
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solver(funcs,guess_degs,a,b)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_2.1.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.1.csv', delimiter=',')
@@ -392,8 +419,12 @@ def test_roots_2_2():
     # Test 2.2
     f = lambda x,y: x
     g = lambda x,y: (x-.9999)**2 + y**2-1
+    f_deg, g_deg = 100,100
+    guess_degs = [f_deg,g_deg]
+    funcs = [f,g]
+    a,b = np.array([-1,-1]), np.array([1,1])
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solver(funcs,guess_degs,a,b)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_2.2.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.2.csv', delimiter=',')
@@ -405,8 +436,12 @@ def test_roots_2_3():
     # Test 2.3
     f = lambda x,y: np.sin(4*(x + y/10 + np.pi/10))
     g = lambda x,y: np.cos(2*(x-2*y+ np.pi/7))
+    f_deg, g_deg = 100,100
+    guess_degs = [f_deg,g_deg]
+    funcs = [f,g]
+    a,b = np.array([-1,-1]), np.array([1,1])
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solver(funcs,guess_degs,a,b)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_2.3.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.3.csv', delimiter=',')
@@ -418,8 +453,12 @@ def test_roots_2_4():
     # Test 2.4
     f = lambda x,y: np.exp(x-2*x**2-y**2)*np.sin(10*(x+y+x*y**2))
     g = lambda x,y: np.exp(-x+2*y**2+x*y**2)*np.sin(10*(x-y-2*x*y**2))
+    f_deg, g_deg = 100,100
+    guess_degs = [f_deg,g_deg]
+    funcs = [f,g]
+    a,b = np.array([-1,-1]), np.array([1,1])
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solver(funcs,guess_degs,a,b)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_2.4.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.4.csv', delimiter=',')
@@ -431,8 +470,12 @@ def test_roots_2_5():
     # Test 2.5
     f = lambda x,y: 2*y*np.cos(y**2)*np.cos(2*x)-np.cos(y)
     g = lambda x,y: 2*np.sin(y**2)*np.sin(2*x)-np.sin(x)
+    f_deg, g_deg = 100,100
+    guess_degs = [f_deg,g_deg]
+    funcs = [f,g]
+    a,b = np.array([-1,-1]), np.array([1,1])
     start = time()
-    yroots = solve([f,g],[-4,-4],[4,4], plot=False)
+    yroots = solver(funcs,guess_degs,a,b)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_2.5.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.5.csv', delimiter=',')
@@ -445,8 +488,12 @@ def test_roots_3_1():
     # Test 3.1
     f = lambda x,y: ((x-.3)**2+2*(y+0.3)**2-1)
     g = lambda x,y: ((x-.49)**2+(y+.5)**2-1)*((x+0.5)**2+(y+0.5)**2-1)*((x-1)**2+(y-0.5)**2-1)
+    f_deg, g_deg = 100,100
+    guess_degs = [f_deg,g_deg]
+    funcs = [f,g]
+    a,b = np.array([-1,-1]), np.array([1,1])
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solver(funcs,guess_degs,a,b)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_3.1.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_3.1.csv', delimiter=',')
@@ -457,8 +504,12 @@ def test_roots_3_2():
     # Test 3.2
     f = lambda x,y: ((x-0.1)**2+2*(y-0.1)**2-1)*((x+0.3)**2+2*(y-0.2)**2-1)*((x-0.3)**2+2*(y+0.15)**2-1)*((x-0.13)**2+2*(y+0.15)**2-1)
     g = lambda x,y: (2*(x+0.1)**2+(y+0.1)**2-1)*(2*(x+0.1)**2+(y-0.1)**2-1)*(2*(x-0.3)**2+(y-0.15)**2-1)*((x-0.21)**2+2*(y-0.15)**2-1)
+    f_deg, g_deg = 100,100
+    guess_degs = [f_deg,g_deg]
+    funcs = [f,g]
+    a,b = np.array([-1,-1]), np.array([1,1])
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solver(funcs,guess_degs,a,b)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_3.2.npy')
 
@@ -477,8 +528,12 @@ def test_roots_4_1():
     # This system hs 4 true roots, but ms fails (finds 5).
     f = lambda x,y: np.sin(3*(x+y))
     g = lambda x,y: np.sin(3*(x-y))
+    f_deg, g_deg = 100,100
+    guess_degs = [f_deg,g_deg]
+    funcs = [f,g]
+    a,b = np.array([-1,-1]), np.array([1,1])
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solver(funcs,guess_degs,a,b)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_4.1.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_4.1.csv', delimiter=',')
@@ -507,8 +562,12 @@ def test_roots_4_2():
     g = lambda x,y: 1e-4*(y**7 + (-3)*y**6 + (2*x**2 + (-1)*x + 2)*y**5 + (x**3 + (-6)*x**2 + x + 2)*y**4 + (x**4 + (-2)*x**3 + 2*x**2 +
                 x + (-3))*y**3 + (2*x**5 + (-3)*x**4 + x**3 + 10*x**2 + (-1)*x + 1)*y**2 + ((-1)*x**5 + 3*x**4 + 4*x**3 + (-12)*x**2)*y +
                 (x**7 + (-3)*x**5 + (-1)*x**4 + (-4)*x**3 + 4*x**2))
+    f_deg, g_deg = 100,100
+    guess_degs = [f_deg,g_deg]
+    funcs = [f,g]
+    a,b = np.array([-1,-1]), np.array([1,1])
     start = time()
-    yroots = solve([f,g],[-1, -1],[1,1], plot=False)
+    yroots = solver(funcs,guess_degs,a,b)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_4.2.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_4.2.csv', delimiter=',')
@@ -521,8 +580,12 @@ def test_roots_5():
     # Test 5.1
     f = lambda x,y: 2*x*y*np.cos(y**2)*np.cos(2*x)-np.cos(x*y)
     g = lambda x,y: 2*np.sin(x*y**2)*np.sin(3*x*y)-np.sin(x*y)
+    f_deg, g_deg = 100,100
+    guess_degs = [f_deg,g_deg]
+    funcs = [f,g]
+    a,b = np.array([-2,-2]), np.array([2,2])
     start = time()
-    yroots = solve([f,g],[-2,-2],[2,2], plot=False)
+    yroots = solver(funcs,guess_degs,a,b)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_5.1.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_5.1.csv', delimiter=',')
@@ -534,8 +597,12 @@ def test_roots_6_1():
     # Test 6.1
     f = lambda x,y: (y - 2*x)*(y+0.5*x)
     g = lambda x,y: x*(x**2+y**2-1)
+    f_deg, g_deg = 100,100
+    guess_degs = [f_deg,g_deg]
+    funcs = [f,g]
+    a,b = np.array([-1,-1]), np.array([1,1])
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solver(funcs,guess_degs,a,b)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_6.1.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_6.1.csv', delimiter=',')
@@ -549,8 +616,12 @@ def test_roots_6_2():
     # Test 6.2
     f = lambda x,y: (y - 2*x)*(y+.5*x)
     g = lambda x,y: (x-.0001)*(x**2+y**2-1)
+    f_deg, g_deg = 100,100
+    guess_degs = [f_deg,g_deg]
+    funcs = [f,g]
+    a,b = np.array([-1,-1]), np.array([1,1])
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solver(funcs,guess_degs,a,b)
     t = time() - start
     actual_roots = np.array([[1/10000,-1/20000],[1/10000, 1/5000],[-2/np.sqrt(5),1/np.sqrt(5)],[-1/np.sqrt(5),-2/np.sqrt(5)],[1/np.sqrt(5),2/np.sqrt(5)],[2/np.sqrt(5),-1/np.sqrt(5)]])
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_6.2.csv', delimiter=',')
@@ -562,8 +633,12 @@ def test_roots_6_3():
     # Test 6.3
     f = lambda x,y: 25*x*y - 12
     g = lambda x,y: x**2+y**2-1
+    f_deg, g_deg = 100,100
+    guess_degs = [f_deg,g_deg]
+    funcs = [f,g]
+    a,b = np.array([-1,-1]), np.array([1,1])
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solver(funcs,guess_degs,a,b)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_6.3.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_6.3.csv', delimiter=',')
@@ -575,8 +650,12 @@ def test_roots_7_1():
     # Test 7.1
     f = lambda x,y: (x**2+y**2-1)*(x-1.1)
     g = lambda x,y: (25*x*y-12)*(x-1.1)
+    f_deg, g_deg = 100,100
+    guess_degs = [f_deg,g_deg]
+    funcs = [f,g]
+    a,b = np.array([-1,-1]), np.array([1,1])
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solver(funcs,guess_degs,a,b)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_7.1.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_7.1.csv', delimiter=',')
@@ -589,8 +668,12 @@ def test_roots_7_2():
     f = lambda x,y: y**4 + (-1)*y**3 + (2*x**2)*(y**2) + (3*x**2)*y + (x**4)
     h = lambda x,y: y**10-2*(x**8)*(y**2)+4*(x**4)*y-2
     g = lambda x,y: h(2*x,2*(y+.5))
+    f_deg, g_deg, h_deg = 100,100,100
+    guess_degs = [f_deg,g_deg,h_deg]
+    funcs = [f,g,h]
+    a,b = np.array([-1,-1]), np.array([1,1])
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solver(funcs,guess_degs,a,b)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_7.2.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_7.2.csv', delimiter=',')
@@ -603,9 +686,12 @@ def test_roots_7_3():
     c = 1.e-09
     f = lambda x,y: np.cos(x*y/(c**2))+np.sin(3*x*y/(c**2))
     g = lambda x,y: np.cos(y/c)-np.cos(2*x*y/(c**2))
-
+    f_deg, g_deg = 100,100
+    guess_degs = [f_deg,g_deg]
+    funcs = [f,g]
+    a,b = np.array([-1e-9, -1e-9]), np.array([1e-9, 1e-9])
     start = time()
-    yroots = solve([f,g],[-1e-9, -1e-9],[1e-9, 1e-9], plot=False)
+    yroots = solver(funcs,guess_degs,a,b)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_7.3.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_7.3.csv', delimiter=',')
@@ -618,8 +704,12 @@ def test_roots_7_4():
     # Test 7.4
     f = lambda x,y: np.sin(3*np.pi*x)*np.cos(x*y)
     g = lambda x,y: np.sin(3*np.pi*y)*np.cos(np.sin(x*y))
+    f_deg, g_deg = 100,100
+    guess_degs = [f_deg,g_deg]
+    funcs = [f,g]
+    a,b = np.array([-1,-1]), np.array([1,1])
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solver(funcs,guess_degs,a,b)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_7.4.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_7.4.csv', delimiter=',')
@@ -630,8 +720,12 @@ def test_roots_8_1():
     # Test 8.1
     f = lambda x,y: np.sin(10*x-y/10)
     g = lambda x,y: np.cos(3*x*y)
+    f_deg, g_deg = 100,100
+    guess_degs = [f_deg,g_deg]
+    funcs = [f,g]
+    a,b = np.array([-1,-1]), np.array([1,1])
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solver(funcs,guess_degs,a,b)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_8.1.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_8.1.csv', delimiter=',')
@@ -642,8 +736,12 @@ def test_roots_8_2():
     # Test 8.2
     f = lambda x,y: np.sin(10*x-y/10) + y
     g = lambda x,y: np.cos(10*y-x/10) - x
+    f_deg, g_deg = 100,100
+    guess_degs = [f_deg,g_deg]
+    funcs = [f,g]
+    a,b = np.array([-1,-1]), np.array([1,1])
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solver(funcs,guess_degs,a,b)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_8.2.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_8.2.csv', delimiter=',')
@@ -656,8 +754,12 @@ def test_roots_9_1():
     # Test 9.1
     f = lambda x,y: x**2+y**2-.9**2
     g = lambda x,y: np.sin(x*y)
+    f_deg, g_deg = 100,100
+    guess_degs = [f_deg,g_deg]
+    funcs = [f,g]
+    a,b = np.array([-1,-1]), np.array([1,1])
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solver(funcs,guess_degs,a,b)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_9.1.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_9.1.csv', delimiter=',')
@@ -669,8 +771,12 @@ def test_roots_9_2():
     # Test 9.2
     f = lambda x,y: x**2+y**2-.49**2
     g = lambda x,y: (x-.1)*(x*y - .2)
+    f_deg, g_deg = 100,100
+    guess_degs = [f_deg,g_deg]
+    funcs = [f,g]
+    a,b = np.array([-1,-1]), np.array([1,1])
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solver(funcs,guess_degs,a,b)
     t = time() - start
     actual_roots = np.load('Polished_results/polished_9.2.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_9.2.csv', delimiter=',')
@@ -682,8 +788,12 @@ def test_roots_10():
     # Test 10.1
     f = lambda x,y: (x-1)*(np.cos(x*y**2)+2)
     g = lambda x,y: np.sin(8*np.pi*y)*(np.cos(x*y)+2)
+    f_deg, g_deg = 100,100
+    guess_degs = [f_deg,g_deg]
+    funcs = [f,g]
+    a,b = np.array([-1,-1]), np.array([1,1])
     start = time()
-    yroots = solve([f,g],[-1,-1],[1,1], plot=False)
+    yroots = solver(funcs,guess_degs,a,b)
     t = time() - start
     actual_roots = np.array([[1, -1.0], [1, -0.875], [1, -0.75], [1, -0.625], [1, -0.5], [1, -0.375],
                             [1, -0.25], [1, -0.125], [1, 0.0], [1, 0.125], [1, 0.25], [1, 0.375],
