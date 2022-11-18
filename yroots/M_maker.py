@@ -206,6 +206,12 @@ class M_maker:
         if hasattr(f,"evaluate_grid"):
             cheb_values = np.cos(np.arange(deg+1)*np.pi/deg)
             chepy_pts =  np.column_stack([cheb_values]*self.dim)
+            #two dimensions
+            #odds = chepy_pts[:,1::2]
+            #xyz = np.column_stack((chepy_pts,odds))
+            #p1 = f.evaluate_grid(xyz)
+            #xyz2 = np.columns_stack((odds,odds))
+            #p2 = f.evaluate_grid(xyz2)
             cheb_pts = transform(chepy_pts,a,b)
             values_block = f.evaluate_grid(cheb_pts) #version 0 no memoization here
             self.memo_dict[deg] = values_block
