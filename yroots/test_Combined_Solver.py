@@ -121,6 +121,26 @@ def testoutside_neg1_pos1():
         box = ChebyshevSubdivisionSolver.TrackedInterval(box)
         assert box.__contains__(root) == True
 
+def test_default_nodeg():
+    f = lambda x,y: np.sin(4*(x + y/10 + np.pi/10))
+    g = lambda x,y: np.cos(2*(x-2*y+ np.pi/7))
+    a,b = np.array([-1,-1]),np.array([1,1])
+
+    funcs = [f,g]
+
+    yroots = solver(funcs,a,b)
+
+    actual_roots = np.load('Polished_results/polished_2.3.npy')
+    chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.3.csv', delimiter=',')
+
+    actual_roots = ChebyshevSubdivisionSolver.sortRoots(actual_roots)
+    chebfun_roots = ChebyshevSubdivisionSolver.sortRoots(chebfun_roots) #sort the Roots
+    yroots = ChebyshevSubdivisionSolver.sortRoots(yroots) 
+
+    assert np.allclose(yroots,actual_roots)
+    assert np.allclose(yroots,chebfun_roots)
+
+
 
 
 
