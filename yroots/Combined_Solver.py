@@ -1,4 +1,6 @@
 import numpy as np
+import inspect
+import sympy as sy
 import yroots.ChebyshevSubdivisionSolver as ChebyshevSubdivisionSolver 
 import yroots.M_maker as M_maker
 from yroots.utils import transform
@@ -40,6 +42,19 @@ def solve(funcs,a,b,guess_degs=None,rescale=False,rel_approx_tol=1.e-15, abs_app
 
     if guess_degs == None:
         guess_degs = [default_deg]*len(funcs)
+
+    func_string_lists = [inspect.getsource(func).strip().split(":") for func in funcs]
+    is_polynomial = [True]*len(funcs) #maybe not necessary, will evaluate later
+
+    for i,f_str_lst in enumerate(func_string_lists):
+        vars, expr = f_str_lst[0].strip().split('lambda')[1].strip(), f_str_lst[1].strip()
+        vars = sy.symbols(vars) #maybe can just do sy.symbols(vars)
+        if "np." in expr:
+            is_polynomial[i] = False #not a great check, since polynomials can be expressed with np.Array, but good start, this would include rational polynomials
+            continue
+        expr = sy.sympify(expr)
+        guess_degs[i] = max(sy.degree_list(expr))
+
 
     if len(a) != len(b):
         raise ValueError("Dimension mismatch in intervals.")
