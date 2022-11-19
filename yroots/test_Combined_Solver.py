@@ -128,7 +128,7 @@ def test_default_nodeg():
 
     funcs = [f,g]
 
-    yroots = solver(funcs,a,b)
+    yroots = solve(funcs,a,b)
 
     actual_roots = np.load('Polished_results/polished_2.3.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.3.csv', delimiter=',')
