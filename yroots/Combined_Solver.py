@@ -36,11 +36,10 @@ def solve(funcs,a,b,guess_degs=None,rescale=False,rel_approx_tol=1.e-15, abs_app
     #TODO: handle for case that input degree is above max_deg (provide a warning)
     #TODO: maybe next we can include an option to return the bounding boxes
     
-    if guess_degs == None:
-        guess_degs = [20]*len(funcs)
+    default_deg = 20 #default 20 degree approximation, no reason behind this, will change later
 
     if guess_degs == None:
-        guess_degs = [20]*len(funcs)
+        guess_degs = [default_deg]*len(funcs)
 
     if len(a) != len(b):
         raise ValueError("Dimension mismatch in intervals.")
