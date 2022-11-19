@@ -50,7 +50,7 @@ def solve(funcs,a,b,guess_degs=None,rescale=False,rel_approx_tol=1.e-15, abs_app
         vars, expr = f_str_lst[0].strip().split('lambda')[1].strip(), f_str_lst[1].strip()
         vars = sy.symbols(vars) #maybe can just do sy.symbols(vars)
         if "np." in expr:
-            is_polynomial[i] = False #not a great check, since polynomials can be expressed with np.Array, but good start, this would include rational polynomials
+            is_polynomial[i] = False #not a great check, since polynomials can be expressed with np.Array, but good start, this would include rational polynomials, maybe include "/" in the string search
             continue
         expr = sy.sympify(expr)
         guess_degs[i] = max(sy.degree_list(expr))
