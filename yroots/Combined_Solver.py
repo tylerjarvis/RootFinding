@@ -4,7 +4,7 @@ import sympy as sy
 import yroots.ChebyshevSubdivisionSolver as ChebyshevSubdivisionSolver 
 import yroots.M_maker as M_maker
 from yroots.utils import transform
-from yroots.polynomial import MultiCheb
+from yroots.polynomial import MultiCheb, MultiPower
 
 def solve(funcs,a,b,guess_degs=None,rescale=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12, returnBoundingBoxes = False, exact=False):
     """
@@ -38,23 +38,28 @@ def solve(funcs,a,b,guess_degs=None,rescale=False,rel_approx_tol=1.e-15, abs_app
     #TODO: handle for case that input degree is above max_deg (provide a warning)
     #TODO: maybe next we can include an option to return the bounding boxes
     
-    default_deg = 20 #default 20 degree approximation, no reason behind this, will change later
+    default_deg = 2 #to optimize later
 
     if guess_degs == None:
         guess_degs = [default_deg]*len(funcs)
 
-    func_string_lists = [inspect.getsource(func).strip().split(":") for func in funcs]
-    is_polynomial = [True]*len(funcs) #maybe not necessary, will evaluate later
+    is_lambda = [True if "lambda" in inspect.getsource(func) else False for func in funcs]
+    is_lambda_poly = [True]*len(funcs) #might be useful for some checks
 
-    for i,f_str_lst in enumerate(func_string_lists):
-        vars, expr = f_str_lst[0].strip().split('lambda')[1].strip(), f_str_lst[1].strip()
-        vars = sy.symbols(vars) #maybe can just do sy.symbols(vars)
-        if "np." in expr:
-            is_polynomial[i] = False #not a great check, since polynomials can be expressed with np.Array, but good start, this would include rational polynomials, maybe include "/" in the string search
-            continue
-        expr = sy.sympify(expr)
-        guess_degs[i] = max(sy.degree_list(expr))
+    for i,func in enumerate(funcs):
+        if isinstance(func,MultiCheb) or isinstance(func,MultiPower):
+            guess_degs[i] = max(func.shape) #maybe funcs[i].shape[0] is just fine (same deg in every dimension), but we play it safe
+        elif is_lambda[i]:
+            f_str_lst = inspect.getsource(func).strip().split(":")
+            vars, expr = f_str_lst[0].strip().split('lambda')[1].strip(), f_str_lst[1].strip()
+            vars = sy.symbols(vars) #maybe can just do sy.symbols(vars)
+            if "np." in expr:
+                is_lambda_poly[i] = False #not a great check, since polynomials can be expressed with np.Array, but good start, this would include rational polynomials, maybe include "/" in the string search
+                continue
+            expr = sy.sympify(expr)
+            guess_degs[i] = max(sy.degree_list(expr))
 
+    
 
     if len(a) != len(b):
         raise ValueError("Dimension mismatch in intervals.")

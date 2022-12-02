@@ -5,9 +5,11 @@ import numpy as np
 import yroots.M_maker as M_maker
 import yroots.ChebyshevSubdivisionSolver as ChebyshevSubdivisionSolver
 import pytest
-from yroots.polynomial import MultiCheb
+from yroots.polynomial import MultiCheb, MultiPower
 from yroots.utils import transform
 from yroots.Combined_Solver import solve
+import inspect
+import sympy as sy
 
 f = lambda x,y: (x-1)*(np.cos(x*y**2)+2)
 g = lambda x,y: np.sin(8*np.pi*y)*(np.cos(x*y)+2)
@@ -139,6 +141,46 @@ def test_default_nodeg():
 
     assert np.allclose(yroots,actual_roots)
     assert np.allclose(yroots,chebfun_roots)
+
+def test_deg_inf():
+    f = lambda x,y: y**2-x**3
+    g = lambda x,y: (y+.1)**3-(x-.1)**2
+    a,b = np.array([-1,-1]), np.array([1,1])
+    g_deg = 3
+    g = MultiCheb(M_maker(g,a,b,g_deg))
+    funcs = [f,g]
+    guess_degs = None
+
+    default_deg = 2 #to optimize later
+
+    ###THIS IS A DIRECT COPY PASTE FROM Combined_Solver.py. 
+    ### START: ###
+    if guess_degs == None:
+        guess_degs = [default_deg]*len(funcs)
+
+    is_lambda = [True if "lambda" in inspect.getsource(func) else False for func in funcs]
+    is_lambda_poly = [True]*len(funcs) #might be useful for some checks
+
+    
+
+    for i,func in enumerate(funcs):
+        if isinstance(func,MultiCheb) or isinstance(func,MultiPower):
+            guess_degs[i] = max(func.shape) #maybe funcs[i].shape[0] is just fine (same deg in every dimension), but we play it safe
+        elif is_lambda[i]:
+            f_str_lst = inspect.getsource(func).strip().split(":")
+            vars, expr = f_str_lst[0].strip().split('lambda')[1].strip(), f_str_lst[1].strip()
+            vars = sy.symbols(vars) #maybe can just do sy.symbols(vars)
+            if "np." in expr:
+                is_lambda_poly[i] = False #not a great check, since polynomials can be expressed with np.Array, but good start, this would include rational polynomials, maybe include "/" in the string search
+                continue
+            expr = sy.sympify(expr)
+            guess_degs[i] = max(sy.degree_list(expr))
+    ### END. ###
+
+    assert is_lambda_poly == [True, False]
+    assert guess_degs == [3,3]
+
+    #then a standard test for finding the roots
 
 
 
