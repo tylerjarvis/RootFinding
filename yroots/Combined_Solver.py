@@ -4,7 +4,7 @@ import yroots.M_maker as M_maker
 from yroots.utils import transform
 from yroots.polynomial import MultiCheb
 
-def solver(funcs,a,b,guess_degs,rescale=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12, returnBoundingBoxes = False, exact=False):
+def solve(funcs,a,b,guess_degs=None,rescale=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12, returnBoundingBoxes = False, exact=False):
     """
     Finds the roots of the system of functions
 
@@ -35,6 +35,11 @@ def solver(funcs,a,b,guess_degs,rescale=False,rel_approx_tol=1.e-15, abs_approx_
     #TODO: decide whether to have the guess_deg input default, and what it would be (could the approximation degree used work), maybe they need to know their degree
     #TODO: handle for case that input degree is above max_deg (provide a warning)
     #TODO: maybe next we can include an option to return the bounding boxes
+    
+    default_deg = 20 #default 20 degree approximation, no reason behind this, will change later
+
+    if guess_degs == None:
+        guess_degs = [default_deg]*len(funcs)
 
     if len(a) != len(b):
         raise ValueError("Dimension mismatch in intervals.")
