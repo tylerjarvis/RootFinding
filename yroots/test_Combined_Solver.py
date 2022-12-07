@@ -7,7 +7,7 @@ import yroots.ChebyshevSubdivisionSolver as ChebyshevSubdivisionSolver
 import pytest
 from yroots.polynomial import MultiCheb
 from yroots.utils import transform
-from yroots.Combined_Solver import solver
+from yroots.Combined_Solver import solve
 
 f = lambda x,y: (x-1)*(np.cos(x*y**2)+2)
 g = lambda x,y: np.sin(8*np.pi*y)*(np.cos(x*y)+2)
@@ -20,7 +20,7 @@ def solver_check(funcs,a,b):
 
     f,g = funcs
     guess_degs = [f_deg,g_deg]
-    yroots_1 = solver(funcs,a,b,guess_degs)
+    yroots_1 = solve(funcs,a,b,guess_degs)
 
     arr_neg1 = np.array([-1]*len(a)) #what if a>b
     arr_1 = np.ones(len(a))
@@ -57,12 +57,12 @@ def test_bad_intervals():
     a,b = np.array([1,-1]),np.array([1,1])
     funcs = [f,g]
     with pytest.raises(ValueError) as excinfo:
-        solver([f,g],a,b,[f_deg,g_deg])
+        solve([f,g],a,b,[f_deg,g_deg])
     assert excinfo.value.args[0] == "At least one lower bound is >= an upper bound."
 
     a = [a[0]]
     with pytest.raises(ValueError) as excinfo:
-        solver([f,g],a,b,[f_deg,g_deg])
+        solve([f,g],a,b,[f_deg,g_deg])
     assert excinfo.value.args[0] == "Dimension mismatch in intervals."
 
 def test_exact_option():
@@ -73,8 +73,8 @@ def test_exact_option():
     funcs = [f,g]
     f_deg, g_deg = 16,32
     guess_degs = [f_deg,g_deg]
-    yroots_non_exact = solver(funcs,a,b,guess_degs,exact=False) #FALSE --> non_exact
-    yroots_exact = solver(funcs,a,b,guess_degs,exact=True) #TRUE --> exact
+    yroots_non_exact = solve(funcs,a,b,guess_degs,exact=False) #FALSE --> non_exact
+    yroots_exact = solve(funcs,a,b,guess_degs,exact=True) #TRUE --> exact
 
     actual_roots = np.load('Polished_results/polished_2.3.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.3.csv', delimiter=',')
@@ -102,7 +102,7 @@ def testreturnBoundingBoxes():
     f_deg, g_deg = 16,32
     guess_degs = [f_deg,g_deg]
 
-    yroots, boxes = solver(funcs,a,b,guess_degs,returnBoundingBoxes=True)
+    yroots, boxes = solve(funcs,a,b,guess_degs,returnBoundingBoxes=True)
 
     for root, box in zip(yroots,boxes):
         box = ChebyshevSubdivisionSolver.TrackedInterval(box)
@@ -116,10 +116,30 @@ def testoutside_neg1_pos1():
     f_deg,g_deg = 16,16
     guess_degs = [f_deg,g_deg]
     
-    yroots, boxes = solver(funcs,a,b,guess_degs,returnBoundingBoxes=True)
+    yroots, boxes = solve(funcs,a,b,guess_degs,returnBoundingBoxes=True)
     for root, box in zip(yroots,boxes):
         box = ChebyshevSubdivisionSolver.TrackedInterval(box)
         assert box.__contains__(root) == True
+
+def test_default_nodeg():
+    f = lambda x,y: np.sin(4*(x + y/10 + np.pi/10))
+    g = lambda x,y: np.cos(2*(x-2*y+ np.pi/7))
+    a,b = np.array([-1,-1]),np.array([1,1])
+
+    funcs = [f,g]
+
+    yroots = solve(funcs,a,b)
+
+    actual_roots = np.load('Polished_results/polished_2.3.npy')
+    chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.3.csv', delimiter=',')
+
+    actual_roots = ChebyshevSubdivisionSolver.sortRoots(actual_roots)
+    chebfun_roots = ChebyshevSubdivisionSolver.sortRoots(chebfun_roots) #sort the Roots
+    yroots = ChebyshevSubdivisionSolver.sortRoots(yroots) 
+
+    assert np.allclose(yroots,actual_roots)
+    assert np.allclose(yroots,chebfun_roots)
+
 
 
 
