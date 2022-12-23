@@ -32,34 +32,43 @@ def solve(funcs,a,b,guess_degs=None,rescale=False,rel_approx_tol=1.e-15, abs_app
     ndarray:
     the yroots of the system of functions
     """
-    #TODO: allow for a,b to deafult to ones and negative ones
+    #TODO: allow for a,b to default to ones and negative ones
     #TODO: handle case for when input degree is less than the approximation degree that was used
-    #TODO: decide whether to have the guess_deg input default, and what it would be (could the approximation degree used work), maybe they need to know their degree
+    #TODO: optimize guess_deg
     #TODO: handle for case that input degree is above max_deg (provide a warning)
-    #TODO: maybe next we can include an option to return the bounding boxes
-    
-    default_deg = 2 #to optimize later
+    #TODO: turn the degree inference code into a routine and move --> utils.py
 
+    default_deg = 2
     if guess_degs == None:
-        guess_degs = [default_deg]*len(funcs)
+        guess_degs = np.array([default_deg]*len(funcs))
 
-    is_lambda = [True if "lambda" in inspect.getsource(func) else False for func in funcs]
-    is_lambda_poly = [True]*len(funcs) #might be useful for some checks
+    is_lambda_poly = np.array([True]*len(funcs)) #keeps track of code
+    is_routine = np.array([inspect.isroutine(func) for func in funcs]) #is it a python routine?
+    is_lambda = is_routine #assumption: all routines are lambdas
+
+    if sum(is_routine) > 0: #if at least one func is a routine
+        routine_mask = is_routine == 1 #evaluate assumption
+        routine_true_idxs = np.where(routine_mask == True)[0]
+        funcs_routines = np.array([funcs[idx] for idx in routine_true_idxs]) #funcs that are routines
+        #idxs of funcs that are lamba routines
+        lambda_mask = np.array([True if "lambda" in inspect.getsource(func) else False for func in funcs_routines])
+        is_lambda[routine_mask][~lambda_mask] = 0 #update assumption where necessary
 
     for i,func in enumerate(funcs):
         if isinstance(func,MultiCheb) or isinstance(func,MultiPower):
-            guess_degs[i] = max(func.shape) #maybe funcs[i].shape[0] is just fine (same deg in every dimension), but we play it safe
+            guess_degs[i] = max(func.shape) - 1 #funcs[i].shape[0] might suffice
+            is_lambda_poly[i] = False
         elif is_lambda[i]:
             f_str_lst = inspect.getsource(func).strip().split(":")
             vars, expr = f_str_lst[0].strip().split('lambda')[1].strip(), f_str_lst[1].strip()
-            vars = sy.symbols(vars) #maybe can just do sy.symbols(vars)
+            vars = sy.symbols(vars)
             if "np." in expr:
-                is_lambda_poly[i] = False #not a great check, since polynomials can be expressed with np.Array, but good start, this would include rational polynomials, maybe include "/" in the string search
-                continue
-            expr = sy.sympify(expr)
-            guess_degs[i] = max(sy.degree_list(expr))
-
-    
+                is_lambda_poly[i] = False #not a great check, since polynomials can be expressed with np.array(), but good start
+                #problem: this includes rational polynomials, maybe include "/" in the string search
+                #don't update guess_degs[i]
+            else:
+                expr = sy.sympify(expr)
+                guess_degs[i] = max(sy.degree_list(expr))
 
     if len(a) != len(b):
         raise ValueError("Dimension mismatch in intervals.")
@@ -101,7 +110,7 @@ def solve(funcs,a,b,guess_degs=None,rescale=False,rel_approx_tol=1.e-15, abs_app
             funcs[idx] = MultiCheb(approx.M)
         errs[idx] = approx.err
 
-    for idx in MultiCheb_idxs:
+    for idx in MultiCheb_idxs: #future: could we skip M_Maker process if we knew that it matched the [-1,1]^n interval?
         approx = M_maker.M_maker(funcs[idx],arr_neg1,arr_1,guess_degs[idx],rel_approx_tol,abs_approx_tol)
         if rescale:
             funcs[idx] = MultiCheb(approx.M_rescaled)
