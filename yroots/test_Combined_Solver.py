@@ -194,7 +194,6 @@ def test_deg_inf():
     Tests the logic in Combined_Solver.py that detects which functions are MultiCheb, non-MultiCheb
     and which functions can be treated like polynomials. This information is used to make smart degree
     guesses, and the logic used to make the guesses is tested as well.
-    TODO: make this not be a direct copy and paste from Combined_Solver.py
     """
     f = lambda x,y: y**2-x**3
     g = lambda x,y: (y+.1)**3-(x-.1)**2
@@ -205,14 +204,8 @@ def test_deg_inf():
     funcs = [f,g,h]
     guess_degs = None
 
-    ###THIS IS A DIRECT COPY PASTE FROM Combined_Solver.py. 
-    ### START: ###
     default_deg = 2
-    if guess_degs == None:
-        guess_degs = np.array([default_deg]*len(funcs))
-    ### END. ###
-
-    is_lambda_poly, is_routine, is_lambda, guess_degs = degree_guesser(funcs,guess_degs)
+    is_lambda_poly, is_routine, is_lambda, guess_degs = degree_guesser(funcs,guess_degs,default_deg)
 
     assert (is_lambda_poly == np.array([True, False, False])).all()
     assert (is_routine == np.array([True,False,True])).all()
