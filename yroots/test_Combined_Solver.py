@@ -9,7 +9,7 @@ import yroots.ChebyshevSubdivisionSolver as ChebyshevSubdivisionSolver
 import pytest
 from yroots.polynomial import MultiCheb, MultiPower
 from yroots.utils import transform
-from yroots.Combined_Solver import solve
+from yroots.Combined_Solver import solve, degree_guesser
 import inspect
 import sympy as sy
 
@@ -210,35 +210,9 @@ def test_deg_inf():
     default_deg = 2
     if guess_degs == None:
         guess_degs = np.array([default_deg]*len(funcs))
-
-    is_lambda_poly = np.array([True]*len(funcs)) #keeps track of code
-    is_routine = np.array([inspect.isroutine(func) for func in funcs]) #is it a python routine?
-    is_lambda = is_routine #assumption: all routines are lambdas
-
-    if sum(is_routine) > 0: #if at least one func is a routine
-        routine_mask = is_routine == 1 #evaluate assumption
-        routine_true_idxs = np.where(routine_mask == True)[0]
-        funcs_routines = np.array([funcs[idx] for idx in routine_true_idxs]) #funcs that are routines
-        #idxs of funcs that are lamba routines
-        lambda_mask = np.array([True if "lambda" in inspect.getsource(func) else False for func in funcs_routines])
-        is_lambda[routine_mask][~lambda_mask] = 0 #update assumption where necessary
-
-    for i,func in enumerate(funcs):
-        if isinstance(func,MultiCheb) or isinstance(func,MultiPower):
-            guess_degs[i] = max(func.shape) - 1 #funcs[i].shape[0] might suffice
-            is_lambda_poly[i] = False
-        elif is_lambda[i]:
-            f_str_lst = inspect.getsource(func).strip().split(":")
-            vars, expr = f_str_lst[0].strip().split('lambda')[1].strip(), f_str_lst[1].strip()
-            vars = sy.symbols(vars)
-            if "np." in expr:
-                is_lambda_poly[i] = False #not a great check, since polynomials can be expressed with np.array(), but good start
-                #problem: this includes rational polynomials, maybe include "/" in the string search
-                #don't update guess_degs[i]
-            else:
-                expr = sy.sympify(expr)
-                guess_degs[i] = max(sy.degree_list(expr))
     ### END. ###
+
+    is_lambda_poly, is_routine, is_lambda, guess_degs = degree_guesser(funcs,guess_degs)
 
     assert (is_lambda_poly == np.array([True, False, False])).all()
     assert (is_routine == np.array([True,False,True])).all()

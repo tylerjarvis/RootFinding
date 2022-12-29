@@ -6,39 +6,19 @@ import yroots.M_maker as M_maker
 from yroots.utils import transform
 from yroots.polynomial import MultiCheb, MultiPower
 
-def solve(funcs,a,b,guess_degs=None,rescale=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12, returnBoundingBoxes = False, exact=False):
+def degree_guesser(funcs,guess_degs,default_deg):
     """
-    Finds the roots of the system of functions
-
     parameters
     ----------
     funcs: list
     list of the vectorized functions (R^n --> R)
-    a: ndarray
-    lower bound on the search interval
-    b: ndarray
-    upper bound on the search interval
     guess_degs: list
     guess of the best approximation degree for each function
-    rescale: bool
-    whether to rescale the approximation by inf_norm or not
-    rel_approx_tol: float
-    relative approximation tolerance
-    abs_approx_tol: float
-    absolute approximation tolerance
 
     returns
     -------
-    ndarray:
-    the yroots of the system of functions
+    (list) smarter guesses about the degree to approximate with
     """
-    #TODO: allow for a,b to default to ones and negative ones
-    #TODO: handle case for when input degree is less than the approximation degree that was used
-    #TODO: optimize guess_deg
-    #TODO: handle for case that input degree is above max_deg (provide a warning)
-    #TODO: turn the degree inference code into a routine and move --> utils.py
-
-    default_deg = 2
     if guess_degs == None:
         guess_degs = np.array([default_deg]*len(funcs))
 
@@ -69,6 +49,41 @@ def solve(funcs,a,b,guess_degs=None,rescale=False,rel_approx_tol=1.e-15, abs_app
             else:
                 expr = sy.sympify(expr)
                 guess_degs[i] = max(sy.degree_list(expr))
+    return [is_lambda_poly, is_routine, is_lambda, guess_degs]
+
+def solve(funcs,a,b,guess_degs=None,rescale=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12, returnBoundingBoxes = False, exact=False):
+    """
+    Finds the roots of the system of functions
+
+    parameters
+    ----------
+    funcs: list
+    list of the vectorized functions (R^n --> R)
+    a: ndarray
+    lower bound on the search interval
+    b: ndarray
+    upper bound on the search interval
+    guess_degs: list
+    guess of the best approximation degree for each function
+    rescale: bool
+    whether to rescale the approximation by inf_norm or not
+    rel_approx_tol: float
+    relative approximation tolerance
+    abs_approx_tol: float
+    absolute approximation tolerance
+
+    returns
+    -------
+    ndarray:
+    the yroots of the system of functions
+    """
+    #TODO: allow for a,b to default to ones and negative ones
+    #TODO: handle case for when input degree is less than the approximation degree that was used
+    #TODO: optimize guess_deg DOING
+    #TODO: handle for case that input degree is above max_deg (provide a warning)
+    #TODO: decide whether to move degree_guesser --> utils.py
+    default_deg = 2 #the default for the guess degrees
+    guess_degs = degree_guesser(funcs,guess_degs,default_deg)[3]
 
     if len(a) != len(b):
         raise ValueError("Dimension mismatch in intervals.")
