@@ -1,14 +1,14 @@
 import pytest
-import ChebyshevSubdivisionSolver as chebsolver
+import yroots.ChebyshevSubdivisionSolver as chebsolver
 import numpy as np
-from mpath import mp
+from mpmath import mp
 from numba import njit, float64
 from numba.types import UniTuple
 from scipy.spatial import HalfspaceIntersection
 from scipy.optimize import linprog
 from itertools import permutations, product
 from time import time
-import M_maker
+import yroots.M_maker as M_maker
 
 n = 5
 interval = np.array([np.random.random(n)*-1,np.random.random(n)]).T
