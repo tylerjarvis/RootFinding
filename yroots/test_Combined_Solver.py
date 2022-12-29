@@ -63,21 +63,21 @@ def test_solver():
     k = MultiCheb(f_approx.M)
 
     print("first 3 tests")
-    # assert solver_check([f,g],a,b) == True #none multicheb and neg1_1
-    # print("test 1")
-    assert solver_check([f,k],a,b) == True #some multicheb and neg1_1
+    assert solver_check([f,g],a,b) == True #none multicheb and neg1_1
+    print("test 1")
+    assert solver_check([f,h],a,b) == True #some multicheb and neg1_1
     print("test 2")
-    # assert solver_check([h,k],a,b) == True #all multicheb and neg1_1
-    # print("test 3")
+    assert solver_check([h,k],a,b) == True #all multicheb and neg1_1
+    print("test 3")
     b = np.ones(2).astype(float)
     a = -1*b
     print("second 3 tests")
-    # assert solver_check([f,g],a,b) == True #none multicheb and not neg1_1
-    # print("test 1")
-    assert solver_check([h,g],a,b) == True #some multicheb and not neg1_1
+    assert solver_check([f,g],a,b) == True #none multicheb and not neg1_1
+    print("test 1")
+    assert solver_check([k,g],a,b) == True #some multicheb and not neg1_1
     print("test 2")
-    # assert solver_check([h,k],a,b) == True #all multicheb and not neg1_1
-    # print("test 3")
+    assert solver_check([h,k],a,b) == True #all multicheb and not neg1_1
+    print("test 3")
 
 def test_bad_intervals():
     a,b = np.array([1,-1]),np.array([1,1])
