@@ -1,5 +1,5 @@
 import pytest
-import ChebyshevSubdivisionSolver as chebsolver
+import yroots.ChebyshevSubdivisionSolver as chebsolver
 import numpy as np
 from mpath import mp
 from numba import njit, float64
