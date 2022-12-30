@@ -23,9 +23,8 @@ def set_up_Ms_errs():
     g = lambda x,y: y-x**6
     f_deg,g_deg = 4,6
     a,b = np.array([-1.,-1.]),np.array([1.,1.])
-    start = time()
-    f_approx = M_maker(f,a,b,f_deg) 
-    g_approx = M_maker(g,a,b,g_deg)
+    f_approx = M_maker.M_maker(f,a,b,f_deg) 
+    g_approx = M_maker.M_maker(g,a,b,g_deg)
     return f_approx.M,g_approx.M,f_approx.err,g_approx.err
 
 def test_size_tracked():
@@ -230,3 +229,21 @@ def test_makeMatrix():
     assert mat.shape == (5,5)
     assert mat[0,1] == 1
     assert mat[1,1] == 43
+
+def test_BoundingIntervalLinearSystem():
+    """
+    Makes sure that the roots the solver finds are actually contained in the 
+    shrinked interval.
+    """
+    f = lambda x,y: 144*(x**4+y**4)-225*(x**2+y**2) + 350*x**2*y**2+81     #TODO: make f and g pytest fixtures
+    g = lambda x,y: y-x**6
+    f_deg,g_deg = 4,6
+    a,b = np.array([-1.,-1.]),np.array([1.,1.])
+    f_approx = M_maker.M_maker(f,a,b,f_deg) 
+    g_approx = M_maker.M_maker(g,a,b,g_deg)
+    Ms = [f_approx.M,g_approx.M]
+    errs = [f_approx.err,g_approx.err]
+    newInterval = chebsolver.BoundingIntervalLinearSystem(Ms,errs)
+    newInterval = chebsolver.TrackedInterval(newInterval)
+    for root in chebsolver.solveChebyshevSubdivision(Ms,errs):
+        assert newInterval.__contains__(root)    
