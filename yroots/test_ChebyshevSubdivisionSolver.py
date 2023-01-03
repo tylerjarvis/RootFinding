@@ -1,14 +1,14 @@
 import pytest
-import ChebyshevSubdivisionSolver as chebsolver
+import yroots.ChebyshevSubdivisionSolver as chebsolver
 import numpy as np
-from mpath import mp
+from mpmath import mp
 from numba import njit, float64
 from numba.types import UniTuple
 from scipy.spatial import HalfspaceIntersection
 from scipy.optimize import linprog
 from itertools import permutations, product
 from time import time
-import M_maker
+import yroots.M_maker as M_maker
 
 n = 5
 interval = np.array([np.random.random(n)*-1,np.random.random(n)]).T
@@ -200,4 +200,16 @@ def test_runChebMonomialsTests(dims, maxDegs, verboseLevel = 0, returnErrors = F
     if returnErrors:
         return allErrors    
 
+def test_isValidSpot():
+    #functionality testing
+    assert chebsolver.isValidSpot(4,4)
+    assert chebsolver.isValidSpot(3,4)
+    assert chebsolver.isValidSpot(4,3) == False
+    #intent testing
+
+def test_makeMatrix():
+    mat = chebsolver.makeMatrix(5,43,1)
+    assert mat.shape == (5,5)
+    assert mat[0,1] == 1
+    assert mat[1,1] == 43
 
