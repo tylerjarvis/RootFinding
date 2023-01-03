@@ -246,4 +246,18 @@ def test_BoundingIntervalLinearSystem():
     newInterval = chebsolver.BoundingIntervalLinearSystem(Ms,errs)
     newInterval = chebsolver.TrackedInterval(newInterval)
     for root in chebsolver.solveChebyshevSubdivision(Ms,errs):
-        assert newInterval.__contains__(root)    
+        assert newInterval.__contains__(root)
+
+def test_getTransformationError():
+    """sets the transformation Error"""
+    M = np.ones((2,2))
+    dim = 2
+    machEps = 2**-52
+    assert chebsolver.getTransformationError(M,dim) == (machEps * 4 * 2)
+    #this doesn't make sense: M.shape[dim]
+
+def test_transformCheb():
+    pass
+
+def test_transformChebToInterval():
+    pass
