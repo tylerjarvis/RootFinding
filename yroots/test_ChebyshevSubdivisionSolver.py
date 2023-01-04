@@ -80,7 +80,7 @@ def test_find_vertices():
     #run linprog on c A and b over (-1,1)
 
     #gets a feasible point or fails to do so, returning the whole interval or a set of inetersections
-    return True #not forever
+    pass #not forever
 
 def test_linearCheck1():
     """
@@ -117,12 +117,9 @@ def test_linearCheck1():
     for root in chebfun_roots:
         assert tracked_fg.__contains__(root) 
 
-
-
 def test_BoundIntervalLinearSystem():
     #Mf, Mg, err_f, err_g = set_up_Ms_errs
-    return True #not forever
-    
+    pass #not forever   
 
 def sortRoots(roots, seed = 12398):
     if len(roots) == 0:
@@ -158,7 +155,7 @@ def runSystem(degList):
         Ms.append(M)
     errors = np.zeros(dim)
     #Solve
-    foundRoots = solveChebyshevSubdivision(Ms, errors)
+    foundRoots = chebsolver.solveChebyshevSubdivision(Ms, errors)
     return sortRoots(np.array(foundRoots)), actualRoots
 
 def isGoodSystem(degList):
@@ -217,6 +214,7 @@ def test_getTransformPoints():
     alpha,beta = chebsolver.getTransformPoints(interval)
     xhat,x = np.array([alpha_hat,beta_hat]),np.array([alpha,beta])
     assert np.allclose(x,xhat)
+
 def test_isValidSpot():
     #functionality testing
     assert chebsolver.isValidSpot(4,4)
@@ -235,7 +233,8 @@ def test_BoundingIntervalLinearSystem():
     Makes sure that the roots the solver finds are actually contained in the 
     shrinked interval.
     """
-    f = lambda x,y: 144*(x**4+y**4)-225*(x**2+y**2) + 350*x**2*y**2+81     #TODO: make f and g pytest fixtures
+    f = lambda x,y: 144*(x**4+y**4)-225*(x**2+y**2) + 350*x**2*y**2+81   
+    #TODO: make f and g pytest fixtures
     g = lambda x,y: y-x**6
     f_deg,g_deg = 4,6
     a,b = np.array([-1.,-1.]),np.array([1.,1.])
@@ -243,7 +242,7 @@ def test_BoundingIntervalLinearSystem():
     g_approx = M_maker.M_maker(g,a,b,g_deg)
     Ms = [f_approx.M,g_approx.M]
     errs = [f_approx.err,g_approx.err]
-    newInterval = chebsolver.BoundingIntervalLinearSystem(Ms,errs)
+    newInterval = chebsolver.BoundingIntervalLinearSystem(Ms,errs)[0] #don't include the bool return value
     newInterval = chebsolver.TrackedInterval(newInterval)
     for root in chebsolver.solveChebyshevSubdivision(Ms,errs):
         assert newInterval.__contains__(root)
@@ -256,8 +255,20 @@ def test_getTransformationError():
     assert chebsolver.getTransformationError(M,dim) == (machEps * 4 * 2)
     #this doesn't make sense: M.shape[dim]
 
+def test_transformChebInPlaceND():
+    #why would dim ever be zero
+    pass
+
 def test_transformCheb():
     pass
 
 def test_transformChebToInterval():
+    pass
+
+def test_find_vertices():
+    pass
+
+def test_zoomInOnIntervalIter():
+    #why is dims=len(Ms) ASK Erik:
+    #not sure how we test the np.any(...) part
     pass
