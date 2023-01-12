@@ -4,8 +4,6 @@ from numba.types import UniTuple
 from itertools import product
 from scipy.spatial import HalfspaceIntersection
 from scipy.optimize import linprog
-# import warnings
-# warnings.filterwarnings("error")
 
 # # Code for testing. TODO: Set up unit tests and add this to it!
 # from mpmath import mp
@@ -542,10 +540,14 @@ def find_vertices(A_ub, b_ub):
         feasible_point = L.x[:-1]
     else: 
         #If L.status is not 0, then there is no feasible point, meaning the entire interval can be thrown out
+        print("Threw Out Region")
         return 1, None
 
     #If the last entry in the feasible point is negative, it also means there was not a suitable feasible point, so the entire interval can be throw out
     if L.x[-1] < 0:
+        print(A)
+        print(b)
+        # print("Threw out region")
         return 1, None
       
     #Try solving the halfspace problem
@@ -677,11 +679,13 @@ def BoundingIntervalLinearSystem(Ms, errors):
         
         if i == 0 and tell == 1:
             #First time through and no feasible point so throw out the entire interval
+            print(1)
             return np.vstack([[1.0]*len(A),[-1.0]*len(A)]).T, True, True, True
 
         elif i == 0 and tell != 1:
             if tell == 2:
                 #This means we have zoomed up on a root and we should be done.
+                print(2)
                 return np.vstack([[-1.0]*len(A),[1.0]*len(A)]).T, False, True, False
             
             #Get the a and b arrays
@@ -689,8 +693,6 @@ def BoundingIntervalLinearSystem(Ms, errors):
             b = vertices.max(axis=0) + errorToAdd
 
             #Adjust the a's and b's to account for slight error in the halfspaces code
-            a -= errorToAdd
-            b += errorToAdd
             a[a < -1] = -1
             b[b < -1] = -1
             a[a > 1] = 1
@@ -703,6 +705,7 @@ def BoundingIntervalLinearSystem(Ms, errors):
             
             if changed:
                 #If it is the first time through and there was a change, return the interval it shrunk down to and set "is_done" to false
+                print(3)
                 return np.vstack([a,b]).T, True, False, throwOut
             else:
                 #If it is the first time through the loop and there was not a change, save the a and b as the original values to return.
@@ -710,6 +713,7 @@ def BoundingIntervalLinearSystem(Ms, errors):
                 a_orig = a
                 b_orig = b
                 err = errors
+                print(4)
 
         #If second time through:
         elif i == 1:
@@ -717,6 +721,7 @@ def BoundingIntervalLinearSystem(Ms, errors):
             if tell == 1 or tell == 2:
                 #This means there was an issue when we ran the code with the smaller error, so some intervals may be good but some bad.
                 #We will need to shrink down to find out. So return with is_done = False so that we subdivide.
+                print(5, tell)
                 return np.vstack([a_orig, b_orig]).T, False, False, False
 
             else: #The system proceeded as normal
@@ -740,10 +745,12 @@ def BoundingIntervalLinearSystem(Ms, errors):
                 if changed:
                     #IThis means it didn't change the first time, but with tighter errors it did.
                     #Thus we should continue shrinking in, so set is_done = False.
+                    print(6)
                     return np.vstack([a_orig, b_orig]).T, False, False, False
                 else:
                     #If it is the second time through the loop and it did NOT change, it means we will not shrink the interval 
                     #even if we subdivide, so return the original interval with changed = False and is_done = True
+                    print(7)
                     return np.vstack([a_orig, b_orig]).T, False, True, False
    
 
@@ -1225,8 +1232,14 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
     """    
     #TODO: Check if trackedInterval.interval has width 0 in some dimension, in which case we should get rid of that dimension.
     
-#     print("Start", trackedInterval.interval)
+    
 #     print("MS", Ms, errors)
+
+    #GET RID OF AFTER DEBUGGING
+    if np.array([-0.62433893, -0.27552234, -0.68870334, -0.2201393 , -0.65347145]) not in trackedInterval:
+        return [], []
+    
+    print("Start", trackedInterval.interval)
     
     #If the interval is a point, return it
     if np.all(trackedInterval.interval[:,0] == trackedInterval.interval[:,1]):
