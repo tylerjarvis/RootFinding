@@ -488,10 +488,14 @@ def getLinearTerms(M):
     return A[::-1]
 
 
-def find_vertices(A_ub, b_ub):
-    """This calcualtes the feasible point that is most inside the halfspace. 
+def find_vertices(A_ub, b_ub, tol = .05):
+    """
+    This function calculates the feasible point that is most inside the halfspace. 
     It then feeds that feasible point into the halfspace intersection solver and finds the intersection of the hyper-polygon and the hyper-cube. 
     It returns these intersection points (which when we take the min and max of, gives the interval we should shrink down to).
+
+    The algorithm for the first half of this function (the portion that calculates the feasible point) is found at:
+    https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.HalfspaceIntersection.html
 
     Parameters
     ----------
@@ -508,6 +512,7 @@ def find_vertices(A_ub, b_ub):
             2 : The linear programming found a feasible point, but the halfspaces code said it was not "clearly inside" the halfspace.
                 This happens when the coefficients and error are all really tiny. In this case we are zooming in on a root, so we should keep the entire interval.
             3 : This means the linear programming and halfspace code ran without error, and a new interval was found
+            4 : This means the linear programming code failed in such a way that we cannot use this method and need to use Erik's linear linear code instead.
     intersects : numpy array (ND)
         An array of the vertices of the intersection of the hyper-polygon and hyper-cube 
     """
@@ -526,6 +531,7 @@ def find_vertices(A_ub, b_ub):
     halfspaces[m:, :] = arr
 
     # Find a feasible point that is MOST inside the halfspace
+    #The documentation for this algorithm is found at: https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.HalfspaceIntersection.html
     norm_vector = np.reshape(np.linalg.norm(halfspaces[:, :-1], axis=1), (halfspaces.shape[0], 1))
     c = np.zeros((halfspaces.shape[1],), dtype = float)
     c[-1] = -1
@@ -535,27 +541,35 @@ def find_vertices(A_ub, b_ub):
     #Run the linear programming code
     L = linprog(c, A, b, bounds = (-1,1), method = "highs")
     
-    #If L.status == 0, it means the linear programming proceeded as normal, so there is shrinkage that can occur in the interval
+    #If L.status == 0, it means the linear programming proceeded as normal and a feasible point was found
     if L.status == 0:
+        #L.x is the vector that contains the feasible points.
+        #The last element of the vector is not part of the feasible point (will be discussed below) so should not be included in what we return.
         feasible_point = L.x[:-1]
     else: 
-        #If L.status is not 0, then there is no feasible point, meaning the entire interval can be thrown out
-        print("Threw Out Region")
-        return 1, None
+        #If L.status is not 0, then something went wrong with the linear programming, so we should use Erik's code instead.
+        return 4, None
 
-    #If the last entry in the feasible point is negative, it also means there was not a suitable feasible point, so the entire interval can be throw out
     if L.x[-1] < 0:
-        print(A)
-        print(b)
-        # print("Threw out region")
-        return 1, None
+        #We have halfspaces of the form Ax + b <= 0. However we want to solve for the feasible point that is MOST inside of the halfspace.
+        #To do this, we solve the problem: maximize y subject to: Ax + y||Ai|| <= -b (where Ai are the rows of A)
+        #This problem always has a solution even if the original problem (Ax + b) does not have a solution, because you can just make y negative as large as you need
+        #Thus if y is negative, the optimization problem Ax + y||Ai|| <= -b has a solution, but the one we care about, Ax + b <= 0, does not have a solution.
+        #L.x[-1] = y. Thus if it is negative, the optimization problem we care about has no solution, so we should throw out the entire interval.
+        if np.isclose(np.min(norm_vector)*L.x[-1], 0 ):
+            #HOWEVER, if y is negative but y*min(||Ai||) is extremely close to 0, it is likely that y is negative due to roundoff error and not because the problem Ax + b <= 0 has no solution.
+            #Thus in this case we conclude that we cannot continue to run the halfspaces code due to this roundoff error, and we return a 4 which passes the problem to Erik's linear code instead.
+            return 4, None
+        else:
+            #As explained above, when y is negative and y*min(||Ai||) is NOT close to zero, Ax + b <= 0 has no solution, and so we should throw out the interval by returning 1
+            return 1, None
       
-    #Try solving the halfspace problem
+    #If the linear programming problem succeeded, try running the halfspaces code
     try:
         intersects = HalfspaceIntersection(halfspaces, feasible_point).intersections
     except:
-        #If the halfspaces failed, it means the coefficnets were really tiny.
-        #In this case it also means that we want to keep the entire interval because we have zoomed up on a root in this interval
+        #If the halfspaces failed, it means the coefficnets were really really tiny, which indicates that we have zoomed up on a root.
+        #Thus we should return the entire interval, because it is a tiny interval that contains a root.
         return 2, np.vstack([np.ones(n),-np.ones(n)])
 
     #If the problem can be solved, it means the interval was shrunk, so return the intersections
@@ -579,7 +593,7 @@ def linearCheck1(totalErrs, A, consts):
                 b[col] = min(b[col], b_)
     return a, b
 
-def BoundingIntervalLinearSystem(Ms, errors):
+def BoundingIntervalLinearSystem(Ms, errors, linear = False):
     """Finds a smaller region in which any root must be.
 
     Parameters
@@ -612,7 +626,11 @@ def BoundingIntervalLinearSystem(Ms, errors):
     linear_sums = np.sum(np.abs(A),axis=1)
     err = np.array([tE-abs(c)-l for tE,c,l in zip(totalErrs,consts,linear_sums)])    
     
-    if dim <= 4:
+    #Run Erik's code if the dimension of the problem is <= 4, OR if the variable "linear" equals True.
+    #The variable "Linear" is False by default, but in the case where we tried to run the halfspaces code (meaning the problem has dimension 5 or greater)
+    #And the function "find_vertices" failed (i.e. it returned a value of 4), it means that the halfspaces code cannot be run and we need to run Erik's linear code on that interval instead.
+    if dim <= 4 or linear:
+        #This loop will only execute the second time if the interval was not changed on the first iteration and it needs to run again with tighter errors
         for i in range(2):
             #Use the other interval shrinking method
             a, b = linearCheck1(totalErrs, A, consts)
@@ -665,27 +683,28 @@ def BoundingIntervalLinearSystem(Ms, errors):
                 #so return the original interval with changed = False and is_done = wellConditioned 
                 return np.vstack([a_orig,b_orig]).T, False, wellConditioned, False
 
-    #Use the halfspaces code in the case where dim >= 5
-    
+    #Use the halfspaces code in the case when dim >= 5
     #Define the A_ub matrix
     A_ub = np.vstack([A, -A])
     
+    #This loop will only execute the second time if the interval was not changed on the first iteration and it needs to run again with tighter errors
     for i in range(2):
         #Define the b_ub vector
         b_ub = np.hstack([err - consts, consts + err]).T.reshape(-1, 1)
 
         # Use the find_vertices function to return the vertices of the intersection of halfspaces
         tell, vertices = find_vertices(A_ub, b_ub)
-        
+
+        if tell == 4:
+            return BoundingIntervalLinearSystem(Ms, errors, True)
+
         if i == 0 and tell == 1:
             #First time through and no feasible point so throw out the entire interval
-            print(1)
             return np.vstack([[1.0]*len(A),[-1.0]*len(A)]).T, True, True, True
 
         elif i == 0 and tell != 1:
             if tell == 2:
                 #This means we have zoomed up on a root and we should be done.
-                print(2)
                 return np.vstack([[-1.0]*len(A),[1.0]*len(A)]).T, False, True, False
             
             #Get the a and b arrays
@@ -705,7 +724,6 @@ def BoundingIntervalLinearSystem(Ms, errors):
             
             if changed:
                 #If it is the first time through and there was a change, return the interval it shrunk down to and set "is_done" to false
-                print(3)
                 return np.vstack([a,b]).T, True, False, throwOut
             else:
                 #If it is the first time through the loop and there was not a change, save the a and b as the original values to return.
@@ -713,7 +731,6 @@ def BoundingIntervalLinearSystem(Ms, errors):
                 a_orig = a
                 b_orig = b
                 err = errors
-                print(4)
 
         #If second time through:
         elif i == 1:
@@ -721,7 +738,6 @@ def BoundingIntervalLinearSystem(Ms, errors):
             if tell == 1 or tell == 2:
                 #This means there was an issue when we ran the code with the smaller error, so some intervals may be good but some bad.
                 #We will need to shrink down to find out. So return with is_done = False so that we subdivide.
-                print(5, tell)
                 return np.vstack([a_orig, b_orig]).T, False, False, False
 
             else: #The system proceeded as normal
@@ -745,12 +761,10 @@ def BoundingIntervalLinearSystem(Ms, errors):
                 if changed:
                     #IThis means it didn't change the first time, but with tighter errors it did.
                     #Thus we should continue shrinking in, so set is_done = False.
-                    print(6)
                     return np.vstack([a_orig, b_orig]).T, False, False, False
                 else:
                     #If it is the second time through the loop and it did NOT change, it means we will not shrink the interval 
                     #even if we subdivide, so return the original interval with changed = False and is_done = True
-                    print(7)
                     return np.vstack([a_orig, b_orig]).T, False, True, False
    
 
@@ -1232,14 +1246,11 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
     """    
     #TODO: Check if trackedInterval.interval has width 0 in some dimension, in which case we should get rid of that dimension.
     
-    
-#     print("MS", Ms, errors)
 
     #GET RID OF AFTER DEBUGGING
-    if np.array([-0.62433893, -0.27552234, -0.68870334, -0.2201393 , -0.65347145]) not in trackedInterval:
-        return [], []
-    
-    print("Start", trackedInterval.interval)
+    # if np.array([-0.62433893, -0.27552234, -0.68870334, -0.2201393 , -0.65347145]) not in trackedInterval:
+    #     return [], []
+    # print("Start", trackedInterval.interval)
     
     #If the interval is a point, return it
     if np.all(trackedInterval.interval[:,0] == trackedInterval.interval[:,1]):
