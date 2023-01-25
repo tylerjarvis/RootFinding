@@ -1,8 +1,10 @@
 import numpy as np
 import inspect
 import sympy as sy
-import yroots.ChebyshevSubdivisionSolver as ChebyshevSubdivisionSolver 
-import yroots.M_maker as M_maker
+# import yroots.ChebyshevSubdivisionSolver as ChebyshevSubdivisionSolver
+import ChebyshevSubdivisionSolver
+# import yroots.M_maker as M_maker
+import M_maker
 from yroots.utils import transform
 from yroots.polynomial import MultiCheb, MultiPower
 
@@ -19,7 +21,7 @@ def degree_guesser(funcs,guess_degs,default_deg):
     -------
     (list) smarter guesses about the degree to approximate with
     """
-    if guess_degs == None:
+    if guess_degs is None:
         guess_degs = np.array([default_deg]*len(funcs))
 
     is_lambda_poly = np.array([True]*len(funcs)) #keeps track of code
@@ -51,26 +53,37 @@ def degree_guesser(funcs,guess_degs,default_deg):
                 guess_degs[i] = max(sy.degree_list(expr))
     return [is_lambda_poly, is_routine, is_lambda, guess_degs]
 
-def solve(funcs,a,b,guess_degs=None,rescale=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12, returnBoundingBoxes = False, exact=False):
+def solve(funcs,a,b,guess_degs=None,rescale=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12, 
+          returnBoundingBoxes = False, exact=False, constant_check = True, low_dim_quadratic_check = True,
+          all_dim_quadratic_check = False):
     """
     Finds the roots of the system of functions
 
     parameters
     ----------
     funcs: list
-    list of the vectorized functions (R^n --> R)
+        list of the vectorized functions (R^n --> R)
     a: ndarray
-    lower bound on the search interval
+        lower bound on the search interval
     b: ndarray
-    upper bound on the search interval
+        upper bound on the search interval
     guess_degs: list
-    guess of the best approximation degree for each function
+        guess of the best approximation degree for each function
     rescale: bool
-    whether to rescale the approximation by inf_norm or not
+        whether to rescale the approximation by inf_norm or not
     rel_approx_tol: float
-    relative approximation tolerance
+        relative approximation tolerance
     abs_approx_tol: float
-    absolute approximation tolerance
+        absolute approximation tolerance
+    constant_check : bool
+        Defaults to True. Whether or not to run constant term check after each subdivision. Testing indicates
+        that this saves time in all dimensions.
+    low_dim_quadratic_check : bool
+        Defaults to True. Whether or not to run quadratic check in dimensions two and three. Testing indicates
+        That this saves a lot of time compared to not running it in low dimensions.
+    all_dim_quadratic_check : bool
+        Defaults to False. Whether or not to run quadratic check in every dimension. Testing indicates it loses
+        time in 4 or higher dimensions.
 
     returns
     -------
@@ -135,7 +148,9 @@ def solve(funcs,a,b,guess_degs=None,rescale=False,rel_approx_tol=1.e-15, abs_app
     funcs = [func.coeff for func in funcs]
 
     if returnBoundingBoxes:
-        yroots, boundingBoxes = np.array(ChebyshevSubdivisionSolver.solveChebyshevSubdivision(funcs,errs,returnBoundingBoxes,exact))
+        yroots, boundingBoxes = np.array(ChebyshevSubdivisionSolver.solveChebyshevSubdivision(funcs,errs,returnBoundingBoxes,exact,
+                                         constant_check=constant_check, low_dim_quadratic_check=low_dim_quadratic_check,
+                                         all_dim_quadratic_check=all_dim_quadratic_check))
         boundingBoxes = np.array([boundingBox.interval for boundingBox in boundingBoxes])
         if is_neg1_1 == False and len(yroots) > 0:
             yroots = transform(yroots,a,b)
@@ -144,7 +159,10 @@ def solve(funcs,a,b,guess_degs=None,rescale=False,rel_approx_tol=1.e-15, abs_app
         return yroots, boundingBoxes
 
     else:
-        yroots = np.array(ChebyshevSubdivisionSolver.solveChebyshevSubdivision(funcs,errs,returnBoundingBoxes,exact))
+        yroots = np.array(ChebyshevSubdivisionSolver.solveChebyshevSubdivision(funcs,errs,returnBoundingBoxes,exact,constant_check=constant_check, 
+                                                                               low_dim_quadratic_check=low_dim_quadratic_check,
+                                                                               all_dim_quadratic_check=all_dim_quadratic_check))
         if is_neg1_1 == False and len(yroots) > 0:
             yroots = transform(yroots,a,b)
         return yroots
+        
