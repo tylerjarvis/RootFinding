@@ -4,6 +4,7 @@ from numba.types import UniTuple
 from itertools import product
 from scipy.spatial import HalfspaceIntersection
 from scipy.optimize import linprog
+from QuadraticCheck import quadratic_check
 
 # Code for testing. TODO: Set up unit tests and add this to it!
 from mpmath import mp
@@ -1055,7 +1056,8 @@ def isExteriorInterval(originalInterval, trackedInterval):
 
 
 
-def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1e-16, trimErrorAbsBound = 1e-32, level = 0):
+def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1e-16, trimErrorAbsBound = 1e-32, level = 0, constant_check = True, 
+                       low_dim_quadratic_check = True, all_dim_quadratic_check = False):
 
     """Recursively finds regions in which any common roots of functions must be using subdivision
 
@@ -1069,6 +1071,15 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
         The max error of the chebyshev approximation from the function on the interval
     exact : bool
         Whether the transformation in TransformChebInPlaceND should be done without error
+    constant_check : bool
+        Defaults to True. Whether or not to run constant term check after each subdivision. Testing indicates
+        that this saves time in all dimensions.
+    low_dim_quadratic_check : bool
+        Defaults to True. Whether or not to run quadratic check in dimensions two and three. Testing indicates
+        that this saves a lot of time compared to not running it in low dimensions.
+    all_dim_quadratic_check : bool
+        Defaults to False. Whether or not to run quadratic check in every dimension. Testing indicates it loses
+        time in 4 or higher dimensions.
     
     Returns
     -------
@@ -1084,10 +1095,18 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
     #Constant term check, runs at the beginning of the solve and before each subdivision
     #If the absolute value of the constant term for any of the chebyshev polynomials is greater than the sum of the
     #absoulte values of any of the other terms, it will return that there are no zeros on that interval
-    consts = np.array([M.ravel()[0] for M in Ms]) 
-    err = np.array([np.sum(np.abs(M))-abs(c)+e for M,e,c in zip(Ms,errors,consts)])
-    if np.any(np.abs(consts) > err):
-        return [], []
+    if constant_check:
+        consts = np.array([M.ravel()[0] for M in Ms]) 
+        err = np.array([np.sum(np.abs(M))-abs(c)+e for M,e,c in zip(Ms,errors,consts)])
+        if np.any(np.abs(consts) > err):
+            return [], []
+    
+    #Runs quadratic check after constant check, only for dimensions 2 and 3 by default
+    #More expensive than constant term check, but testing show it saves time in lower dimensions
+    if (low_dim_quadratic_check and Ms[0].ndim <= 3) or all_dim_quadratic_check:
+        for i in range(len(Ms)):
+            if quadratic_check(Ms[i], errors[i]):
+                return [], []
 
     #The random numbers used below. TODO: Choose these better
     #Error For Trim trimMs
@@ -1215,7 +1234,8 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
                 resultInterior.append(tempInterval)                
         return resultInterior, newResultExterior
 
-def solveChebyshevSubdivision(Ms, errors, returnBoundingBoxes = False, polish = False, exact = False):
+def solveChebyshevSubdivision(Ms, errors, returnBoundingBoxes = False, polish = False, exact = False, constant_check = True, low_dim_quadratic_check = True,
+                              all_dim_quadratic_check = False):
     """Finds regions in which any common roots of functions must be
 
     Parameters
@@ -1230,6 +1250,15 @@ def solveChebyshevSubdivision(Ms, errors, returnBoundingBoxes = False, polish = 
         Defaults to True. Whether or not to polish the roots at the end by zooming all they way back in.
     exact : bool
         Whether the transformation in TransformChebInPlaceND should be done without error
+    constant_check : bool
+        Defaults to True. Whether or not to run constant term check after each subdivision. Testing indicates
+        that this saves time in all dimensions.
+    low_dim_quadratic_check : bool
+        Defaults to True. Whether or not to run quadratic check in dimensions two and three. Testing indicates
+        That this saves a lot of time compared to not running it in low dimensions.
+    all_dim_quadratic_check : bool
+        Defaults to False. Whether or not to run quadratic check in every dimension. Testing indicates it loses
+        time in 4 or higher dimensions.
 
     Returns
     -------
@@ -1241,7 +1270,8 @@ def solveChebyshevSubdivision(Ms, errors, returnBoundingBoxes = False, polish = 
     #Solve
     originalInterval = TrackedInterval(np.array([[-1.,1.]]*Ms[0].ndim))
 
-    b1, b2 = solvePolyRecursive(Ms, originalInterval, errors, exact)
+    b1, b2 = solvePolyRecursive(Ms, originalInterval, errors, exact, constant_check=constant_check, low_dim_quadratic_check=low_dim_quadratic_check,
+                                all_dim_quadratic_check=all_dim_quadratic_check)
 
     boundingIntervals = b1 + b2
         
@@ -1254,7 +1284,8 @@ def solveChebyshevSubdivision(Ms, errors, returnBoundingBoxes = False, polish = 
             newInterval.interval = finalInterval
 
             tempMs, tempErrors = transformChebToInterval(Ms, interval.finalAlpha, interval.finalBeta, errors, exact)
-            b1, b2 = solvePolyRecursive(tempMs, newInterval, tempErrors, exact)
+            b1, b2 = solvePolyRecursive(tempMs, newInterval, tempErrors, exact, constant_check=constant_check, low_dim_quadratic_check=low_dim_quadratic_check,
+                                all_dim_quadratic_check=all_dim_quadratic_check)
 
             newIntervals += b1 + b2
         boundingIntervals = newIntervals
