@@ -284,6 +284,16 @@ def test_zoomInOnIntervalIter():
 #generate tests that have centers of interval near edges of the box
 #choose an error s.t. it can/can't zoom in
 
+def test_BoundingIntervalLinearSystem():
+    #have some f's
+    #generate some M's
+    #save their errors
+    #save the interval, changed
+    #if changed, assert strict subset
+    #if not changed, assert subset
+    pass
+
+
 #makematrix not called
 #good: compare to other way...
 #make a random polynomial tensor, transformation (transformChebinPlaceND)
