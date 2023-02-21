@@ -1395,7 +1395,8 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
                     #TODO: Instead of using the originalMs, use Ms, and then don't use the original interval, use the one
                     #we started subdivision with.
                     tempMs, tempErrors = transformChebToInterval(originalMs, *tempInterval.getLastTransform(), errors, exact)
-                    tempResultsInterior, tempResultsExterior = solvePolyRecursive(tempMs, tempInterval, tempErrors, exact, level=level+1)
+                    tempResultsInterior, tempResultsExterior = solvePolyRecursive(tempMs, tempInterval, tempErrors, exact, level=level+1, constant_check=constant_check,
+                                                                                  low_dim_quadratic_check=low_dim_quadratic_check, all_dim_quadratic_check=all_dim_quadratic_check)
                     #We can assume that nothing in these has to be recombined
                     resultInterior += tempResultsInterior
                     newResultExterior += tempResultsExterior

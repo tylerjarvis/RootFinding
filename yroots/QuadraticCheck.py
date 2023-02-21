@@ -686,4 +686,4 @@ def quadratic_check_nd(test_coeff, tol):
         #no root
         if Done:
             return True
-    return False
+    return not Done
