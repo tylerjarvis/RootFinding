@@ -5,6 +5,7 @@ from itertools import product
 from scipy.spatial import HalfspaceIntersection
 from scipy.optimize import linprog
 from QuadraticCheck import quadratic_check
+import copy
 
 # Code for testing. TODO: Set up unit tests and add this to it!
 from mpmath import mp
@@ -85,7 +86,45 @@ def runChebMonomialsTests(dims, maxDegs, verboseLevel = 0, returnErrors = False)
     if returnErrors:
         return allErrors
 
+class SolverOptions():
+    """ All the Solver Options for solvePolyRecursive
 
+    Parameters
+    ----------
+    exact : bool
+        Whether the transformation in TransformChebInPlaceND should be done without error
+    trimErrorRelBound : floats
+        See trimErrorAbsBound
+    trimErrorAbsBound : float
+        Only allows the error to increase by this amount when trimming.
+        If the incoming error is E, will increase the error by at most max(trimErrorRelBound * E, trimErrorAbsBound)
+    constant_check : bool
+        Defaults to True. Whether or not to run constant term check after each subdivision. Testing indicates
+        that this saves time in all dimensions.
+    low_dim_quadratic_check : bool
+        Defaults to True. Whether or not to run quadratic check in dimensions two and three. Testing indicates
+        That this saves a lot of time compared to not running it in low dimensions.
+    all_dim_quadratic_check : bool
+        Defaults to False. Whether or not to run quadratic check in every dimension. Testing indicates it loses
+        time in 4 or higher dimensions.
+    maxZoomCount : int
+        How many steps of zooming in are allowed before a subdivision is required. Used to prevent large number of super small zooms in a row slowing it down.
+    useFinalStep : bool
+        If False, once the algorithm can't zoom in anymore it assumes the root is at the center of the final interval.
+        If True, it runs the algorithm on the final interval assuming 0 error until it converges to a point, and uses that as the final point.
+    """
+    def __init__(self):
+        #Init all the Options to default value
+        self.trimErrorRelBound = 1e-16
+        self.trimErrorAbsBound = 1e-32
+        self.constant_check = True
+        self.low_dim_quadratic_check = True
+        self.all_dim_quadratic_check = False
+        self.maxZoomCount = 25
+    
+    def copy(self):
+        return copy.copy(self) #Return shallow copy, everything should be a basic type
+    
 @njit
 def TransformChebInPlace1D(coeffs, alpha, beta):
     """Applies the transformation alpha*x + beta to the chebyshev polynomial coeffs.
@@ -416,6 +455,7 @@ class TrackedInterval:
             finalIntervalError = alpha * finalIntervalError + temp
             finalInterval, temp = TwoSum_NoNumba(finalInterval,beta)
             finalIntervalError += temp
+            
         finalInterval = finalInterval.T
         finalIntervalError = finalIntervalError.T
         self.finalInterval = finalInterval + finalIntervalError
@@ -476,6 +516,11 @@ class TrackedInterval:
     def getIntervalForCombining(self):
         return self.interval if not self.finalStep else self.preFinalInterval
 
+    def __repr__(self):
+        return str(self)
+    
+    def __str__(self):
+        return str(self.interval)
     
 def getLinearTerms(M):
     """Helper Function, returns the linear terms of a matrix
@@ -633,13 +678,16 @@ def BoundingIntervalLinearSystem(Ms, errors, linear = False):
     throwout :
         Whether we should throw out the interval entirely
     """
-    errorToAdd = 1e-10
-
+    dim = Ms[0].ndim
+    #Some constants we use here
+    widthToAdd = 1e-10 #Add this width to the new intervals we find to avoid rounding error throwing out roots
+    minZoomForChange = 0.99 #If the volume doesn't shrink by this amount say that it hasn't changed
+    minZoomForBaseCaseEnd = 0.4**dim #If the volume doesn't change by at least this amount when running with no error, stop
+    
     #Get the matrix of the linear terms
     A = np.array([getLinearTerms(M) for M in Ms])
     #Get the Vector of the constant terms
     consts = np.array([M.ravel()[0] for M in Ms])
-    dim = A.shape[0]
     #Get the Error of everything else combined.
     totalErrs = np.array([np.sum(np.abs(M)) + e for M,e in zip(Ms, errors)])
     linear_sums = np.sum(np.abs(A),axis=1)
@@ -667,8 +715,8 @@ def BoundingIntervalLinearSystem(Ms, errors, linear = False):
                 a = np.maximum(center - width, a)
                 b = np.minimum(center + width, b)
             #Add error and bound
-            a -= errorToAdd
-            b += errorToAdd
+            a -= widthToAdd
+            b += widthToAdd
             throwOut = np.any(a > b)
             a[a < -1] = -1
             b[b < -1] = -1
@@ -680,9 +728,9 @@ def BoundingIntervalLinearSystem(Ms, errors, linear = False):
             if throwOut:
                 changed = True
             elif i == 0:
-                changed = newRatio < 0.99
+                changed = newRatio < minZoomForChange
             else:
-                changed = newRatio < 0.4**dim
+                changed = newRatio < minZoomForBaseCaseEnd
 
             if i == 0 and changed:
                 #If it is the first time through the loop and there was a change, return the interval it shrunk down to and set "is_done" to false
@@ -727,8 +775,8 @@ def BoundingIntervalLinearSystem(Ms, errors, linear = False):
                 return np.vstack([[-1.0]*len(A),[1.0]*len(A)]).T, False, True, False
             
             #Get the a and b arrays
-            a = vertices.min(axis=0) - errorToAdd
-            b = vertices.max(axis=0) + errorToAdd
+            a = vertices.min(axis=0) - widthToAdd
+            b = vertices.max(axis=0) + widthToAdd
 
             #Adjust the a's and b's to account for slight error in the halfspaces code
             a[a < -1] = -1
@@ -739,7 +787,7 @@ def BoundingIntervalLinearSystem(Ms, errors, linear = False):
             #Calculate the newRatio, the changed, and the throwout variables
             throwOut = np.any(a > b)
             newRatio = np.product(b - a) / 2**dim
-            changed = newRatio < 0.99
+            changed = newRatio < minZoomForChange
             
             if changed:
                 #If it is the first time through and there was a change, return the interval it shrunk down to and set "is_done" to false
@@ -762,12 +810,12 @@ def BoundingIntervalLinearSystem(Ms, errors, linear = False):
             else: #The system proceeded as normal
                 
                 #Get the a and b arrays
-                a = vertices.min(axis=0) - errorToAdd
-                b = vertices.max(axis=0) + errorToAdd
+                a = vertices.min(axis=0) - widthToAdd
+                b = vertices.max(axis=0) + widthToAdd
 
                 #Adjust the a's and b's to account for slight error in the halfspaces code
-                a -= errorToAdd
-                b += errorToAdd
+                a -= widthToAdd
+                b += widthToAdd
                 a[a < -1] = -1
                 b[b < -1] = -1
                 a[a > 1] = 1
@@ -775,7 +823,7 @@ def BoundingIntervalLinearSystem(Ms, errors, linear = False):
                 
                 #Calculate the newRatio, the changed, and the throwout variables
                 newRatio = np.product(b - a) / 2**dim
-                changed = newRatio < 0.4**dim
+                changed = newRatio < minZoomForBaseCaseEnd
 
                 if changed:
                     #IThis means it didn't change the first time, but with tighter errors it did.
@@ -1239,8 +1287,7 @@ def shouldStopSubdivision(trackedInterval):
 def isExteriorInterval(originalInterval, trackedInterval):
     return np.any(trackedInterval.getIntervalForCombining() == originalInterval.getIntervalForCombining())
 
-def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1e-16, trimErrorAbsBound = 1e-32, level = 0, constant_check = True, low_dim_quadratic_check = True, all_dim_quadratic_check = False):
-
+def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
     """Recursively finds regions in which any common roots of functions must be using subdivision
 
     Parameters
@@ -1251,17 +1298,8 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
         The information about the interval we are solving on.
     errors : numpy array
         The max error of the chebyshev approximation from the function on the interval
-    exact : bool
-        Whether the transformation in TransformChebInPlaceND should be done without error
-    constant_check : bool
-        Defaults to True. Whether or not to run constant term check after each subdivision. Testing indicates
-        that this saves time in all dimensions.
-    low_dim_quadratic_check : bool
-        Defaults to True. Whether or not to run quadratic check in dimensions two and three. Testing indicates
-        that this saves a lot of time compared to not running it in low dimensions.
-    all_dim_quadratic_check : bool
-        Defaults to False. Whether or not to run quadratic check in every dimension. Testing indicates it loses
-        time in 4 or higher dimensions.
+    solverOptions : SolverOptions
+        Various options for the solve. See the SolverOptions class for details.
     
     Returns
     -------
@@ -1274,14 +1312,22 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
     """    
     #TODO: Check if trackedInterval.interval has width 0 in some dimension, in which case we should get rid of that dimension.
     
+#     if -0.9999888967155961 not in trackedInterval and not trackedInterval.finalStep:
+#         return [], []
+#     print("Int:", trackedInterval.interval[0][0], trackedInterval.interval[0][1], "FS:", trackedInterval.finalStep)
+    
     #If the interval is a point, return it
     if np.all(trackedInterval.interval[:,0] == trackedInterval.interval[:,1]):
         return [], [trackedInterval]
     
+    #Copy all the options so we don't affect the options in any higher function call with what we do here.
+    #All options should be basic types, so copy is trivial.
+    solverOptions = solverOptions.copy()
+    
     #Constant term check, runs at the beginning of the solve and before each subdivision
     #If the absolute value of the constant term for any of the chebyshev polynomials is greater than the sum of the
     #absoulte values of any of the other terms, it will return that there are no zeros on that interval
-    if constant_check:
+    if solverOptions.constant_check:
         consts = np.array([M.ravel()[0] for M in Ms]) 
         err = np.array([np.sum(np.abs(M))-abs(c)+e for M,e,c in zip(Ms,errors,consts)])
         if np.any(np.abs(consts) > err):
@@ -1289,30 +1335,17 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
     
     #Runs quadratic check after constant check, only for dimensions 2 and 3 by default
     #More expensive than constant term check, but testing show it saves time in lower dimensions
-    if (low_dim_quadratic_check and Ms[0].ndim <= 3) or all_dim_quadratic_check:
+    if (solverOptions.low_dim_quadratic_check and Ms[0].ndim <= 3) or solverOptions.all_dim_quadratic_check:
         for i in range(len(Ms)):
             if quadratic_check(Ms[i], errors[i]):
                 return [], []
-
-    #The random numbers used below. TODO: Choose these better
-    #Error For Trim trimMs
-#     trimErrorAbsBound = 1e-32
-#     trimErrorRelBound = 1e-16
-    #How long we are allowed to zoom before giving up
-    maxZoomCount = 25
-    # maxZoomCount2 = 50
-    # #When to stop, again, maybe this should just be 0???
-    # minIntervalSize = 1e-16
-    # #Assume that once we have shrunk this interval this much, we will be able to shrink it all the way.
-    # #The is something to look into.
-    # zoomRatioToZip = 0.01
     
     #Trim
     Ms = Ms.copy()
     originalMs = Ms.copy()
     trackedInterval = trackedInterval.copy()
     errors = errors.copy()
-    trimMs(Ms, errors, trimErrorAbsBound, trimErrorRelBound)
+    trimMs(Ms, errors, solverOptions.trimErrorAbsBound, solverOptions.trimErrorRelBound)
     
     #Solve
     dim = Ms[0].ndim
@@ -1320,39 +1353,36 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
     zoomCount = 0
     originalInterval = trackedInterval.copy()
     originalIntervalSize = trackedInterval.size()
-    #The choosing when to stop zooming logic is really ugly. Needs more analysis.
-    #Keep zooming while it's larger than minIntervalSize.
-    while changed and zoomCount <= maxZoomCount:
+    #Zoom in while we can
+    while changed and zoomCount <= solverOptions.maxZoomCount:
         #Zoom in until we stop changing or we hit machine epsilon
-        Ms, errors, trackedInterval, changed, should_stop = zoomInOnIntervalIter(Ms, errors, trackedInterval, exact)
+        Ms, errors, trackedInterval, changed, should_stop = zoomInOnIntervalIter(Ms, errors, trackedInterval, solverOptions.exact)
         if trackedInterval.empty: #Throw out the interval
             return [], []
         zoomCount += 1
-    secondaryInterval = trackedInterval.copy() #TODO: USE THIS WHERE NEEDED
     
     if should_stop or trackedInterval.finalStep:
-        #Return the interval. Maybe we should return the linear approximation of the root here as well as the interval?
-        #Might be better than just taking the midpoint later.
-        #Or zoom in assuming no error and take the result of that.
-        #If that throws it out, tag that root as being a possible root? It isn't a root of the approx but
-        #may be a root of the function.
-        if trackedInterval.finalStep or True:
+        #Start the final step if the is in the options and we aren't already in it.
+        if trackedInterval.finalStep or not solverOptions.useFinalStep:
             if isExteriorInterval(originalInterval, trackedInterval):
                 return [], [trackedInterval]
             else:
                 return [trackedInterval], []
         else:
             trackedInterval.startFinalStep()
-            return solvePolyRecursive(Ms, trackedInterval, errors, exact, 0, 0, level + 1, constant_check, low_dim_quadratic_check, all_dim_quadratic_check)
+            #Don't trim in the final step
+            solverOptions.trimErrorRelBound = 0
+            solverOptions.trimErrorAbsBound = 0
+            return solvePolyRecursive(Ms, trackedInterval, errors, solverOptions)
     else:
         #Otherwise, Subdivide
         resultInterior, resultExterior = [], []
         #Get the new intervals and polynomials
         newInts = mySubdivider.subdivideInterval(trackedInterval)
-        allMs = [mySubdivider.subdivide(M, e, exact) for M,e in zip(Ms, errors)]
+        allMs = [mySubdivider.subdivide(M, e, solverOptions.exact) for M,e in zip(Ms, errors)]
         #Run each interval
         for i in range(len(newInts)):
-            newInterior, newExterior = solvePolyRecursive([allM[i][0] for allM in allMs], newInts[i], [allM[i][1] for allM in allMs], exact, trimErrorRelBound, trimErrorAbsBound, level+1, constant_check, low_dim_quadratic_check, all_dim_quadratic_check)
+            newInterior, newExterior = solvePolyRecursive([allM[i][0] for allM in allMs], newInts[i], [allM[i][1] for allM in allMs],solverOptions)
             resultInterior += newInterior
             resultExterior += newExterior
         #Rerun the touching intervals
@@ -1412,8 +1442,8 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
                     #Project the MS onto the interval, then recall the function.
                     #TODO: Instead of using the originalMs, use Ms, and then don't use the original interval, use the one
                     #we started subdivision with.
-                    tempMs, tempErrors = transformChebToInterval(originalMs, *tempInterval.getLastTransform(), errors, exact)
-                    tempResultsInterior, tempResultsExterior = solvePolyRecursive(tempMs, tempInterval, tempErrors, exact, trimErrorRelBound, trimErrorAbsBound, level+1, constant_check, low_dim_quadratic_check, all_dim_quadratic_check)
+                    tempMs, tempErrors = transformChebToInterval(originalMs, *tempInterval.getLastTransform(), errors, solverOptions.exact)
+                    tempResultsInterior, tempResultsExterior = solvePolyRecursive(tempMs, tempInterval, tempErrors, solverOptions)
                     #We can assume that nothing in these has to be recombined
                     resultInterior += tempResultsInterior
                     newResultExterior += tempResultsExterior
@@ -1457,8 +1487,14 @@ def solveChebyshevSubdivision(Ms, errors, returnBoundingBoxes = False, polish = 
     """
     #Solve
     originalInterval = TrackedInterval(np.array([[-1.,1.]]*Ms[0].ndim))
+    solverOptions = SolverOptions()
+    solverOptions.exact = exact
+    solverOptions.constant_check = constant_check
+    solverOptions.low_dim_quadratic_check = low_dim_quadratic_check
+    solverOptions.all_dim_quadratic_check = all_dim_quadratic_check
+    solverOptions.useFinalStep = True
 
-    b1, b2 = solvePolyRecursive(Ms, originalInterval, errors, exact, constant_check=constant_check, low_dim_quadratic_check=low_dim_quadratic_check, all_dim_quadratic_check=all_dim_quadratic_check)
+    b1, b2 = solvePolyRecursive(Ms, originalInterval, errors, solverOptions)
 
     boundingIntervals = b1 + b2
         
@@ -1471,18 +1507,17 @@ def solveChebyshevSubdivision(Ms, errors, returnBoundingBoxes = False, polish = 
             newInterval.interval = finalInterval
 
             tempMs, tempErrors = transformChebToInterval(Ms, interval.finalAlpha, interval.finalBeta, errors, exact)
-            b1, b2 = solvePolyRecursive(tempMs, newInterval, tempErrors, exact, constant_check=constant_check, low_dim_quadratic_check=low_dim_quadratic_check, all_dim_quadratic_check=all_dim_quadratic_check)
+            b1, b2 = solvePolyRecursive(tempMs, newInterval, tempErrors, solverOptions)
 
             newIntervals += b1 + b2
         boundingIntervals = newIntervals
 
-    #TODO: Don't return the midpoint, return the point this matrix converges to if we don't include any error.
     roots = []
     for interval in boundingIntervals:
+        #TODO: Figure out the best way to return the bounding intervals.
+        #Right now interval.finalInterval is the interval where we say the root is.
         interval.getFinalInterval()
         roots.append(interval.getFinalPoint())
-        if interval.finalStep: #Make the bounding interval what we hab before the fianl step
-            interval.interval = interval.preFinalInterval.copy()
     if returnBoundingBoxes:
         return roots, boundingIntervals
     else:
