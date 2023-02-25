@@ -684,6 +684,4 @@ def quadratic_check_nd(test_coeff, tol):
                         if min_satisfied and max_satisfied:
                             Done = True
         #no root
-        if Done:
-            return True
-    return False
+    return not Done

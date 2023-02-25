@@ -1325,7 +1325,8 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
                 return [trackedInterval], []
         else:
             trackedInterval.startFinalStep()
-            return solvePolyRecursive(Ms, trackedInterval, errors, exact, 0, 0, level + 1)
+            return solvePolyRecursive(Ms, trackedInterval, errors, exact, 0, 0, level + 1, constant_check=constant_check, 
+                                      low_dim_quadratic_check=low_dim_quadratic_check, all_dim_quadratic_check=all_dim_quadratic_check)
     else:
         #Otherwise, Subdivide
         resultInterior, resultExterior = [], []
@@ -1334,7 +1335,8 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
         allMs = [mySubdivider.subdivide(M, e, exact) for M,e in zip(Ms, errors)]
         #Run each interval
         for i in range(len(newInts)):
-            newInterior, newExterior = solvePolyRecursive([allM[i][0] for allM in allMs], newInts[i], [allM[i][1] for allM in allMs], exact, trimErrorRelBound, trimErrorAbsBound, level=level+1)
+            newInterior, newExterior = solvePolyRecursive([allM[i][0] for allM in allMs], newInts[i], [allM[i][1] for allM in allMs], exact, trimErrorRelBound, trimErrorAbsBound, level=level+1
+                                                          constant_check=constant_check, low_dim_quadratic_check=low_dim_quadratic_check, all_dim_quadratic_check=all_dim_quadratic_check)
             resultInterior += newInterior
             resultExterior += newExterior
         #Rerun the touching intervals
@@ -1395,7 +1397,8 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
                     #TODO: Instead of using the originalMs, use Ms, and then don't use the original interval, use the one
                     #we started subdivision with.
                     tempMs, tempErrors = transformChebToInterval(originalMs, *tempInterval.getLastTransform(), errors, exact)
-                    tempResultsInterior, tempResultsExterior = solvePolyRecursive(tempMs, tempInterval, tempErrors, exact, level=level+1)
+                    tempResultsInterior, tempResultsExterior = solvePolyRecursive(tempMs, tempInterval, tempErrors, exact, level=level+1, constant_check=constant_check,
+                                                                                  low_dim_quadratic_check=low_dim_quadratic_check, all_dim_quadratic_check=all_dim_quadratic_check)
                     #We can assume that nothing in these has to be recombined
                     resultInterior += tempResultsInterior
                     newResultExterior += tempResultsExterior
