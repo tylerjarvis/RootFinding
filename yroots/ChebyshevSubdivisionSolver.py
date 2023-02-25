@@ -381,7 +381,7 @@ class TrackedInterval:
     def addTransform(self, subInterval):
         #This function assumes the interval has non zero size.
         #Get the transformation in terms of alpha and beta
-        if np.any(subInterval[:,0] > subInterval[:,1]):
+        if np.any(subInterval[:,0] > subInterval[:,1]) and not self.finalStep: #Can't throw out on final step
             self.empty = True
             return
         a1,b1 = subInterval.T
@@ -424,6 +424,25 @@ class TrackedInterval:
         self.finalBeta, betaError = TwoSum_NoNumba(finalInterval[:,0]/2,finalInterval[:,1]/2)
         self.finalBeta += betaError + (finalIntervalError[:,1] + finalIntervalError[:,0])/2
         return self.finalInterval
+
+    def getFinalPoint(self):
+        #Use the transformations and the topInterval
+        #TODO: Make this a seperate function so it can use njit.
+        #Make these _NoNumba calls use floats so they call call the numba functions without a seperate compile
+        if not self.finalStep:
+            self.root = (self.finalInterval[:,0] + self.finalInterval[:,1]) / 2
+        else:
+            finalInterval = self.topInterval.T
+            finalIntervalError = np.zeros_like(finalInterval)
+            transformsToUse = self.transforms
+            for alpha,beta in transformsToUse[::-1]:
+                finalInterval, temp = TwoProd_NoNumba(finalInterval, alpha)
+                finalIntervalError = alpha * finalIntervalError + temp
+                finalInterval, temp = TwoSum_NoNumba(finalInterval,beta)
+                finalIntervalError += temp
+            finalInterval = finalInterval.T + finalIntervalError.T
+            self.root = (finalInterval[:,0] + finalInterval[:,1]) / 2
+        return self.root
     
     def size(self):
         return np.product(self.interval[:,1] - self.interval[:,0])
@@ -1220,8 +1239,7 @@ def shouldStopSubdivision(trackedInterval):
 def isExteriorInterval(originalInterval, trackedInterval):
     return np.any(trackedInterval.getIntervalForCombining() == originalInterval.getIntervalForCombining())
 
-def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1e-16, trimErrorAbsBound = 1e-32, level = 0, constant_check = True, 
-                       low_dim_quadratic_check = True, all_dim_quadratic_check = False):
+def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1e-16, trimErrorAbsBound = 1e-32, level = 0, constant_check = True, low_dim_quadratic_check = True, all_dim_quadratic_check = False):
 
     """Recursively finds regions in which any common roots of functions must be using subdivision
 
@@ -1255,7 +1273,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
         interval
     """    
     #TODO: Check if trackedInterval.interval has width 0 in some dimension, in which case we should get rid of that dimension.
-
+    
     #If the interval is a point, return it
     if np.all(trackedInterval.interval[:,0] == trackedInterval.interval[:,1]):
         return [], [trackedInterval]
@@ -1312,7 +1330,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
         zoomCount += 1
     secondaryInterval = trackedInterval.copy() #TODO: USE THIS WHERE NEEDED
     
-    if should_stop:
+    if should_stop or trackedInterval.finalStep:
         #Return the interval. Maybe we should return the linear approximation of the root here as well as the interval?
         #Might be better than just taking the midpoint later.
         #Or zoom in assuming no error and take the result of that.
@@ -1325,7 +1343,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
                 return [trackedInterval], []
         else:
             trackedInterval.startFinalStep()
-            return solvePolyRecursive(Ms, trackedInterval, errors, exact, 0, 0, level + 1)
+            return solvePolyRecursive(Ms, trackedInterval, errors, exact, 0, 0, level + 1, constant_check, low_dim_quadratic_check, all_dim_quadratic_check)
     else:
         #Otherwise, Subdivide
         resultInterior, resultExterior = [], []
@@ -1334,7 +1352,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
         allMs = [mySubdivider.subdivide(M, e, exact) for M,e in zip(Ms, errors)]
         #Run each interval
         for i in range(len(newInts)):
-            newInterior, newExterior = solvePolyRecursive([allM[i][0] for allM in allMs], newInts[i], [allM[i][1] for allM in allMs], exact, trimErrorRelBound, trimErrorAbsBound, level=level+1)
+            newInterior, newExterior = solvePolyRecursive([allM[i][0] for allM in allMs], newInts[i], [allM[i][1] for allM in allMs], exact, trimErrorRelBound, trimErrorAbsBound, level+1, constant_check, low_dim_quadratic_check, all_dim_quadratic_check)
             resultInterior += newInterior
             resultExterior += newExterior
         #Rerun the touching intervals
@@ -1395,7 +1413,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
                     #TODO: Instead of using the originalMs, use Ms, and then don't use the original interval, use the one
                     #we started subdivision with.
                     tempMs, tempErrors = transformChebToInterval(originalMs, *tempInterval.getLastTransform(), errors, exact)
-                    tempResultsInterior, tempResultsExterior = solvePolyRecursive(tempMs, tempInterval, tempErrors, exact, level=level+1)
+                    tempResultsInterior, tempResultsExterior = solvePolyRecursive(tempMs, tempInterval, tempErrors, exact, trimErrorRelBound, trimErrorAbsBound, level+1, constant_check, low_dim_quadratic_check, all_dim_quadratic_check)
                     #We can assume that nothing in these has to be recombined
                     resultInterior += tempResultsInterior
                     newResultExterior += tempResultsExterior
@@ -1405,8 +1423,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
                 resultInterior.append(tempInterval)                
         return resultInterior, newResultExterior
 
-def solveChebyshevSubdivision(Ms, errors, returnBoundingBoxes = False, polish = False, exact = False, constant_check = True, low_dim_quadratic_check = True,
-                              all_dim_quadratic_check = False):
+def solveChebyshevSubdivision(Ms, errors, returnBoundingBoxes = False, polish = False, exact = False, constant_check = True, low_dim_quadratic_check = True, all_dim_quadratic_check = False):
     """Finds regions in which any common roots of functions must be
 
     Parameters
@@ -1441,8 +1458,7 @@ def solveChebyshevSubdivision(Ms, errors, returnBoundingBoxes = False, polish = 
     #Solve
     originalInterval = TrackedInterval(np.array([[-1.,1.]]*Ms[0].ndim))
 
-    b1, b2 = solvePolyRecursive(Ms, originalInterval, errors, exact, constant_check=constant_check, low_dim_quadratic_check=low_dim_quadratic_check,
-                                all_dim_quadratic_check=all_dim_quadratic_check)
+    b1, b2 = solvePolyRecursive(Ms, originalInterval, errors, exact, constant_check=constant_check, low_dim_quadratic_check=low_dim_quadratic_check, all_dim_quadratic_check=all_dim_quadratic_check)
 
     boundingIntervals = b1 + b2
         
@@ -1455,20 +1471,18 @@ def solveChebyshevSubdivision(Ms, errors, returnBoundingBoxes = False, polish = 
             newInterval.interval = finalInterval
 
             tempMs, tempErrors = transformChebToInterval(Ms, interval.finalAlpha, interval.finalBeta, errors, exact)
-            b1, b2 = solvePolyRecursive(tempMs, newInterval, tempErrors, exact, constant_check=constant_check, low_dim_quadratic_check=low_dim_quadratic_check,
-                                all_dim_quadratic_check=all_dim_quadratic_check)
+            b1, b2 = solvePolyRecursive(tempMs, newInterval, tempErrors, exact, constant_check=constant_check, low_dim_quadratic_check=low_dim_quadratic_check, all_dim_quadratic_check=all_dim_quadratic_check)
 
             newIntervals += b1 + b2
         boundingIntervals = newIntervals
 
-    #TODO: Have an options to reRun all the bounding boxes with tight precision after a first run at lower precision.
-    #For Example: 
-    #boundingBoxes = [solvePolyRecursive(transformedMs, box, errors, <tigher tolerance params>) for box in boundingBoxes]
     #TODO: Don't return the midpoint, return the point this matrix converges to if we don't include any error.
     roots = []
     for interval in boundingIntervals:
-        finalInterval = interval.getFinalInterval()
-        roots.append((finalInterval[:,1] + finalInterval[:,0]) / 2)
+        interval.getFinalInterval()
+        roots.append(interval.getFinalPoint())
+        if interval.finalStep: #Make the bounding interval what we hab before the fianl step
+            interval.interval = interval.preFinalInterval.copy()
     if returnBoundingBoxes:
         return roots, boundingIntervals
     else:
