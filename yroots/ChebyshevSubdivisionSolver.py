@@ -1312,17 +1312,13 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
     """    
     #TODO: Check if trackedInterval.interval has width 0 in some dimension, in which case we should get rid of that dimension.
     
-#     if -0.9999888967155961 not in trackedInterval and not trackedInterval.finalStep:
-#         return [], []
-#     print("Int:", trackedInterval.interval[0][0], trackedInterval.interval[0][1], "FS:", trackedInterval.finalStep)
-    
     #If the interval is a point, return it
     if np.all(trackedInterval.interval[:,0] == trackedInterval.interval[:,1]):
         return [], [trackedInterval]
     
-    #Copy all the options so we don't affect the options in any higher function call with what we do here.
-    #All options should be basic types, so copy is trivial.
-    solverOptions = solverOptions.copy()
+    #If we ever change the options in this function, we will need to do a copy here.
+    #Should be cheap, but as we never change them for now just avoid the copy
+    #solverOptions = solverOptions.copy()
     
     #Constant term check, runs at the beginning of the solve and before each subdivision
     #If the absolute value of the constant term for any of the chebyshev polynomials is greater than the sum of the
@@ -1370,9 +1366,6 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
                 return [trackedInterval], []
         else:
             trackedInterval.startFinalStep()
-            #Don't trim in the final step
-            solverOptions.trimErrorRelBound = 0
-            solverOptions.trimErrorAbsBound = 0
             return solvePolyRecursive(Ms, trackedInterval, errors, solverOptions)
     else:
         #Otherwise, Subdivide
