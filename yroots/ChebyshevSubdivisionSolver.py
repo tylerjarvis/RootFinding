@@ -4,7 +4,7 @@ from numba.types import UniTuple
 from itertools import product
 from scipy.spatial import HalfspaceIntersection
 from scipy.optimize import linprog
-from QuadraticCheck import quadratic_check
+from yroots.QuadraticCheck import quadratic_check
 
 # Code for testing. TODO: Set up unit tests and add this to it!
 from mpmath import mp
@@ -1335,7 +1335,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, exact, trimErrorRelBound = 1
         allMs = [mySubdivider.subdivide(M, e, exact) for M,e in zip(Ms, errors)]
         #Run each interval
         for i in range(len(newInts)):
-            newInterior, newExterior = solvePolyRecursive([allM[i][0] for allM in allMs], newInts[i], [allM[i][1] for allM in allMs], exact, trimErrorRelBound, trimErrorAbsBound, level=level+1
+            newInterior, newExterior = solvePolyRecursive([allM[i][0] for allM in allMs], newInts[i], [allM[i][1] for allM in allMs], exact, trimErrorRelBound, trimErrorAbsBound, level=level+1,
                                                           constant_check=constant_check, low_dim_quadratic_check=low_dim_quadratic_check, all_dim_quadratic_check=all_dim_quadratic_check)
             resultInterior += newInterior
             resultExterior += newExterior
