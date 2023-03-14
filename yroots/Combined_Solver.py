@@ -1,10 +1,10 @@
 import numpy as np
 import inspect
 import sympy as sy
-# import yroots.ChebyshevSubdivisionSolver as ChebyshevSubdivisionSolver
-import ChebyshevSubdivisionSolver
-# import yroots.M_maker as M_maker
-import M_maker
+import yroots.ChebyshevSubdivisionSolver as ChebyshevSubdivisionSolver
+# import ChebyshevSubdivisionSolver
+import yroots.M_maker as M_maker
+# import M_maker
 from yroots.utils import transform
 from yroots.polynomial import MultiCheb, MultiPower
 

@@ -4,7 +4,7 @@ from numba.types import UniTuple
 from itertools import product
 from scipy.spatial import HalfspaceIntersection
 from scipy.optimize import linprog
-from QuadraticCheck import quadratic_check
+from yroots.QuadraticCheck import quadratic_check
 import copy
 
 # Code for testing. TODO: Set up unit tests and add this to it!
