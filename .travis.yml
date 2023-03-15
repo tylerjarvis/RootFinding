@@ -1,4 +1,11 @@
 # Config file for automatic testing at travis-ci.org
+name: test-checker
+on: [push, pull_request]
+jobs: 
+  branches: 
+    - main
+
+
 
 language: python
 python:
