@@ -126,7 +126,7 @@ class M_maker:
         (bool) if the error test has been passed or not
         """
         mach_eps = np.finfo(float).eps
-        num_entries_M2 = np.product(self.M2.shape) #number of entries in M2
+        num_entries_M2 = np.product(self.M2.shape) - np.product(self.M.shape) #number of additional entries from M2
         potential_float_err = 10*num_entries_M2*mach_eps*inf_norm #potential float error
         return error < max(rel_approx_tol,potential_float_err)
 
