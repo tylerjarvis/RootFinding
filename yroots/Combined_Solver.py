@@ -53,7 +53,7 @@ def degree_guesser(funcs,guess_degs,default_deg):
                 guess_degs[i] = max(sy.degree_list(expr))
     return [is_lambda_poly, is_routine, is_lambda, guess_degs]
 
-def solve(funcs,a,b,guess_degs=None,rescale=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12, 
+def solve(funcs,a,b,guess_degs=None,max_deg_edit=None,rescale=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12, 
           returnBoundingBoxes = False, exact=False, constant_check = True, low_dim_quadratic_check = True,
           all_dim_quadratic_check = False):
     """
@@ -131,7 +131,7 @@ def solve(funcs,a,b,guess_degs=None,rescale=False,rel_approx_tol=1.e-15, abs_app
     errs = np.array([0]*len(funcs))
 
     for idx in non_MultiCheb_idxs:
-        approx = M_maker.M_maker(funcs[idx],arr_neg1,arr_1,guess_degs[idx],rel_approx_tol,abs_approx_tol)
+        approx = M_maker.M_maker(funcs[idx],arr_neg1,arr_1,guess_degs[idx],max_deg_edit,rel_approx_tol,abs_approx_tol)
         if rescale:
             funcs[idx] = MultiCheb(approx.M_rescaled)
         else:
@@ -139,7 +139,7 @@ def solve(funcs,a,b,guess_degs=None,rescale=False,rel_approx_tol=1.e-15, abs_app
         errs[idx] = approx.err
 
     for idx in MultiCheb_idxs: #future: could we skip M_Maker process if we knew that it matched the [-1,1]^n interval?
-        approx = M_maker.M_maker(funcs[idx],arr_neg1,arr_1,guess_degs[idx],rel_approx_tol,abs_approx_tol)
+        approx = M_maker.M_maker(funcs[idx],arr_neg1,arr_1,guess_degs[idx],max_deg_edit,rel_approx_tol,abs_approx_tol)
         if rescale:
             funcs[idx] = MultiCheb(approx.M_rescaled)
         else:
