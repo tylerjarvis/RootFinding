@@ -2,9 +2,10 @@ import numpy as np
 from yroots.utils import transform, slice_top
 from scipy.fftpack import fftn
 from itertools import product
+import warnings
 
 class M_maker:
-    def __init__(self,f,a,b,guess_deg,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12):
+    def __init__(self,f,a,b,guess_deg,max_deg_edit=None,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12):
         """
         Used to find M, an array of Chebyshev coefficients.
 
@@ -66,12 +67,28 @@ class M_maker:
         block_copy_slicers: slicers to make the block copy of the values block
         interval_approx_slicers: slicers to make the whole approximation
         """
-        self.max_deg = {1: 100000, 2:1000, 3:9, 4:9, 5:2, 6:2, 7:2, 8:2, 9:2, 10:2} #need to experiment with this
+        self.max_n_coeffs = 500**2
+        
+        #self.max_deg = {1: 100000, 2:1000, 3:9, 4:9, 5:2, 6:2, 7:2, 8:2, 9:2, 10:2} #need to experiment with this
+
+        max_degs = [2**round(np.log2(self.max_n_coeffs**(1/k))) for k in range(1,11)]
+        #[262144,512,64,16,16,8,8,4,4,4]
+        dims = list(range(1,11))
+        self.max_deg = dict(zip(dims,max_degs))
+    
         
         dim = len(a)
         if dim != len(b):
             raise ValueError("dimension mismatch")
         self.dim = dim
+
+        if max_deg_edit is not None:
+            if max_deg_edit > self.max_deg[self.dim]:
+                warnings.warn("Terminating approximation at high degree--run time may be prolonged.")
+            elif max_deg_edit < (1/10)*self.max_deg[self.dim]: #we can get creative about edge cases here, let's think about this soon
+                warnings.warn("Terminating at low degree--approximation may be inaccruate")
+            self.max_deg[self.dim] = max_deg_edit
+
         self.f = f
         self.a = a
         self.b = b
@@ -128,7 +145,7 @@ class M_maker:
         mach_eps = np.finfo(float).eps
         num_entries_M2 = np.product(self.M2.shape) - np.product(self.M.shape) #number of additional entries from M2
         potential_float_err = 10*num_entries_M2*mach_eps*inf_norm #potential float error
-        return error < max(rel_approx_tol,potential_float_err)
+        return error < max(rel_approx_tol,potential_float_err) #we decided abs_approx_tol is not needed
 
     def find_good_approx(self,f,deg,dim,a,b):
         """
