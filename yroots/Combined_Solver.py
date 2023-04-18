@@ -105,7 +105,7 @@ def solve(funcs,a,b,guess_degs=None,max_deg_edit=None,rescale=False,rel_approx_t
         raise ValueError("At least one lower bound is >= an upper bound.")
     
     is_neg1_1 = True
-    arr_neg1 = np.array([-1]*len(a)) #what if a>b
+    arr_neg1 = np.array([-1.]*len(a)) #what if a>b
     arr_1 = np.ones(len(a))
 
     if np.allclose(arr_neg1,a,rtol=1e-08) and np.allclose(arr_1,b,rtol=1e-08):
@@ -128,10 +128,10 @@ def solve(funcs,a,b,guess_degs=None,max_deg_edit=None,rescale=False,rel_approx_t
     MultiCheb_idxs = list(np.where(is_multi_cheb_arr==1)[0])
     non_MultiCheb_idxs = list(np.where(is_multi_cheb_arr==0)[0])
 
-    errs = np.array([0]*len(funcs))
+    errs = np.array([0.]*len(funcs))
 
     for idx in non_MultiCheb_idxs:
-        approx = M_maker.M_maker(funcs[idx],arr_neg1,arr_1,guess_degs[idx],max_deg_edit,rel_approx_tol,abs_approx_tol)
+        approx = M_maker.M_maker(funcs[idx],a,b,guess_degs[idx],max_deg_edit,rel_approx_tol,abs_approx_tol)
         if rescale:
             funcs[idx] = MultiCheb(approx.M_rescaled)
         else:
@@ -139,7 +139,7 @@ def solve(funcs,a,b,guess_degs=None,max_deg_edit=None,rescale=False,rel_approx_t
         errs[idx] = approx.err
 
     for idx in MultiCheb_idxs: #future: could we skip M_Maker process if we knew that it matched the [-1,1]^n interval?
-        approx = M_maker.M_maker(funcs[idx],arr_neg1,arr_1,guess_degs[idx],max_deg_edit,rel_approx_tol,abs_approx_tol)
+        approx = M_maker.M_maker(funcs[idx],a,b,guess_degs[idx],max_deg_edit,rel_approx_tol,abs_approx_tol)
         if rescale:
             funcs[idx] = MultiCheb(approx.M_rescaled)
         else:
