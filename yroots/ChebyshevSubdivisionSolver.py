@@ -691,6 +691,19 @@ def BoundingIntervalLinearSystem(Ms, errors, linear = False):
     linear_sums = np.sum(np.abs(A),axis=1)
     err = np.array([tE-abs(c)-l for tE,c,l in zip(totalErrs,consts,linear_sums)])    
     
+    #Scale all the polynomials relative to one another
+    errors = errors.copy()
+    for i in range(dim):
+        scaleVal = max(abs(consts[i]), np.max(np.abs(A[i])))
+        if scaleVal > 0:
+            s = 2**int(np.floor(np.log2(abs(scaleVal))))
+            A[i] /= s
+            consts[i] /= s
+            totalErrs[i] /= s
+            linear_sums[i] /= s
+            err[i] /= s
+            errors[i] /= s
+    
     #Run Erik's code if the dimension of the problem is <= 4, OR if the variable "linear" equals True.
     #The variable "Linear" is False by default, but in the case where we tried to run the halfspaces code (meaning the problem has dimension 5 or greater)
     #And the function "find_vertices" failed (i.e. it returned a value of 4), it means that the halfspaces code cannot be run and we need to run Erik's linear code on that interval instead.
@@ -722,7 +735,7 @@ def BoundingIntervalLinearSystem(Ms, errors, linear = False):
             b[b > 1] = 1
 
             # Calculate the "changed" variable
-            newRatio = np.product(b - a) / 2**dim
+            newRatio = np.product(b - a) / 2**dim                
             if throwOut:
                 changed = True
             elif i == 0:
@@ -1307,7 +1320,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
     boundingBoxesExterior : list of numpy arrays (optional)
         Each element of the list is an interval in which there may be a root. The interval is on the exterior of the current
         interval
-    """    
+    """
     #TODO: Check if trackedInterval.interval has width 0 in some dimension, in which case we should get rid of that dimension.
     
     #If the interval is a point, return it
@@ -1351,6 +1364,8 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
     while changed and zoomCount <= solverOptions.maxZoomCount:
         #Zoom in until we stop changing or we hit machine epsilon
         Ms, errors, trackedInterval, changed, should_stop = zoomInOnIntervalIter(Ms, errors, trackedInterval, solverOptions.exact)
+        #TODO: Trim every step???
+        #trimMs(Ms, errors, solverOptions.trimErrorAbsBound, solverOptions.trimErrorRelBound)
         if trackedInterval.empty: #Throw out the interval
             return [], []
         zoomCount += 1
