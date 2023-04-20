@@ -184,7 +184,7 @@ class M_maker:
                 self.M, self.inf_norm = self.interval_approximate_nd(f, a, b, deg, return_inf_norm=True)
                 self.M2 = self.interval_approximate_nd(f,a,b,deg*2)
                 self.err = self.get_err(self.M,self.M2)
-                print("WARNING: Hit Max Deg!")
+                warnings.warn(f"Hit Max Degree in Approximation! Approximation error is {self.err}!")
                 break
             else:
                 deg = 2*deg
@@ -193,7 +193,7 @@ class M_maker:
                 self.M2 = self.interval_approximate_nd(f,a,b,deg*2)
                 self.err = self.get_err(self.M,self.M2)
         else:
-            print("WARNING: Hit Max Deg!")
+            warnings.warn(f"Hit Max Degree in Approximation!  Approximation error is {self.err}!")
 
         self.deg = deg
 
