@@ -226,6 +226,11 @@ def verbose_pass_or_fail(funcs, yroots, polished_roots, test_num, cheb_roots=Non
     """
     print ("=========================================================")
     print("Test " + str(test_num))
+    
+    #Fail if the number of roots is wrong
+    if len(yroots) != len(polished_roots):
+        print(f"\t Num Roots Wrong! Found {len(yroots)}, Has {len(polished_roots)}!")
+        return False, False
 
     residuals_pass = residuals_pass_or_fail(funcs, yroots, tol)
     if residuals_pass:
