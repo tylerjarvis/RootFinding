@@ -73,6 +73,7 @@ class M_maker:
 
         max_degs = [2**round(np.log2(self.max_n_coeffs**(1/k))) for k in range(1,11)]
         #[262144,512,64,16,16,8,8,4,4,4]
+        max_degs[3] = 64
         dims = list(range(1,11))
         self.max_deg = dict(zip(dims,max_degs))
     
