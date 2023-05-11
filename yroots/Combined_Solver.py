@@ -98,6 +98,10 @@ def solve(funcs,a,b,guess_degs=None,max_deg_edit=None,rescale=False,rel_approx_t
     default_deg = 2 #the default for the guess degrees
     guess_degs = degree_guesser(funcs,guess_degs,default_deg)[3]
 
+    # Convert the given lists into np.array format
+    a = np.array(a)
+    b = np.array(b)
+
     if len(a) != len(b):
         raise ValueError("Dimension mismatch in intervals.")
     
