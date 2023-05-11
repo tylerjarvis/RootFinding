@@ -36,13 +36,26 @@ def degree_guesser(funcs,guess_degs,default_deg):
         lambda_mask = np.array([True if "lambda" in inspect.getsource(func) else False for func in funcs_routines])
         is_lambda[routine_mask][~lambda_mask] = 0 #update assumption where necessary
 
+    # Counts how many lambda functions are typed directly as parameters into the call to solve.
+    lambda_counter = 0
+
     for i,func in enumerate(funcs):
         if isinstance(func,MultiCheb) or isinstance(func,MultiPower):
             guess_degs[i] = max(func.shape) - 1 #funcs[i].shape[0] might suffice
             is_lambda_poly[i] = False
         elif is_lambda[i]:
             f_str_lst = inspect.getsource(func).strip().split(":")
-            vars, expr = f_str_lst[0].strip().split('lambda')[1].strip(), f_str_lst[1].strip()
+            # If the source is the call to the solve function, the source will have 'solve' in it
+            # and will be one long line. Thus the splitting functions differently.
+            if "solve" in f_str_lst[0]:
+                vars, expr = f_str_lst[lambda_counter].strip().split('lambda')[1].strip(), f_str_lst[lambda_counter+1].strip().split(',')[0]
+                lambda_counter += 1
+                # The last func will have the rest of the code used to call the solve function tacked on;
+                # delete this by searching for the closing ']'
+                if ']' in expr:
+                    expr = expr.split(']')[0]
+            else:   
+                vars, expr = f_str_lst[0].strip().split('lambda')[1].strip(), f_str_lst[1].strip().split(',')[0]
             vars = sy.symbols(vars)
             if "np." in expr:
                 is_lambda_poly[i] = False #not a great check, since polynomials can be expressed with np.array(), but good start
