@@ -3,7 +3,6 @@ from yroots.utils import transform, slice_top
 from scipy.fftpack import fftn
 from itertools import product
 import warnings
-import time
 
 class M_maker:
     def __init__(self,f,a,b,guess_deg,max_deg_edit=None,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12):
@@ -192,8 +191,6 @@ class M_maker:
         """
 
         # Get the approximation for degree deg (M) and degree 2*deg (M2), then use them to find the error. 
-        print("Beginning approximation for function!")
-        start = time.time()
         self.M, self.inf_norm = self.interval_approximate_nd(f, a, b, deg, return_inf_norm=True)
         self.M2 = self.interval_approximate_nd(f,a,b,deg*2)
         self.err = self.get_err(self.M,self.M2)
@@ -230,9 +227,6 @@ class M_maker:
             
         #Update self.deg
         self.deg = deg
-        print("Finished approximating function!")
-        print(f"Total time taken:  {round(time.time()-start,2)} seconds.")
-        print()
 
     def interval_approximate_nd(self,f, a, b, deg, return_inf_norm=False, save_values_block=False):
         """Finds the chebyshev approximation of an n-dimensional function on an
@@ -262,6 +256,7 @@ class M_maker:
         """
         half_deg = deg / 2
 
+        # Check to see if the FFT values have been computed previously, and return them if they have
         if deg in self.fft_dict.keys():
             if return_inf_norm:
                 return self.fft_dict[deg][0], self.fft_dict[deg][1]
@@ -277,7 +272,6 @@ class M_maker:
             #p1 = f.evaluate_grid(xyz)
             #xyz2 = np.columns_stack((odds,odds))
             #p2 = f.evaluate_grid(xyz2)
-            print(f"Recalculating at deg {deg}")
             cheb_pts = transform(chepy_pts,a,b) # transforms the points from [-1,1] interval to [a,b]
             values_block = f.evaluate_grid(cheb_pts) # gets function values; TODO: memoization?
             self.memo_dict[deg] = values_block # saves values at these extremizers for future reference
@@ -319,13 +313,12 @@ class M_maker:
         inf_norm = np.max(np.abs(values)) # largest absolute value of the function at any Chebyshev pt
 
         # Set up and perform the Fast Fourier Transform to find the Chebyshev approximation
-        start = time.time()
         x0_slicer, deg_slicer, slices, rescale = self.interval_approx_slicers(self.dim,deg)
         coeffs = fftn(values/rescale).real
         for x0sl, degsl in zip(x0_slicer, deg_slicer): # Divide constant and last coefficients in each dimension by 2 as required
             coeffs[x0sl] /= 2
             coeffs[degsl] /= 2
-        print(f"    deg {deg}: FFT took  {round(time.time()-start,2)} seconds.")
+        # Add the caclculated FFT values to the FFT dictionary for future lookup
         self.fft_dict[deg] = [coeffs[tuple(slices)], inf_norm]
 
         # Return the found appoximation
