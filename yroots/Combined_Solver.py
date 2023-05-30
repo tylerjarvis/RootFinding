@@ -67,7 +67,7 @@ def degree_guesser(funcs,guess_degs,default_deg):
                 guess_degs[i] = max(sy.degree_list(expr))
     return [is_lambda_poly, is_routine, is_lambda, guess_degs]
 
-def solve(funcs,a=None,b=None,guess_degs=None,max_deg_edit=None,rescale=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12, 
+def solve(funcs,a=[],b=[],guess_degs=None,max_deg_edit=None,rescale=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12, 
           returnBoundingBoxes = False, exact=False, constant_check = True, low_dim_quadratic_check = True,
           all_dim_quadratic_check = False):
     """
@@ -111,9 +111,9 @@ def solve(funcs,a=None,b=None,guess_degs=None,max_deg_edit=None,rescale=False,re
     #TODO: decide whether to move degree_guesser --> utils.py
 
     #Initialize a, b to negative ones and ones if no argument passed in
-    if a == None:
+    if a == []:
         a = -np.ones(len(funcs))
-    if b == None:
+    if b == []:
         b = np.ones(len(funcs))
     # Convert any given bounds a, b into np.array format
     if type(a) == list:
