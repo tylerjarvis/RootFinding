@@ -26,6 +26,8 @@ class M_maker:
         memo_dict: dictionary
             the evaluation of an approximating polynomial at each chebyshev point in the region
             keys: degree, values: array of evaluations
+        fft_dict: dictionary
+            the fft values saved from previous degrees
         deg: int
             degree of the approximation
         values_block: ndarray
@@ -113,7 +115,7 @@ class M_maker:
         self.err = None
         self.inf_norm = None
 
-        self.find_good_approx(f,guess_deg,dim,a,b)        
+        self.find_good_approx(f,[guess_deg]*dim,dim,a,b)        
         self.M_rescaled = self.M / self.inf_norm
         self.values_block = list(self.memo_dict.values())[-2]
 
@@ -168,15 +170,16 @@ class M_maker:
         potential_float_err = 10*num_entries_M2*mach_eps*inf_norm #potential float error
         return error < max(rel_approx_tol,potential_float_err) #we decided abs_approx_tol is not needed
 
-    def find_good_approx(self,f,deg,dim,a,b):
+    def find_good_approx(self,f,degs,dim,a,b):
         """
-        Finds the right degree with which to approximate on the interval.
+        Finds the right degrees with which to approximate on the interval. Calls other functions to
+            calculate the approximation.
 
         Parameters
         ----------
         f : function from R^n -> R
             the function to interpolate.
-        deg : numpy array
+        degs : list
             the degree of the interpolation in each dimension.
         dim: int
             dimension
@@ -184,51 +187,64 @@ class M_maker:
             lower bound on the interval.
         b : numpy array
             upper bound on the interval.
-
-        Returns
-        -------
-        deg: the correct approximation degree
         """
 
-        # Get the approximation for degree deg (M) and degree 2*deg (M2), then use them to find the error. 
-        self.M, self.inf_norm = self.interval_approximate_nd(f, a, b, deg, return_inf_norm=True)
-        self.M2 = self.interval_approximate_nd(f,a,b,deg*2)
+        # Calculate an initial approximation, then calculate the error using the matrix of double degree. 
+        self.M, self.inf_norm = self.interval_approximate_nd(f, a, b, degs, return_inf_norm=True)
+        self.M2 = self.interval_approximate_nd(f,a,b,[2*deg for deg in degs])
         self.err = self.get_err(self.M,self.M2)
 
-        #Set deg to self.max_deg if it exceeds the maximum degree allowed.
-        if deg > self.max_deg[dim]:
-            deg = self.max_deg[dim]
+        #Set each deg to self.max_deg if it exceeds the maximum degree allowed.
+        for i in range(len(degs)):
+            if degs[i] > self.max_deg[dim]:
+                degs[i] = self.max_deg[dim]
 
-        while deg < self.max_deg[dim]: # Check for a better approximation if deg has not yet reached max.
+        """The following loop calculates an increasingly better approximation for the function by 
+            doubling the degree of dimensions in which error is large until the entire approximation
+            passes the error test or the approximation cannot be improved without going past max_deg.
+        """
+        while any([deg < self.max_deg[dim] for deg in degs]):
             
-            # If the approximation is already good enough by the error test, leave the loop.
+            # Base case: If the approximation already passes the error test, leave the loop.
             if self.error_test(self.err,self.abs_approx_tol,self.rel_approx_tol,self.inf_norm):
                 break
+            
+            # The approximation does not yet pass the error test. Look for dimensions with high error.
+            dims_to_expand = set()
+            for i in range(dim):
+                if degs[i] >= self.max_deg[dim]:
+                    continue # Do not increase the degree in dimensions that have already hit max_deg.
 
-            # If increasing deg by a factor of 2 would exceed the maximum degree,
-                # set deg to the maximum allowed, get the error from the corresponding M
-                #and M2, warn the user of the error, and break from the loop.
-            elif 2*deg > self.max_deg[dim]:
-                deg = self.max_deg[dim]
-                self.M, self.inf_norm = self.interval_approximate_nd(f, a, b, deg, return_inf_norm=True)
-                self.M2 = self.interval_approximate_nd(f,a,b,deg*2)
+                # The following code finds the error in a particular dimension by comparing the error of
+                # an approximation with all dimensions doubled (M2) and an approximation with all
+                # dimensions doubled except the particular dimension of interest (test_M).
+                test_degs = [degs[j]*2 if i != j else degs[j] for j in range(dim)]
+                test_M = self.interval_approximate_nd(f,a,b,test_degs)
+                dim_error = self.get_err(test_M,self.M2) # Error in the direction of the dimension i
+                # Now calculate the potential float error
+                num_entries_M2 = np.product(self.M2.shape) - np.product(test_M.shape)
+                potential_float_err = 10*num_entries_M2*np.finfo(float).eps*self.inf_norm
+                # Improve the approximation along dimension i if there is still significant error.
+                if dim_error > max(self.rel_approx_tol,potential_float_err):
+                    dims_to_expand.add(i)
+                
+            if dims_to_expand: # Improve approximation of any dims that can be better approximated.
+                for i in dims_to_expand:
+                    degs[i] = (2*degs[i] if 2*degs[i] < self.max_deg[dim] else self.max_deg[dim])
+                # Now calculate the improved approximation and its error.
+                self.M, self.inf_norm = self.interval_approximate_nd(f, a, b, degs, return_inf_norm=True)
+                self.M2 = self.interval_approximate_nd(f,a,b,[2*deg for deg in degs])
                 self.err = self.get_err(self.M,self.M2)
-                warnings.warn(f"Hit Max Degree in Approximation! Approximation error is {self.err}!")
+            else: # Base case: all of the dimensions have insignificant error or hit max_deg already.
                 break
-
-            else: # The approximation can be improved by a 2*deg approximation without exceeding max_deg.
-                # Increase deg by a factor of 2, and get the error from the corresponding M and M2.
-                deg = 2*deg
-                self.M, self.inf_norm = self.interval_approximate_nd(f, a, b, deg, return_inf_norm=True)
-                self.M2 = self.interval_approximate_nd(f,a,b,deg*2)
-                self.err = self.get_err(self.M,self.M2)
-        else: # The loop terminated because deg reached max_deg, so warn the user of the error.
+        # If the approximation was curtailed by the max_deg restraint, warn the user of the error.
+        if any([deg >= self.max_deg[dim] for deg in degs]):
             warnings.warn(f"Hit Max Degree in Approximation!  Approximation error is {self.err}!")
             
         #Update self.deg
-        self.deg = deg
+        self.degs = degs
 
-    def interval_approximate_nd(self,f, a, b, deg, return_inf_norm=False, save_values_block=False):
+    def interval_approximate_nd(self,f, a, b, degs, return_inf_norm=False, save_values_block=False):
         """Finds the chebyshev approximation of an n-dimensional function on an
         interval.
 
@@ -240,8 +256,8 @@ class M_maker:
             The lower bound on the interval.
         b : numpy array
             The upper bound on the interval.
-        deg : numpy array
-            The degree of the interpolation in each dimension.
+        degs : list
+            the degree of the interpolation in each dimension.
         return_inf_norm : bool
             whether to return the inf norm of the function
         save_values_block : bool
@@ -254,18 +270,21 @@ class M_maker:
         inf_norm : float
             The inf_norm of the function
         """
-        half_deg = deg / 2
-
+        
+        tup_degs = tuple(degs) # For storing the degrees in dictionaries
+        half_degs = tuple([deg/2 for deg in degs])
         # Check to see if the FFT values have been computed previously, and return them if they have
-        if deg in self.fft_dict.keys():
+        if tup_degs in self.fft_dict.keys():
             if return_inf_norm:
-                return self.fft_dict[deg][0], self.fft_dict[deg][1]
+                return self.fft_dict[tup_degs][0], self.fft_dict[tup_degs][1]
             else:
-                return self.fft_dict[deg][0]
+                return self.fft_dict[tup_degs][0]
 
         if hasattr(f,"evaluate_grid"):
-            cheb_values = np.cos(np.arange(deg+1)*np.pi/deg) #extremizers of Chebyshev approximation
-            chepy_pts =  np.column_stack([cheb_values]*self.dim) # dim-dimensional array of Chevy points
+            cheb_values = []
+            for deg_ in degs:
+                cheb_values.append(np.cos(np.arange(deg_+1)*np.pi/deg_)) #extremizers of Chebyshev approximation
+            chepy_pts =  np.column_stack([cheb_vals for cheb_vals in cheb_values]) # dim-dimensional array of Chevy points
             #two dimensions
             #odds = chepy_pts[:,1::2]
             #xyz = np.column_stack((chepy_pts,odds))
@@ -274,52 +293,54 @@ class M_maker:
             #p2 = f.evaluate_grid(xyz2)
             cheb_pts = transform(chepy_pts,a,b) # transforms the points from [-1,1] interval to [a,b]
             values_block = f.evaluate_grid(cheb_pts) # gets function values; TODO: memoization?
-            self.memo_dict[deg] = values_block # saves values at these extremizers for future reference
+            self.memo_dict[tup_degs] = values_block # saves values at these extremizers for future reference
         
         else: # Create and transform to [a,b] a matrix whose rows are exactly coordinates of each extremizer
-            cheb_vals = np.cos(np.arange(deg+1)*np.pi/deg) #calculate extremizers
-            cheb_grid = np.meshgrid(*([cheb_vals]*self.dim),indexing='ij')
+            cheb_values = []
+            for deg_ in degs:
+                cheb_values.append(np.cos(np.arange(deg_+1)*np.pi/deg_)) #calculate extremizers
+            cheb_grid = np.meshgrid(*([cheb_vals for cheb_vals in cheb_values]),indexing='ij')
             flatten = lambda x: x.flatten()
             cheby_pts = np.column_stack(tuple(map(flatten, cheb_grid))) # contains every possible coordinate
             cheb_pts = transform(cheby_pts,a,b) # transforms the points from [-1,1] interval to [a,b]
             
             #Check to see if some/all of the function values at the extremizers have already been saved
-            if deg in self.memo_dict.keys():
-                values_block = self.memo_dict[deg]
-            elif half_deg in self.memo_dict.keys():
+            if tup_degs in self.memo_dict.keys():
+                values_block = self.memo_dict[tup_degs]
+            elif half_degs in self.memo_dict.keys():
                 """Some of the values have already been calculated for deg/2, so
                     find these values, create masks to mark their indices, and fill them in.
                     Calculate the remaining values and fill them in as well."""
-                half_deg_arr = self.memo_dict[half_deg].flatten() # list of all the values calculated for deg/2 
-                slices = tuple([slice(0, deg+1,2)]*self.dim) # indexes of already calculated values
-                mask = np.ones([deg+1]*self.dim,dtype=bool) 
+                half_deg_arr = self.memo_dict[half_degs].flatten() # list of all the values calculated previously 
+                slices = tuple([slice(0, deg+1,2) for deg in degs]) # indexes of already calculated values
+                mask = np.ones([deg+1 for deg in degs],dtype=bool) 
                 mask[slices] = False #True for all values that still need calculation, False otherwise
-                unknowns_mask = mask.flatten() # unknown values = True
-                knowns_mask = ~unknowns_mask # known values = True
-                values_arr = np.empty((deg+1)**self.dim)
+                unknowns_mask = mask.flatten()
+                knowns_mask = ~unknowns_mask # True marks all values that have already been calculated
+                values_arr = np.empty(np.prod([deg+1 for deg in degs]))
                 values_arr[knowns_mask] = half_deg_arr # fill with carried over values from deg = n/2
                 values_arr[unknowns_mask] = f(*cheb_pts[unknowns_mask].T) #calculate and fill remaining values
-                values_block = values_arr.reshape(*([deg+1]*self.dim))
+                values_block = values_arr.reshape(*([deg+1 for deg in degs]))
             else: # No previous calculations to use, so find the entire block from scratch.
-                values_block = f(*cheb_pts.T).reshape(*([deg+1]*self.dim))
+                values_block = f(*cheb_pts.T).reshape(*([deg_+1 for deg_ in degs]))
             
             # Save the calculated values of the function at the Chebyshev points for future reference.
             if save_values_block == True:
                 self.values_block = values_block
-            self.memo_dict[deg] = values_block
+            self.memo_dict[tup_degs] = values_block
 
         values = self.chebyshev_block_copy(values_block)
 
         inf_norm = np.max(np.abs(values)) # largest absolute value of the function at any Chebyshev pt
 
         # Set up and perform the Fast Fourier Transform to find the Chebyshev approximation
-        x0_slicer, deg_slicer, slices, rescale = self.interval_approx_slicers(self.dim,deg)
+        x0_slicer, deg_slicer, slices, rescale = self.interval_approx_slicers(self.dim,degs)
         coeffs = fftn(values/rescale).real
         for x0sl, degsl in zip(x0_slicer, deg_slicer): # Divide constant and last coefficients in each dimension by 2 as required
             coeffs[x0sl] /= 2
             coeffs[degsl] /= 2
         # Add the caclculated FFT values to the FFT dictionary for future lookup
-        self.fft_dict[deg] = [coeffs[tuple(slices)], inf_norm]
+        self.fft_dict[tup_degs] = [coeffs[tuple(slices)], inf_norm]
 
         # Return the found appoximation
         if return_inf_norm:
@@ -342,25 +363,26 @@ class M_maker:
             chebyshev interpolation values
         """
 
+        # Get dim and degs from the values_block array.
         dim = values_block.ndim
-        deg = values_block.shape[0] - 1
+        degs = [val - 1 for val in values_block.shape]
 
-        # Create an empty dim dimensional matrix with each dimension 2*deg (2*deg x 2*deg x ... x 2*deg)
-        values_cheb = np.empty(tuple([2*deg])*dim, dtype=np.float64)
-        block_slicers, cheb_slicers, slicer = self.block_copy_slicers(dim, deg) # get slicers
+        # Create an empty dim dimensional matrix with each dimension 2*deg[i]
+        values_cheb = np.empty(tuple([2*deg for deg in degs]), dtype=np.float64)
+        block_slicers, cheb_slicers, slicer = self.block_copy_slicers(dim, degs) # get slicers
 
         for cheb_idx, block_idx in zip(cheb_slicers, block_slicers):
             try:
                 values_cheb[cheb_idx] = values_block[block_idx]
             except ValueError as e:
                 if str(e)[:42] == 'could not broadcast input array from shape': 
-                    values_cheb = np.empty(tuple([2*deg])*dim, dtype=np.float64)
+                    values_cheb = np.empty(tuple([2*deg for deg in degs]), dtype=np.float64)
                     values_cheb[cheb_idx] = values_block[block_idx]
                 else:
                     raise ValueError(e)
         return values_cheb[slicer]
-    
-    def block_copy_slicers(self,dim, deg):
+
+    def block_copy_slicers(self, dim, degs):
         """Helper function for chebyshev_block_copy.
         Builds slice objects to index into the evaluation array to copy
         in preparation for the fft.
@@ -369,33 +391,33 @@ class M_maker:
         ----------
         dim : int
             Dimension
-        deg : int
-            Degree of approximation
+        degs : list
+            the degree of approximation in each dimension
 
         Returns
         -------
         block_slicers : list of tuples of slice objects
             Slice objects used to index into the evaluations
         cheb_slicers : list of tuples of slice objects
-            Slice objects used to index into the array we're copying evaluations to
+            Slice objects used to index into the array the evaluations are copied to
         slicer : tuple of slice objets
-            Used to index into the portion of that array we're using for the fft input
+            Used to index into the portion of the array used for the fft input
         """
         block_slicers = []
         cheb_slicers = []
-        full_arr_deg = 2*deg
+        full_arr_degs = tuple([2*deg for deg in degs])
         for block in product([False, True], repeat=dim):
-            cheb_idx = [slice(0, deg+1)]*dim
-            block_idx = [slice(0, full_arr_deg)]*dim
+            cheb_idx = [slice(0, deg+1) for deg in degs]
+            block_idx = [slice(0, deg) for deg in full_arr_degs]
             for i, flip_dim in enumerate(block):
                 if flip_dim:
-                    cheb_idx[i] = slice(deg+1, full_arr_deg)
-                    block_idx[i] = slice(deg-1, 0, -1)
+                    cheb_idx[i] = slice(degs[i]+1, full_arr_degs[i])
+                    block_idx[i] = slice(degs[i]-1, 0, -1)
             block_slicers.append(tuple(block_idx))
             cheb_slicers.append(tuple(cheb_idx))
-        return block_slicers, cheb_slicers, tuple([slice(0, 2*deg)]*dim)
-
-    def interval_approx_slicers(self,dim, deg):
+        return block_slicers, cheb_slicers, tuple([slice(0, 2*deg) for deg in degs])
+    
+    def interval_approx_slicers(self,dim, degs):
         """Helper function for interval_approximate_nd. Builds slice objects to index
         into the output of the fft and divides some of the values by 2 and turn them into
         coefficients of the approximation.
@@ -404,8 +426,8 @@ class M_maker:
         ----------
         dim : int
             The interpolation dimension.
-        deg : int
-            The interpolation degree. #SEE WE TAKE THIS AS A SCALAR
+        degs : list
+            The degree of interpolation in each dimension
 
         Returns
         -------
@@ -420,7 +442,7 @@ class M_maker:
         """
         x0_slicer = [tuple([slice(None) if i != d else 0 for i in range(dim)])
                     for d in range(dim)]
-        deg_slicer = [tuple([slice(None) if i != d else deg for i in range(dim)])
+        deg_slicer = [tuple([slice(None) if i != d else degs[i] for i in range(dim)])
                     for d in range(dim)]
-        slices = tuple([slice(0, deg+1)]*dim)
-        return x0_slicer, deg_slicer, slices, deg**dim
+        slices = tuple([slice(0, deg+1) for deg in degs])
+        return x0_slicer, deg_slicer, slices, np.prod(degs)
