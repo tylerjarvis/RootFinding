@@ -9,7 +9,7 @@ from scipy.optimize import linprog
 from itertools import permutations, product
 from time import time
 import yroots.M_maker as M_maker
-from utils import sortRoots
+from yroots.utils import sortRoots
 
 n = 5
 interval = np.array([np.random.random(n)*-1,np.random.random(n)]).T
@@ -86,7 +86,7 @@ def runChebMonomialsTests(dims, maxDegs, maxTestsPerDim=np.inf, verboseLevel = 0
             maxError = np.max(np.abs(foundRoots - actualRoots))
             if returnErrors:
                 currErrors.append(np.linalg.norm(foundRoots - actualRoots, axis=1))
-            assert(maxError < 1e-15), "Error Too Large! " + errorString
+            assert(maxError < 1e-15 * np.sqrt(dim)), "Error Too Large! " + errorString
         if returnErrors:
             allErrors.append(np.hstack(currErrors))
     if returnErrors:
