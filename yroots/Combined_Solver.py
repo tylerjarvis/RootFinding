@@ -176,9 +176,9 @@ def solve(funcs,a=[],b=[],guess_degs=None,max_deg_edit=None,rescale=False,rel_ap
     # transform roots and bounding boxes back to the a,b interval
     # Return the roots (and bounding boxes if desired)
     if returnBoundingBoxes:
-        yroots, boundingBoxes = np.array(ChebyshevSubdivisionSolver.solveChebyshevSubdivision(funcs,errs,returnBoundingBoxes,exact,
+        yroots, boundingBoxes = ChebyshevSubdivisionSolver.solveChebyshevSubdivision(funcs,errs,returnBoundingBoxes,exact,
                                          constant_check=constant_check, low_dim_quadratic_check=low_dim_quadratic_check,
-                                         all_dim_quadratic_check=all_dim_quadratic_check))
+                                         all_dim_quadratic_check=all_dim_quadratic_check)
         boundingBoxes = np.array([boundingBox.interval for boundingBox in boundingBoxes])
         if is_neg1_1 == False and len(yroots) > 0: 
             yroots = transform(yroots,a,b)
@@ -186,7 +186,7 @@ def solve(funcs,a=[],b=[],guess_degs=None,max_deg_edit=None,rescale=False,rel_ap
             boundingBoxes = np.array([transform(boundingBox.T,a,b).T for boundingBox in boundingBoxes]) #xx yy, roots are xy xy each row
         return yroots, boundingBoxes
     else:
-        yroots = np.array(ChebyshevSubdivisionSolver.solveChebyshevSubdivision(funcs,errs,returnBoundingBoxes,exact,constant_check=constant_check,                                                                        low_dim_quadratic_check=low_dim_quadratic_check,                                                                    all_dim_quadratic_check=all_dim_quadratic_check))
+        yroots = ChebyshevSubdivisionSolver.solveChebyshevSubdivision(funcs,errs,returnBoundingBoxes,exact,constant_check=constant_check,                                                                        low_dim_quadratic_check=low_dim_quadratic_check,                                                                    all_dim_quadratic_check=all_dim_quadratic_check)
         if is_neg1_1 == False and len(yroots) > 0:
             yroots = transform(yroots,a,b)
         return yroots

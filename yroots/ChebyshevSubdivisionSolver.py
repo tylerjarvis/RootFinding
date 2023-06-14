@@ -1329,6 +1329,7 @@ def solveChebyshevSubdivision(Ms, errors, returnBoundingBoxes = False, polish = 
         #Right now interval.finalInterval is the interval where we say the root is.
         interval.getFinalInterval()
         roots.append(interval.getFinalPoint())
+    roots = np.array(roots)
     if returnBoundingBoxes:
         return roots, boundingIntervals
     else:
