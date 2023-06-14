@@ -1495,3 +1495,15 @@ def householder(x):
     u[0] += np.exp(1j*np.angle(x[0]))*norm(x)
     u = u/norm(u)
     return np.eye(len(u)) - 2*np.outer(u,u.conj())
+
+def sortRoots(roots, seed = 12399):
+    """Sorts roots so they can be compared against other roots that were sorted the same way.
+    Sorts by distance from a random hyperplane to avoid roots being too close according to the sort.
+    """
+    if len(roots) == 0:
+        return roots
+    np.random.seed(seed)
+    dim = roots.shape[1]
+    r = np.array(np.random.rand(dim))
+    order = np.argsort(roots@r)
+    return roots[order]

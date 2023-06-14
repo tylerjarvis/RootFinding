@@ -9,10 +9,95 @@ from scipy.optimize import linprog
 from itertools import permutations, product
 from time import time
 import yroots.M_maker as M_maker
+from yroots.utils import sortRoots
 
 n = 5
 interval = np.array([np.random.random(n)*-1,np.random.random(n)]).T
 tracked = chebsolver.TrackedInterval(interval)
+
+
+from mpmath import mp
+from itertools import permutations, product
+
+def runSystem(degList):
+    #Each row of degList is the degrees of 1 polynomial
+    degList = np.array(degList)
+    dim = len(degList)
+    #Get the actual roots
+    mp.dps = 50
+    actualRoots = []
+    for i in permutations(range(dim)):
+        currDegs = np.array([degList[i[j],j] for j in range(dim)])
+        currRootList = []
+        for deg in currDegs:
+            d = int(deg)
+            theseRoots = [float(mp.cos(mp.pi*(mp.mpf(num)+0.5)/mp.mpf(d))) for num in mp.arange(d)]
+            currRootList.append(np.array(theseRoots))
+        for root in product(*currRootList):
+            actualRoots.append(np.array(root))
+    actualRoots = sortRoots(np.array(actualRoots))
+    #Construct the problem
+    Ms = []
+    for degs in degList:
+        M = np.zeros(degs+1)
+        M[tuple(degs)] = 1.0
+        Ms.append(M)
+    errors = np.zeros(dim)
+    #Solve
+    foundRoots = solveChebyshevSubdivision(Ms, errors)
+    return sortRoots(np.array(foundRoots)), actualRoots
+
+def isGoodSystem(degList):
+    zeros = [[float(mp.cos(mp.pi*(num+0.5)/d)) for num in mp.arange(d)] for d in degList]
+    zeros = np.sort(np.hstack(zeros).ravel())
+    return len(zeros) <= 1 or np.min(np.diff(zeros)) > 1e-12
+
+def getTestSystems(dim, maxDeg):
+    systems = []
+    for degrees in product(range(1, maxDeg+1), repeat=dim):
+        if isGoodSystem(degrees):
+            systems.append(degrees)
+    return systems
+
+def runChebMonomialsTests(dims, maxDegs, maxTestsPerDim=np.inf, verboseLevel = 0, returnErrors = False):
+    allErrors = []
+    for dim, maxDeg in zip(dims, maxDegs):
+        currErrors = []
+        if verboseLevel > 0:
+            print(f"Running Cheb Monomial Test Dimension: {dim}, Max Degree: {maxDeg}")
+        testSytems = getTestSystems(dim, maxDeg)
+        allTests = []
+        #TODO: Speed this up for higher dimensions.
+        for degrees in product(testSytems, repeat = dim):
+            allTests.append(degrees)
+        if len(allTests) > maxTestsPerDim:
+            testNums = np.random.choice(np.arange(len(allTests)), maxTestsPerDim, replace=False)
+            allTests = [allTests[i] for i in testNums]
+        numTests = len(allTests)
+        count = 0
+        for degrees in allTests:
+            count += 1
+            polyDegs = np.array(degrees).T
+            if verboseLevel > 1:
+                print(f"Running Cheb Monomial Test {count}/{numTests} Degrees: {polyDegs}")
+            errorString = "Test on degrees: " + str(polyDegs)
+            foundRoots, actualRoots = runSystem(polyDegs)
+            assert(len(foundRoots) == len(actualRoots)), "Wrong Number of Roots! " + errorString
+            maxError = np.max(np.abs(foundRoots - actualRoots))
+            if returnErrors:
+                currErrors.append(np.linalg.norm(foundRoots - actualRoots, axis=1))
+            assert(maxError < 1e-15 * np.sqrt(dim)), "Error Too Large! " + errorString
+        if returnErrors:
+            allErrors.append(np.hstack(currErrors))
+    if returnErrors:
+        return allErrors
+
+def test_ChebMonomials():
+    np.random.seed(192784)
+    #Test a ton bunch of degree 1,2
+    runChebMonomialsTests([1,2], [50,4], maxTestsPerDim=np.inf, verboseLevel=0)
+    #Test a scattering of degree 3
+    runChebMonomialsTests([3], [5], maxTestsPerDim=10, verboseLevel=0)
 
 @pytest.fixture
 def set_up_Ms_errs():
@@ -199,15 +284,6 @@ def getTestSystems(dim, maxDeg):
 #     if returnErrors:
 #         return allErrors    
 
-def test_makeMatrix():
-    n = 2
-    a = -0.25
-    b = 0.125
-    alpha,beta = 0.5*(b-a),0.5*(b+a)
-    C = np.array([[1,beta],[0,alpha]])
-    madematrix = chebsolver.makeMatrix(n,a,b)
-    assert np.allclose(C,madematrix)
-
 #FAIL
 # def test_getTransformPoints():
 #     n = np.random.randint(1,11)
@@ -218,19 +294,6 @@ def test_makeMatrix():
 #     alpha,beta = chebsolver.getTransformPoints(interval)
 #     xhat,x = np.array([alpha_hat,beta_hat]),np.array([alpha,beta])
 #     assert np.allclose(x,xhat)
-
-def test_isValidSpot():
-    #functionality testing
-    assert chebsolver.isValidSpot(4,4)
-    assert chebsolver.isValidSpot(3,4)
-    assert chebsolver.isValidSpot(4,3) == False
-    #intent testing
-
-def test_makeMatrix():
-    mat = chebsolver.makeMatrix(5,43,1)
-    assert mat.shape == (5,5)
-    assert mat[0,1] == 1
-    assert mat[1,1] == 43
 
 def test_BoundingIntervalLinearSystem():
     """

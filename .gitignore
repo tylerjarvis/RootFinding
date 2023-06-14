@@ -2,7 +2,7 @@
 *.swp
 *.py~
 *.ipynb
-*.npy
+yroots/Polished_Results/*.npy
 *.npz
 *.png
 *.mp4
