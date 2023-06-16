@@ -6,6 +6,7 @@ from scipy.spatial import HalfspaceIntersection
 from scipy.optimize import linprog
 from yroots.QuadraticCheck import quadratic_check
 import copy
+import warnings
 
 class SolverOptions():
     """ All the Solver Options for solvePolyRecursive
@@ -335,12 +336,18 @@ class TrackedInterval:
         self.ndim = len(self.interval)
         self.empty = False
         self.finalStep = False
+        self.canThrowOutFinalStep = False
+        self.possibleDuplicateRoots = []
+        self.possibleExtraRoot = False
         self.nextTransformPoints = np.array([0.0394555475981047]*self.ndim) #Random Point near 0
+    
+    def canThrowOut(self):
+        return not self.finalStep or self.canThrowOutFinalStep
     
     def addTransform(self, subInterval):
         #This function assumes the interval has non zero size.
         #Get the transformation in terms of alpha and beta
-        if np.any(subInterval[:,0] > subInterval[:,1]) and not self.finalStep: #Can't throw out on final step
+        if np.any(subInterval[:,0] > subInterval[:,1]) and self.canThrowOut():
             self.empty = True
             return
         a1,b1 = subInterval.T
@@ -350,8 +357,6 @@ class TrackedInterval:
         self.transforms.append(np.array([alpha1, beta1]))
         #Update the current interval
         for dim in range(self.ndim):
-            if alpha1[dim] != 1:
-                self.nextTransformPoints[dim] = 0.0
             for i in range(2):
                 x = subInterval[dim][i]
                 #Be exact and +-1
@@ -417,6 +422,9 @@ class TrackedInterval:
         newone.nextTransformPoints = self.nextTransformPoints.copy()
         if self.finalStep:
             newone.finalStep = True
+            newone.canThrowOutFinalStep = self.canThrowOutFinalStep
+            newone.possibleDuplicateRoots = self.possibleDuplicateRoots.copy()
+            newone.possibleExtraRoot = self.possibleExtraRoot
             newone.preFinalInterval = self.preFinalInterval.copy()
             newone.preFinalTransforms = self.preFinalTransforms.copy()
         return newone
@@ -431,13 +439,16 @@ class TrackedInterval:
                 return False
         return True
     
+    def isPoint(self):
+        return np.all(self.interval[:,0] == self.interval[:,1])
+        
     def startFinalStep(self):
         self.finalStep = True
         self.preFinalInterval = self.interval.copy()
         self.preFinalTransforms = self.transforms.copy()
         
     def getIntervalForCombining(self):
-        return self.interval if not self.finalStep else self.preFinalInterval
+        return self.preFinalInterval if self.finalStep else self.interval
 
     def __repr__(self):
         return str(self)
@@ -942,7 +953,7 @@ def zoomInOnIntervalIter(Ms, errors, trackedInterval, exact):
         errors = np.zeros_like(errors)
     interval, changed, should_stop, throwOut = BoundingIntervalLinearSystem(Ms, errors)
     #We can't throw out on the final step
-    if trackedInterval.finalStep and throwOut:
+    if throwOut and not trackedInterval.canThrowOut():
         throwOut = False
         should_stop = True
         changed = True
@@ -957,7 +968,7 @@ def zoomInOnIntervalIter(Ms, errors, trackedInterval, exact):
     trackedInterval.addTransform(interval)
     Ms, errors = transformChebToInterval(Ms, *trackedInterval.getLastTransform(), errors, exact)
     #We should stop in the final step once the interval has become a point
-    if trackedInterval.finalStep and np.all(trackedInterval.interval[:,0] == trackedInterval.interval[:,1]):
+    if trackedInterval.finalStep and trackedInterval.isPoint():
         should_stop = True
         changed = False
     
@@ -1048,6 +1059,8 @@ def getSubdivisionIntervals(Ms, errors, trackedInterval, exact):
             newInterval1.addTransform(newSubinterval)
             newSubinterval[thisDim] = [newMidpoint, 1.]
             newInterval2.addTransform(newSubinterval)
+            newInterval1.nextTransformPoints[thisDim] = 0
+            newInterval2.nextTransformPoints[thisDim] = 0
             newIntervals.append(newInterval1)
             newIntervals.append(newInterval2)
         allIntervals = newIntervals
@@ -1120,9 +1133,12 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
         interval
     """
     #TODO: Check if trackedInterval.interval has width 0 in some dimension, in which case we should get rid of that dimension.
+#     if not (trackedInterval.finalStep or np.array([-0.8800495974172176, -0.44790195469433863]) in trackedInterval):
+#         return [], []
+#     print("Start:", trackedInterval.interval, Ms)
     
     #If the interval is a point, return it
-    if np.all(trackedInterval.interval[:,0] == trackedInterval.interval[:,1]):
+    if trackedInterval.isPoint():
         return [], [trackedInterval]
     
     #If we ever change the options in this function, we will need to do a copy here.
@@ -1160,6 +1176,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
     originalInterval = trackedInterval.copy()
     originalIntervalSize = trackedInterval.size()
     #Zoom in while we can
+    lastSize = trackedInterval.size()
     while changed and zoomCount <= solverOptions.maxZoomCount:
         #Zoom in until we stop changing or we hit machine epsilon
         Ms, errors, trackedInterval, changed, should_stop = zoomInOnIntervalIter(Ms, errors, trackedInterval, solverOptions.exact)
@@ -1167,9 +1184,13 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
 #         trimMs(Ms, errors, solverOptions.trimErrorAbsBound, solverOptions.trimErrorRelBound)
         if trackedInterval.empty: #Throw out the interval
             return [], []
-        zoomCount += 1
+        #Only count in towards the max is we don't cut the interval in half
+        newSize = trackedInterval.size()
+        if newSize > lastSize / 2:
+            zoomCount += 1
+        lastSize = newSize
     
-    if should_stop or trackedInterval.finalStep:
+    if should_stop:
         #Start the final step if the is in the options and we aren't already in it.
         if trackedInterval.finalStep or not solverOptions.useFinalStep:
             if isExteriorInterval(originalInterval, trackedInterval):
@@ -1179,7 +1200,41 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
         else:
             trackedInterval.startFinalStep()
             return solvePolyRecursive(Ms, trackedInterval, errors, solverOptions)
-    else:
+    elif trackedInterval.finalStep:
+        trackedInterval.canThrowOutFinalStep = True
+        allMs, allErrors, allIntervals = getSubdivisionIntervals(Ms, errors, trackedInterval, solverOptions.exact)
+        resultsAll = []
+        for newMs, newErrs, newInt in zip(allMs, allErrors, allIntervals):
+            newInterior, newExterior = solvePolyRecursive(newMs, newInt, newErrs, solverOptions)
+            resultsAll += newInterior + newExterior
+        if len(resultsAll) == 0:
+            #Can't throw out final step! This might not actually be a root though!
+            trackedInterval.possibleExtraRoot = True
+            if isExteriorInterval(originalInterval, trackedInterval):
+                return [], [trackedInterval]
+            else:
+                return [trackedInterval], []
+        else:
+            #Combine all roots that converged to the same point.
+            allFoundRoots = set()
+            tempResults = []
+            for result in resultsAll:
+                point = tuple(result.interval[:,0])
+                if point in allFoundRoots:
+                    continue
+                allFoundRoots.add(point)
+                tempResults.append(result)
+            for result in tempResults:
+                if len(result.possibleDuplicateRoots) > 0:
+                    trackedInterval.possibleDuplicateRoots += result.possibleDuplicateRoots
+                else:
+                    trackedInterval.possibleDuplicateRoots.append(result.getFinalPoint())
+            if isExteriorInterval(originalInterval, trackedInterval):
+                return [], [trackedInterval]
+            else:
+                return [trackedInterval], []
+            #TODO: Don't subdivide in the final step in dimensions that are already points!
+    else:        
         #Otherwise, Subdivide
         resultInterior, resultExterior = [], []
         #Get the new intervals and polynomials
@@ -1194,6 +1249,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
         idx2 = 1
         #Combine any touching intervals and throw them at the end. Flip a bool saying rerun them
         #If changing this code, test it by defaulting the nextTransformationsInterals to 0, so roots lie on the boundary more.
+        #TODO: Make the combining intervals it's own function!!!
         for tempInterval in resultExterior:
             tempInterval.reRun = False
         while idx1 < len(resultExterior):
@@ -1324,11 +1380,25 @@ def solveChebyshevSubdivision(Ms, errors, returnBoundingBoxes = False, polish = 
         boundingIntervals = newIntervals
 
     roots = []
+    hasDupRoots = False
+    hasExtraRoots = False
     for interval in boundingIntervals:
         #TODO: Figure out the best way to return the bounding intervals.
         #Right now interval.finalInterval is the interval where we say the root is.
         interval.getFinalInterval()
-        roots.append(interval.getFinalPoint())
+        if interval.possibleExtraRoot:
+            hasExtraRoots = True
+        if len(interval.possibleDuplicateRoots) > 0:
+            roots += interval.possibleDuplicateRoots
+            hasDupRoots = True
+        else:
+            roots.append(interval.getFinalPoint())
+    #Warn if extra or duplicate roots
+    if hasExtraRoots:
+        warnings.warn(f"Might Have Extra Roots! See Bounding Boxes for details!")
+    if hasDupRoots:
+        warnings.warn(f"Might Have Duplicate Roots! See Bounding Boxes for details!")
+    #Return
     roots = np.array(roots)
     if returnBoundingBoxes:
         return roots, boundingIntervals

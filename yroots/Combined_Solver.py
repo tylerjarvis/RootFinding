@@ -63,8 +63,11 @@ def degree_guesser(funcs,guess_degs,default_deg):
                 #problem: this includes rational polynomials, maybe include "/" in the string search
                 #don't update guess_degs[i]
             else:
-                expr = sy.sympify(expr)
-                guess_degs[i] = max(sy.degree_list(expr))
+                try:
+                    expr = sy.sympify(expr)
+                    guess_degs[i] = max(sy.degree_list(expr))
+                except:
+                    pass
     return [is_lambda_poly, is_routine, is_lambda, guess_degs]
 
 def solve(funcs,a=[],b=[],guess_degs=None,max_deg_edit=None,rescale=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12, 
