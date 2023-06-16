@@ -1133,9 +1133,6 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
         interval
     """
     #TODO: Check if trackedInterval.interval has width 0 in some dimension, in which case we should get rid of that dimension.
-#     if not (trackedInterval.finalStep or np.array([-0.8800495974172176, -0.44790195469433863]) in trackedInterval):
-#         return [], []
-#     print("Start:", trackedInterval.interval, Ms)
     
     #If the interval is a point, return it
     if trackedInterval.isPoint():
