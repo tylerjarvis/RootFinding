@@ -414,6 +414,9 @@ class TrackedInterval:
     def size(self):
         return np.product(self.interval[:,1] - self.interval[:,0])
     
+    def dimSize(self):
+        return self.interval[:,1] - self.interval[:,0]
+    
     def copy(self):
         newone = TrackedInterval(self.topInterval)
         newone.interval = self.interval.copy()
@@ -589,7 +592,7 @@ def linearCheck1(totalErrs, A, consts):
                 b[col] = min(b[col], b_)
     return a, b
 
-def BoundingIntervalLinearSystem(Ms, errors, linear = False):
+def BoundingIntervalLinearSystem(Ms, errors, finalStep, linear = False):
     """Finds a smaller region in which any root must be.
 
     Parameters
@@ -598,6 +601,8 @@ def BoundingIntervalLinearSystem(Ms, errors, linear = False):
         Each numpy array is the coefficient tensor of a chebyshev polynomials
     errors : iterable of floats
         The maximum error of chebyshev approximations
+    finalStep : bool
+        Whether we are in the final step of the algorithm
 
     Returns
     -------
@@ -610,6 +615,9 @@ def BoundingIntervalLinearSystem(Ms, errors, linear = False):
     throwout :
         Whether we should throw out the interval entirely
     """
+    if finalStep:
+        errors = np.zeros_like(errors)
+
     dim = Ms[0].ndim
     #Some constants we use here
     widthToAdd = 1e-10 #Add this width to the new intervals we find to avoid rounding error throwing out roots
@@ -646,7 +654,7 @@ def BoundingIntervalLinearSystem(Ms, errors, linear = False):
             colScaler[i] = s
             totalErrs += np.abs(A[:,i]) * (s - 1)
             A[:,i] *= s
-        
+
     #Run Erik's code if the dimension of the problem is <= 4, OR if the variable "linear" equals True.
     #The variable "Linear" is False by default, but in the case where we tried to run the halfspaces code (meaning the problem has dimension 5 or greater)
     #And the function "find_vertices" failed (i.e. it returned a value of 4), it means that the halfspaces code cannot be run and we need to run Erik's linear code on that interval instead.
@@ -680,6 +688,7 @@ def BoundingIntervalLinearSystem(Ms, errors, linear = False):
             a[a > 1] = 1
             b[b > 1] = 1
 
+            forceShouldStop = finalStep and not wellConditioned
             # Calculate the "changed" variable
             newRatio = np.product(b - a) / 2**dim                
             if throwOut:
@@ -691,7 +700,7 @@ def BoundingIntervalLinearSystem(Ms, errors, linear = False):
 
             if i == 0 and changed:
                 #If it is the first time through the loop and there was a change, return the interval it shrunk down to and set "is_done" to false
-                return np.vstack([a,b]).T, changed, False, throwOut
+                return np.vstack([a,b]).T, changed, forceShouldStop, throwOut
             elif i == 0 and not changed:
                 #If it is the first time through the loop and there was not a change, save the a and b as the original values to return,
                 #and then try running through the loop again with a tighter error to see if we shrink then
@@ -701,11 +710,11 @@ def BoundingIntervalLinearSystem(Ms, errors, linear = False):
             elif changed:
                 #If it is the second time through the loop and it did change, it means we didn't change on the first time,
                 #but that the interval did shrink with tighter errors. So return the original interval with changed = False and is_done = False 
-                return np.vstack([a_orig, b_orig]).T, False, False, False
+                return np.vstack([a_orig, b_orig]).T, False, forceShouldStop, False
             else:
                 #If it is the second time through the loop and it did NOT change, it means we will not shrink the interval even if we subdivide,
                 #so return the original interval with changed = False and is_done = wellConditioned 
-                return np.vstack([a_orig,b_orig]).T, False, wellConditioned, False
+                return np.vstack([a_orig,b_orig]).T, False, wellConditioned or forceShouldStop, False
 
     #Use the halfspaces code in the case when dim >= 5
     #Define the A_ub matrix
@@ -720,7 +729,7 @@ def BoundingIntervalLinearSystem(Ms, errors, linear = False):
         tell, vertices = find_vertices(A_ub, b_ub)
 
         if tell == 4:
-            return BoundingIntervalLinearSystem(Ms, errors, True)
+            return BoundingIntervalLinearSystem(Ms, errors, finalStep, True)
 
         if i == 0 and tell == 1:
             #First time through and no feasible point so throw out the entire interval
@@ -949,9 +958,12 @@ def zoomInOnIntervalIter(Ms, errors, trackedInterval, exact):
 
     dim = len(Ms)
     #Zoom in on the current interval
-    if trackedInterval.finalStep:
-        errors = np.zeros_like(errors)
-    interval, changed, should_stop, throwOut = BoundingIntervalLinearSystem(Ms, errors)
+    interval, changed, should_stop, throwOut = BoundingIntervalLinearSystem(Ms, errors, trackedInterval.finalStep)
+    #Don't zoom in if we're already at a point
+    for dim in range(len(Ms)):
+        if trackedInterval.interval[dim,0] == trackedInterval.interval[dim,1]:
+            interval[dim, 0] = -1.
+            interval[dim, 1] = 1.
     #We can't throw out on the final step
     if throwOut and not trackedInterval.canThrowOut():
         throwOut = False
@@ -992,25 +1004,30 @@ def getInverseOrder(order):
     invOrder[newOrder] = np.arange(len(newOrder))
     return tuple(invOrder)
 
-def getSubdivisionDims(Ms):
+def getSubdivisionDims(Ms, trackedInterval):
     """Decides which dimensions to subdivide in and in what order.
 
     Parameters
     ----------
     Ms : list of numpy arrays
         The chebyshev coefficient matrices
+    trackedInterval : TrackedInterval
+        The information about the interval we are solving on.
 
     Returns
     -------
     allDims : numpy array
         The ith row gives the dimensions (in order) we should subdivide Ms[i] in.
     """
+    dimsToConsider = np.arange(len(Ms))
+    #Ignore dimensions where we are already a point
+    dimsToConsider = dimsToConsider[trackedInterval.interval[:,0] != trackedInterval.interval[:,1]]
     #Subdivide each polynomials from the highest degree to the lowest
-    allDims = np.vstack([np.argsort(M.shape)[::-1] for M in Ms])
+    allDims = np.vstack([dimsToConsider[np.argsort(np.array(M.shape)[dimsToConsider])[::-1]] for M in Ms])
     return allDims
 
 def getSubdivisionIntervals(Ms, errors, trackedInterval, exact):
-    subdivisionDims = getSubdivisionDims(Ms)
+    subdivisionDims = getSubdivisionDims(Ms, trackedInterval)
     dimSet = set(subdivisionDims.flatten())
     if len(dimSet) != subdivisionDims.shape[1]:
         raise ValueError("Subdivision Dimensions are invalid! Each Polynomial must subdivide in the same dimensions!")
@@ -1173,7 +1190,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
     originalInterval = trackedInterval.copy()
     originalIntervalSize = trackedInterval.size()
     #Zoom in while we can
-    lastSize = trackedInterval.size()
+    lastSizes = trackedInterval.dimSize()
     while changed and zoomCount <= solverOptions.maxZoomCount:
         #Zoom in until we stop changing or we hit machine epsilon
         Ms, errors, trackedInterval, changed, should_stop = zoomInOnIntervalIter(Ms, errors, trackedInterval, solverOptions.exact)
@@ -1182,10 +1199,10 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
         if trackedInterval.empty: #Throw out the interval
             return [], []
         #Only count in towards the max is we don't cut the interval in half
-        newSize = trackedInterval.size()
-        if newSize > lastSize / 2:
+        newSizes = trackedInterval.dimSize()
+        if np.all(newSizes >= lastSizes / 2): #Check all dims and use >= to account for a dimension being 0.
             zoomCount += 1
-        lastSize = newSize
+        lastSizes = newSizes
     
     if should_stop:
         #Start the final step if the is in the options and we aren't already in it.
@@ -1251,7 +1268,6 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
             tempInterval.reRun = False
         while idx1 < len(resultExterior):
             while idx2 < len(resultExterior):
-#                 print("Check Combine", resultExterior[idx1].interval, resultExterior[idx2].interval)
                 if resultExterior[idx1].overlapsWith(resultExterior[idx2]):
                     #Combine, throw at the back. Set reRun to true.
                     combinedInterval = originalInterval.copy()
