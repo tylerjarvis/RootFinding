@@ -123,9 +123,9 @@ def solve(funcs,a=[],b=[],guess_degs=None,max_deg_edit=None,rescale=False,rel_ap
         a = np.array(a)
     if type(b) == list:
         b = np.array(b)
-    if type(a) != np.array:
+    if type(a) != np.ndarray:
         a = np.full(len(funcs),a)
-    if type(b) != np.array:
+    if type(b) != np.ndarray:
         b = np.full(len(funcs),b)
     #Ensure inputs a and b are valid for the problem.
     if len(a) != len(b):
