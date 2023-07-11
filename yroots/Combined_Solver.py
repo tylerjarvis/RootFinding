@@ -4,8 +4,7 @@ import yroots.ChebyshevApproximator as ChebyshevApproximator
 from yroots.utils import transform
 from yroots.polynomial import MultiCheb, MultiPower
 
-def solve(funcs,a=[],b=[],guess_degs=None,max_n_coeffs_edit=None,rescale=False,rel_approx_tol=1.e-15, abs_approx_tol=1.e-12, 
-          returnBoundingBoxes = False, exact=False, constant_check = True, low_dim_quadratic_check = True,
+def solve(funcs,a=[],b=[], returnBoundingBoxes = False, exact=False, constant_check = True, low_dim_quadratic_check = True,
           all_dim_quadratic_check = False):
     """
     Finds the roots of the system of functions
