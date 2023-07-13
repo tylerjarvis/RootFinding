@@ -1,7 +1,8 @@
 import numpy as np
 from yroots.polynomial import MultiCheb, MultiPower
 from yroots.utils import transform
-from matplotlib import pyplot as plt
+import itertools
+
 def chebyshevBlockCopy(values):
     """Expands the function evaluations values into the full matrix needed for the Chebyshev FFT.
 
@@ -253,7 +254,7 @@ def getApproxError(degs, epsilons, rhos):
     """    
     approxError = 0
     #Power set of dimensions.
-    for idxs in itertools.product(range(2), repeat=dim):
+    for idxs in itertools.product(range(2), repeat=len(degs)):
         #Skip first which is all 0s.
         if np.sum(idxs) == 0:
             continue
