@@ -1,14 +1,17 @@
 import numpy as np
 from yroots.polynomial import MultiCheb, MultiPower
 from yroots.utils import transform
-from matplotlib import pyplot as plt
 import itertools
+from matplotlib import pyplot as plt
+
 def chebyshevBlockCopy(values):
     """Expands the function evaluations values into the full matrix needed for the Chebyshev FFT.
+
     Parameters
     ----------
     values : numpy array
         Function evaluations
+
     Returns
     -------
     result : numpy array
@@ -32,6 +35,7 @@ def chebyshevBlockCopy(values):
 
 def interval_approximate_nd(f, degs, a, b, retSupNorm = False):
     """Finds the chebyshev approximation of an n-dimensional function on an interval.
+
     Parameters
     ----------
     f : function from R^n -> R
@@ -44,6 +48,7 @@ def interval_approximate_nd(f, degs, a, b, retSupNorm = False):
         the degree of the interpolation in each dimension.
     retSupNorm : bool
         whether to return the sup norm of the function.
+
     Returns
     -------
     coeffs : numpy array
@@ -52,6 +57,9 @@ def interval_approximate_nd(f, degs, a, b, retSupNorm = False):
         The supNorm of the function, approximated as the maximum function evaluation.
     """
     dim = len(degs)
+    #We can't do degree 0, turn it to degree 1, slice out at the end
+    originalDegs = degs.copy()
+    degs[degs == 0] = 1
     #Get the Chebyshev Grid Points
     cheb_grid = np.meshgrid(*([transform(np.cos(np.arange(deg+1)*np.pi/deg), a_,b_) 
                                for deg, a_, b_ in zip(degs, a, b)]),indexing='ij')
@@ -63,7 +71,7 @@ def interval_approximate_nd(f, degs, a, b, retSupNorm = False):
 
     #TODO: Save the duplicated function values when we double the approximation.
     #Less efficient in higher dimensions, we save 1/2**(dim-1) of the functions evals
-
+    
     #Do the function evaluations
     values = chebyshevBlockCopy(values_block)
 
@@ -73,9 +81,9 @@ def interval_approximate_nd(f, degs, a, b, retSupNorm = False):
     for d in range(dim):
         coeffs[tuple([slice(None) if i != d else 0 for i in range(dim)])] /= 2
         coeffs[tuple([slice(None) if i != d else degs[i] for i in range(dim)])] /= 2
-
+        
     #Return Coeff Tensor and SupNorm if desired
-    slices = tuple([slice(0, d+1) for d in degs])
+    slices = tuple([slice(0, d+1) for d in originalDegs])
     if retSupNorm:
         supNorm = np.max(np.abs(values_block))
         return coeffs[slices], supNorm
@@ -84,6 +92,7 @@ def interval_approximate_nd(f, degs, a, b, retSupNorm = False):
 
 def startedConverging(coeffList, tol):
     """Checks if a list of chebyshev coefficients has started to converge.
+
     Parameters
     ----------
     coeffList : numpy array
@@ -97,15 +106,16 @@ def startedConverging(coeffList, tol):
         If we've started converging. Determined by the last 5 coefficients all being less than tol.
     """
     return np.all(coeffList[-5:] < tol)
-
+    
 def hasConverged(coeff, coeff2, tol):
     """Checks if a chebyshev approximation has converged.
+
     Parameters
     ----------
     coeff : numpy array
         Absolute values of chebyshev coefficients of degree n approximation.
     coeff2 : numpy array
-        Absolute values of chebyshev coefficients of degree 2n-1 approximation.
+        Absolute values of chebyshev coefficients of degree 2n+1 approximation.
     tol : float
         Tolerance to decide if we've converged.
     
@@ -117,10 +127,11 @@ def hasConverged(coeff, coeff2, tol):
     coeff3 = coeff2.copy()
     coeff3[tuple([slice(0, d) for d in coeff.shape])] -= coeff
     return np.max(np.abs(coeff3)) < tol
-
+    
 def getFinalDegree(coeff):
     """Computes the degree of a chebyshev approximation.
-    We assume that we started converging at some degree n, and that coeff is degree 2n-1.
+
+    We assume that we started converging at some degree n, and that coeff is degree 2n+1.
     
     We then assume that by degree 3n/2, we have fully converged. We calculate epsVal as twice
     the max coefficient of degree at least 3n/2.
@@ -130,6 +141,7 @@ def getFinalDegree(coeff):
     For the rate of convergence, we assume the coefficients converge geometrically from the largest
     coefficient until they hit machine epsilon. This is a lower bound, as in reality they probably
     slowly decrease, and then start converging faster once they get near the end.
+
     Parameters
     ----------
     coeff : numpy array
@@ -145,7 +157,7 @@ def getFinalDegree(coeff):
         The geometric rate of convergence of the coefficients
     """
     #Assumes we converged at the smaller degree.
-    convergedDeg = int(3 * (len(coeff) + 1) / 4)
+    convergedDeg = int(3 * (len(coeff) - 1) / 4)
     #Calculate epsVal
     epsVal = 2*np.max(coeff[convergedDeg:])
     #Get the numerical degree. Make at least 1.
@@ -155,10 +167,12 @@ def getFinalDegree(coeff):
     maxSpot = np.argmax(coeff)
     rho = (coeff[maxSpot]/epsVal)**(1/((degree - maxSpot) + 1))
     return degree, epsVal, rho
-
+        
 def getChebyshevDegree(f, a, b, absApproxTol, relApproxTol):
     """Compute the numerical Chebyshev degree of a function.
+
     Looks for the Chebyshev coefficients to converge to a value less than absApproxTol + supNorm*relApproxTol
+
     Parameters
     ----------
     f : function
@@ -200,20 +214,20 @@ def getChebyshevDegree(f, a, b, absApproxTol, relApproxTol):
             #Average the contributions from the other dimensions
             coeffChunk = np.average(np.abs(coeff), axis=tupleForChunk)
             tol = absApproxTol + supNorm * relApproxTol
-
+            
             currGuess *= 2
             #Check if we've started converging
             if not startedConverging(coeffChunk, tol):
                 continue
 
-            #Check if we've finally converged at degree n by comparing against the degree 2n-1.
+            #Check if we've finally converged at degree n by comparing against the degree 2n+1.
             #Degree n and 2n+1 are unlikely to have higher degree terms alias into the same spot.
-            degs[currDim] = currGuess - 1
+            degs[currDim] = currGuess + 1
             coeff2, supNorm2 = interval_approximate_nd(f, degs, a, b, retSupNorm=True)
             tol = absApproxTol + max(supNorm, supNorm2) * relApproxTol
             if not hasConverged(coeff, coeff2, tol):
                 continue
-
+            
             #Get the final degree from coeff2
             coeffChunk = np.average(np.abs(coeff2), axis=tupleForChunk)
             deg, eps, rho = getFinalDegree(coeffChunk)
@@ -225,7 +239,9 @@ def getChebyshevDegree(f, a, b, absApproxTol, relApproxTol):
 
 def getApproxError(degs, epsilons, rhos):
     """Compute the error of a Chebysev Approximation
+
     Takes the infinite sum of the terms not in the approximation.
+
     Parameters
     ----------
     degs: numpy array
@@ -242,8 +258,7 @@ def getApproxError(degs, epsilons, rhos):
     """    
     approxError = 0
     #Power set of dimensions.
-    dim = len(degs)
-    for idxs in itertools.product(range(2), repeat=dim):
+    for idxs in itertools.product(range(2), repeat=len(degs)):
         #Skip first which is all 0s.
         if np.sum(idxs) == 0:
             continue
@@ -264,6 +279,7 @@ def getApproxError(degs, epsilons, rhos):
 
 def chebApproximate(f, a, b, absApproxTol=1e-10, relApproxTol=1e-10):
     """Approximation a function on the interval [a,b]
+
     Parameters
     ----------
     f : function
