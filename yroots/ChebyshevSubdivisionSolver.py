@@ -1,5 +1,5 @@
 import numpy as np
-from numba import jit, njit, float64, set_num_threads, prange
+from numba import njit, float64
 from numba.types import UniTuple
 from itertools import product
 from scipy.spatial import HalfspaceIntersection
@@ -7,11 +7,7 @@ from scipy.optimize import linprog
 from yroots.QuadraticCheck import quadratic_check
 import copy
 import warnings
-import time
 
-
-set_num_threads(70) # don't use ALL the cores
-num_Transforms = 0
 
 class SolverOptions():
     """ All the Solver Options for solvePolyRecursive
@@ -52,9 +48,6 @@ class SolverOptions():
     
     def copy(self):
         return copy.copy(self) #Return shallow copy, everything should be a basic type
-
-def update():
-    globals()["num_Transforms"] += 1
 
 @njit
 def TransformChebInPlace1D(coeffs, alpha, beta):
@@ -360,7 +353,6 @@ def TransformChebInPlaceND(coeffs, dim, alpha, beta, exact):
     if (alpha == 1.0 and beta == 0.0) or coeffs.shape[dim] == 1:
         return coeffs # No need to transform if the degree of dim is 0 or transformation is the identity.
     TransformFunc = TransformChebInPlace1DErrorFree if exact else TransformChebInPlace1D
-    update()
     if dim == 0:
         return TransformFunc(coeffs, alpha, beta)
     else: # Need to transpose the matrix to line up the multiplication for the current dim
@@ -380,7 +372,6 @@ class TrackedInterval:
         self.empty = False
         self.finalStep = False
         self.canThrowOutFinalStep = False
-        self.canSubdivideFinalStep = True
         self.possibleDuplicateRoots = []
         self.possibleExtraRoot = False
         self.nextTransformPoints = np.array([0.0394555475981047]*self.ndim) #Random Point near 0
@@ -1101,36 +1092,6 @@ def getSubdivisionDims(Ms,trackedInterval,level):
                     dims_to_consider.remove(i)
         dims_to_consider = np.array(dims_to_consider)
         return np.vstack([dims_to_consider[np.argsort(np.array(M.shape)[dims_to_consider])[::-1]] for M in Ms])
-
-
-
-    
-    # order_to_expand = [np.argsort(M.shape)[::-1].tolist() for M in Ms]
-    # if level > 5:
-    #     return np.array(order_to_expand)
-    # else:
-    #     dim_Lengths = [interval[1]-interval[0] for interval in trackedInterval.interval]
-    #     dim = len(dim_Lengths)        
-    #     for i in range(dim):
-    #         if dim_Lengths[i] < 1e-10:
-    #             for j in range(dim):
-    #                 order_to_expand[j].remove(i)
-    #     dims_left = order_to_expand[0]
-    #     for i in dims_left:
-    #         for j in dims_left:
-    #             if 5*dim_Lengths[i] < dim_Lengths[j]:
-    #                 for k in range(dim):
-    #                     order_to_expand[k].remove(i)
-    #                 break
-    #     dims_left = order_to_expand[0]
-    #     shapes = [list(M.shape) for M in Ms]
-    #     degree_sums = [np.sum([shape[i] for shape in shapes]) if i in dims_left else 0 for i in range(dim)]
-    #     total_sum = np.sum(degree_sums)
-    #     for i in dims_left:
-    #         if len(order_to_expand[i]) > 1 and degree_sums[i] < np.floor(total_sum/(len(dims_left)+1)):
-    #             for j in range(dim):
-    #                 order_to_expand[j].remove(i)
-    #     return np.array(order_to_expand)
 
 def getSubdivisionIntervals(Ms, errors, trackedInterval, exact, level):
     subdivisionDims = getSubdivisionDims(Ms,trackedInterval,level)
