@@ -2,6 +2,7 @@ import numpy as np
 import itertools
 from scipy import linalg as la
 from math import fabs
+from numba import njit
 
 def get_fixed_vars(dim):
     """Used in quadratic_check_nd to iterate through the boundaries of the domain.
@@ -31,6 +32,7 @@ def quadratic_check(test_coeff, tol, nd_check=False):
         return quadratic_check_nd(test_coeff, tol)
     #return quadratic_check_nd(test_coeff, tol)
 
+@njit
 def quadratic_check_2D(test_coeff, tol):
     """One of subinterval_checks
 
@@ -181,6 +183,7 @@ def quadratic_check_2D(test_coeff, tol):
     #No root possible
     return True
 
+@njit
 def quadratic_check_3D(test_coeff, tol):
     """One of subinterval_checks
 
