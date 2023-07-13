@@ -2,6 +2,7 @@ import numpy as np
 from yroots.polynomial import MultiCheb, MultiPower
 from yroots.utils import transform
 import itertools
+from matplotlib import pyplot as plt
 
 def chebyshevBlockCopy(values):
     """Expands the function evaluations values into the full matrix needed for the Chebyshev FFT.
@@ -56,6 +57,9 @@ def interval_approximate_nd(f, degs, a, b, retSupNorm = False):
         The supNorm of the function, approximated as the maximum function evaluation.
     """
     dim = len(degs)
+    #We can't do degree 0, turn it to degree 1, slice out at the end
+    originalDegs = degs.copy()
+    degs[degs == 0] = 1
     #Get the Chebyshev Grid Points
     cheb_grid = np.meshgrid(*([transform(np.cos(np.arange(deg+1)*np.pi/deg), a_,b_) 
                                for deg, a_, b_ in zip(degs, a, b)]),indexing='ij')
@@ -79,7 +83,7 @@ def interval_approximate_nd(f, degs, a, b, retSupNorm = False):
         coeffs[tuple([slice(None) if i != d else degs[i] for i in range(dim)])] /= 2
         
     #Return Coeff Tensor and SupNorm if desired
-    slices = tuple([slice(0, d+1) for d in degs])
+    slices = tuple([slice(0, d+1) for d in originalDegs])
     if retSupNorm:
         supNorm = np.max(np.abs(values_block))
         return coeffs[slices], supNorm
@@ -111,7 +115,7 @@ def hasConverged(coeff, coeff2, tol):
     coeff : numpy array
         Absolute values of chebyshev coefficients of degree n approximation.
     coeff2 : numpy array
-        Absolute values of chebyshev coefficients of degree 2n-1 approximation.
+        Absolute values of chebyshev coefficients of degree 2n+1 approximation.
     tol : float
         Tolerance to decide if we've converged.
     
@@ -127,7 +131,7 @@ def hasConverged(coeff, coeff2, tol):
 def getFinalDegree(coeff):
     """Computes the degree of a chebyshev approximation.
 
-    We assume that we started converging at some degree n, and that coeff is degree 2n-1.
+    We assume that we started converging at some degree n, and that coeff is degree 2n+1.
     
     We then assume that by degree 3n/2, we have fully converged. We calculate epsVal as twice
     the max coefficient of degree at least 3n/2.
@@ -153,7 +157,7 @@ def getFinalDegree(coeff):
         The geometric rate of convergence of the coefficients
     """
     #Assumes we converged at the smaller degree.
-    convergedDeg = int(3 * (len(coeff) + 1) / 4)
+    convergedDeg = int(3 * (len(coeff) - 1) / 4)
     #Calculate epsVal
     epsVal = 2*np.max(coeff[convergedDeg:])
     #Get the numerical degree. Make at least 1.
@@ -216,9 +220,9 @@ def getChebyshevDegree(f, a, b, absApproxTol, relApproxTol):
             if not startedConverging(coeffChunk, tol):
                 continue
 
-            #Check if we've finally converged at degree n by comparing against the degree 2n-1.
+            #Check if we've finally converged at degree n by comparing against the degree 2n+1.
             #Degree n and 2n+1 are unlikely to have higher degree terms alias into the same spot.
-            degs[currDim] = currGuess - 1
+            degs[currDim] = currGuess + 1
             coeff2, supNorm2 = interval_approximate_nd(f, degs, a, b, retSupNorm=True)
             tol = absApproxTol + max(supNorm, supNorm2) * relApproxTol
             if not hasConverged(coeff, coeff2, tol):
