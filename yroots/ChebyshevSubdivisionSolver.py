@@ -16,11 +16,6 @@ class SolverOptions():
     ----------
     exact : bool
         Whether the transformation in TransformChebInPlaceND should be done without error
-    trimErrorRelBound : floats
-        See trimErrorAbsBound
-    trimErrorAbsBound : float
-        Only allows the error to increase by this amount when trimming.
-        If the incoming error is E, will increase the error by at most max(trimErrorRelBound * E, trimErrorAbsBound)
     constant_check : bool
         Defaults to True. Whether or not to run constant term check after each subdivision. Testing indicates
         that this saves time in all dimensions.
@@ -38,8 +33,6 @@ class SolverOptions():
     """
     def __init__(self):
         #Init all the Options to default value
-        self.trimErrorRelBound = 1e-14
-        self.trimErrorAbsBound = 1e-14
         self.constant_check = True
         self.low_dim_quadratic_check = True
         self.all_dim_quadratic_check = False
@@ -1149,7 +1142,7 @@ def getSubdivisionIntervals(Ms, errors, trackedInterval, exact, level):
         allIntervals = newIntervals
     return allMs, allErrors, allIntervals
         
-def trimMs(Ms, errors, absErrorIncrease, relErrorIncrease):
+def trimMs(Ms, errors, absErrorIncrease=1e-14, relErrorIncrease=1e-3):
     """Reduces the degree of chebyshev approximations and adds the resulting error to errors
 
     If the incoming error is E, will increase the error by at most max(relErrorIncrease * E, absErrorIncrease)
@@ -1251,11 +1244,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
     trackedInterval = trackedInterval.copy()
     errors = errors.copy()
     tolerable_error = max(errors) * 1e-3
-    if tolerable_error > solverOptions.trimErrorAbsBound:
-        solverOptions = solverOptions.copy()
-        solverOptions.trimErrorAbsBound = tolerable_error
-        solverOptions.trimErrorRelBound = tolerable_error
-    trimMs(Ms, errors, solverOptions.trimErrorAbsBound, solverOptions.trimErrorRelBound)
+    trimMs(Ms, errors)
 
     #Solve
     dim = Ms[0].ndim
@@ -1444,10 +1433,6 @@ def solveChebyshevSubdivision(Ms, errors, returnBoundingBoxes = False, polish = 
     solverOptions.low_dim_quadratic_check = low_dim_quadratic_check
     solverOptions.all_dim_quadratic_check = all_dim_quadratic_check
     solverOptions.useFinalStep = True
-    tolerable_error = max(errors) * 1e-2
-    if tolerable_error > solverOptions.trimErrorAbsBound:
-        solverOptions.trimErrorAbsBound = tolerable_error
-        solverOptions.trimErrorRelBound = tolerable_error
 
     b1, b2 = solvePolyRecursive(Ms, originalInterval, errors, solverOptions)
 
