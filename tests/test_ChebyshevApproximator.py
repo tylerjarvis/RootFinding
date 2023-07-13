@@ -32,7 +32,6 @@ def test_ChebyshevApproximator():
         #Assert sure we are still getting a good approximation
         assert(relErr < 1)
         degDiffs = np.array(coeff.shape) - np.array(expectedCoeff.shape)
-        print(coeff.shape, expectedCoeff.shape)
         #Assert the degree is close
         assert(np.all(degDiffs >= -1))
         assert(np.all(degDiffs <= 5))
