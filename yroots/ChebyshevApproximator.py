@@ -163,6 +163,8 @@ def getFinalDegree(coeff):
     #Get the numerical degree. Make at least 1.
     nonZeroCoeffs = np.where(coeff > epsVal)[0]
     degree = 1 if len(nonZeroCoeffs) == 0 else max(1, nonZeroCoeffs[-1])
+    if np.all(coeff[1:] < 1e-14):
+        degree = 0
     #Calculate the min rate of convergence
     maxSpot = np.argmax(coeff)
     rho = (coeff[maxSpot]/epsVal)**(1/((degree - maxSpot) + 1))
