@@ -705,10 +705,11 @@ def BoundingIntervalLinearSystem(Ms, errors, finalStep, linear = False):
             #Use the other interval shrinking method
             a, b = linearCheck1(totalErrs, A, consts)
             #Now do the linear solve check
-            wellConditioned = np.linalg.cond(A) < 1e10
+            U, S, Vh = np.linalg.svd(A)
+            wellConditioned = S[0]/S[-1] < 1e10
             #We use the matrix inverse to find the width, so might as well use it both spots. Should be fine as dim is small.
             if wellConditioned: #Make sure conditioning is ok.
-                Ainv = np.linalg.inv(A)
+                Ainv = (1/S * Vh.T) @ U.T
                 center = -Ainv@consts
 
                 #Ainv transforms the hyperrectangle of side lengths err into a parallelogram with these as the principal direction
@@ -1142,7 +1143,7 @@ def getSubdivisionIntervals(Ms, errors, trackedInterval, exact, level):
         allIntervals = newIntervals
     return allMs, allErrors, allIntervals
         
-def trimMs(Ms, errors, absErrorIncrease=1e-14, relErrorIncrease=1e-3):
+def trimMs(Ms, errors, standardErrorIncrease=1e-16):
     """Reduces the degree of chebyshev approximations and adds the resulting error to errors
 
     If the incoming error is E, will increase the error by at most max(relErrorIncrease * E, absErrorIncrease)
@@ -1163,8 +1164,10 @@ def trimMs(Ms, errors, absErrorIncrease=1e-14, relErrorIncrease=1e-3):
     No return value, the Ms and errors and changed in place.
     """
     dim = Ms[0].ndim
+    # print(f"Previous errors are {errors}")
     for polyNum in range(len(Ms)): #Loop through the polynomials
-        allowedErrorIncrease = max(relErrorIncrease * errors[polyNum], absErrorIncrease)
+        # print(f"Error for {polyNum} is {(errors)[polyNum]}.")
+        allowedErrorIncrease = max(errors[polyNum] * 1e-3, standardErrorIncrease)
         #Use slicing to look at a slice of the highest degree in the dimension we want to trim
         slices = [slice(None) for i in range(dim)] # equivalent to selecting everything
         for currDim in range(dim):
