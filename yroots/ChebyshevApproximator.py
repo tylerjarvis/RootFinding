@@ -3,35 +3,7 @@ from yroots.polynomial import MultiCheb, MultiPower
 from yroots.utils import transform
 import itertools
 from matplotlib import pyplot as plt
-
-def chebyshevBlockCopy(values):
-    """Expands the function evaluations values into the full matrix needed for the Chebyshev FFT.
-
-    Parameters
-    ----------
-    values : numpy array
-        Function evaluations
-
-    Returns
-    -------
-    result : numpy array
-        Chebyshev Interpolation values for FFT
-    """    
-    dim = values.ndim
-    degs = [i-1 for i in values.shape]
-    #Initialize result as a larger copy of values
-    result = np.zeros([2*i for i in degs])
-    slice1 = [slice(0, d) for d in values.shape] #Slice From
-    slice2 = slice1.copy() #Slice To
-    result[tuple(slice2)] = values
-    #Unfold the result one dimension at a time
-    for i in range(dim):
-        slice1[i] = slice(degs[i]-1, 0, -1)
-        slice2[i] = slice(degs[i]+1, 2*degs[i])
-        result[tuple(slice2)] = result[tuple(slice1)]
-        slice1[i] = slice(None, None)
-        slice2[i] = slice(None, None)
-    return result
+from scipy.fftpack import dctn
 
 def interval_approximate_nd(f, degs, a, b, retSupNorm = False):
     """Finds the chebyshev approximation of an n-dimensional function on an interval.
@@ -65,18 +37,18 @@ def interval_approximate_nd(f, degs, a, b, retSupNorm = False):
                                for deg, a_, b_ in zip(degs, a, b)]),indexing='ij')
     cheb_pts = np.column_stack(tuple(map(lambda x: x.flatten(), cheb_grid)))
     if isinstance(f, MultiCheb) or isinstance(f, MultiPower):
-        values_block = f(cheb_pts).reshape(*(degs+1))
+        values = f(cheb_pts).reshape(*(degs+1))
     else:
-        values_block = f(*cheb_pts.T).reshape(*(degs+1))
+        values = f(*cheb_pts.T).reshape(*(degs+1))
+    #Get the supNorm if we want it
+    if retSupNorm:
+        supNorm = np.max(np.abs(values))
 
     #TODO: Save the duplicated function values when we double the approximation.
     #Less efficient in higher dimensions, we save 1/2**(dim-1) of the functions evals
-    
-    #Do the function evaluations
-    values = chebyshevBlockCopy(values_block)
 
-    #Do real FFT
-    coeffs = np.fft.rfftn(values/np.product(degs)).real
+    #Do real DCT
+    coeffs = dctn(values/np.product(degs), type=1, overwrite_x=True)
     #Divide edges by 2
     for d in range(dim):
         coeffs[tuple([slice(None) if i != d else 0 for i in range(dim)])] /= 2
@@ -85,7 +57,6 @@ def interval_approximate_nd(f, degs, a, b, retSupNorm = False):
     #Return Coeff Tensor and SupNorm if desired
     slices = tuple([slice(0, d+1) for d in originalDegs])
     if retSupNorm:
-        supNorm = np.max(np.abs(values_block))
         return coeffs[slices], supNorm
     else:
         return coeffs[slices]
