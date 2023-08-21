@@ -2,37 +2,38 @@ import numpy as np
 from numba import njit, float64
 from numba.types import UniTuple
 from itertools import product
-from scipy.spatial import HalfspaceIntersection
+from scipy.spatial import HalfspaceIntersection, QhullError
 from scipy.optimize import linprog
 from yroots.QuadraticCheck import quadratic_check
+from time import time
 import copy
 import warnings
 
 
 class SolverOptions():
-    """ All the Solver Options for solvePolyRecursive
+    """Settings for running interval checks, transformations, and subdivision in solvePolyRecursive.
 
     Parameters
     ----------
+    verbose : bool
+        Defaults to False. Whether or not to output progress of solving to the terminal.
     exact : bool
-        Whether the transformation in TransformChebInPlaceND should be done without error
+        Defaults to False. Whether the transformation in TransformChebInPlaceND should minimize error.
     constant_check : bool
-        Defaults to True. Whether or not to run constant term check after each subdivision. Testing indicates
-        that this saves time in all dimensions.
+        Defaults to True. Whether or not to run constant term check after each subdivision.
     low_dim_quadratic_check : bool
-        Defaults to True. Whether or not to run quadratic check in dimensions two and three. Testing indicates
-        That this saves a lot of time compared to not running it in low dimensions.
+        Defaults to True. Whether or not to run quadratic check in dim 2, 3.
     all_dim_quadratic_check : bool
-        Defaults to False. Whether or not to run quadratic check in every dimension. Testing indicates it loses
-        time in 4 or higher dimensions.
+        Defaults to False. Whether or not to run quadratic check in dim >= 4.
     maxZoomCount : int
-        How many steps of zooming in are allowed before a subdivision is required. Used to prevent large number of super small zooms in a row slowing it down.
-    useFinalStep : bool
-        If False, once the algorithm can't zoom in anymore it assumes the root is at the center of the final interval.
-        If True, it runs the algorithm on the final interval assuming 0 error until it converges to a point, and uses that as the final point.
+        Maximum number of zooms allowed before subdividing (prevents infinite infintesimal shrinking)
+    level : int
+        Depth of subdivision for the given interval.
     """
     def __init__(self):
         #Init all the Options to default value
+        self.verbose = False
+        self.exact = False
         self.constant_check = True
         self.low_dim_quadratic_check = True
         self.all_dim_quadratic_check = False
@@ -44,11 +45,11 @@ class SolverOptions():
 
 @njit
 def TransformChebInPlace1D(coeffs, alpha, beta):
-    """Applies the transformation alpha*x + beta to the chebyshev polynomial coeffs.
-        Recursively finds each column of the transformed matrix C from the previous two columns,
-        thus enabling the transformation to occur while only needing to retain three columns
-        of the transformation matrix in memory.
-    Written for 1D, but also works in ND to transform dimension 0.
+    """Applies the transformation alpha*x + beta to one dimension of a Chebyshev approximation.
+
+    Recursively finds each column of the transformation matrix C from the previous two columns
+    and then performs entrywise matrix multiplication for each entry of the column, thus enabling
+    the transformation to occur while only retaining three columns of C in memory at a time.
 
     Parameters
     ----------
@@ -58,6 +59,7 @@ def TransformChebInPlace1D(coeffs, alpha, beta):
         The scaler of the transformation
     beta : double
         The shifting of the transformation
+
     Returns
     -------
     transformedCoeffs : numpy array
@@ -70,16 +72,6 @@ def TransformChebInPlace1D(coeffs, alpha, beta):
     arr2 = np.zeros(len(coeffs))
     arr3 = np.zeros(len(coeffs))
 
-    """
-    In the following lines of code, matrix muliplication C @ coeffs occurs without actually
-        calculating the entire matrix C by calculating each individual nonzero entry of C, multiplying 
-        the entire row of coeffs corresponding to the column in which the entry occurs in C,
-        and then adding that sum to the initially empty transformedCoeffs matrix.
-
-    Each C_ij entry of the transformation matrix C represents the coefficient of T_i(x) contained in
-        T_j(alpha*x + beta)
-    """
-
     #The first column of the transformation matrix C. Since T_0(alpha*x + beta) = T_0(x) = 1 has 1 in the top entry and 0's elsewhere.
     arr1[0] = 1.
     transformedCoeffs[0] = coeffs[0] # arr1[0] * coeffs[0] (matrix multiplication step)
@@ -89,12 +81,6 @@ def TransformChebInPlace1D(coeffs, alpha, beta):
     transformedCoeffs[0] += beta * coeffs[1] # arr2[0] * coeffs[1] (matrix muliplication)
     transformedCoeffs[1] += alpha * coeffs[1] # arr2[1] * coeffs[1] (matrix multiplication)
 
-    """
-    Now recursively calculate the remaining columns of C from the previous two columns for each column
-        and continue the matrix multiplication with each entry. The formula for doing so is given in
-        the paper and is based on the recurrance relation T_n+1(x) = 2x*T_n(x) - T_n-1(x).
-    Since C is upper triangular, use maxRow to mark the row of the last nonzero entry in each column.
-    """
     maxRow = 2
     for col in range(2, len(coeffs)): # For each column, calculate each entry and do matrix mult
         thisCoeff = coeffs[col] # the row of coeffs corresponding to the column col of C (for matrix mult)
@@ -136,11 +122,10 @@ def TransformChebInPlace1D(coeffs, alpha, beta):
 
 @njit
 def TransformChebInPlace1DErrorFree(coeffs, alpha, beta):
-    """
-    Applies the transformation alpha*x + beta to the chebyshev polynomial coeffs.
-    Does the same thing as TransformChebInPlace1D but calls upon error-tracking functions
-        in the constrution of each column to minimize error.
-    Written for 1D, but also works in ND to transform dimension 0.
+    """Applies the transformation alpha*x + beta to the Chebyshev polynomial coeffs with minimal error.
+    
+    This function is identical to TransformChebInPlace1D except that this function is more careful to
+    minimize error by calling on functions to more precisely perform the multiplication and addition.
 
     Parameters
     ----------
@@ -150,6 +135,7 @@ def TransformChebInPlace1DErrorFree(coeffs, alpha, beta):
         The scaler of the transformation
     beta : double
         The shifting of the transformation
+
     Returns
     -------
     coeffs : numpy array
@@ -254,12 +240,24 @@ def TransformChebInPlace1DErrorFree(coeffs, alpha, beta):
 
 @njit
 def TransformChebInPlace1DErrorFreeSplit(coeffs, betaSign):
+    """Applies the transformation 0.5*x +- 0.5 to the Chebyshev polynomial coeffs with minimal error.
+    
+    This function is a special case of TransformChebInPlace1DErrorFree used to minimize computation
+    when alpha = 0.5 and beta = +- 0.5
+
+    Parameters
+    ----------
+    coeffs : numpy array
+        The coefficient array
+    betaSign : int
+        1 if beta = 0.5; -1 if beta is -0.5
+    
+    Returns
+    -------
+    coeffs : numpy array
+        The new coefficient array following the transformation
+
     """
-    Perfoms the same function as TransformChebInPlace1DErrorFree but is used
-        in the common special case that alpha = 0.5 and beta = +- 0.5 to minimize computation.
-    """
-    #alpha = 0.5
-    #beta = 0.5 if betaSign == 1 else -0.5 (betaSign must be -1)
     transformedCoeffs = np.zeros_like(coeffs)
     arr1 = np.zeros(len(coeffs))
     arr2 = np.zeros(len(coeffs))
@@ -340,7 +338,27 @@ def TransformChebInPlace1DErrorFreeSplit(coeffs, betaSign):
     return transformedCoeffs[:maxRow]
 
 def TransformChebInPlaceND(coeffs, dim, alpha, beta, exact):
-    """Transforms any given single dimension of a Chebyshev approximation for a polynomial."""
+    """Transforms a single dimension of a Chebyshev approximation for a polynomial.
+
+    Parameters
+    ----------
+    coeffs : numpy array
+        The coefficient tensor to transform
+    dim : int
+        The index of the dimension to transform
+    alpha: double
+        The scaler of the transformation
+    beta: double
+        The shifting of the transformation
+    exact: bool
+        Whether to perform the transformation with higher precision to minimize error
+
+    Returns
+    -------
+    transformedCoeffs : numpy array
+        The new coefficient array following the transformation
+    """
+
     #TODO: Could we calculate the allowed error beforehand and pass it in here?
     #TODO: Make this work for the power basis polynomials
     if (alpha == 1.0 and beta == 0.0) or coeffs.shape[dim] == 1:
@@ -357,6 +375,33 @@ def TransformChebInPlaceND(coeffs, dim, alpha, beta, exact):
         return TransformFunc(coeffs.transpose(order), alpha, beta).transpose(backOrder)
 
 class TrackedInterval:
+    """Tracks the properties of and changes to each interval as it passes through the solver.
+
+    Parameters
+    ----------
+    topInterval: numpy array
+        The original interval before any changes
+    interval: numpy array
+        The current interval (lower bound and upper bound for each dimension in order)
+    transforms: list
+        List of the alpha and beta values for all the transformations the interval has undergone
+    ndim: int
+        The number of dimensions of which the interval consists
+    empty: bool
+        Whether the interval is known to contain no roots
+    finalStep: bool
+        Whether the interval is in the final step (zooming in on the bounding box to a point at the end)
+    canThrowOutFinalStep: bool
+        Defaults to False. Whether or not the interval should be thrown out if empty in the final step
+        of solving. Changed to True if subdivision occurs in the final step.
+    possibleDuplicateRoots: list
+        Any multiple roots found through subdivision in the final step that would have been
+        returned as just one root before the final step
+    possibleExtraRoot: bool
+        Defaults to False. Whether or not the interval would have been thrown out during the final step.
+    nextTransformPoints: numpy array
+        Where the midpoint of the next subdivision should be for each dimension
+    """
     def __init__(self, interval):
         self.topInterval = interval
         self.interval = interval
@@ -370,12 +415,19 @@ class TrackedInterval:
         self.nextTransformPoints = np.array([0.0394555475981047]*self.ndim) #Random Point near 0
     
     def canThrowOut(self):
+        """Ensures that an interval that has not subdivided cannot be thrown out on the final step."""
         return not self.finalStep or self.canThrowOutFinalStep
     
     def addTransform(self, subInterval):
-        #This function assumes the interval has non zero size.
-        #Get the transformation in terms of alpha and beta
-        if np.any(subInterval[:,0] > subInterval[:,1]) and self.canThrowOut(): #Can't throw out on final step
+        """Adds the next alpha and beta values to the list transforms and updates the current interval.
+
+        Parameters:
+        -----------
+        subInterval : numpy array
+            The subinterval to which the current interval is being reduced
+        """
+        #Ensure the interval has non zero size; mark it empty if it doesn't
+        if np.any(subInterval[:,0] > subInterval[:,1]) and self.canThrowOut():
             self.empty = True
             return
         # Get the alpha and beta associated with the transformation in each dimension 
@@ -397,13 +449,19 @@ class TrackedInterval:
                     self.interval[dim][i] = alpha2[dim]*x+beta2[dim]
     
     def getLastTransform(self):
+        """Gets the alpha and beta values of the last transformation the interval underwent."""
         return self.transforms[-1]
         
     def getFinalInterval(self):
-        """
-        Returns the final interval calculated by applying all of the saved (alpha*x + beta)
-            transformations to the original interval. Also returns the associated error.
-        If using finalStep, only the transformations before starting the finalStep are used.
+        """Finds the interval that should be reported as containing a root.
+
+        The final interval is calculated by applying all of the recorded transformations that
+        occurred before the final step to topInterval, the original interval.
+
+        Returns
+        -------
+        finalInterval: numpy array
+            The final interval to be reported as containing a root
         """
         # TODO: Make this a seperate function so it can use njit.
         # Make these _NoNumba calls use floats so they call call the numba functions without a seperate compile
@@ -426,7 +484,13 @@ class TrackedInterval:
         return self.finalInterval
 
     def getFinalPoint(self):
-        """Return the midpoint of the final interval to represent the root."""
+        """Finds the point that should be reported as the root (midpoint of the final step interval).
+        
+        Returns
+        -------
+        root: numpy array
+            The final point to be reported as the root of the interval
+        """
         #TODO: Make this a seperate function so it can use njit.
         #Make these _NoNumba calls use floats so they call call the numba functions without a seperate compile
         if not self.finalStep: #If no final step, use the midpoint of the calculated final interval.
@@ -445,12 +509,15 @@ class TrackedInterval:
         return self.root
     
     def size(self):
+        """Gets the volume of the current interval."""
         return np.product(self.interval[:,1] - self.interval[:,0])
     
     def dimSize(self):
+        """Gets the lengths along each dimension of the current interval."""
         return self.interval[:,1] - self.interval[:,0]
     
     def copy(self):
+        """Returns a deep copy of the current interval with all changes and properties preserved."""
         newone = TrackedInterval(self.topInterval)
         newone.interval = self.interval.copy()
         newone.transforms = self.transforms.copy()
@@ -466,11 +533,13 @@ class TrackedInterval:
         return newone
     
     def __contains__(self, point):
-        """Returns True if the point is contained in the interval; returns false otherwise."""
+        """Determines if point is contained in the current interval."""
         return np.all(point >= self.interval[:,0]) and np.all(point <= self.interval[:,1])
 
     def overlapsWith(self, otherInterval):
-        """Returns True if the lower bound of one interval is less than the upper bound of the other
+        """Determines if the otherInterval overlaps with the current interval.
+        
+        Returns True if the lower bound of one interval is less than the upper bound of the other
             in EVERY dimension; returns False otherwise."""
         for (a1,b1),(a2,b2) in zip(self.getIntervalForCombining(), otherInterval.getIntervalForCombining()):
             if a1 > b2 or a2 > b1:
@@ -478,15 +547,17 @@ class TrackedInterval:
         return True
     
     def isPoint(self):
+        """Determines if the current interval has essentially length 0 in each dimension."""
         return np.all(np.abs(self.interval[:,0] - self.interval[:,1]) < 1e-32)
         
     def startFinalStep(self):
-        """Initiates finalStep and saves the current interval and transforms for future reference."""
+        """Prepares for the final step by saving the current interval and its transform list."""
         self.finalStep = True
         self.preFinalInterval = self.interval.copy()
         self.preFinalTransforms = self.transforms.copy()
         
     def getIntervalForCombining(self):
+        """Returns the interval to be used in combining intervals to report at the end."""
         return self.preFinalInterval if self.finalStep else self.interval
 
     def __repr__(self):
@@ -497,7 +568,7 @@ class TrackedInterval:
 
    
 def getLinearTerms(M):
-    """Helper Function, returns the linear terms of a matrix
+    """Gets the linear terms of the Chebyshev coefficient tensor M.
 
     Uses the fact that the linear terms are located at 
     M[(0,0, ... ,0,1)]
@@ -515,7 +586,8 @@ def getLinearTerms(M):
 
     Returns
     -------
-    A 1D numpy array with the linear terms of M
+    A: numpy array
+        An array with the linear terms of M
     """
     A = []
     spot = 1
@@ -524,40 +596,37 @@ def getLinearTerms(M):
         spot *= i
     return A[::-1] # Return linear terms in dimension order.
 
-def find_vertices(A_ub, b_ub, tol = .05):
-    """
-    This function calculates the feasible point that is most inside the halfspace. 
-    It then feeds that feasible point into the halfspace intersection solver and finds the intersection of the hyper-polygon and the hyper-cube. 
-    It returns these intersection points (which when we take the min and max of, gives the interval we should shrink down to).
+def find_vertices(A_ub, b_ub):
+    """ Finds the intersection points of the halfspaces associated with the current interval.
 
-    The algorithm for the first half of this function (the portion that calculates the feasible point) is found at:
+    This function calculates a feasible point inside the halfspace, feeds that feasible point into
+    the halfspace intersection solver, and finds the intersection points. The algorithm for the
+    first half of this function (the portion that calculates the feasible point) is found at
     https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.HalfspaceIntersection.html
 
     Parameters
     ----------
     A_ub : numpy array
-        #This is created as: A_ub = np.vstack([A, -A]), where A is the matrix A from BoundingIntervalLinearSystem
-    b_ub : numpy vector (1D)
-        #This is created as: b_ub = np.hstack([err - consts, consts + err]).T.reshape(-1, 1), where err and consts are from BoundingIntervalLinearSystem
+        The array np.vstack([A, -A]), where A is the matrix A from BoundingIntervalLinearSystem
+    b_ub : numpy array
+        The array np.hstack([err - consts, consts + err]).T.reshape(-1, 1) associated with A
 
     Returns
     -------
     tell : int
         This is a variable that is used to tell how the linear programming proceeded:
             1 : The linear programming found no feasible point, so the interval should be thrown out.
-            2 : The linear programming found a feasible point, but the halfspaces code said it was not "clearly inside" the halfspace.
-                This happens when the coefficients and error are all really tiny. In this case we are zooming in on a root, so we should keep the entire interval.
-            3 : This means the linear programming and halfspace code ran without error, and a new interval was found
-            4 : This means the linear programming code failed in such a way that we cannot use this method and need to use Erik's linear linear code instead.
-    intersects : numpy array (ND)
+            2 : The linear programming found a feasible point, but the halfspaces code said it was not
+                "clearly inside" the halfspace. This happens when the coefficients and error are all
+                tiny as the algorithm is zooming in on a root, so the entire interval should be kept.
+            3 : The linear programming ran without error, and a new interval was found.
+            4 : The linear programming failed, so the standard shrinking method should be run instead.
+    intersects : numpy array
         An array of the vertices of the intersection of the hyper-polygon and hyper-cube 
     """
     
     #Get the shape of the A_ub matrix
     m, n = A_ub.shape
-
-    b_ub = np.where(b_ub<1e-14,1e-14,b_ub)
-    b_ub = np.where(b_ub<1e-14*max(b_ub),1e-14*max(b_ub),b_ub)
 
     #Create an array used as part of the halfspaces array below, and find its number of rows
     arr = np.hstack([np.vstack([np.identity(n, dtype = float), -np.identity(n, dtype = float)]), -np.ones(2 * n, dtype = float).reshape(2 * n, 1)])
@@ -578,7 +647,7 @@ def find_vertices(A_ub, b_ub, tol = .05):
     b = - halfspaces[:, -1:]
 
     #Run the linear programming code
-    L = linprog(c, A, b, bounds = (-1,1), method = "highs")
+    L = linprog(c, A, b, bounds = (-1+1e-12,1-1e-12), method = "highs")
     
     #If L.status == 0, it means the linear programming proceeded as normal and a feasible point was found
     if L.status == 0:
@@ -606,7 +675,7 @@ def find_vertices(A_ub, b_ub, tol = .05):
     #If the linear programming problem succeeded, try running the halfspaces code
     try:
         intersects = HalfspaceIntersection(halfspaces, feasible_point).intersections
-    except:
+    except QhullError as e:
         #If the halfspaces failed, it means the coefficnets were really really tiny, which indicates that we have zoomed up on a root.
         #Thus we should return the entire interval, because it is a tiny interval that contains a root.
         return 2, np.vstack([np.ones(n),-np.ones(n)])
@@ -616,8 +685,27 @@ def find_vertices(A_ub, b_ub, tol = .05):
 
 @njit
 def linearCheck1(totalErrs, A, consts):
-    """Takes A, the linear terms of each function approximation, and makes any possible reduction
-        in the interval based on the totalErrs."""
+    """Calculates a reduction of the interval that may possibly contain roots.
+
+    The interval can be shrunk to the region where the absolute value of the sum of the constant and
+    linear terms are greater than that of the rest of the terms in the approximation for each dimension.
+    
+    Parameters
+    ----------
+    totalErrs : numpy array
+        The sum of the absolute value of the remaining coefficients of the approximation plus error
+    A : numpy array
+        The linear terms of each approximation
+    consts : numpy array
+        The constant terms of each approximation
+
+    Returns
+    -------
+    a : numpy array
+        The lower bounds of the reduced interval along each dimension
+    b : numpy array
+        The upper bounds of the reduced interval along each dimension
+    """
     dim = len(A)
     a = -np.ones(dim) * np.inf
     b = np.ones(dim) * np.inf
@@ -640,22 +728,25 @@ def BoundingIntervalLinearSystem(Ms, errors, finalStep, linear = False):
     Parameters
     ----------
     Ms : list of numpy arrays
-        Each numpy array is the coefficient tensor of a chebyshev polynomials
-    errors : iterable of floats
-        The maximum error of chebyshev approximations
+        The coefficient tensors for each Chebyshev polynomial
+    errors : numpy array
+        The maximum error of each Chebyshev approximations
     finalStep : bool
-        Whether we are in the final step of the algorithm
+        Whether or not the algorithm is in the final step (zooming in a point assuming zero error)
+    linear : bool
+        Whether or not the function should shrink the interval using the standard method even
+        if dim > 4 (rather than using halfspace intersections)
 
     Returns
     -------
-    newInterval : numpy array
+    newInterval : TrackedInterval
         The smaller interval where any root must be
     changed : bool
-        Whether the interval has shrunk at all
+        Whether the interval has shrunk sufficiently
     should_stop : bool
-        Whether we should stop subdividing
+        Whether or not to continue subdividing after the shrinking is performed
     throwout :
-        Whether we should throw out the interval entirely
+        Whether or not the interval should be thrown out entirely (if it does not contain a root)
     """
     if finalStep:
         errors = np.zeros_like(errors)
@@ -706,7 +797,7 @@ def BoundingIntervalLinearSystem(Ms, errors, finalStep, linear = False):
             a, b = linearCheck1(totalErrs, A, consts)
             #Now do the linear solve check
             U, S, Vh = np.linalg.svd(A)
-            wellConditioned = S[0]/S[-1] < 1e10
+            wellConditioned = S[-1]/S[0] > 1e-10
             #We use the matrix inverse to find the width, so might as well use it both spots. Should be fine as dim is small.
             if wellConditioned: #Make sure conditioning is ok.
                 Ainv = (1/S * Vh.T) @ U.T
@@ -849,13 +940,13 @@ def BoundingIntervalLinearSystem(Ms, errors, finalStep, linear = False):
    
 @njit(UniTuple(float64,2)(float64, float64))
 def TwoSum(a,b):
-    #Returns x,y such that a+b=x+y exactly, and a+b=x in floating point. See Error Free Transformations.
+    """Returns x,y such that a+b=x+y exactly, and a+b=x in floating point using numba."""
     x = a+b
     z = x-a
     y = (a-(x-z)) + (b-z)
     return x,y
 def TwoSum_NoNumba(a,b):
-    #Same as TwoSum but not just in time compiled
+    """Returns x,y such that a+b=x+y exactly, and a+b=x in floating point without using numba."""
     x = a+b
     z = x-a
     y = (a-(x-z)) + (b-z)
@@ -863,13 +954,13 @@ def TwoSum_NoNumba(a,b):
 
 @njit(UniTuple(float64,2)(float64))
 def Split(a):
-    #Helper for TwoProd
+    """Returns x,y such that a = x+y exactly and a = x in floating point using numba."""
     c = (2**27 + 1) * a
     x = c-(c-a)
     y = a-x
     return x,y
 def Split_NoNumba(a):
-    #Same as Split but not just in time compiled
+    """Returns x,y such that a = x+y exactly and a = x in floating point without using numba."""
     c = (2**27 + 1) * a
     x = c-(c-a)
     y = a-x
@@ -877,14 +968,14 @@ def Split_NoNumba(a):
 
 @njit(UniTuple(float64,2)(float64, float64))
 def TwoProd(a,b):
-    #Returns x,y such that a*b=x+y exactly, and a*b=x in floating point. See Error Free Transformations.
+    """Returns x,y such that a*b=x+y exactly and a*b=x in floating point using numba."""
     x = a*b
     a1,a2 = Split(a)
     b1,b2 = Split(b)
     y=a2*b2-(((x-a1*b1)-a2*b1)-a1*b2)
     return x,y
 def TwoProd_NoNumba(a,b):
-    #Same as TwoProd but not just in time compiled
+    """Returns x,y such that a*b=x+y exactly and a*b=x in floating point without usin numba."""
     x = a*b
     a1,a2 = Split_NoNumba(a)
     b1,b2 = Split_NoNumba(b)
@@ -893,49 +984,62 @@ def TwoProd_NoNumba(a,b):
 
 @njit(UniTuple(float64,2)(float64, float64, float64, float64))
 def TwoProdWithSplit(a,b,a1,a2):
-    #Same as TwoProd but with the first split already done, to avoid doing it repeatadly when not needed.
+    """Returns x,y such that a*b = x+y exactly and a*b = x in floating point but with a already split."""
     x = a*b
     b1,b2 = Split(b)
     y=a2*b2-(((x-a1*b1)-a2*b1)-a1*b2)
     return x,y
 
 def getTransformPoints(newInterval):
-    """Given the new interval [a,b], gives c,d for reduction xHat = cx+d"""
+    """Gets the alpha and beta points needed to transform the current interval to newInterval."""
     a,b = newInterval
     return (b-a)/2, (b+a)/2
 
 def getTransformationError(M, dim):
-    """Returns a bound on the error of transforming a chebyshev approximation M"""
-   # The matrix is accurate to machEps, so the error is at most machEps times each number in the matrix
-    # times the number of times each number in the matrix is involved in the matrix multiplcation. The
-    # number of rows in the square transformation matrix is equal to the number of rows of the
-    # approximation matrix along the dimension being examined, or M.shape[dim], so we use this value.
+    """Returns an upper bound on the error of transforming the Chebyshev approximation M
+
+    In the transformation of dimension dim in M, the matrix multiplication of M by the transformation
+    matrix C has each element of M involved in n element multiplications, where n is the number of rows
+    in C, which is equal to the degree of approximation of M in dimension dim, or M.shape[dim].
+
+    Parameters
+    ----------
+    M : numpy array
+        The Chebyshev approximation coefficient tensor being transformed
+    dim : int
+        The dimension of M being transformed
+    
+    Returns
+    -------
+    error : float
+        The upper bound for the error associated with the transformation of dimension dim in M
+    """
     machEps = 2**-52
     error = M.shape[dim] * machEps * np.sum(np.abs(M))
     return error #TODO: Figure out a more rigurous bound!
     
 def transformCheb(M, alphas, betas, error, exact):
-    """Transforms the chebyshev coefficient matrix M using the transformation xHat = alpha*x + beta.
+    """Transforms an entire Chebyshev coefficient matrix using the transformation xHat = alpha*x + beta.
 
     Parameters
     ----------
     M : numpy array
         The chebyshev coefficient matrix
     alphas : iterable
-        The scaler of the transformation we are doing.
+        The scalers in each dimension of the transformation.
     betas : iterable
-        The offset of the transformation we are doing. 
+        The offset in each dimension of the transformation. 
     error : float
         A bound on the error of the chebyshev approximation
     exact : bool
-        Whether the transformation in TransformChebInPlaceND should be done without error    
+        Whether to perform the transformation with higher precision to minimize error    
     
     Returns
     -------
     M : numpy array
-        The coefficient matrix on the new interval
+        The coefficient matrix transformed to the new interval
     error : float
-        A bound on the error of the new chebyshev approximation
+        An upper bound on the error of the transformation
     """
     #This just does the matrix multiplication on each dimension. Except it's by a tensor.
     for dim,n,alpha,beta in zip(range(M.ndim),M.shape,alphas,betas):
@@ -944,27 +1048,27 @@ def transformCheb(M, alphas, betas, error, exact):
     return M, error
 
 def transformChebToInterval(Ms, alphas, betas, errors, exact):
-    """Transforms chebyshev coefficient matrices to a new interval using the transformation xHat = alpha*x + beta.
+    """Transforms an entire list of Chebyshev approximations to a new interval xHat = alpha*x + beta.
 
     Parameters
     ----------
     Ms : list of numpy arrays
         The chebyshev coefficient matrices
     alphas : iterable
-        The scaler of the transformation we are doing.
+        The scalers of the transformation we are doing.
     betas : iterable
-        The offset of the transformation we are doing. 
+        The offsets of the transformation we are doing. 
     errors : numpy array
-        A bound on the error of each chebyshev approximation
+        A bound on the error of each Chebyshev approximation
     exact : bool
-        Whether the transformation in TransformChebInPlaceND should be done without error
+        Whether to perform the transformation with higher precision to minimize error
     
     Returns
     -------
     newMs : list of numpy arrays
-        The chebyshev coefficient matrices on the new interval
+        The coefficient matrices transformed to the new interval
     newErrors : list of numpy arrays
-        The errors of the newMs. This just adds the errors of applying the Chebyshev Transformation Matrix.
+        The new errors associated with the transformed coefficient matrices
     """
     #Transform the chebyshev polynomials
     newMs = []
@@ -976,29 +1080,35 @@ def transformChebToInterval(Ms, alphas, betas, errors, exact):
     return newMs, np.array(newErrors)
     
 def zoomInOnIntervalIter(Ms, errors, trackedInterval, exact):
-    """One iteration of the linear check and transforming to a new interval.
+    """One iteration of shrinking an interval that may contain roots.
+
+    Calls BoundingIntervaLinearSystem which determines a smaller interval in which any roots are
+    bound to lie. Then calls transformChebToInterval to transform the current coefficient
+    approximations to the new interval.
 
     Parameters
     ----------
     Ms : list of numpy arrays
-        The chebyshev coefficient matrices
+        The Chebyshev coefficient tensors of each approximation
     errors : numpy array
-        A bound on the error of each chebyshev approximation
+        An upper bound on the error of each Chebyshev approximation
     trackedInterval : TrackedInterval
-        The current interval that the chebyshev approximations are valid for
+        The current interval for which the Chebyshev approximations are valid
     exact : bool
-        Whether the transformation in TransformChebInPlaceND should be done without error
+        Whether the transformation should be done with higher precision to minimize error
 
     Returns
     -------
     Ms : list of numpy arrays
-        The chebyshev coefficient matrices on the new interval
+        The chebyshev coefficient matrices transformed to the new interval
     errors : numpy array
-        The errors of the new Ms. This just adds the errors of applying the Chebyshev Transformation Matrix.
+        The new errors associated with the transformed coefficient matrices
     trackedInterval : TrackedInterval
-        The new interval that the chebyshev approximations are valid for
+        The new interval that the transformed coefficient matrices are valid for
     changed : bool
-        Whether the interval changed as a result of this step.
+        Whether or not the interval shrunk significantly during the iteration
+    should_stop : bool
+        Whether or not to continue subdiviing after the iteration of shrinking is completed
     """    
 
     dim = len(Ms)
@@ -1032,17 +1142,54 @@ def zoomInOnIntervalIter(Ms, errors, trackedInterval, exact):
     return Ms, errors, trackedInterval, changed, should_stop
     
 def chebTransform1D(M, alpha, beta, transformDim, exact):
-    """Transform a chebyshev polynomial in a single dimension"""
+    """Transforms a single dimension of a Chebyshev coefficient matrix.
+
+    Parameters
+    ----------
+    M : numpy array
+        The Chebyshev coefficient matrix
+    alpha:
+        The scaler of the transformation
+    beta:
+        The shifting of the transformation
+    transformDim:
+        The particular dimension of the approximation to be transformed
+    exact:
+        Whether the transformation should be performed with higher precision to minimize error
+    
+    Returns
+    -------
+    transformed_M : numpy array
+        The Chebyshev coefficient matrix transformed to the new interval in dimension transformDim
+    """
     return TransformChebInPlaceND(M, transformDim, alpha, beta, exact)
 
 def getInverseOrder(order):
-    """Helper function to make the subdivide order match the subdivideInterval order"""
-    #Handle that dims may be missing, ignore the missing dims
-    o = np.argsort(order)
+    """Gets a particular order of matrices needed in getSubdivisionIntervals (helper function).
+    
+    Takes the order of dimensions in which a Chebyshev coefficient tensor M was subdivided and gets
+    the order of the indexes that will arrange the list of resulting transformed matrices as if the
+    dimensions had bee subdivided in standard index order. For example, if dimensions 0, 3, 1 were
+    subdivided in that order, this function returns the order [0,2,1,3,4,6,5,7] corresponding to the
+    indices of currMs such that when arranged in this order, it appears as if the dimensions were
+    subdivided in order 0, 1, 3.
+
+    Parameters
+    ----------
+    order : numpy array
+        The order of dimensions along which a coefficient tensor was subdivided
+    
+    Returns
+    -------
+    invOrder : numpy array
+        The order of indices of currMs (in the function getSubdivisionIntervals) that arranges the
+        matrices resulting from the subdivision as if the original matrix had been subdivided in
+        numerical order
+    """
+
     t = np.zeros_like(order)
     t[np.argsort(order)] = np.arange(len(t))
     order = t
-    #Get the order
     order = 2**(len(order)-1 - order)
     newOrder = np.array([i@order for i in product([0,1],repeat=len(order))])
     invOrder = np.zeros_like(newOrder)
@@ -1056,13 +1203,16 @@ def getSubdivisionDims(Ms,trackedInterval,level):
     ----------
     Ms : list of numpy arrays
         The chebyshev coefficient matrices
+    trackedInterval : trackedInterval
+        The interval to be subdivided
+    level : int
+        The current depth of subdivision from the original interval
 
     Returns
     -------
     allDims : numpy array
-        The ith row gives the dimensions (in order) we should subdivide Ms[i] in.
+        The ith row gives the dimensions in which Ms[i] should be subdivided, in order.
     """
-    # Subdivide each polynomials from the highest degree to the lowest
     dim = len(Ms)
     dims_to_consider = [i for i in range(dim)]
     if level > 5 and level != 1:
@@ -1072,7 +1222,7 @@ def getSubdivisionDims(Ms,trackedInterval,level):
         dims_to_consider = np.array(dims_to_consider)
         return np.vstack([dims_to_consider[np.argsort(np.array(M.shape)[dims_to_consider])[::-1]] for M in Ms])
     else:
-        dim_lengths = [interval[1]-interval[0] for interval in trackedInterval.interval]
+        dim_lengths = trackedInterval.dimSize()
         for i in range(dim):
             length_to_check = dim_lengths[i]*5
             if any(length_to_check < length for length in dim_lengths):
@@ -1088,6 +1238,30 @@ def getSubdivisionDims(Ms,trackedInterval,level):
         return np.vstack([dims_to_consider[np.argsort(np.array(M.shape)[dims_to_consider])[::-1]] for M in Ms])
 
 def getSubdivisionIntervals(Ms, errors, trackedInterval, exact, level):
+    """Gets the matrices, error bounds, and intervals for the next iteration of subdivision.
+
+    Parameters
+    ----------
+    Ms : list of numpy arrays
+        The chebyshev coefficient matrices
+    errors : numpy array
+        An upper bound on the error of each Chebyshev approximation
+    trackedInterval : trackedInterval
+        The interval to be subdivided
+    exact : bool
+        Whether transformations should be completed with higher precision to minimize error
+    level : int
+        The current depth of subdivision from the original interval
+
+    Returns
+    -------
+    allMs : list of numpy arrays
+        The transformed coefficient matrices associated with each new interval
+    allErrors : numpy array
+        A list of upper bounds for the errors associated with each transformed coefficient matrix
+    allIntervals : list of TrackedIntervals
+        The intervals from the subdivision (corresponding one to one with the matrices in allMs)
+    """
     subdivisionDims = getSubdivisionDims(Ms,trackedInterval,level)
     dimSet = set(subdivisionDims.flatten())
     if len(dimSet) != subdivisionDims.shape[1]:
@@ -1143,10 +1317,12 @@ def getSubdivisionIntervals(Ms, errors, trackedInterval, exact, level):
         allIntervals = newIntervals
     return allMs, allErrors, allIntervals
         
-def trimMs(Ms, errors, standardErrorIncrease=1e-16):
-    """Reduces the degree of chebyshev approximations and adds the resulting error to errors
+def trimMs(Ms, errors, absApproxTol=1e-16):
+    """Reduces the degree of each chebyshev approximation M when doing so has negligible error.
 
-    If the incoming error is E, will increase the error by at most max(relErrorIncrease * E, absErrorIncrease)
+    The coefficient matrices are trimmed in place. This function iteratively looks at the highest
+    degree coefficient row of each M along each dimension and trims it as long as the error introduced
+    is less than the allowed error increase for that dimension.
 
     Parameters
     ----------
@@ -1154,20 +1330,12 @@ def trimMs(Ms, errors, standardErrorIncrease=1e-16):
         The chebyshev approximations of the functions
     errors : numpy array
         The max error of the chebyshev approximation from the function on the interval
-    absErrorIncrease : float
-        The largest increase in error allowed
-    relErrorIncrease : float
-        The largest relative increase in error allowed
-    
-    Returns
-    -------
-    No return value, the Ms and errors and changed in place.
+    standardAllowedErrorIncrease : double
+        The largest increase in error allowed for standard systems of functions
     """
     dim = Ms[0].ndim
-    # print(f"Previous errors are {errors}")
     for polyNum in range(len(Ms)): #Loop through the polynomials
-        # print(f"Error for {polyNum} is {(errors)[polyNum]}.")
-        allowedErrorIncrease = max(errors[polyNum] * 1e-3, standardErrorIncrease)
+        allowedErrorIncrease = errors[polyNum] * 1e-3 + absApproxTol
         #Use slicing to look at a slice of the highest degree in the dimension we want to trim
         slices = [slice(None) for i in range(dim)] # equivalent to selecting everything
         for currDim in range(dim):
@@ -1190,10 +1358,11 @@ def trimMs(Ms, errors, standardErrorIncrease=1e-16):
             slices[currDim] = slice(None)
 
 def isExteriorInterval(originalInterval, trackedInterval):
+    """Determines if the current interval is exterior to its original interval."""
     return np.any(trackedInterval.getIntervalForCombining() == originalInterval.getIntervalForCombining())
 
 def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
-    """Recursively finds regions in which any common roots of functions must be using subdivision
+    """Recursively shrinks and subdivides the given interval to find the locations of all roots.
 
     Parameters
     ----------
@@ -1202,9 +1371,9 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
     trackedInterval : TrackedInterval
         The information about the interval we are solving on.
     errors : numpy array
-        The max error of the chebyshev approximation from the function on the interval
+        An upper bound for the error of the Chebyshev approximation of the function on the interval
     solverOptions : SolverOptions
-        Various options for the solve. See the SolverOptions class for details.
+        Desired settings for running interval checks, transformations, and subdivision.
     
     Returns
     -------
@@ -1257,6 +1426,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
     originalIntervalSize = trackedInterval.size()
     #Zoom in while we can
     lastSizes = trackedInterval.dimSize()
+    start_time = time()
     while changed and zoomCount <= solverOptions.maxZoomCount:
         #Zoom in until we stop changing or we hit machine epsilon
         Ms, errors, trackedInterval, changed, should_stop = zoomInOnIntervalIter(Ms, errors, trackedInterval, solverOptions.exact)
@@ -1267,9 +1437,12 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
         if np.all(newSizes >= lastSizes / 2): #Check all dims and use >= to account for a dimension being 0.
             zoomCount += 1
         lastSizes = newSizes
+    finish_time = time()
     if should_stop:
         #Start the final step if the is in the options and we aren't already in it.
         if trackedInterval.finalStep or not solverOptions.useFinalStep:
+            if solverOptions.verbose:
+                print("*",end="")
             if isExteriorInterval(originalInterval, trackedInterval):
                 return [], [trackedInterval]
             else:
@@ -1313,6 +1486,15 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
             #TODO: Don't subdivide in the final step in dimensions that are already points!
     else:       
         #Otherwise, Subdivide
+        if finish_time-start_time > 0.5:
+            warnings.warn(f"Long search time!\nLast interval reduction took {finish_time-start_time}" +
+                          "before subdividing. This may take a while.")
+        if solverOptions.level == 15:
+            warnings.warn(f"High subdivision depth!\nSubdivision on the search interval has now reached" +
+                          " at least depth 15. Runtime may be prolonged.")
+        elif solverOptions.level == 25:
+            warnings.warn(f"Extreme Deep subdivision!\nSubdivision on the search interval has now reached" +
+                          " at least depth 25, which is unusual. The solver may not finish running.")
         resultInterior, resultExterior = [], []
         #Get the new intervals and polynomials
         allMs, allErrors, allIntervals = getSubdivisionIntervals(Ms, errors, trackedInterval, solverOptions.exact, solverOptions.level)
@@ -1390,37 +1572,36 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
                 resultInterior.append(tempInterval)
         return resultInterior, newResultExterior
 
-def solveChebyshevSubdivision(Ms, errors, returnBoundingBoxes = False, polish = False, exact = False, constant_check = True, low_dim_quadratic_check = True, all_dim_quadratic_check = False):
-    """Finds regions in which any common roots of functions must be
+def solveChebyshevSubdivision(Ms, errors, verbose = False, returnBoundingBoxes = False, polish = False, exact = False, constant_check = True, low_dim_quadratic_check = True, all_dim_quadratic_check = False):
+    """Initiates shrinking and subdivision recursion and returns the roots and bounding boxes.
 
     Parameters
     ----------
     Ms : list of numpy arrays
-        The chebyshev approximations of the functions on the interval [-1,1]
+        The chebyshev approximations of the functions on the interval given to CombinedSolver
     errors : numpy array
         The max error of the chebyshev approximation from the function on the interval
+    verbose : bool
+        Defaults to False. Whether or not to output progress of solving to the terminal.
     returnBoundingBoxes : bool (Optional)
         Defaults to False. If True, returns the bounding boxes around each root as well as the roots.
     polish : bool (Optional)
-        Defaults to True. Whether or not to polish the roots at the end by zooming all they way back in.
+        Defaults to False. Whether or not to polish the roots at the end.
     exact : bool
-        Whether the transformation in TransformChebInPlaceND should be done without error
+        Whether transformations should be done with higher precision to minimize error.
     constant_check : bool
-        Defaults to True. Whether or not to run constant term check after each subdivision. Testing indicates
-        that this saves time in all dimensions.
+        Defaults to True. Whether or not to run constant term check after each subdivision.
     low_dim_quadratic_check : bool
-        Defaults to True. Whether or not to run quadratic check in dimensions two and three. Testing indicates
-        That this saves a lot of time compared to not running it in low dimensions.
+        Defaults to True. Whether or not to run quadratic check in dim 2, 3.
     all_dim_quadratic_check : bool
-        Defaults to False. Whether or not to run quadratic check in every dimension. Testing indicates it loses
-        time in 4 or higher dimensions.
+        Defaults to False. Whether or not to run quadratic check in dim >= 4.
 
     Returns
     -------
     roots : list
-        The roots
+        The roots of the system of functions on the interval given to Combined Solver
     boundingBoxes : list of numpy arrays (optional)
-        Each element of the list is an interval in which there may be a root.
+        List of intervals for each root in which the root is bound to lie.
     """
     #Assert that we have n nD polys
     if np.any([M.ndim != len(Ms) for M in Ms]):
@@ -1431,12 +1612,15 @@ def solveChebyshevSubdivision(Ms, errors, returnBoundingBoxes = False, polish = 
     #Solve
     originalInterval = TrackedInterval(np.array([[-1.,1.]]*Ms[0].ndim))
     solverOptions = SolverOptions()
+    solverOptions.verbose = verbose
     solverOptions.exact = exact
     solverOptions.constant_check = constant_check
     solverOptions.low_dim_quadratic_check = low_dim_quadratic_check
     solverOptions.all_dim_quadratic_check = all_dim_quadratic_check
     solverOptions.useFinalStep = True
 
+    if verbose:
+        print("Finding roots...", end=' ')
     b1, b2 = solvePolyRecursive(Ms, originalInterval, errors, solverOptions)
 
     boundingIntervals = b1 + b2
@@ -1476,6 +1660,9 @@ def solveChebyshevSubdivision(Ms, errors, returnBoundingBoxes = False, polish = 
         warnings.warn(f"Might Have Duplicate Roots! See Bounding Boxes for details!")
     #Return
     roots = np.array(roots)
+    if verbose:
+        finish_string = '\n' + f"Found {len(roots)} roots"
+        print((finish_string if len(roots) != 1 else finish_string[:-1]),end='\n\n')
     if returnBoundingBoxes:
         return roots, boundingIntervals
     else:
