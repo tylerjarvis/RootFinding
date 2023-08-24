@@ -1,6 +1,5 @@
 import numpy as np
 from scipy.signal import convolve
-# from numba import jit
 
 class Term(object):
     
@@ -10,43 +9,18 @@ class Term(object):
     def __repr__(self):
         return str(self.val)
 
-    def __lt__(self, other, order = 'grevlex'):
-        '''
-        Redfine less-than according to grevlex
-        '''
-        if order == 'grevlex': #Graded Reverse Lexographical Order
-            if sum(self.val) < sum(other.val):
-                return True
-            elif sum(self.val) > sum(other.val):
-                return False
-            else:
-                for i,j in zip(reversed(self.val),reversed(other.val)):
-                    if i < j:
-                        return False
-                    if i > j:
-                        return True
-                return False
-        elif order == 'lexographic': #Lexographical Order
-            for i,j in zip(self.val,other.val):
-                if i < j:
-                    return True
-                if i > j:
-                    return False
+    def __lt__(self, other):
+        if sum(self.val) < sum(other.val):
+            return True
+        elif sum(self.val) > sum(other.val):
             return False
-        elif order == 'grlex': #Graded Lexographical Order
-            if sum(self.val) < sum(other.val):
-                return True
-            elif sum(self.val) > sum(other.val):
-                return False
-            else:
-                for i,j in zip(self.val,other.val):
-                    if i < j:
-                        return True
-                    if i > j:
-                        return False
-                return False
-
-    # Define the other relations in grevlex order
+        else:
+            for i,j in zip(reversed(self.val),reversed(other.val)):
+                if i < j:
+                    return False
+                if i > j:
+                    return True
+            return False
 
     def __eq__(self, other):
         return self.val == other.val
@@ -60,7 +34,6 @@ class Term(object):
     def __le__(self,other):
         return (self < other or self == other)
 
-    #Makes terms hashable so they can go in a set
     def __hash__(self):
         return hash(self.val)
 
@@ -103,24 +76,21 @@ def match_size(a,b):
     b_new[slice_top(b.shape)] = b
     return a_new, b_new
 
+############ Fast polynomial evaluation functions ############
 
-
-# @jit(cache=True)
-def polyval(x, cc): #pragma: no cover
+def polyval(x, cc):
     c0 = cc[-1]
     for i in range(2, len(cc) + 1):
         c0 = cc[-i] + c0*x
     return c0
 
-# @jit(cache=True)
-def polyval2(x, cc): #pragma: no cover
+def polyval2(x, cc):
     c0 = cc[-1]
     for i in range(2, len(cc) + 1):
         c0 = cc[-i] + c0*x
     return c0
 
-# @jit(cache=True)
-def chebval(x, cc): #pragma: no cover
+def chebval(x, cc):
     if len(cc) == 1:
         c0 = cc[0]
         c1 = np.zeros_like(c0)
@@ -137,8 +107,7 @@ def chebval(x, cc): #pragma: no cover
             c1 = tmp + c1*x2
     return c0 + c1*x
 
-# @jit(cache=True)
-def chebval2(x, cc): #pragma: no cover
+def chebval2(x, cc):
     if len(cc) == 1:
         c0 = cc[0]
         c1 = np.zeros_like(c0)
@@ -154,6 +123,8 @@ def chebval2(x, cc): #pragma: no cover
             c0 = cc[-i] - c1
             c1 = tmp + c1*x2
     return c0 + c1*x
+
+################################################
 
 class Polynomial(object):
     '''

@@ -64,7 +64,8 @@ def interval_approximate_nd(f, degs, a, b, retSupNorm = False):
     if isinstance(f, MultiCheb) or isinstance(f, MultiPower): # for faster function evaluations
         values = f(cheb_pts).reshape(*(degs+1))
     else:
-        values = f(*cheb_pts.T).reshape(*(degs+1))
+        # values = f(*cheb_pts.T).reshape(*(degs+1))
+        values = np.array([f(*cheb_pt) for cheb_pt in cheb_pts]).reshape(*(degs+1))
     #Get the supNorm if we want it
     if retSupNorm:
         supNorm = np.max(np.abs(values))

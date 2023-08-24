@@ -2,9 +2,10 @@ import numpy as np
 from numba import njit
 import yroots.ChebyshevSubdivisionSolver as ChebyshevSubdivisionSolver
 import yroots.ChebyshevApproximator as ChebyshevApproximator
+import yroots.OLDOneDimension as OneDimension
+from yroots.polynomial import MultiCheb
 
-def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=False, constant_check = True,
-          low_dim_quadratic_check = True, all_dim_quadratic_check = False):
+def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=False):
 
     """Finds and returns the roots of a system of functions on the search interval [a,b].
 
@@ -13,6 +14,13 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
     contained in the approximation is insufficient to shrink the interval further, the interval is
     subdivided into subregions, and the searching function is recursively called until it zeros in
     on each root. A specific point (and, optionally, a bounding box) is returned for each root found.
+
+    NOTE: YRoots uses just in time compiling, which means that part of the code will not be compiled until
+    a system of functions to solve is given (rather than compiling all the code upon importing the module).
+    As a result, the very first time the solver is given any system of equations of a particular dimension,
+    the module will take several seconds longer to solve due to compiling time. Once the first system of a
+    particular dimension has run, however, other systems of that dimension (or even the same system run
+    again) will be solved at the normal (faster) speed thereafter.
 
     NOTE: The solve function is only guaranteed to work well on systems of equations where each function
     is continuous and smooth and each root in the interval is a simple root. If a function is not
@@ -44,7 +52,7 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
     funcs: list
         List of functions for searching. NOTE: Valid input is restricted to callable Python functions
         (including user-created functions) and yroots Polynomial (MultiCheb and MultiPower) objects.
-        String representations of functions are not valid input. See examples below.
+        String representations of functions are not valid input.
     a: list or numpy array
         An array containing the lower bound of the search interval in each dimension, listed in
         dimension order. If the lower bound is to be the same in each dimension, a single float input
@@ -61,15 +69,6 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
     exact: bool
         Defaults to False. Whether transformations performed on the approximation should be performed
         with higher precision to minimize error.
-    constant_check : bool
-        Defaults to True. Whether or not to run the constant term check to possibly eliminate an
-         entire subdivision interval after each subdivision.
-    low_dim_quadratic_check : bool
-        Defaults to True. Whether or not to run the quadratic term check to possibly eliminate an
-         entire subdivision interval after each subdivision in dimensions 2 and 3.
-    all_dim_quadratic_check : bool
-        Defaults to False. Whether or not to run the quadratic term check to possibly eliminate an
-         entire subdivision interval after each subdivision in dimensions greater than 3.
 
     Returns
     -------
@@ -79,59 +78,64 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
         The exact intervals (boxes) in which each root is bound to lie.
     """
 
-    # Set up problem and ensure input functions and upper/lower bounds are valid
-    if type(funcs) != list:
+    # Ensure input functions and upper/lower bounds are valid
+    if type(funcs) != list and type(funcs) != np.ndarray:
         funcs = [funcs]
     for i in range(len(funcs)):
         if not hasattr(funcs[i], '__call__'):
             raise ValueError(f"Invalid input: input function {i} is not callable")
+    dim = len(funcs)
     if type(a) == list:
         a = np.array(a)
     if type(b) == list:
         b = np.array(b)
     if type(a) != np.ndarray:
-        a = np.full(len(funcs),a)
+        a = np.full(dim,a)
     if type(b) != np.ndarray:
-        b = np.full(len(funcs),b)
+        b = np.full(dim,b)
     if len(a) != len(b):
         raise ValueError(f"Invalid input: {len(a)} lower bounds were given but {len(b)} upper bounds were given")
     if (b<a).any():
         raise ValueError(f"Invalid input: at least one lower bound is greater than the corresponding upper bound.")
     funcs = np.array(funcs)
-    errs = np.array([0.]*len(funcs))
+    errs = np.array([0.]*dim)
     
     # Check to see if the bounds are [-1,1]^n (if so, no final transformation will be needed)
     is_neg1_1 = True
-    arr_neg1 = -np.ones(len(a))
-    arr_1 = np.ones(len(a))
+    arr_neg1 = -np.ones(dim)
+    arr_1 = np.ones(dim)
     if not np.allclose(arr_neg1,a,rtol=1e-08) or not np.allclose(arr_1,b,rtol=1e-08):
         is_neg1_1 = False
 
     # Get an approximation for each function.
     if verbose:
         print("Approximation shapes:", end=" ")
-    for i in range(len(funcs)):
+    for i in range(dim):
         funcs[i], errs[i] = ChebyshevApproximator.chebApproximate(funcs[i],a,b)
         if verbose:
-            print(f"{i}: {funcs[i].shape}", end = " " if i != len(funcs)-1 else '\n')
+            print(f"{i}: {funcs[i].shape}", end = " " if i != dim-1 else '\n')
     if verbose:
-        print(f"Searching on interval {[[a[i],b[i]] for i in range(len(a))]}")
+        print(f"Searching on interval {[[a[i],b[i]] for i in range(dim)]}")
 
-       
     # Find and return the roots (and, optionally, the bounding boxes)
     if returnBoundingBoxes:
         yroots, boundingBoxes = ChebyshevSubdivisionSolver.solveChebyshevSubdivision(funcs,errs,verbose,returnBoundingBoxes,exact,
-                constant_check=constant_check, low_dim_quadratic_check=low_dim_quadratic_check,
-                all_dim_quadratic_check=all_dim_quadratic_check)
+                constant_check=True, low_dim_quadratic_check=True,
+                all_dim_quadratic_check=False)
         boundingBoxes = np.array([boundingBox.interval for boundingBox in boundingBoxes])
         if is_neg1_1 == False and len(yroots) > 0: 
             yroots = ChebyshevApproximator.transform(yroots,a,b)
             boundingBoxes = np.array([ChebyshevApproximator.transform(boundingBox.T,a,b).T for boundingBox in boundingBoxes]) #xx yy, roots are xy xy each row
         return yroots, boundingBoxes
     else:
-        yroots = ChebyshevSubdivisionSolver.solveChebyshevSubdivision(funcs,errs,verbose,returnBoundingBoxes,exact,
-                constant_check=constant_check, low_dim_quadratic_check=low_dim_quadratic_check,
-                all_dim_quadratic_check=all_dim_quadratic_check)
+        if dim == 1.5:
+            allroots11 = OneDimension.solve(MultiCheb(funcs[0]))
+            realroots11 = np.array([np.real(root) for root in allroots11 if np.isclose(np.imag(root),0,atol=1e-14)])
+            yroots = np.extract(np.logical_and(np.greater_equal(realroots11,-1),np.less_equal(realroots11,1)),realroots11)
+        else:
+            yroots = ChebyshevSubdivisionSolver.solveChebyshevSubdivision(funcs,errs,verbose,returnBoundingBoxes,exact,
+                    constant_check=True, low_dim_quadratic_check=True,
+                    all_dim_quadratic_check=False)
         if is_neg1_1 == False and len(yroots) > 0:
             yroots = ChebyshevApproximator.transform(yroots,a,b)
         return yroots
