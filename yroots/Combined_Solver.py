@@ -2,7 +2,6 @@ import numpy as np
 from numba import njit
 import yroots.ChebyshevSubdivisionSolver as ChebyshevSubdivisionSolver
 import yroots.ChebyshevApproximator as ChebyshevApproximator
-import yroots.OLDOneDimension as OneDimension
 from yroots.polynomial import MultiCheb
 
 def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=False):
@@ -128,14 +127,9 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
             boundingBoxes = np.array([ChebyshevApproximator.transform(boundingBox.T,a,b).T for boundingBox in boundingBoxes]) #xx yy, roots are xy xy each row
         return yroots, boundingBoxes
     else:
-        if dim == 1.5:
-            allroots11 = OneDimension.solve(MultiCheb(funcs[0]))
-            realroots11 = np.array([np.real(root) for root in allroots11 if np.isclose(np.imag(root),0,atol=1e-14)])
-            yroots = np.extract(np.logical_and(np.greater_equal(realroots11,-1),np.less_equal(realroots11,1)),realroots11)
-        else:
-            yroots = ChebyshevSubdivisionSolver.solveChebyshevSubdivision(funcs,errs,verbose,returnBoundingBoxes,exact,
-                    constant_check=True, low_dim_quadratic_check=True,
-                    all_dim_quadratic_check=False)
+        yroots = ChebyshevSubdivisionSolver.solveChebyshevSubdivision(funcs,errs,verbose,returnBoundingBoxes,exact,
+                constant_check=True, low_dim_quadratic_check=True,
+                all_dim_quadratic_check=False)
         if is_neg1_1 == False and len(yroots) > 0:
             yroots = ChebyshevApproximator.transform(yroots,a,b)
         return yroots
