@@ -1,0 +1,153 @@
+
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+    <title>MultiPower &#8212; YRoots  documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="MultiCheb" href="MultiCheb.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="multipower">
+<span id="id1"></span><h1>MultiPower<a class="headerlink" href="#multipower" title="Permalink to this heading">¶</a></h1>
+<hr class="docutils" />
+<section id="multipower-class">
+<h2>MultiPower Class<a class="headerlink" href="#multipower-class" title="Permalink to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="yroots.polynomial.MultiPower">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">yroots.polynomial.</span></span><span class="sig-name descname"><span class="pre">MultiPower</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coeff</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">clean_zeros</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#yroots.polynomial.MultiPower" title="Permalink to this definition">¶</a></dt>
+<dd><p>Coefficient tensor representation of a power basis polynomial.</p>
+<p>Using this class instead of a Python callable function to represent a power basis polynomial
+can lead to faster function evaluations during approximation.</p>
+<p class="rubric">Examples</p>
+<p>To represent 3x^6 + 5.5x^2 -4:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">f</span> <span class="o">=</span> <span class="n">yroots</span><span class="o">.</span><span class="n">MultiPower</span><span class="p">([</span><span class="o">-</span><span class="mi">4</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mf">5.5</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">3</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+<span class="go">[-4.   0.   5.5  0.   0.   0.   3. ]</span>
+</pre></div>
+</div>
+<p>To represent 0.62x^3*y - 0.11x*y + 1.03y^2 - 0.58:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">f</span> <span class="o">=</span> <span class="n">yroots</span><span class="o">.</span><span class="n">MultiPower</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="o">-</span><span class="mf">0.58</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mf">1.03</span><span class="p">],[</span><span class="mi">0</span><span class="p">,</span><span class="o">-</span><span class="mf">0.11</span><span class="p">,</span><span class="mi">0</span><span class="p">],[</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">],[</span><span class="mi">0</span><span class="p">,</span><span class="mf">0.62</span><span class="p">,</span><span class="mi">0</span><span class="p">]]))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+<span class="go">[[-0.58  0.    1.03]</span>
+<span class="go"> [ 0.   -0.11  0.  ]</span>
+<span class="go"> [ 0.    0.    0.  ]</span>
+<span class="go"> [ 0.    0.62  0.  ]]</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>coeff</strong> (<em>list</em><em> or </em><em>numpy array</em>) – An array containing the coefficients of the polynomial. If the polynomial is n-dimensional,
+the (i,j,…,n) index represents the term of degree i in dimension 0, degree j in dimension 1,
+and so forth.</p></li>
+<li><p><strong>clean_zeros</strong> (<em>bool</em>) – Whether or not to remove all extra rows or columns containing only zeros. Defaults to True.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="modules.html">YRoots</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="index.html">Home</a></li>
+<li class="toctree-l1"><a class="reference internal" href="CombinedSolver.html">yroots.solve()</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ChebyshevApproximator.html">yroots.approximate()</a></li>
+<li class="toctree-l1"><a class="reference internal" href="MultiCheb.html">yroots.MultiCheb</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">yroots.MultiPower</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#multipower-class">MultiPower Class</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="modules.html">Documentation overview</a><ul>
+      <li>Previous: <a href="MultiCheb.html" title="previous chapter">MultiCheb</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2023, BYU Math.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/MultiPower.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

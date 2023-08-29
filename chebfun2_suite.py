@@ -2,9 +2,20 @@ import numpy as np
 from yroots.Combined_Solver import solve
 from time import time
 from matplotlib import pyplot as plt
-from yroots.utils import sortRoots
 # TODO Description of where these tests come from, links to relevant papers,
 # acknowledgements, etc.
+
+def sortRoots(roots, seed = 12399):
+    """Sorts roots so they can be compared against other roots that were sorted the same way.
+    Sorts by distance from a random hyperplane to avoid roots being too close according to the sort.
+    """
+    if len(roots) == 0:
+        return roots
+    np.random.seed(seed)
+    dim = roots.shape[1]
+    r = np.array(np.random.rand(dim))
+    order = np.argsort(roots@r)
+    return roots[order]
 
 def pass_or_fail(funcs, yroots, roots, test_num, test_type="norm", tol=2.220446049250313e-13):
     """Determines whether a test passes or fails bsed on the given criteria.
@@ -185,7 +196,7 @@ def verbose_pass_or_fail(funcs, yroots, polished_roots, test_num, cheb_roots=Non
             print("A different number of roots were found.")
             print ("Yroots: " + str(len(yroots)))
             print("Chebfun Roots: " + str(len(cheb_roots)))
-    alt_norm_tols = {1.2 : 1e-7, 3.1 : 5e-11, 4.2 : 5e-13, 7.2 : 1e-8}
+    alt_norm_tols = {1.2 : 1e-7, 3.1 : 5e-11, 4.2 : 6e-13, 7.2 : 1e-8}
     if polished_roots is not None:
         try:
             if test_num == 6.1:

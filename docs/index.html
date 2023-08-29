@@ -1,21 +1,23 @@
 
 <!DOCTYPE html>
 
-<html xmlns="http://www.w3.org/1999/xhtml">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
     <title>YRoots &#8212; YRoots  documentation</title>
-    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
-    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
-    <script type="text/javascript" src="_static/jquery.js"></script>
-    <script type="text/javascript" src="_static/underscore.js"></script>
-    <script type="text/javascript" src="_static/doctools.js"></script>
-    <script type="text/javascript" src="_static/language_data.js"></script>
-    <script async="async" type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script src="_static/doctools.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
-    <link rel="next" title="Modules" href="modules.html" />
+    <link rel="next" title="yroots.solve()" href="CombinedSolver.html" />
+    <link rel="prev" title="Modules" href="modules.html" />
    
   <link rel="stylesheet" href="_static/custom.css" type="text/css" />
   
@@ -32,43 +34,26 @@
 
           <div class="body" role="main">
             
-  <div class="section" id="yroots">
-<h1>YRoots<a class="headerlink" href="#yroots" title="Permalink to this headline">¶</a></h1>
-<p><em>Find your roots</em></p>
-<hr class="docutils" />
-<div class="section" id="what-is-rootfinding">
-<h2>What is RootFinding?<a class="headerlink" href="#what-is-rootfinding" title="Permalink to this headline">¶</a></h2>
-<p>Rootfinding is the process of finding fast and computationally stable methods for
-the roots of a system of polynomial equations. Methods have been developed to quickly
-find the roots of a polynomial system in one, two, and three dimensions.</p>
-<p>The YRoots package aims to extend the scope of Rootfinding algorithms by applying the
-methods to systems of equations that are not necessarily polynomials. YRoots also aims to
-solve higher-dimensional problems. It accomplishes this by approximating the given functions
-as Chebyshev polynomials, subdividing search regions to narrow in on a root, and applying a
-spectral algorithm to find the root.</p>
-<div class="toctree-wrapper compound">
-<p class="caption"><span class="caption-text">Contents:</span></p>
-<ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Home</a></li>
-<li class="toctree-l1"><a class="reference internal" href="modules.html">Modules</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="modules.html#module-yroots.subdivision">Subdivision</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules.html#module-yroots.OneDimension">One Dimension</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules.html#module-yroots.Multiplication">Multiplication</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules.html#module-yroots.IntervalChecks">Interval Checks</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules.html#module-yroots.MacaulayReduce">Macaulay Reduce</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules.html#module-yroots.polynomial">Polynomial</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules.html#module-yroots.polyroots">Polyroots</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules.html#module-yroots.LinearProjection">Linear Projection</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules.html#module-yroots.ProjectiveSpace">Projective Space</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules.html#module-yroots.Division">Division</a></li>
-<li class="toctree-l2"><a class="reference internal" href="modules.html#module-yroots.utils">Utils</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="genindex.html">Index of Functions</a></li>
-</ul>
-</div>
-</div>
-</div>
+  <section id="yroots">
+<h1>YRoots<a class="headerlink" href="#yroots" title="Permalink to this heading">¶</a></h1>
+<p><em>A fast-working package for finding the roots of multivariate systems of equations.</em></p>
+<section id="how-yroots-works">
+<h2>How YRoots Works<a class="headerlink" href="#how-yroots-works" title="Permalink to this heading">¶</a></h2>
+<p>YRoots harnesses the properties of Chebyshev polynomial approximation to quickly and precisely find and
+return the roots of various systems of functions.</p>
+<p>Given a list of smooth, continuous functions and a compact search interval, YRoots generates an accurate
+approximation for each function on the interval and recursively uses numerical methods to zero in on any
+roots contained in the interval.</p>
+</section>
+<section id="getting-started-with-yroots">
+<h2>Getting Started with YRoots<a class="headerlink" href="#getting-started-with-yroots" title="Permalink to this heading">¶</a></h2>
+<p>Getting started with YRoots is quick and simple. To learn how to use the solver, navigate to the
+yroots.solve() page for the documentation and examples.</p>
+<p>Some users may wish to use two special YRoots class objects, MultiCheb and MultiPower, built for faster
+function evaluations of Chebyshev-based or power-based polynomials. To learn how to use these, see the
+corresponding documentation.</p>
+</section>
+</section>
 
 
           </div>
@@ -77,7 +62,7 @@ spectral algorithm to find the root.</p>
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
-<h1 class="logo"><a href="#">YRoots</a></h1>
+<h1 class="logo"><a href="modules.html">YRoots</a></h1>
 
 
 
@@ -87,31 +72,38 @@ spectral algorithm to find the root.</p>
 
 
 <h3>Navigation</h3>
-<p class="caption"><span class="caption-text">Contents:</span></p>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Home</a></li>
-<li class="toctree-l1"><a class="reference internal" href="modules.html">Modules</a></li>
-<li class="toctree-l1"><a class="reference internal" href="genindex.html">Index of Functions</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Home</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#how-yroots-works">How YRoots Works</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#getting-started-with-yroots">Getting Started with YRoots</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="CombinedSolver.html">yroots.solve()</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ChebyshevApproximator.html">yroots.approximate()</a></li>
+<li class="toctree-l1"><a class="reference internal" href="MultiCheb.html">yroots.MultiCheb</a></li>
+<li class="toctree-l1"><a class="reference internal" href="MultiPower.html">yroots.MultiPower</a></li>
 </ul>
 
 <div class="relations">
 <h3>Related Topics</h3>
 <ul>
-  <li><a href="#">Documentation overview</a><ul>
-      <li>Next: <a href="modules.html" title="next chapter">Modules</a></li>
+  <li><a href="modules.html">Documentation overview</a><ul>
+      <li>Previous: <a href="modules.html" title="previous chapter">Modules</a></li>
+      <li>Next: <a href="CombinedSolver.html" title="next chapter">yroots.solve()</a></li>
   </ul></li>
 </ul>
 </div>
 <div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
+  <h3 id="searchlabel">Quick search</h3>
     <div class="searchformwrapper">
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" />
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
       <input type="submit" value="Go" />
     </form>
     </div>
 </div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
+<script>document.getElementById('searchbox').style.display = "block"</script>
 
 
 
@@ -125,10 +117,10 @@ spectral algorithm to find the root.</p>
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, BYU Math.
+      &copy;2023, BYU Math.
       
       |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.0.1</a>
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 5.0.2</a>
       &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
       
       |

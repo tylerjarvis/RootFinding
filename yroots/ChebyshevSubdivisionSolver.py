@@ -9,7 +9,6 @@ from time import time
 import copy
 import warnings
 
-
 class SolverOptions():
     """Settings for running interval checks, transformations, and subdivision in solvePolyRecursive.
 
@@ -596,32 +595,32 @@ def getLinearTerms(M):
         spot *= i
     return A[::-1] # Return linear terms in dimension order.
 
-def find_vertices(A_ub, b_ub):
-    """ Finds the intersection points of the halfspaces associated with the current interval.
+def find_vertices(A_ub, b_ub, tol = .05):
+    """
+    This function calculates the feasible point that is most inside the halfspace. 
+    It then feeds that feasible point into the halfspace intersection solver and finds the intersection of the hyper-polygon and the hyper-cube. 
+    It returns these intersection points (which when we take the min and max of, gives the interval we should shrink down to).
 
-    This function calculates a feasible point inside the halfspace, feeds that feasible point into
-    the halfspace intersection solver, and finds the intersection points. The algorithm for the
-    first half of this function (the portion that calculates the feasible point) is found at
+    The algorithm for the first half of this function (the portion that calculates the feasible point) is found at:
     https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.HalfspaceIntersection.html
 
     Parameters
     ----------
     A_ub : numpy array
-        The array np.vstack([A, -A]), where A is the matrix A from BoundingIntervalLinearSystem
-    b_ub : numpy array
-        The array np.hstack([err - consts, consts + err]).T.reshape(-1, 1) associated with A
+        #This is created as: A_ub = np.vstack([A, -A]), where A is the matrix A from BoundingIntervalLinearSystem
+    b_ub : numpy vector (1D)
+        #This is created as: b_ub = np.hstack([err - consts, consts + err]).T.reshape(-1, 1), where err and consts are from BoundingIntervalLinearSystem
 
     Returns
     -------
     tell : int
         This is a variable that is used to tell how the linear programming proceeded:
             1 : The linear programming found no feasible point, so the interval should be thrown out.
-            2 : The linear programming found a feasible point, but the halfspaces code said it was not
-                "clearly inside" the halfspace. This happens when the coefficients and error are all
-                tiny as the algorithm is zooming in on a root, so the entire interval should be kept.
-            3 : The linear programming ran without error, and a new interval was found.
-            4 : The linear programming failed, so the standard shrinking method should be run instead.
-    intersects : numpy array
+            2 : The linear programming found a feasible point, but the halfspaces code said it was not "clearly inside" the halfspace.
+                This happens when the coefficients and error are all really tiny. In this case we are zooming in on a root, so we should keep the entire interval.
+            3 : This means the linear programming and halfspace code ran without error, and a new interval was found
+            4 : This means the linear programming code failed in such a way that we cannot use this method and need to use Erik's linear linear code instead.
+    intersects : numpy array (ND)
         An array of the vertices of the intersection of the hyper-polygon and hyper-cube 
     """
     
@@ -676,36 +675,17 @@ def find_vertices(A_ub, b_ub):
     try:
         intersects = HalfspaceIntersection(halfspaces, feasible_point).intersections
     except QhullError as e:
-        #If the halfspaces failed, it means the coefficnets were really really tiny, which indicates that we have zoomed up on a root.
-        #Thus we should return the entire interval, because it is a tiny interval that contains a root.
-        return 2, np.vstack([np.ones(n),-np.ones(n)])
+        #If the feasible point is still not clearly inside the halfspaces, this error is thrown. 
+        #In this case, the entire boundary is too close to the edge of the [-1,1]^n box so halfspaces will struggle. Thus we call Erik's linear programming code instead.
+        return 4, None
 
     #If the problem can be solved, it means the interval was shrunk, so return the intersections
     return 3, intersects
 
 @njit
 def linearCheck1(totalErrs, A, consts):
-    """Calculates a reduction of the interval that may possibly contain roots.
-
-    The interval can be shrunk to the region where the absolute value of the sum of the constant and
-    linear terms are greater than that of the rest of the terms in the approximation for each dimension.
-    
-    Parameters
-    ----------
-    totalErrs : numpy array
-        The sum of the absolute value of the remaining coefficients of the approximation plus error
-    A : numpy array
-        The linear terms of each approximation
-    consts : numpy array
-        The constant terms of each approximation
-
-    Returns
-    -------
-    a : numpy array
-        The lower bounds of the reduced interval along each dimension
-    b : numpy array
-        The upper bounds of the reduced interval along each dimension
-    """
+    """Takes A, the linear terms of each function approximation, and makes any possible reduction
+        in the interval based on the totalErrs."""
     dim = len(A)
     a = -np.ones(dim) * np.inf
     b = np.ones(dim) * np.inf
@@ -722,31 +702,95 @@ def linearCheck1(totalErrs, A, consts):
                 b[col] = min(b[col], b_)
     return a, b
 
+def ReduceDimension(A, consts, errs, errors):
+    """Reduces dimension of a region by 1 if it is intersected with at least 1 hyperplane
+
+    Parameters
+    ----------
+    A : numpy array
+        The matrix of linear terms
+    consts : numpy vector (1D)
+        The vector of constant terms
+    errs : numpy vector (1D)
+        The vector of maximum errors of linear chebyshev approximation
+    errors : numpy vector (1D)
+        The given errors of chebyshev approximation
+
+    Returns
+    -------
+    new_A : numpy array
+        Array of new linear terms
+    new_consts : numpy vector (1D)
+        Vector containing the new constant terms
+    new_errs : numpy vector (1D)
+        Vector containing new linear errors
+    new_errors : numpy vector (1D)
+        Vector containing new total errors
+    row_idx : int
+        The index of the row removed
+    col_idx : int
+        The index of the column removed
+    del_row : numpy vector (1D)
+        The normalized row taken out
+    del_norm : float
+        The largest value of the original del_row
+    """
+
+    #Get index of first row that has corresponding err less than 1e-11
+    row_idx = np.where(errs <= 1e-11)[0][0]
+    del_row = A[row_idx]
+    col_idx = np.where(abs(del_row.flatten())==np.max(abs(del_row)))[0][0]
+    del_norm = del_row[col_idx]
+    consts[row_idx] /= del_norm
+    errs[row_idx] /= del_norm
+    errors[row_idx] /= del_norm
+    del_row /= del_norm
+    reduced_A = A-np.matmul(np.vstack(A[:,col_idx]),[del_row])
+    new_A = np.vstack([np.hstack([reduced_A[:row_idx,:col_idx],reduced_A[:row_idx,col_idx+1:]]),np.hstack([reduced_A[row_idx+1:,:col_idx],reduced_A[row_idx+1:,col_idx+1:]])])
+    reduced_consts = consts - consts[row_idx]*A[:,col_idx]
+    new_consts = np.hstack([reduced_consts[:row_idx],reduced_consts[row_idx+1:]])
+    reduced_errs = errs + abs(errs[row_idx]*A[:,col_idx])
+    new_errs = np.hstack([reduced_errs[:row_idx],reduced_errs[row_idx+1:]])
+    reduced_errors = errors + abs(errors[row_idx]*A[:,col_idx])
+    new_errors = np.hstack([reduced_errors[:row_idx],reduced_errors[row_idx+1:]])
+    return new_A,new_consts,new_errs,new_errors,row_idx,col_idx,del_row,del_norm
+
+def RetrieveDimension(bounds, errs, consts, plane_consts, row_idx, col_idx, del_norm):
+    """
+    """
+    plane_consts = np.hstack([plane_consts[:col_idx],plane_consts[col_idx+1:]])
+    idxs = ((np.sign(plane_consts)+1)/2).astype(int)
+    linear_terms = bounds[np.arange(len(idxs)),idxs]
+    min = consts[row_idx]/del_norm - np.dot(linear_terms,plane_consts) - abs(errs[row_idx])
+    idxs = 1-idxs
+    linear_terms = bounds[np.arange(len(idxs)),idxs]
+    max = consts[row_idx]/del_norm - np.dot(linear_terms,plane_consts) + abs(errs[row_idx])
+    minmax = np.array([min,max])
+    new_bounds = np.vstack([bounds[:row_idx,:],minmax,bounds[row_idx:,:]])
+    return new_bounds
+
 def BoundingIntervalLinearSystem(Ms, errors, finalStep, linear = False):
     """Finds a smaller region in which any root must be.
 
     Parameters
     ----------
     Ms : list of numpy arrays
-        The coefficient tensors for each Chebyshev polynomial
-    errors : numpy array
-        The maximum error of each Chebyshev approximations
+        Each numpy array is the coefficient tensor of a chebyshev polynomials
+    errors : iterable of floats
+        The maximum error of chebyshev approximations
     finalStep : bool
-        Whether or not the algorithm is in the final step (zooming in a point assuming zero error)
-    linear : bool
-        Whether or not the function should shrink the interval using the standard method even
-        if dim > 4 (rather than using halfspace intersections)
+        Whether we are in the final step of the algorithm
 
     Returns
     -------
-    newInterval : TrackedInterval
+    newInterval : numpy array
         The smaller interval where any root must be
     changed : bool
-        Whether the interval has shrunk sufficiently
+        Whether the interval has shrunk at all
     should_stop : bool
-        Whether or not to continue subdividing after the shrinking is performed
+        Whether we should stop subdividing
     throwout :
-        Whether or not the interval should be thrown out entirely (if it does not contain a root)
+        Whether we should throw out the interval entirely
     """
     if finalStep:
         errors = np.zeros_like(errors)
@@ -764,7 +808,7 @@ def BoundingIntervalLinearSystem(Ms, errors, finalStep, linear = False):
     totalErrs = np.array([np.sum(np.abs(M)) + e for M,e in zip(Ms, errors)])
     linear_sums = np.sum(np.abs(A),axis=1)
     err = np.array([tE-abs(c)-l for tE,c,l in zip(totalErrs,consts,linear_sums)])
-    
+
     #Scale all the polynomials relative to one another
     errors = errors.copy()
     for i in range(dim):
@@ -786,6 +830,9 @@ def BoundingIntervalLinearSystem(Ms, errors, finalStep, linear = False):
             colScaler[i] = s
             totalErrs += np.abs(A[:,i]) * (s - 1)
             A[:,i] *= s
+
+    
+
 
     #Run Erik's code if the dimension of the problem is <= 4, OR if the variable "linear" equals True.
     #The variable "Linear" is False by default, but in the case where we tried to run the halfspaces code (meaning the problem has dimension 5 or greater)
@@ -822,7 +869,6 @@ def BoundingIntervalLinearSystem(Ms, errors, finalStep, linear = False):
             b[b > 1] = 1
 
             forceShouldStop = finalStep and not wellConditioned
-            # if forceShouldStop:
             # Calculate the "changed" variable
             newRatio = np.product(b - a) / 2**dim
             if throwOut:
@@ -851,11 +897,23 @@ def BoundingIntervalLinearSystem(Ms, errors, finalStep, linear = False):
                 return np.vstack([a_orig,b_orig]).T, False, wellConditioned or forceShouldStop, False
 
     #Use the halfspaces code in the case when dim >= 5
+
+    num_dim_reductions = 0
+    A_orig,consts_orig,err_orig,errors_orig = A,consts,err,errors
+    if (np.any(err<1e-10)):
+        num_dim_reductions+=1
+        A,consts,err,errors,row_idx,col_idx,del_row,del_norm = ReduceDimension(A,consts,err,errors)
+
     #Define the A_ub matrix
     A_ub = np.vstack([A, -A])
     
     #This loop will only execute the second time if the interval was not changed on the first iteration and it needs to run again with tighter errors
     for i in range(2):
+
+        #Bound err below by 1e-11 so approximations are not so tight that the halfspaces code doesn't work
+        err_lb = 1e-11
+        err = np.array(err)
+        err = np.where(err<err_lb,err_lb,err)
         #Define the b_ub vector
         b_ub = np.hstack([err - consts, consts + err]).T.reshape(-1, 1)
 
@@ -863,20 +921,29 @@ def BoundingIntervalLinearSystem(Ms, errors, finalStep, linear = False):
         tell, vertices = find_vertices(A_ub, b_ub)
 
         if tell == 4:
-            return BoundingIntervalLinearSystem(Ms, errors, finalStep, True)
+            return BoundingIntervalLinearSystem(Ms, errors_orig, finalStep, True)
 
         if i == 0 and tell == 1:
             #First time through and no feasible point so throw out the entire interval
-            return np.vstack([[1.0]*len(A),[-1.0]*len(A)]).T, True, True, True
+            return np.vstack([[1.0]*len(A_orig),[-1.0]*len(A_orig)]).T, True, True, True
 
         elif i == 0 and tell != 1:
             if tell == 2:
+                #This should never occur
                 #This means we have zoomed up on a root and we should be done.
                 return np.vstack([[-1.0]*len(A),[1.0]*len(A)]).T, False, True, False
             
             #Get the a and b arrays
             a = vertices.min(axis=0)
             b = vertices.max(axis=0)
+
+            #Undo dimension reduction
+            if (num_dim_reductions > 0):
+                bounds = np.hstack([np.vstack(a),np.vstack(b)])
+                new_bounds = RetrieveDimension(bounds,err_orig,consts_orig,del_row,row_idx,col_idx,del_norm)
+                a = new_bounds[:,0]
+                b = new_bounds[:,1]
+
             #Undo the column preconditioning
             a *= colScaler
             b *= colScaler
@@ -905,7 +972,7 @@ def BoundingIntervalLinearSystem(Ms, errors, finalStep, linear = False):
 
         #If second time through:
         elif i == 1:
-            
+
             if tell == 1 or tell == 2:
                 #This means there was an issue when we ran the code with the smaller error, so some intervals may be good but some bad.
                 #We will need to shrink down to find out. So return with is_done = False so that we subdivide.
@@ -916,6 +983,12 @@ def BoundingIntervalLinearSystem(Ms, errors, finalStep, linear = False):
                 #Get the a and b arrays
                 a = vertices.min(axis=0) - widthToAdd
                 b = vertices.max(axis=0) + widthToAdd
+
+                if (num_dim_reductions > 0):
+                    bounds = np.hstack([np.vstack(a),np.vstack(b)])
+                    new_bounds = RetrieveDimension(bounds,err_orig,consts_orig,del_row,row_idx,col_idx,del_norm)
+                    a = new_bounds[:,0]
+                    b = new_bounds[:,1]
 
                 #Adjust the a's and b's to account for slight error in the halfspaces code
                 a -= widthToAdd
@@ -1214,27 +1287,24 @@ def getSubdivisionDims(Ms,trackedInterval,level):
         The ith row gives the dimensions in which Ms[i] should be subdivided, in order.
     """
     dim = len(Ms)
-    dims_to_consider = [i for i in range(dim)]
-    if level > 5 and level != 1:
-        for i in range(dim):
-            if trackedInterval.interval[i,0] == trackedInterval.interval[i,1]:
-                dims_to_consider.remove(i)
-        dims_to_consider = np.array(dims_to_consider)
+    dims_to_consider = np.arange(dim)
+    for i in range(dim):
+        if np.isclose(trackedInterval.interval[i,0], trackedInterval.interval[i,1]):
+            if len(dims_to_consider) != 1:
+                dims_to_consider = np.delete(dims_to_consider, np.argwhere(dims_to_consider==i))
+    if level > 5:
         return np.vstack([dims_to_consider[np.argsort(np.array(M.shape)[dims_to_consider])[::-1]] for M in Ms])
     else:
         dim_lengths = trackedInterval.dimSize()
-        for i in range(dim):
-            length_to_check = dim_lengths[i]*5
-            if any(length_to_check < length for length in dim_lengths):
-                dims_to_consider.remove(i)
+        max_length = np.max(dim_lengths)
+        dims_to_consider = np.extract(dim_lengths[dims_to_consider]>max_length/5,dims_to_consider)
         if len(dims_to_consider) > 1:
-            shapes = [list(M.shape) for M in Ms]
-            degree_sums = [np.sum([shape[i] for shape in shapes]) if i in dims_to_consider else 0 for i in range(dim)]
+            shapes = np.array([np.array(M.shape) for M in Ms])                
+            degree_sums = np.sum(shapes,axis=0)
             total_sum = np.sum(degree_sums)
-            for i in range(dim):
-                if i in dims_to_consider and len(dims_to_consider) > 1 and degree_sums[i] < np.floor(total_sum/(len(dims_to_consider)+1)):
-                    dims_to_consider.remove(i)
-        dims_to_consider = np.array(dims_to_consider)
+            for i in dims_to_consider.copy():
+                if len(dims_to_consider) > 1 and degree_sums[i] < np.floor(total_sum/(dim+1)):
+                    dims_to_consider = np.delete(dims_to_consider, np.argwhere(dims_to_consider==i))
         return np.vstack([dims_to_consider[np.argsort(np.array(M.shape)[dims_to_consider])[::-1]] for M in Ms])
 
 def getSubdivisionIntervals(Ms, errors, trackedInterval, exact, level):
@@ -1486,15 +1556,14 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
             #TODO: Don't subdivide in the final step in dimensions that are already points!
     else:       
         #Otherwise, Subdivide
-        if finish_time-start_time > 0.5:
-            warnings.warn(f"Long search time!\nLast interval reduction took {finish_time-start_time}" +
-                          "before subdividing. This may take a while.")
         if solverOptions.level == 15:
             warnings.warn(f"High subdivision depth!\nSubdivision on the search interval has now reached" +
                           " at least depth 15. Runtime may be prolonged.")
         elif solverOptions.level == 25:
-            warnings.warn(f"Extreme Deep subdivision!\nSubdivision on the search interval has now reached" +
-                          " at least depth 25, which is unusual. The solver may not finish running.")
+            warnings.warn(f"Extreme subdivision depth!\nSubdivision on the search interval has now reached" +
+                          " at least depth 25, which is unusual. The solver may not finish running." +
+                          "Ensure the input functions meet the requirements of being continuous, smooth," +
+                          "and having only finitely many simple roots on the search interval.")
         resultInterior, resultExterior = [], []
         #Get the new intervals and polynomials
         allMs, allErrors, allIntervals = getSubdivisionIntervals(Ms, errors, trackedInterval, solverOptions.exact, solverOptions.level)

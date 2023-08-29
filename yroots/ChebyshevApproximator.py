@@ -64,7 +64,8 @@ def interval_approximate_nd(f, degs, a, b, retSupNorm = False):
     if isinstance(f, MultiCheb) or isinstance(f, MultiPower): # for faster function evaluations
         values = f(cheb_pts).reshape(*(degs+1))
     else:
-        values = f(*cheb_pts.T).reshape(*(degs+1))
+        # values = f(*cheb_pts.T).reshape(*(degs+1))
+        values = np.array([f(*cheb_pt) for cheb_pt in cheb_pts]).reshape(*(degs+1))
     #Get the supNorm if we want it
     if retSupNorm:
         supNorm = np.max(np.abs(values))
@@ -166,6 +167,60 @@ def getFinalDegree(coeff,tol):
     maxSpot = np.argmax(coeff)
     rho = (coeff[maxSpot]/epsVal)**(1/((degree - maxSpot) + 1)) 
     return degree, epsVal, rho
+
+def checkConstantInDimension(f,a,b,currDim):
+    """Check to see if the output of f is not dependent on the input coordinate of a dimension.
+    
+    Uses predetermined random numbers to find a point x in the interval where f(x) != 0 and checks
+    whether the value of f changes as the dimension currDim coordinate of x changes. Repeats twice.
+
+    Parameters
+    ----------
+    f : function
+        The function being evaluated.
+    a : numpy array
+        The lower bound on the interval.
+    b : numpy array
+        The upper bound on the interval.
+    currDim : int
+        The dimension being examined.
+    
+    Returns
+    -------
+    is_constant : bool
+        Whether the dimension is constant in dimension currDim. Returns False if the test is
+        indeterminate or f is seen to vary with different values of x[dim]. Returns True otherwise.
+    """
+    if isinstance(f,MultiPower) or isinstance(f,MultiCheb): # Points evaluated differently for these
+        is_m = True
+    else:
+        is_m = False
+    dim = len(a)
+
+    # First test point x_1
+    x_1 = transform(np.array([0.8984743990614998**(val+1) for val in range(dim)]),a,b)
+    eval1 = (f(*x_1) if not is_m else f(x_1))
+    if np.isclose(eval1,0): # Make sure f(x_1) != 0 (unlikely)
+            return False
+    # Test how changing x_1[dim] changes the value of f for several values         
+    for val in transform(np.array([-0.7996847717584993,0.18546110255464776,-0.13975937255055182,0.,1.,-1.]),a[currDim],b[currDim]):
+        x_1[currDim] = val
+        eval2 = (f(*x_1) if not is_m else f(x_1))
+        if not np.allclose(eval1,eval2): # Corresponding points gave different values for f(x)
+            return False
+
+    # Second test point x_2
+    x_2 = transform(np.array([(-0.2598647169391334*(val+1)/(dim))**2 for val in range(dim)]),a,b)
+    eval1 = (f(*x_2) if not is_m else f(x_2))
+    if np.isclose(eval1,0): # Make sure f(x_2) != 0 (unlikely)
+            return False
+    for val in transform(np.array([-0.17223860129797386,0.10828286380141305,-0.5333148248321931,0.46471703497219596]),a[currDim],b[currDim]):
+        x_2[currDim] = val
+        eval2 = (f(*x_2) if not is_m else f(x_2))
+        if not np.allclose(eval1,eval2):
+            return False # Corresponding points gave different values for f(x)
+    # Both test points had not zeros of f and had no variance along dimension currDim.
+    return True
         
 def getChebyshevDegrees(f, a, b, absApproxTol, relApproxTol):
     """Compute the minimum degrees in each dimension that give a reliable Chebyshev approximation for f.
@@ -200,28 +255,20 @@ def getChebyshevDegrees(f, a, b, absApproxTol, relApproxTol):
     chebDegrees = [np.inf]*dim # the approximation degree in each dimension
     epsilons = [] # the value the approximation has converged to in each dimension
     rhos = [] # the calculated rate of convergence in each dimension
+    # Check to see if f varies each input; set degree to 0 if not
+    for currDim in range(dim):
+        if checkConstantInDimension(f,a,b,currDim):
+            chebDegrees[currDim] = 0
 
     # Find the degree in each dimension seperately
-    for i in range(dim):
-        eval_pts = np.array([(0.209+val)*0.463**val for val in range(dim)])
-        eval1 = f(*transform(eval_pts,a,b))
-        eval_pts[i] = -np.sqrt(np.exp(1))/2
-        eval2 = f(*transform(eval_pts,a,b))
-        if np.allclose(eval1,eval2):
-            eval_pts = np.array([-np.sin(1.389*val**2) for val in range(dim)])
-            eval1 = f(*transform(eval_pts,a,b))
-            eval_pts[i] = np.pi**(1/3)/4
-            eval2 = f(*transform(eval_pts,a,b))
-            if np.allclose(eval1,eval2):
-                chebDegrees[i] = 0
     for currDim in range(dim):
-        if chebDegrees[currDim] == 0:
+        if chebDegrees[currDim] == 0: # skip the guessing algorithm if f is constant in dim currDim
             epsilons.append(0)
             rhos.append(np.inf)
             continue
-        # Isolate the current dimension by fixing all other dimensions at degree 5 approximation
+        # Isolate the current dimension by fixing all other dimensions at constant degree approximation
         degs = np.array([5]*dim if dim <= 5 else [2]*dim)
-        for i in range(len(chebDegrees)):
+        for i in range(len(chebDegrees)): # save computation by using already computed degrees if lower
             if chebDegrees[i] < degs[i]:
                 degs[i] = chebDegrees[i]
         currGuess = 8 # Take initial guess degree 8 in the current dimension
@@ -249,7 +296,7 @@ def getChebyshevDegrees(f, a, b, absApproxTol, relApproxTol):
             coeff2, supNorm2 = interval_approximate_nd(f, degs, a, b, retSupNorm=True)
             tol = absApproxTol + max(supNorm, supNorm2) * relApproxTol
             if not hasConverged(coeff, coeff2, tol):
-                continue # Iterate if the coefficients have not fully converged.
+                continue # Keed doubling if the coefficients have not fully converged.
             
             # The coefficients have been shown to converge to 0. Get the exact degree where this occurs.
             coeffChunk = np.average(np.abs(coeff2), axis=tupleForChunk)
@@ -257,7 +304,7 @@ def getChebyshevDegrees(f, a, b, absApproxTol, relApproxTol):
             chebDegrees[currDim] = deg
             epsilons.append(eps)
             rhos.append(rho)
-            break # Repeat for next dimension
+            break # Finished with the current dimension
     return np.array(chebDegrees), np.array(epsilons), np.array(rhos)
 
 def getApproxError(degs, epsilons, rhos):
