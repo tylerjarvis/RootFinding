@@ -50,7 +50,7 @@ b = np.array([0,1]) #upper bounds on x and y
 yr.solve([f,g],a,b)
 ```
 
-If the system includes polynomials, there are specialized `Polynomial` objects which may be allow for faster solving. See the DemoNotebook.ipynb for details.
+If the system includes polynomials, there are specialized `Polynomial` objects which may be allow for faster solving. See YRootsDemo.ipynb and YRootsTutorial.ipynb for details.
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
