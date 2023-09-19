@@ -14,9 +14,9 @@ YRoots is a Python package for numerical root finding. See  DemoNotebook.ipynb f
 
 ### Requirements
 * Python 3.10
+* Pip 21.1
 * Numpy 1.22.0
 * Numba 0.37.0
-* Pip 21.1
 * Scipy 1.10.0
 * Sympy 1.5.1
 
