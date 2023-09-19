@@ -13,7 +13,12 @@ YRoots is a Python package for numerical root finding. See  DemoNotebook.ipynb f
 <!-- [![Code Health](https://landscape.io/github/tylerjarvis/RootFinding/pypackage/landscape.svg)](https://landscape.io/github/tylerjarvis/RootFinding/pypackage) -->
 
 ### Requirements
-* Python 3.5 and up
+* Python 3.10
+* Numpy 1.22.0
+* Numba 0.37.0
+* Pip 21.1
+* Scipy 1.10.0
+* Sympy 1.5.1
 
 ## Installation
 
