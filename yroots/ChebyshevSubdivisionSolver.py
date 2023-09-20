@@ -814,7 +814,7 @@ def BoundingIntervalLinearSystem(Ms, errors, finalStep, linear = False):
     for i in range(dim):
         scaleVal = max(abs(consts[i]), np.max(np.abs(A[i])))
         if scaleVal > 0:
-            s = 2**int(np.floor(np.log2(abs(scaleVal))))
+            s = 2.**int(np.floor(np.log2(abs(scaleVal))))
             A[i] /= s
             consts[i] /= s
             totalErrs[i] /= s
@@ -1641,7 +1641,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
                 resultInterior.append(tempInterval)
         return resultInterior, newResultExterior
 
-def solveChebyshevSubdivision(Ms, errors, verbose = False, returnBoundingBoxes = False, polish = False, exact = False, constant_check = True, low_dim_quadratic_check = True, all_dim_quadratic_check = False):
+def solveChebyshevSubdivision(Ms, errors, verbose = False, returnBoundingBoxes = False, exact = False, constant_check = True, low_dim_quadratic_check = True, all_dim_quadratic_check = False):
     """Initiates shrinking and subdivision recursion and returns the roots and bounding boxes.
 
     Parameters
@@ -1654,8 +1654,6 @@ def solveChebyshevSubdivision(Ms, errors, verbose = False, returnBoundingBoxes =
         Defaults to False. Whether or not to output progress of solving to the terminal.
     returnBoundingBoxes : bool (Optional)
         Defaults to False. If True, returns the bounding boxes around each root as well as the roots.
-    polish : bool (Optional)
-        Defaults to False. Whether or not to polish the roots at the end.
     exact : bool
         Whether transformations should be done with higher precision to minimize error.
     constant_check : bool
@@ -1693,21 +1691,6 @@ def solveChebyshevSubdivision(Ms, errors, verbose = False, returnBoundingBoxes =
     b1, b2 = solvePolyRecursive(Ms, originalInterval, errors, solverOptions)
 
     boundingIntervals = b1 + b2
-        
-    #Polish. Testing seems to show no benefit for this. If anything makes it worse.
-    if polish:
-        newIntervals = []
-        for interval in boundingIntervals:
-            finalInterval = interval.getFinalInterval()
-            newInterval = interval.copy()
-            newInterval.interval = finalInterval
-
-            tempMs, tempErrors = transformChebToInterval(Ms, interval.finalAlpha, interval.finalBeta, errors, exact)
-            b1, b2 = solvePolyRecursive(tempMs, newInterval, tempErrors, solverOptions)
-
-            newIntervals += b1 + b2
-        boundingIntervals = newIntervals
-
     roots = []
     hasDupRoots = False
     hasExtraRoots = False
