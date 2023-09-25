@@ -429,6 +429,12 @@ class TrackedInterval:
         if np.any(subInterval[:,0] > subInterval[:,1]) and self.canThrowOut():
             self.empty = True
             return
+        elif np.any(subInterval[:,0] > subInterval[:,1]):
+            #If we can't throw the interval out, it should be bounded by [-1,1].
+            subInterval[:,0] = np.minimum(subInterval[:,0], np.ones_like(subInterval[:,0]))
+            subInterval[:,0] = np.maximum(subInterval[:,0], -np.ones_like(subInterval[:,0]))
+            subInterval[:,1] = np.minimum(subInterval[:,1], np.ones_like(subInterval[:,0]))
+            subInterval[:,1] = np.maximum(subInterval[:,1], subInterval[:,0])
         # Get the alpha and beta associated with the transformation in each dimension 
         a1,b1 = subInterval.T # all the lower bounds and upper bounds of the new interval, respectively
         a2,b2 = self.interval.T # all the lower bounds and upper bounds of the original interval
@@ -515,6 +521,10 @@ class TrackedInterval:
         """Gets the lengths along each dimension of the current interval."""
         return self.interval[:,1] - self.interval[:,0]
     
+    def finalDimSize(self):
+        """Gets the lengths along each dimension of the final interval."""
+        return self.finalInterval[:,1] - self.finalInterval[:,0]
+
     def copy(self):
         """Returns a deep copy of the current interval with all changes and properties preserved."""
         newone = TrackedInterval(self.topInterval)
@@ -565,7 +575,6 @@ class TrackedInterval:
     def __str__(self):
         return str(self.interval)
 
-   
 def getLinearTerms(M):
     """Gets the linear terms of the Chebyshev coefficient tensor M.
 
@@ -812,7 +821,7 @@ def BoundingIntervalLinearSystem(Ms, errors, finalStep, linear = False):
     #Scale all the polynomials relative to one another
     errors = errors.copy()
     for i in range(dim):
-        scaleVal = max(abs(consts[i]), np.max(np.abs(A[i])))
+        scaleVal = np.max(np.abs(A[i]))
         if scaleVal > 0:
             s = 2.**int(np.floor(np.log2(abs(scaleVal))))
             A[i] /= s
@@ -830,10 +839,7 @@ def BoundingIntervalLinearSystem(Ms, errors, finalStep, linear = False):
             colScaler[i] = s
             totalErrs += np.abs(A[:,i]) * (s - 1)
             A[:,i] *= s
-
     
-
-
     #Run Erik's code if the dimension of the problem is <= 4, OR if the variable "linear" equals True.
     #The variable "Linear" is False by default, but in the case where we tried to run the halfspaces code (meaning the problem has dimension 5 or greater)
     #And the function "find_vertices" failed (i.e. it returned a value of 4), it means that the halfspaces code cannot be run and we need to run Erik's linear code on that interval instead.
@@ -844,7 +850,7 @@ def BoundingIntervalLinearSystem(Ms, errors, finalStep, linear = False):
             a, b = linearCheck1(totalErrs, A, consts)
             #Now do the linear solve check
             U, S, Vh = np.linalg.svd(A)
-            wellConditioned = S[-1]/S[0] > 1e-10
+            wellConditioned = S[0] > 0 and S[-1]/S[0] > 1e-10
             #We use the matrix inverse to find the width, so might as well use it both spots. Should be fine as dim is small.
             if wellConditioned: #Make sure conditioning is ok.
                 Ainv = (1/S * Vh.T) @ U.T
@@ -1387,7 +1393,7 @@ def getSubdivisionIntervals(Ms, errors, trackedInterval, exact, level):
         allIntervals = newIntervals
     return allMs, allErrors, allIntervals
         
-def trimMs(Ms, errors, absApproxTol=1e-16):
+def trimMs(Ms, errors, relApproxTol=1e-3):
     """Reduces the degree of each chebyshev approximation M when doing so has negligible error.
 
     The coefficient matrices are trimmed in place. This function iteratively looks at the highest
@@ -1400,12 +1406,12 @@ def trimMs(Ms, errors, absApproxTol=1e-16):
         The chebyshev approximations of the functions
     errors : numpy array
         The max error of the chebyshev approximation from the function on the interval
-    standardAllowedErrorIncrease : double
-        The largest increase in error allowed for standard systems of functions
+    relApproxTol : double
+        The relative error increase allowed
     """
     dim = Ms[0].ndim
     for polyNum in range(len(Ms)): #Loop through the polynomials
-        allowedErrorIncrease = errors[polyNum] * 1e-3 + absApproxTol
+        allowedErrorIncrease = errors[polyNum] * relApproxTol
         #Use slicing to look at a slice of the highest degree in the dimension we want to trim
         slices = [slice(None) for i in range(dim)] # equivalent to selecting everything
         for currDim in range(dim):
@@ -1453,7 +1459,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
     boundingBoxesExterior : list of numpy arrays (optional)
         Each element of the list is an interval in which there may be a root. The interval is on the exterior of the current
         interval
-    """
+    """    
     #TODO: Check if trackedInterval.interval has width 0 in some dimension, in which case we should get rid of that dimension.
     #If the interval is a point, return it
     if trackedInterval.isPoint():
