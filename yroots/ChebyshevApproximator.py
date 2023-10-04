@@ -225,7 +225,7 @@ def checkConstantInDimension(f,a,b,currDim):
     # Both test points had not zeros of f and had no variance along dimension currDim.
     return True
         
-def getChebyshevDegrees(f, a, b, relApproxTol):
+def getChebyshevDegrees(f, a, b, relApproxTol, absApproxTol = 0):
     """Compute the minimum degrees in each dimension that give a reliable Chebyshev approximation for f.
 
     For each dimension, starts with degree 8, generates an approximation, and checks to see if the
@@ -242,6 +242,8 @@ def getChebyshevDegrees(f, a, b, relApproxTol):
         The upper bound on the interval.
     relApproxTol : float
         The relative tolerance (distance from zero) used to determine convergence
+    absApproxTol : float
+        The absolute tolerance (distance from zero) used to determine convergence
     
     Returns
     -------
@@ -284,7 +286,7 @@ def getChebyshevDegrees(f, a, b, relApproxTol):
             coeff, supNorm = interval_approximate_nd(f, degs, a, b, retSupNorm=True) # get approximation
             # Get "average" coefficients along the current dimension
             coeffChunk = np.average(np.abs(coeff), axis=tupleForChunk)
-            tol = supNorm * relApproxTol # Set tolerance for convergence from the supNorm
+            tol = absApproxTol + supNorm * relApproxTol # Set tolerance for convergence from the supNorm
             currGuess *= 2 # Ensure the degree guess is doubled in case of another iteration
 
             # Check if the coefficients have started converging; iterate if they have not.
@@ -295,7 +297,7 @@ def getChebyshevDegrees(f, a, b, relApproxTol):
             # Degree n and 2n+1 are unlikely to have higher degree terms alias into the same spot.
             degs[currDim] = currGuess + 1 # 2n+1
             coeff2, supNorm2 = interval_approximate_nd(f, degs, a, b, retSupNorm=True)
-            tol = max(supNorm, supNorm2) * relApproxTol
+            tol = absApproxTol + max(supNorm, supNorm2) * relApproxTol
             if not hasConverged(coeff, coeff2, tol):
                 continue # Keed doubling if the coefficients have not fully converged.
             

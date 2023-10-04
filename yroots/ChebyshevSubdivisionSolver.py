@@ -1393,7 +1393,7 @@ def getSubdivisionIntervals(Ms, errors, trackedInterval, exact, level):
         allIntervals = newIntervals
     return allMs, allErrors, allIntervals
         
-def trimMs(Ms, errors, relApproxTol=1e-3):
+def trimMs(Ms, errors, relApproxTol=1e-3, absApproxTol=0):
     """Reduces the degree of each chebyshev approximation M when doing so has negligible error.
 
     The coefficient matrices are trimmed in place. This function iteratively looks at the highest
@@ -1408,10 +1408,12 @@ def trimMs(Ms, errors, relApproxTol=1e-3):
         The max error of the chebyshev approximation from the function on the interval
     relApproxTol : double
         The relative error increase allowed
+    absApproxTol : double
+        The absolute error increase allowed
     """
     dim = Ms[0].ndim
     for polyNum in range(len(Ms)): #Loop through the polynomials
-        allowedErrorIncrease = errors[polyNum] * relApproxTol
+        allowedErrorIncrease = absApproxTol + errors[polyNum] * relApproxTol
         #Use slicing to look at a slice of the highest degree in the dimension we want to trim
         slices = [slice(None) for i in range(dim)] # equivalent to selecting everything
         for currDim in range(dim):
