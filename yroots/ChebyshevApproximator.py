@@ -62,6 +62,7 @@ def interval_approximate_nd(f, degs, a, b, retSupNorm = False):
     cheb_pts = np.column_stack(tuple(map(lambda x: x.flatten(), cheb_grid)))
 
     if isinstance(f, MultiCheb) or isinstance(f, MultiPower): # for faster function evaluations
+        #TODO: Evaluate Grid???
         values = f(cheb_pts).reshape(*(degs+1))
     else:
         # values = f(*cheb_pts.T).reshape(*(degs+1))
@@ -165,6 +166,8 @@ def getFinalDegree(coeff,tol):
     
     # Calculate the rate of convergence
     maxSpot = np.argmax(coeff)
+    if epsVal == 0: #Avoid divide by 0. epsVal shouldn't be able to shrink by more than 1e-24 cause floating point.
+         epsVal = coeff[maxSpot] * 1e-24
     rho = (coeff[maxSpot]/epsVal)**(1/((degree - maxSpot) + 1)) 
     return degree, epsVal, rho
 
@@ -222,7 +225,7 @@ def checkConstantInDimension(f,a,b,currDim):
     # Both test points had not zeros of f and had no variance along dimension currDim.
     return True
         
-def getChebyshevDegrees(f, a, b, absApproxTol, relApproxTol):
+def getChebyshevDegrees(f, a, b, relApproxTol, absApproxTol = 0):
     """Compute the minimum degrees in each dimension that give a reliable Chebyshev approximation for f.
 
     For each dimension, starts with degree 8, generates an approximation, and checks to see if the
@@ -237,10 +240,10 @@ def getChebyshevDegrees(f, a, b, absApproxTol, relApproxTol):
         The lower bound on the interval.
     b : numpy array
         The upper bound on the interval.
-    absApproxTol : float
-        The absolute tolerance (distance from zero) used to determine convergence
     relApproxTol : float
         The relative tolerance (distance from zero) used to determine convergence
+    absApproxTol : float
+        The absolute tolerance (distance from zero) used to determine convergence
     
     Returns
     -------
@@ -337,22 +340,22 @@ def getApproxError(degs, epsilons, rhos):
         if np.sum(idxs) == 0:
             continue
         s = 1
+        thisEps = 0
         for i, used in enumerate(idxs):
             if used:
                 # multiply by infinite sum of coeffs past the degree at which the approx stops in dim i
-                s *= epsilons[i] / (1-1/rhos[i])
+                #1/rhos[i] is the rate, so this is (1/rhos[i]) / (1 - 1/rhos[i]) = 1/(rhos[i]-1)
+                s /= (rhos[i]-1)
+                #The points in this section are going to be < max(epsilons[i] that contribute to it)
+                thisEps = max(thisEps, epsilons[i])
             else:
                 # multiply by the number of coefficients in the approximation along dim i
-                s *= degs[i]
-        # Divide by rho[i] if only index i
-        usedSpots = np.where(np.array(idxs) == 1)[0]
-        if len(usedSpots) == 1:
-            s /= rhos[usedSpots[0]]
+                s *= (degs[i] + 1)
         # Append to the error
-        approxError += s
+        approxError += s * thisEps
     return approxError
 
-def chebApproximate(f, a, b, absApproxTol=1e-10, relApproxTol=1e-10):
+def chebApproximate(f, a, b, relApproxTol=1e-10):
     """Generate and return an approximation for the function f on the interval [a,b].
 
     Uses properties of Chebyshev polynomials and the FFT to quickly generate a reliable
@@ -401,10 +404,6 @@ def chebApproximate(f, a, b, absApproxTol=1e-10, relApproxTol=1e-10):
     b: list or numpy array
         An array containing the upper bound of the approximation interval in each dimension, listed in
         dimension order.
-    absApproxTol : float
-        The absolute tolerance used to determine at what degree the Chebyshev coefficients have
-        converged to zero. If all coefficients after degree n are within absApproxTol from zero,
-        the coefficients will be considered to have converged at degree n. Defaults to 1e-10.
     relApproxTol : float
         The relative tolerance used to determine at what degree the Chebyshev coefficients have
         converged to zero. If all coefficients after degree n are within relApproxTol * supNorm
@@ -447,5 +446,5 @@ def chebApproximate(f, a, b, absApproxTol=1e-10, relApproxTol=1e-10):
         return f.coeff.astype(float), 0
     
     # Generate and return the approximation
-    degs, epsilons, rhos = getChebyshevDegrees(f, a, b, absApproxTol, relApproxTol)
+    degs, epsilons, rhos = getChebyshevDegrees(f, a, b, relApproxTol)
     return interval_approximate_nd(f, degs, a, b), getApproxError(degs, epsilons, rhos)
