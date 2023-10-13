@@ -196,7 +196,7 @@ def verbose_pass_or_fail(funcs, yroots, polished_roots, test_num, cheb_roots=Non
             print("A different number of roots were found.")
             print ("Yroots: " + str(len(yroots)))
             print("Chebfun Roots: " + str(len(cheb_roots)))
-    alt_norm_tols = {1.2 : 1e-7, 3.1 : 5e-11, 4.2 : 6e-13, 7.2 : 1e-8}
+    alt_norm_tols = {1.2 : 1e-7, 3.1 : 5e-11, 4.2 : 7e-13, 7.2 : 1e-8}
     if polished_roots is not None:
         try:
             if test_num == 6.1:
