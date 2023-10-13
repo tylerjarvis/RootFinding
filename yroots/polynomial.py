@@ -1,41 +1,7 @@
 import numpy as np
 from scipy.signal import convolve
-
-class Term(object):
-    
-    def __init__(self,val):
-        self.val = tuple(val)
-
-    def __repr__(self):
-        return str(self.val)
-
-    def __lt__(self, other):
-        if sum(self.val) < sum(other.val):
-            return True
-        elif sum(self.val) > sum(other.val):
-            return False
-        else:
-            for i,j in zip(reversed(self.val),reversed(other.val)):
-                if i < j:
-                    return False
-                if i > j:
-                    return True
-            return False
-
-    def __eq__(self, other):
-        return self.val == other.val
-
-    def __gt__(self, other):
-        return not(self < other or self == other)
-
-    def __ge__(self, other):
-        return (self > other or self == other)
-
-    def __le__(self,other):
-        return (self < other or self == other)
-
-    def __hash__(self):
-        return hash(self.val)
+from numpy.polynomial import chebyshev as cheb
+from numpy.polynomial import polynomial as poly
 
 def slice_top(matrix_shape):
     ''' Gets the n-d slices needed to slice a matrix into the top corner of another.
@@ -160,12 +126,6 @@ class Polynomial(object):
         Removes extra rows, columns, etc of zeroes from end of matrix of coefficients
     match_size
         Matches the shape of two matrices.
-    monomialList
-        Creates a list of monomials that make up the polynomial in degrevlex order.
-    monSort
-        Calls monomial list.
-    update_lead_term
-        Finds the lead_term of a polynomial
     __call__
         Evaluates a polynomial at a certain point.
     __eq__
@@ -177,7 +137,7 @@ class Polynomial(object):
     def __init__(self, coeff, clean_zeros = True):
 
         if isinstance(coeff,list):
-                coeff = np.array(coeff)
+            coeff = np.array(coeff)
         if isinstance(coeff,np.ndarray):
             self.coeff = coeff
             # If coeff has integer coefficients,
@@ -190,7 +150,7 @@ class Polynomial(object):
             self.clean_coeff()
         self.dim = self.coeff.ndim
         self.shape = self.coeff.shape
-        self.update_lead_term()
+        self.jac = None
 
     def clean_coeff(self):
         """
@@ -212,19 +172,6 @@ class Polynomial(object):
                 if np.sum(abs(self.coeff[tuple(slices)])) == 0:
                     self.coeff = np.delete(self.coeff,-1,axis=cur_axis)
                     change = True
-
-    def update_lead_term(self):
-        non_zeros = list()
-        for i in zip(*np.where(self.coeff != 0)):
-            non_zeros.append(Term(i))
-        if len(non_zeros) != 0:
-            self.lead_term = max(non_zeros).val
-            self.degree = sum(self.lead_term)
-            self.lead_coeff = self.coeff[self.lead_term]
-        else:
-            self.lead_term = None
-            self.lead_coeff = 0
-            self.degree = -1
 
     def __call__(self, points):
         '''
@@ -256,6 +203,26 @@ class Polynomial(object):
             raise ValueError('Dimension of points does not match dimension of polynomial!')
 
         return points
+    
+    def grad(self, point):
+        '''
+        Evaluates the gradient of the polynomial at the given point. This method is overridden
+        by the MultiPower and MultiCheb classes, so this definition only
+        checks if the polynomial can be evaluated at the given point.
+
+        Parameters
+        ----------
+        point : array-like
+            the point at which to evaluate the polynomial
+
+        Returns
+        -------
+        grad : ndarray
+            Gradient of the polynomial at the given point.
+        '''
+        if len(point) != self.dim:
+            raise ValueError('Cannot evaluate polynomial in {} variables at point {}'\
+            .format(self.dim, point))
 
     def __eq__(self,other):
         '''
@@ -373,6 +340,64 @@ class MultiCheb(Polynomial):
             return c[0]
         else:
             return c
+        
+    def evaluate_grid(self, xyz):
+        '''
+        Evaluates the Chebyshev polynomial on a grid of points, very efficiently.
+
+        Parameters
+        ----------
+        xyz : array-like
+            Each column contains the values for an axis. The direct product of these columns
+            produces the points of the desired grid.
+
+        Returns
+        -------
+        values: complex
+            The polynomial evaluated at all of the points in the grid determined by
+            the axis values
+        '''
+
+        xyz = super(MultiCheb, self).__call__(xyz)
+
+        c = self.coeff
+        for i in range(xyz.shape[1]):
+            cc = c.reshape(c.shape + (1,)*xyz[:,i].ndim)
+            c = chebval2(xyz[:,i] ,cc)
+
+        if np.product(c.shape)==1:
+            return c[0]
+        else:
+            return c
+
+    def grad(self, point):
+        '''
+        Evaluates the gradient of the polynomial at the given point.
+
+        Parameters
+        ----------
+        point : array-like
+            the point at which to evaluate the polynomial
+
+        Returns
+        -------
+        out : ndarray
+            Gradient of the polynomial at the given point.
+        '''
+        super(MultiCheb, self).__call__(point)
+
+        out = np.empty(self.dim,dtype="complex_")
+        if self.jac is None:
+            jac = list()
+            for i in range(self.dim):
+                jac.append(cheb.chebder(self.coeff,axis=i))
+            self.jac = jac
+        spot = 0
+        for i in self.jac:
+            out[spot] = chebvalnd(point,i)
+            spot+=1
+
+        return out
 
 ###############################################################################
 
@@ -501,5 +526,111 @@ class MultiPower(Polynomial):
             return c[0]
         else:
             return c
+    
+    def evaluate_grid(self, xyz):
+        '''
+        Evaluates the Power polynomial on a grid of points, very efficiently.
+
+        Parameters
+        ----------
+        xyz : array-like
+            Each column contains the values for an axis. The direct product of these columns
+            produces the points of the desired grid.
+
+        Returns
+        -------
+        values: complex
+            The polynomial evaluated at all of the points in the grid determined by
+            the axis values
+        '''
+
+        xyz = super(MultiPower, self).__call__(xyz)
+
+        c = self.coeff
+        for i in range(xyz.shape[1]):
+            cc = c.reshape(c.shape + (1,)*xyz[:,i].ndim)
+            c = polyval2(xyz[:,i] ,cc)
+
+        if np.product(c.shape)==1:
+            return c[0]
+        else:
+            return c
+
+    def grad(self, point):
+        '''
+        Evaluates the gradient of the polynomial at the given point.
+
+        Parameters
+        ----------
+        point : array-like
+            the point at which to evaluate the polynomial
+
+        Returns
+        -------
+        out : ndarray
+            Gradient of the polynomial at the given point.
+        '''
+        super(MultiPower, self).__call__(point)
+
+        out = np.empty(self.dim,dtype="complex_")
+        if self.jac is None:
+            jac = list()
+            for i in range(self.dim):
+                jac.append(poly.polyder(self.coeff,axis=i))
+            self.jac = jac
+        spot = 0
+        for i in self.jac:
+            out[spot] = polyvalnd(point,i)
+            spot+=1
+
+        return out
         
 ###############################################################################
+
+#### CHEBVALND, POLYVALND #############################################################
+
+def chebvalnd(x,c):
+    """
+    Evaluate a MultiCheb object at a point x
+
+    Parameters
+    ----------
+    x : ndarray
+        Point to evaluate at
+    c : ndarray
+        Tensor of Chebyshev coefficients
+
+    Returns
+    -------
+    c : float
+        Value of the MultiCheb polynomial at x
+    """
+    x = np.array(x)
+    n = c.ndim
+    c = cheb.chebval(x[0],c)
+    for i in range(1,n):
+        c = cheb.chebval(x[i],c,tensor=False)
+    return c
+
+def polyvalnd(x,c):
+    """
+    Evaluate a MultiPower object at a point x
+
+    Parameters
+    ----------
+    x : ndarray
+        Point to evaluate at
+    c : ndarray
+        Tensor of Polynomial coefficients
+
+    Returns
+    -------
+    c : float
+        Value of the MultiPower polynomial at x
+    """
+    x = np.array(x)
+    n = c.ndim
+    c = poly.polyval(x[0],c)
+    for i in range(1,n):
+        c = poly.polyval(x[i],c,tensor=False)
+    return c
