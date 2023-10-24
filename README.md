@@ -1,6 +1,8 @@
 # YRoots
 
-YRoots is a Python package for numerical root finding. See  DemoNotebook.ipynb for a JupyterNotebook demonstration of the code's capabilities.  This project was supported in part by the National Science Foundation, grant number DMS-1564502.
+YRoots is a Python package for numerical root finding. See both YRootsDemo.ipynb and YRootsTutorial.ipynb in the main branch for JupyterNotebook demonstrations of the code's capabilities.  
+
+This project was supported in part by the National Science Foundation, grant number DMS-1564502.
 
 <!-- [![Build Status](https://travis-ci.com/tylerjarvis/RootFinding.svg?branch=master)](https://travis-ci.com/tylerjarvis/RootFinding) -->
 <!-- [![codecov](https://codecov.io/gh/mtmoncur/tylerjarvis/branch/master/graphs/badge.svg)](https://codecov.io/gh/tylerjarvis/RootFinding) -->
@@ -13,7 +15,12 @@ YRoots is a Python package for numerical root finding. See  DemoNotebook.ipynb f
 <!-- [![Code Health](https://landscape.io/github/tylerjarvis/RootFinding/pypackage/landscape.svg)](https://landscape.io/github/tylerjarvis/RootFinding/pypackage) -->
 
 ### Requirements
-* Python 3.5 and up
+* Python 3.10
+* Pip 21.1
+* Numpy 1.22.0
+* Numba 0.37.0
+* Scipy 1.10.0
+* Sympy 1.5.1
 
 ## Installation
 
@@ -43,7 +50,7 @@ b = np.array([0,1]) #upper bounds on x and y
 yr.solve([f,g],a,b)
 ```
 
-If the system includes polynomials, there are specialized `Polynomial` objects which may be allow for faster solving. See the DemoNotebook.ipynb for details.
+If the system includes polynomials, there are specialized `Polynomial` objects which may be allow for faster solving. See YRootsDemo.ipynb and YRootsTutorial.ipynb for details.
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
