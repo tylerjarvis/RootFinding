@@ -1,7 +1,7 @@
 # YRoots
 
 YRoots is a Python package for numerical root finding. See both YRootsDemo.ipynb and YRootsTutorial.ipynb in the main branch for JupyterNotebook demonstrations of the code's capabilities.  
-[https://janeslagle.github.io/RootFinding/](https://janeslagle.github.io/RootFinding/modules.html)
+https://janeslagle.github.io/RootFinding/modules.html
 
 This project was supported in part by the National Science Foundation, grant number DMS-1564502.
 
