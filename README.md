@@ -2,7 +2,7 @@
 
 YRoots is a Python package designed for numerical rootfinding of multivariate systems of equations.
 
-For a tutorial on YRoots syntax, set-up and examples on how to use it, see [YRoots Tutorial](https://github.com/tylerjarvis/RootFinding/blob/main/YRootsTutorial.ipynb) and for a more detailed demonstration of the code's capabilities on solving more challenging problems, see [YRoots Demo](https://github.com/tylerjarvis/RootFinding/blob/main/YRootsDemo.ipynb). 
+For a tutorial on YRoots syntax, set-up and examples on how to use it with different function systems, see [YRoots Tutorial](https://github.com/tylerjarvis/RootFinding/blob/main/YRootsTutorial.ipynb) and for a more detailed demonstration of the code's capabilities on solving more challenging problems, see [YRoots Demo](https://github.com/tylerjarvis/RootFinding/blob/main/YRootsDemo.ipynb). 
 
 Documentation is posted at https://tylerjarvis.github.io/RootFinding/
 
