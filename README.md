@@ -1,6 +1,6 @@
 # YRoots
 
-YRoots is a Python package for numerical root finding. 
+YRoots is a Python package for numerical root finding of systems of equations in multiple dimensions. 
 
 See both YRootsDemo.ipynb and YRootsTutorial.ipynb in the main branch for JupyterNotebook demonstrations of the code's capabilities.  
 
