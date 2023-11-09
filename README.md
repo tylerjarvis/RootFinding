@@ -19,6 +19,7 @@ This project was supported in part by the National Science Foundation, grant num
 <!-- [![Code Health](https://landscape.io/github/tylerjarvis/RootFinding/pypackage/landscape.svg)](https://landscape.io/github/tylerjarvis/RootFinding/pypackage) -->
 
 ### Requirements
+At least these versions:
 * Python 3.10
 * Pip 21.1
 * Numpy 1.22.0
