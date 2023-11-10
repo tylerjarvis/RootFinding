@@ -1,6 +1,8 @@
 # YRoots
 
-YRoots is a Python package for numerical root finding. See both YRootsDemo.ipynb and YRootsTutorial.ipynb in the main branch for JupyterNotebook demonstrations of the code's capabilities.  
+YRoots is a Python package designed for numerical rootfinding of multivariate systems of equations.
+
+For a tutorial on YRoots syntax, set-up and examples on how to use it with different function systems, see [YRoots Tutorial](https://github.com/tylerjarvis/RootFinding/blob/main/YRootsTutorial.ipynb) and for a more detailed demonstration of the code's capabilities on solving more challenging problems, see [YRoots Demo](https://github.com/tylerjarvis/RootFinding/blob/main/YRootsDemo.ipynb). 
 
 Documentation is posted at https://tylerjarvis.github.io/RootFinding/
 
@@ -17,6 +19,7 @@ This project was supported in part by the National Science Foundation, grant num
 <!-- [![Code Health](https://landscape.io/github/tylerjarvis/RootFinding/pypackage/landscape.svg)](https://landscape.io/github/tylerjarvis/RootFinding/pypackage) -->
 
 ### Requirements
+At least these versions:
 * Python 3.10
 * Pip 21.1
 * Numpy 1.22.0
