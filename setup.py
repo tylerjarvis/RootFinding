@@ -24,12 +24,12 @@ setup(
         'Programming Language :: Python :: 3.6',
     ],
     description="A package for numerical root finding.",
-    #install_requires=requirements,
+    # install_requires=requirements,  # Uncomment if you have specific dependencies
     license="MIT license",
-    long_description=readme + '\n\n',# + history,
+    long_description=readme + '\n\n',  # + history,
     include_package_data=True,
     keywords='RootFinding',
-    name='RootFinding',
+    name='yroots',  # Change the package name to 'yroots'
     packages=find_packages(include=['yroots']),
     setup_requires=setup_requirements,
     test_suite='tests',
