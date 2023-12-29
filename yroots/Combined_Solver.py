@@ -1,12 +1,12 @@
 import numpy as np
 from numba import njit
 import itertools
+import functools
 import yroots.ChebyshevSubdivisionSolver as ChebyshevSubdivisionSolver
 import yroots.ChebyshevApproximator as ChebyshevApproximator
 from yroots.polynomial import MultiCheb
 
 def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=False, minBoundingIntervalSize=1e-5):
-
     """Finds and returns the roots of a system of functions on the search interval [a,b].
 
     Generates an approximation for each function using Chebyshev polynomials on the interval given,
@@ -70,10 +70,12 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
         Defaults to False. Whether transformations performed on the approximation should be performed
         with higher precision to minimize error.
     minBoundingIntervalSize : double
-        Defaults to 1e-5. If a root in found with a bounding interval of size > minBoundingIntervalSize in
+        Defaults to 1e-5. If a root is found with a bounding interval of size > minBoundingIntervalSize in
         each dimension, the functions are solved again on the smaller interval. Setting too small could cause
         issues if the functions can't be evaluated accurately on points close together, and will increase solve
-        times. Should give more accurate roots when smaller.
+        times. Should give more accurate roots when smaller. This number is absolute when the boudning interval in
+        question is in [-1,1], and relative otherwise. So if an interval has an endpoint of magnitude > 1, then
+        minBoundingIntervalSize is multipled by that value for that dimension.
 
     Returns
     -------
@@ -82,7 +84,6 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
     boundingBoxes : numpy array (optional)
         The exact intervals (boxes) in which each root is bound to lie.
     """
-
     # Ensure input functions and upper/lower bounds are valid
     if type(funcs) != list and type(funcs) != np.ndarray:
         funcs = [funcs]
@@ -104,7 +105,7 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
         raise ValueError(f"Invalid input: at least one lower bound is greater than the corresponding upper bound.")
     polys = np.array(funcs)
     errs = np.array([0.]*dim)
-    
+
     # Get an approximation for each function.
     if verbose:
         print("Approximation shapes:", end=" ")
@@ -153,9 +154,12 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
     finalBoxes = []
     finalRoots = []
     for box in boundingBoxes:
-        if np.all(box.finalDimSize() > minBoundingIntervalSize):
+        #Get the relative max size in each dimension. If a or b > 1 in magnitude, minBoundingIntervalSize is a relative number.
+        #If they are < 1 in magnitude, it is an absolute number.
+        newA, newB = ChebyshevApproximator.transform(box.finalInterval.T,a,b)
+        relMaxSize = minBoundingIntervalSize * functools.reduce(np.maximum, [np.abs(a),np.abs(b), 1])
+        if np.all(newB - newA > relMaxSize):
             #Re-solve this box
-            newA, newB = ChebyshevApproximator.transform(box.finalInterval.T,a,b)
             if verbose:
                 print("Re-solving on:", newA, newB)
             roots, boxes = solve(funcs, a=newA, b=newB, verbose=verbose, returnBoundingBoxes=True, exact=exact, minBoundingIntervalSize = minBoundingIntervalSize)
