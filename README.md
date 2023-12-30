@@ -19,7 +19,7 @@ This project was supported in part by the National Science Foundation, grant num
 <!-- [![Code Health](https://landscape.io/github/tylerjarvis/RootFinding/pypackage/landscape.svg)](https://landscape.io/github/tylerjarvis/RootFinding/pypackage) -->
 
 ### Requirements
-At least these versions:
+At least:
 * Python 3.10
 * Pip 21.1
 * Numpy 1.22.0
@@ -29,12 +29,11 @@ At least these versions:
 
 ## Installation
 
-`$ git clone https://github.com/tylerjarvis/RootFinding.git`
+`$ pip install git+htpps://github.com/tylerjarvis/RootFinding.git`
 
-(We are currently working on getting a `pip` or `conda` for download)
-
-Rootfinding can now be installed locally by using `pip install -e .` while inside the RootFinding folder.
 The package can then by imported using `import yroots`.
+
+(We are currently working on adding the yroots package to The Python Package Index)
 
 ## Usage
 
