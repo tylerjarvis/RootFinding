@@ -171,7 +171,7 @@ def getFinalDegree(coeff,tol):
     rho = (coeff[maxSpot]/epsVal)**(1/((degree - maxSpot) + 1)) 
     return degree, epsVal, rho
 
-def checkConstantInDimension(f,a,b,currDim):
+def checkConstantInDimension(f,a,b,currDim, relApproxTol, absApproxTol = 0):
     """Check to see if the output of f is not dependent on the input coordinate of a dimension.
     
     Uses predetermined random numbers to find a point x in the interval where f(x) != 0 and checks
@@ -203,24 +203,24 @@ def checkConstantInDimension(f,a,b,currDim):
     # First test point x_1
     x_1 = transform(np.array([0.8984743990614998**(val+1) for val in range(dim)]),a,b)
     eval1 = (f(*x_1) if not is_m else f(x_1))
-    if np.isclose(eval1,0): # Make sure f(x_1) != 0 (unlikely)
-            return False
+    if np.isclose(eval1,0,rtol=relApproxTol, atol=absApproxTol): # Make sure f(x_1) != 0 (unlikely)
+        return False
     # Test how changing x_1[dim] changes the value of f for several values         
     for val in transform(np.array([-0.7996847717584993,0.18546110255464776,-0.13975937255055182,0.,1.,-1.]),a[currDim],b[currDim]):
         x_1[currDim] = val
         eval2 = (f(*x_1) if not is_m else f(x_1))
-        if not np.allclose(eval1,eval2): # Corresponding points gave different values for f(x)
+        if not np.allclose(eval1,eval2,rtol=relApproxTol, atol=absApproxTol): # Corresponding points gave different values for f(x)
             return False
 
     # Second test point x_2
     x_2 = transform(np.array([(-0.2598647169391334*(val+1)/(dim))**2 for val in range(dim)]),a,b)
     eval1 = (f(*x_2) if not is_m else f(x_2))
-    if np.isclose(eval1,0): # Make sure f(x_2) != 0 (unlikely)
+    if np.isclose(eval1,0,rtol=relApproxTol, atol=absApproxTol): # Make sure f(x_2) != 0 (unlikely)
             return False
     for val in transform(np.array([-0.17223860129797386,0.10828286380141305,-0.5333148248321931,0.46471703497219596]),a[currDim],b[currDim]):
         x_2[currDim] = val
         eval2 = (f(*x_2) if not is_m else f(x_2))
-        if not np.allclose(eval1,eval2):
+        if not np.allclose(eval1,eval2,rtol=relApproxTol, atol=absApproxTol):
             return False # Corresponding points gave different values for f(x)
     # Both test points had not zeros of f and had no variance along dimension currDim.
     return True
@@ -260,7 +260,7 @@ def getChebyshevDegrees(f, a, b, relApproxTol, absApproxTol = 0):
     rhos = [] # the calculated rate of convergence in each dimension
     # Check to see if f varies each input; set degree to 0 if not
     for currDim in range(dim):
-        if checkConstantInDimension(f,a,b,currDim):
+        if checkConstantInDimension(f,a,b,currDim,relApproxTol,absApproxTol):
             chebDegrees[currDim] = 0
 
     # Find the degree in each dimension seperately
