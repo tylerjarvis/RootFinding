@@ -30,6 +30,7 @@ setup(
     keywords='RootFinding',
     name='yroots',
     packages=find_packages(include=['yroots']),
+    package_data={'yroots': ['YRootsDemo.ipynb', 'YRootsTutorial.ipynb']},
     setup_requires=setup_requirements,
     test_suite='tests',
     tests_require=test_requirements,
