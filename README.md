@@ -29,7 +29,7 @@ At least:
 
 ## Installation
 
-`$ pip install git+htpps://github.com/tylerjarvis/RootFinding.git`
+`$ pip install git+https://github.com/tylerjarvis/RootFinding.git`
 
 The package can then by imported using `import yroots`.
 
