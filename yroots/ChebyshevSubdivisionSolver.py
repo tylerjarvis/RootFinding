@@ -1031,7 +1031,7 @@ def getSubdivisionDims(Ms,trackedInterval,level):
         return np.vstack([dims_to_consider[np.argsort(np.array(M.shape)[dims_to_consider])[::-1]] for M in Ms])
     else:
         dim_lengths = trackedInterval.dimSize()
-        max_length = np.max(dim_lengths)
+        max_length = np.max([dim_lengths[i] for i in dims_to_consider])
         dims_to_consider = np.extract(dim_lengths[dims_to_consider]>max_length/5,dims_to_consider)
         if len(dims_to_consider) > 1:
             shapes = np.array([np.array(M.shape) for M in Ms])
