@@ -1164,6 +1164,112 @@ def trimMs(Ms, errors, relApproxTol=1e-3, absApproxTol=0):
             # Reset to select all of the current dimension when looking at the next dimension.
             slices[currDim] = slice(None)
 
+def trimMsOptimized1(Ms, errors, relApproxTol=1e-3, absApproxTol=0): #Best for loose error tolerances
+    """Reduces the degree of each chebyshev approximation M when doing so has negligible error.
+
+    The coefficient matrices (Ms) are trimmed in place, for each matrix, we trim 1 degree off in each dimension until no trimming is possible
+
+    Parameters
+    ----------
+    Ms : list of numpy arrays
+        The chebyshev approximations of the functions, also known as the coefficient matrices
+    errors : numpy array
+        The max error of the chebyshev approximation from the function on the interval. If Ms is trimmed, these are modified. 
+    relApproxTol : double
+        The relative error increase allowed
+    absApproxTol : double
+        The absolute error increase allowed
+    """
+    dim = Ms[0].ndim
+    for polyNum in range(len(Ms)):
+        allowedErrorIncrease = absApproxTol + errors[polyNum] * relApproxTol
+        trimmable = True
+        while trimmable:
+            trimmable = False
+            totalErrorIncrease = 0
+            for currDim in range(dim):
+                lastSum = np.sum(np.abs(np.take(Ms[polyNum], indices=-1, axis=currDim)))
+                if Ms[polyNum].shape[currDim] > 2 and lastSum < allowedErrorIncrease:
+                    trimmable = True
+                    Ms[polyNum] = np.delete(Ms[polyNum], -1, axis=currDim)
+                    allowedErrorIncrease -= lastSum
+                    totalErrorIncrease += lastSum
+            errors[polyNum] += totalErrorIncrease
+
+def trimMsOptimized2(Ms, errors, relApproxTol=1e-3, absApproxTol=0): #Most likely to trim the most off, but has the longest run time
+    """Reduces the degree of each Chebyshev approximation M when doing so has negligible error.
+
+    The coefficient matrices (Ms) are trimmed in place. For each matrix, the function trims 
+    the dimension with the smallest sum iteratively until no more trimming is possible.
+
+    Parameters
+    ----------
+    Ms : list of numpy arrays
+        The Chebyshev approximations of the functions, also known as the coefficient matrices.
+    errors : numpy array
+        The max error of the Chebyshev approximation from the function on the interval. If Ms is trimmed, these are modified.
+    relApproxTol : double
+        The relative error increase allowed.
+    absApproxTol : double
+        The absolute error increase allowed.
+    """
+    dim = Ms[0].ndim
+    for polyNum in range(len(Ms)):
+        allowedErrorIncrease = absApproxTol + errors[polyNum] * relApproxTol
+        while True:
+            minSum = float('inf')
+            minDim = None
+            
+            for currDim in range(dim):
+                lastSum = np.sum(np.abs(np.take(Ms[polyNum], indices=-1, axis=currDim))) #The sum of the last elements of the current dimension 
+                
+                if lastSum < minSum and Ms[polyNum].shape[currDim] > 2:
+                    minSum = lastSum
+                    minDim = currDim
+            
+            if minDim is None or minSum >= allowedErrorIncrease: #If no trimming is possible, we're done
+                break
+            
+            Ms[polyNum] = np.delete(Ms[polyNum], -1, axis=minDim)
+            allowedErrorIncrease -= minSum
+            errors[polyNum] += minSum
+
+def trimMsOptimized3(Ms, errors, relApproxTol=1e-3, absApproxTol=0): #Likely a direct improvement of the original. A good all round function, trims more than the original, but less than the other two, but shouldn't have nearly as long a run time
+    """Reduces the degree of each chebyshev approximation M when doing so has negligible error.
+
+    The coefficient matrices (Ms) are trimmed in place, for each matrix, we take as much off as much as we can from the dimension with the most elements until we can't take any more off
+
+    Parameters
+    ----------
+    Ms : list of numpy arrays
+        The chebyshev approximations of the functions, also known as the coefficient matrices
+    errors : numpy array
+        The max error of the chebyshev approximation from the function on the interval. If Ms is trimmed, these are modified. 
+    relApproxTol : double
+        The relative error increase allowed
+    absApproxTol : double
+        The absolute error increase allowed
+    """
+    dim = Ms[0].ndim
+    for polyNum in range(len(Ms)): #Loop through the polynomials
+        allowedErrorIncrease = absApproxTol + errors[polyNum] * relApproxTol
+        
+        sorted_dims = np.argsort(Ms[polyNum].shape)[::-1]
+        totalErrorIncrease = 0
+
+        for currDim in sorted_dims:
+            while True:
+                lastSum = np.sum(np.abs(np.take(Ms[polyNum], indices=-1, axis=currDim)))
+                
+                if lastSum < allowedErrorIncrease and Ms[polyNum].shape[currDim] > 2:
+                    Ms[polyNum] = np.delete(Ms[polyNum], -1, axis=currDim)
+                    allowedErrorIncrease -= lastSum
+                    totalErrorIncrease += lastSum
+                else:
+                    break
+            
+            errors[polyNum] += totalErrorIncrease
+
 def isExteriorInterval(originalInterval, trackedInterval):
     """Determines if the current interval is exterior to its original interval."""
     return np.any(trackedInterval.getIntervalForCombining() == originalInterval.getIntervalForCombining())
