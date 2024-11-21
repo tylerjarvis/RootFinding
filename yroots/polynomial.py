@@ -632,8 +632,7 @@ class MultiPower(Polynomial):
             backOrder = np.zeros(coeffs.ndim, dtype = int)
             backOrder[order] = np.arange(coeffs.ndim)
             # Transpose coeffs, transform them along the first dimension, then transpose them back.
-            return to_cheb1D(coeffs.transpose(order),).transpose(backOrder)
-        cheb_coeffs = self.coeff
+            return to_cheb1D(coeffs.transpose(order),).transpose(backOrder)        cheb_coeffs = self.coeff
         for dim in range(self.coeff.ndim):
             # Go through each dimension and transform
             cheb_coeffs = to_chebND(cheb_coeffs,dim)
