@@ -633,14 +633,6 @@ class MultiPower(Polynomial):
             backOrder[order] = np.arange(coeffs.ndim)
             # Transpose coeffs, transform them along the first dimension, then transpose them back.
             return to_cheb1D(coeffs.transpose(order),).transpose(backOrder)
-        # As = []
-        # n = 20
-        # M = np.zeros((n,n))
-        # for i in range(n):
-        #     As = get_new_As(As)
-        #     M[:i+1,i] = As
-        # print(M)
-        # return
         cheb_coeffs = self.coeff
         for dim in range(self.coeff.ndim):
             # Go through each dimension and transform
