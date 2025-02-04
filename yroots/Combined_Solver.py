@@ -4,7 +4,7 @@ import itertools
 import functools
 import yroots.ChebyshevSubdivisionSolver as ChebyshevSubdivisionSolver
 import yroots.ChebyshevApproximator as ChebyshevApproximator
-from yroots.polynomial import MultiCheb
+from yroots.polynomial import MultiCheb, MultiPower
 
 def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=False, minBoundingIntervalSize=1e-5):
     """Finds and returns the roots of a system of functions on the search interval [a,b].
@@ -105,12 +105,19 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
         raise ValueError(f"Invalid input: at least one lower bound is greater than the corresponding upper bound.")
     polys = np.array(funcs)
     errs = np.array([0.]*dim)
-
+    macheps = 2**-52
     # Get an approximation for each function.
     if verbose:
         print("Approximation shapes:", end=" ")
     for i in range(dim):
-        polys[i], errs[i] = ChebyshevApproximator.chebApproximate(funcs[i],a,b)
+        if isinstance(funcs[i], MultiPower):
+            polys[i] = funcs[i].to_cheb()
+            errs[i] = macheps
+        elif isinstance(funcs[i], MultiCheb):
+            polys[i] = funcs[i].coeff
+            errs[i] = macheps
+        else:
+            polys[i], errs[i] = ChebyshevApproximator.chebApproximate(funcs[i],a,b)
         if verbose:
             print(f"{i}: {polys[i].shape}", end = " " if i != dim-1 else '\n')
     if verbose:
