@@ -584,6 +584,61 @@ class MultiPower(Polynomial):
             spot+=1
 
         return out
+    def to_cheb(self):
+        """ Returns the chebyshev coefficient matrix """
+        def get_new_As(As):
+            """ Finds the next transformation coefficients from the previous ones.
+                So if x^n = sum(As[i]*T_i(x)), x^(n+1) = sum(Bs[i]*T_i(x)).
+            """
+            n = len(As)
+            if n == 0:
+                return np.array([1.])
+            Bs = np.zeros(n+1)
+            # Edge case if As has length 1
+            if n == 1:
+                Bs[1] = As[0]
+                return Bs
+            # Put in the first and last coeffs
+            if n%2 == 0:
+                Bs[0] = As[1]/2
+            Bs[-1] = As[-1]/2
+            # Put in the second coeff
+            if n == 2:
+                Bs[1] = As[0]
+                return Bs
+            if n%2 == 1:
+                Bs[1] = As[0] + As[2]/2
+            # Do all the middle coefficients, only editing the ones that shouldn't be 0.
+            if n > 3:
+                Bs[2+n%2:-2:2] = (As[1+n%2:-2:2] + As[3+n%2::2])/2 
+            return Bs
+        def to_cheb1D(coeffs):
+            """Transforms to chebyshev coeficcients along the first dimension of coeffs matrix"""
+            cheb_coeffs = np.zeros_like(coeffs, dtype=np.float64)
+            As = []
+            # Update As, then take each slice of the coefficient matrix and matrix multiply 
+            # by As, and add to the cheb_coeffs matrix.
+            for i,coeff in enumerate(coeffs):
+                As = get_new_As(As)
+                # Invoke einsum to do the right matrix multiplication in n dimensions
+                cheb_coeffs[:i+1] += np.einsum("i,...->i...",As,coeff) 
+                #np.expand_dims(As,axis=1)@np.array([coeff])
+            return cheb_coeffs
+        def to_chebND(coeffs,dim):
+            """Transforms to chebyshev coefficients along the dim axis of the coeffs matrix"""
+            # Get the transopse order to make the desired dim first
+            order = np.array([dim] + [i for i in range(dim)] + [i for i in range(dim+1, coeffs.ndim)])
+            # Then transpose with the inverted order after the transformation occurs.
+            backOrder = np.zeros(coeffs.ndim, dtype = int)
+            backOrder[order] = np.arange(coeffs.ndim)
+            # Transpose coeffs, transform them along the first dimension, then transpose them back.
+            return to_cheb1D(coeffs.transpose(order),).transpose(backOrder)
+        cheb_coeffs = self.coeff
+        for dim in range(self.coeff.ndim):
+            # Go through each dimension and transform
+            cheb_coeffs = to_chebND(cheb_coeffs,dim)
+        return cheb_coeffs
+
         
 ###############################################################################
 
