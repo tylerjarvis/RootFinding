@@ -5,7 +5,6 @@ from itertools import product
 from scipy.spatial import HalfspaceIntersection, QhullError
 from scipy.optimize import linprog
 from yroots.QuadraticCheck import quadratic_check
-from time import time
 import copy
 import warnings
 
@@ -1236,7 +1235,6 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
     originalIntervalSize = trackedInterval.size()
     #Zoom in while we can
     lastSizes = trackedInterval.dimSize()
-    start_time = time()
     while changed and zoomCount <= solverOptions.maxZoomCount:
         #Zoom in until we stop changing or we hit machine epsilon
         Ms, errors, trackedInterval, changed, should_stop = zoomInOnIntervalIter(Ms, errors, trackedInterval, solverOptions.exact)
@@ -1247,7 +1245,6 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
         if np.all(newSizes >= lastSizes / 2): #Check all dims and use >= to account for a dimension being 0.
             zoomCount += 1
         lastSizes = newSizes
-    finish_time = time()
     if should_stop:
         #Start the final step if the is in the options and we aren't already in it.
         if trackedInterval.finalStep or not solverOptions.useFinalStep:
