@@ -514,7 +514,7 @@ class TrackedInterval:
 
     def size(self):
         """Gets the volume of the current interval."""
-        return np.product(self.interval[:,1] - self.interval[:,0])
+        return np.prod(self.interval[:,1] - self.interval[:,0])
 
     def dimSize(self):
         """Gets the lengths along each dimension of the current interval."""
@@ -722,7 +722,7 @@ def BoundingIntervalLinearSystem(Ms, errors, finalStep, macheps = 2**-52):
 
         forceShouldStop = finalStep and not wellConditioned
         # Calculate the "changed" variable
-        newRatio = np.product(b - a) / 2**dim
+        newRatio = np.prod(b - a) / 2**dim
         if throwOut:
             changed = True
         elif i == 0:

@@ -365,7 +365,7 @@ class MultiCheb(Polynomial):
             cc = c.reshape(c.shape + (1,)*xyz[:,i].ndim)
             c = chebval2(xyz[:,i] ,cc)
 
-        if np.product(c.shape)==1:
+        if np.prod(c.shape)==1:
             return c[0]
         else:
             return c
@@ -551,7 +551,7 @@ class MultiPower(Polynomial):
             cc = c.reshape(c.shape + (1,)*xyz[:,i].ndim)
             c = polyval2(xyz[:,i] ,cc)
 
-        if np.product(c.shape)==1:
+        if np.prod(c.shape)==1:
             return c[0]
         else:
             return c

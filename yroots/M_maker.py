@@ -166,7 +166,7 @@ class M_maker:
         (bool) if the error test has been passed or not
         """
         mach_eps = np.finfo(float).eps
-        num_entries_M2 = np.product(self.M2.shape) - np.product(self.M.shape) #number of additional entries from M2
+        num_entries_M2 = np.prod(self.M2.shape) - np.prod(self.M.shape) #number of additional entries from M2
         potential_float_err = 10*num_entries_M2*mach_eps*inf_norm #potential float error
         return error < max(rel_approx_tol,potential_float_err) #we decided abs_approx_tol is not needed
 
@@ -222,7 +222,7 @@ class M_maker:
                 test_M = self.interval_approximate_nd(f,a,b,test_degs)
                 dim_error = self.get_err(test_M,self.M2) # Error in the direction of the dimension i
                 # Now calculate the potential float error
-                num_entries_M2 = np.product(self.M2.shape) - np.product(test_M.shape)
+                num_entries_M2 = np.prod(self.M2.shape) - np.prod(test_M.shape)
                 potential_float_err = 10*num_entries_M2*np.finfo(float).eps*self.inf_norm
                 # Improve the approximation along dimension i if there is still significant error.
                 if dim_error > max(self.rel_approx_tol,potential_float_err):
