@@ -1,6 +1,6 @@
 import numpy as np
 from numba import njit
-from yroots.polynomial import MultiCheb, MultiPower
+from polynomial import MultiCheb, MultiPower
 import itertools
 from scipy.fftpack import dctn
 import warnings
@@ -75,7 +75,7 @@ def interval_approximate_nd(f, degs, a, b, retSupNorm = False):
     #Less efficient in higher dimensions, we save 1/2**(dim-1) of the functions evals
 
     #Do real DCT
-    coeffs = dctn(values/np.product(degs), type=1, overwrite_x=True)
+    coeffs = dctn(values/np.prod(degs), type=1, overwrite_x=True)
     #Divide edges by 2    
     for d in range(dim):
         coeffs[tuple([slice(None) if i != d else 0 for i in range(dim)])] /= 2
@@ -128,7 +128,7 @@ def hasConverged(coeff, coeff2, tol):
     coeff3[tuple([slice(0, d) for d in coeff.shape])] -= coeff 
     return np.max(np.abs(coeff3)) < tol
     
-def getFinalDegree(coeff,tol):
+def getFinalDegree(coeff,tol,macheps = 2**-52):
     """Finalize the degree of Chebyshev approximation to use along one particular dimension.
 
     This function is called after the coefficients have started converging at degree n. A degree
@@ -156,7 +156,7 @@ def getFinalDegree(coeff,tol):
     """
     # Set the final degree to the position of the last coefficient greater than convergence value
     convergedDeg = int(3 * (len(coeff) - 1) / 4) # Assume convergence at degree 3n/2.
-    epsVal = 2*np.max(coeff[convergedDeg:]) # Set epsVal to 2x the largest coefficient past degree 3n/2
+    epsVal = 2*max(macheps,np.max(coeff[convergedDeg:])) # Set epsVal to 2x the largest coefficient past degree 3n/2
     nonZeroCoeffs = np.where(coeff > epsVal)[0]
     degree = 1 if len(nonZeroCoeffs) == 0 else max(1, nonZeroCoeffs[-1])
 
