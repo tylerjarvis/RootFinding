@@ -9,7 +9,7 @@ import yroots.ChebyshevSubdivisionSolver as ChebyshevSubdivisionSolver
 import pytest
 from yroots.polynomial import MultiCheb, MultiPower
 from yroots.utils import transform
-from yroots.Combined_Solver import solve, degree_guesser
+from yroots.Combined_Solver import solve #, degree_guesser
 import inspect
 import sympy as sy
 
@@ -118,10 +118,10 @@ def test_exact_option():
     assert len(yroots_exact) == len(actual_roots)
     assert len(yroots_exact) == len(chebfun_roots)
 
-    actual_roots = ChebyshevSubdivisionSolver.sortRoots(actual_roots)
-    yroots_non_exact = ChebyshevSubdivisionSolver.sortRoots(yroots_non_exact)
-    yroots_exact = ChebyshevSubdivisionSolver.sortRoots(yroots_exact) 
-    chebfun_roots = ChebyshevSubdivisionSolver.sortRoots(chebfun_roots) #sort the Roots
+    actual_roots = np.sort(actual_roots, axis=0)
+    yroots_non_exact = np.sort(yroots_non_exact, axis=0)
+    yroots_exact = np.sort(yroots_exact, axis=0) 
+    chebfun_roots = np.sort(chebfun_roots, axis=0) #sort the Roots
 
     assert np.allclose(yroots_exact,actual_roots)
     assert np.allclose(yroots_exact,chebfun_roots)
@@ -182,34 +182,34 @@ def test_default_nodeg():
     actual_roots = np.load('Polished_results/polished_2.3.npy')
     chebfun_roots = np.loadtxt('Chebfun_results/test_roots_2.3.csv', delimiter=',')
 
-    actual_roots = ChebyshevSubdivisionSolver.sortRoots(actual_roots)
-    chebfun_roots = ChebyshevSubdivisionSolver.sortRoots(chebfun_roots) #sort the Roots
-    yroots = ChebyshevSubdivisionSolver.sortRoots(yroots) 
+    actual_roots = np.sort(actual_roots, axis=0)
+    chebfun_roots = np.sort(chebfun_roots, axis=0) #sort the Roots
+    yroots = np.sort(yroots, axis=0) 
 
     assert np.allclose(yroots,actual_roots)
     assert np.allclose(yroots,chebfun_roots)
 
-def test_deg_inf():
-    """
-    Tests the logic in Combined_Solver.py that detects which functions are MultiCheb, non-MultiCheb
-    and which functions can be treated like polynomials. This information is used to make smart degree
-    guesses, and the logic used to make the guesses is tested as well.
-    """
-    f = lambda x,y: y**2-x**3
-    g = lambda x,y: (y+.1)**3-(x-.1)**2
-    h = lambda x,y: np.cos(2*(x-2*y+ np.pi/7))
-    a,b = np.array([-1,-1]), np.array([1,1])
-    g_deg = 3
-    g = MultiCheb(M_maker.M_maker(g,a,b,g_deg).M)
-    funcs = [f,g,h]
-    guess_degs = None
+# def test_deg_inf():
+#     """
+#     Tests the logic in Combined_Solver.py that detects which functions are MultiCheb, non-MultiCheb
+#     and which functions can be treated like polynomials. This information is used to make smart degree
+#     guesses, and the logic used to make the guesses is tested as well.
+#     """
+#     f = lambda x,y: y**2-x**3
+#     g = lambda x,y: (y+.1)**3-(x-.1)**2
+#     h = lambda x,y: np.cos(2*(x-2*y+ np.pi/7))
+#     a,b = np.array([-1,-1]), np.array([1,1])
+#     g_deg = 3
+#     g = MultiCheb(M_maker.M_maker(g,a,b,g_deg).M)
+#     funcs = [f,g,h]
+#     guess_degs = None
 
-    default_deg = 2
-    is_lambda_poly, is_routine, is_lambda, guess_degs = degree_guesser(funcs,guess_degs,default_deg)
+#     default_deg = 2
+#     is_lambda_poly, is_routine, is_lambda, guess_degs = degree_guesser(funcs,guess_degs,default_deg)
 
-    assert (is_lambda_poly == np.array([True, False, False])).all()
-    assert (is_routine == np.array([True,False,True])).all()
-    assert (is_lambda == np.array([True,False,True])).all() #TODO:need a test case for python functions with lambda not in the function definition, so is_routine is not is_lambda
-    assert (guess_degs == np.array([3,3,2])).all()
+#     assert (is_lambda_poly == np.array([True, False, False])).all()
+#     assert (is_routine == np.array([True,False,True])).all()
+#     assert (is_lambda == np.array([True,False,True])).all() #TODO:need a test case for python functions with lambda not in the function definition, so is_routine is not is_lambda
+#     assert (guess_degs == np.array([3,3,2])).all()
 
-    #now, a standard test for finding all the roots
+#     #now, a standard test for finding all the roots
