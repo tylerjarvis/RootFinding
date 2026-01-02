@@ -714,6 +714,9 @@ def BoundingIntervalLinearSystem(Ms, errors, finalStep, macheps = 2**-52):
         #Add error and bound
         a -= widthToAdd
         b += widthToAdd
+        if np.any(a > b):
+            with open("num_of_times","a") as file:
+                file.write("1\n")
         throwOut = np.any(a > b) or np.any(a > 1) or np.any(b < -1)
         a[a < -1] = -1
         b[b < -1] = -1
