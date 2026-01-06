@@ -634,7 +634,6 @@ class MultiPower(Polynomial):
             # Transpose coeffs, transform them along the first dimension, then transpose them back.
             return to_cheb1D(coeffs.transpose(order),).transpose(backOrder)
         cheb_coeffs = self.coeff
->>>>>>> 80f5521 (Took out test code)
         for dim in range(self.coeff.ndim):
             # Go through each dimension and transform
             cheb_coeffs = to_chebND(cheb_coeffs,dim)
