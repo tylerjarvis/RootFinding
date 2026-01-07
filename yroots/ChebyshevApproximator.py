@@ -1,6 +1,6 @@
 import numpy as np
 from numba import njit
-from polynomial import MultiCheb, MultiPower
+from yroots.polynomial import MultiCheb, MultiPower
 import itertools
 from scipy.fftpack import dctn
 import warnings
