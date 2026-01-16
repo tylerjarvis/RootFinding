@@ -2,9 +2,10 @@ import numpy as np
 from numba import njit
 import itertools
 import functools
-import yroots.ChebyshevSubdivisionSolver as ChebyshevSubdivisionSolver
-import yroots.ChebyshevApproximator as ChebyshevApproximator
-from yroots.polynomial import MultiCheb, MultiPower
+import ChebyshevSubdivisionSolver as ChebyshevSubdivisionSolver
+import ChebyshevApproximator as ChebyshevApproximator
+from polynomial import MultiCheb,MultiPower
+from time import time
 
 def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=False, minBoundingIntervalSize=1e-5):
     """Finds and returns the roots of a system of functions on the search interval [a,b].
@@ -110,6 +111,7 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
     if verbose:
         print("Approximation shapes:", end=" ")
     for i in range(dim):
+        # t = time()
         if isinstance(funcs[i], MultiPower):
             polys[i] = funcs[i].to_cheb()
             errs[i] = macheps
@@ -118,6 +120,7 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
             errs[i] = macheps
         else:
             polys[i], errs[i] = ChebyshevApproximator.chebApproximate(funcs[i],a,b)
+        # return time() - t
         if verbose:
             print(f"{i}: {polys[i].shape}", end = " " if i != dim-1 else '\n')
     if verbose:
