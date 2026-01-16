@@ -208,8 +208,8 @@ def test_exact_option():
     yroots_non_exact = yr.solve(funcs,a,b,exact=False)
     yroots_exact = yr.solve(funcs,a,b,exact=True)
 
-    actual_roots = np.load('../../Polished_results/polished_2.3.npy')
-    chebfun_roots = np.loadtxt('../../Chebfun_results/test_roots_2.3.csv', delimiter=',')
+    actual_roots = np.load('../Polished_results/polished_2.3.npy')
+    chebfun_roots = np.loadtxt('../Chebfun_results/test_roots_2.3.csv', delimiter=',')
 
     assert len(yroots_non_exact) == len(actual_roots)
     assert len(yroots_exact) == len(actual_roots)

@@ -5,6 +5,7 @@ from itertools import product
 from scipy.spatial import HalfspaceIntersection, QhullError
 from scipy.optimize import linprog
 from yroots.QuadraticCheck import quadratic_check
+from time import time
 import copy
 import warnings
 
@@ -624,7 +625,7 @@ def linearCheck1(totalErrs, A, consts):
                 b[col] = min(b[col], b_)
     return a, b
 
-def BoundingIntervalLinearSystem(Ms, errors, finalStep, macheps = 2**-52):
+def BoundingIntervalLinearSystem(Ms, errors, finalStep):
     """Finds a smaller region in which any root must be.
 
     Parameters
@@ -652,6 +653,7 @@ def BoundingIntervalLinearSystem(Ms, errors, finalStep, macheps = 2**-52):
 
     dim = Ms[0].ndim
     #Some constants we use here
+    widthToAdd = 1e-10 #Add this width to the new intervals we find to avoid rounding error throwing out roots
     minZoomForChange = 0.99 #If the volume doesn't shrink by this amount say that it hasn't changed
     minZoomForBaseCaseEnd = 0.4**dim #If the volume doesn't change by at least this amount when running with no error, stop
     #Get the matrix of the linear terms
@@ -687,21 +689,17 @@ def BoundingIntervalLinearSystem(Ms, errors, finalStep, macheps = 2**-52):
 
     #Run linear algorithm for shrinking or deciding whether to subdivide.
     #This loop will only execute the second time if the interval was not changed on the first iteration and it needs to run again with tighter errors
-    #Calculate the SVD outside of the for loop because it doesn't change
-    U, S, Vh = np.linalg.svd(A)
-    condNum = S[-1]/S[0]
-    wellConditioned = S[0] > 0 and condNum > 1e-10
-    #Add this width to the new intervals we find to avoid rounding error throwing out roots
-    widthToAdd = max(condNum,2)*macheps
-    Ainv = (1/S * Vh.T) @ U.T
-    center = -Ainv@consts
-    #Use the first interval shrinking method
-    a_init, b_init = linearCheck1(totalErrs, A, consts)
     for i in range(2):
-        a = a_init
-        b = b_init
+        #Use the other interval shrinking method
+        a, b = linearCheck1(totalErrs, A, consts)
+        #Now do the linear solve check
+        U, S, Vh = np.linalg.svd(A)
+        wellConditioned = S[0] > 0 and S[-1]/S[0] > 1e-10
         #We use the matrix inverse to find the width, so might as well use it both spots. Should be fine as dim is small.
         if wellConditioned: #Make sure conditioning is ok.
+            Ainv = (1/S * Vh.T) @ U.T
+            center = -Ainv@consts
+
             #Ainv transforms the hyperrectangle of side lengths err into a parallelogram with these as the principal direction
             #So summing over them gets the farthest the parallelogram can reach in each dimension.
             width = np.sum(np.abs(Ainv*err),axis=1)
@@ -714,9 +712,6 @@ def BoundingIntervalLinearSystem(Ms, errors, finalStep, macheps = 2**-52):
         #Add error and bound
         a -= widthToAdd
         b += widthToAdd
-        if np.any(a > b):
-            with open("num_of_times","a") as file:
-                file.write("1\n")
         throwOut = np.any(a > b) or np.any(a > 1) or np.any(b < -1)
         a[a < -1] = -1
         b[b < -1] = -1
@@ -1238,6 +1233,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
     originalIntervalSize = trackedInterval.size()
     #Zoom in while we can
     lastSizes = trackedInterval.dimSize()
+    start_time = time()
     while changed and zoomCount <= solverOptions.maxZoomCount:
         #Zoom in until we stop changing or we hit machine epsilon
         Ms, errors, trackedInterval, changed, should_stop = zoomInOnIntervalIter(Ms, errors, trackedInterval, solverOptions.exact)
@@ -1248,6 +1244,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions):
         if np.all(newSizes >= lastSizes / 2): #Check all dims and use >= to account for a dimension being 0.
             zoomCount += 1
         lastSizes = newSizes
+    finish_time = time()
     if should_stop:
         #Start the final step if the is in the options and we aren't already in it.
         if trackedInterval.finalStep or not solverOptions.useFinalStep:
