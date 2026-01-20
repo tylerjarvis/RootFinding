@@ -2,9 +2,9 @@ import numpy as np
 from numba import njit
 import itertools
 import functools
-import ChebyshevSubdivisionSolver as ChebyshevSubdivisionSolver
-import ChebyshevApproximator as ChebyshevApproximator
-from polynomial import MultiCheb,MultiPower
+import yroots.ChebyshevSubdivisionSolver as ChebyshevSubdivisionSolver
+import yroots.ChebyshevApproximator as ChebyshevApproximator
+from yroots.polynomial import MultiCheb,MultiPower
 from time import time
 
 def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=False, minBoundingIntervalSize=1e-5):
@@ -107,15 +107,19 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
     polys = np.array(funcs)
     errs = np.array([0.]*dim)
     macheps = 2**-52
+    unit_box = True
+    # Check if original region is in the unit box
+    if not np.allclose(a,-np.ones_like(a)) or not np.allclose(b,np.ones_like(b)):
+        unit_box = False
     # Get an approximation for each function.
     if verbose:
         print("Approximation shapes:", end=" ")
     for i in range(dim):
         # t = time()
-        if isinstance(funcs[i], MultiPower):
+        if unit_box and isinstance(funcs[i], MultiPower):
             polys[i] = funcs[i].to_cheb()
             errs[i] = macheps
-        elif isinstance(funcs[i], MultiCheb):
+        elif unit_box and isinstance(funcs[i], MultiCheb):
             polys[i] = funcs[i].coeff
             errs[i] = macheps
         else:

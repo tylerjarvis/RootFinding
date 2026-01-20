@@ -1,6 +1,6 @@
 import numpy as np
 from numba import njit
-from polynomial import MultiCheb, MultiPower
+from yroots.polynomial import MultiCheb, MultiPower
 import itertools
 from scipy.fftpack import dctn
 import warnings
@@ -441,9 +441,9 @@ def chebApproximate(f, a, b, relApproxTol=1e-10):
     except TypeError as e:
         raise ValueError("Invalid input: length of the upper/lower bound lists must match the dimension of the function")
     
-    # If the function is a MultiCheb object on [-1,1]^n, then return its matrix as the approximation
-    if isinstance(f,MultiCheb) and np.allclose(a,-np.ones_like(a)) and np.allclose(b,np.ones_like(b)):
-        return f.coeff.astype(float), 0
+    # # If the function is a MultiCheb object on [-1,1]^n, then return its matrix as the approximation
+    # if isinstance(f,MultiCheb) and np.allclose(a,-np.ones_like(a)) and np.allclose(b,np.ones_like(b)):
+    #     return f.coeff.astype(float), 0
     
     # Generate and return the approximation
     degs, epsilons, rhos = getChebyshevDegrees(f, a, b, relApproxTol)

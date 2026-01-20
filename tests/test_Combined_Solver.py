@@ -34,12 +34,12 @@ def test_univariate():
     assert len(roots) == 128
     assert np.max(np.abs(f(roots))) < tol1
 
-def test_univariate_power():
+def test_univariate_power():    
     coeff = np.zeros(5)
     coeff[0], coeff[1], coeff[2], coeff[3], coeff[4] = -2, 2, 3, 4, 5
     f = yr.MultiPower(coeff)
 
-    roots = yr.solve(f, -2, 1)
+    roots = yr.solve(f, -1, 1)
     assert len(roots) == 2
     assert np.max(np.abs(f(roots))) < tol1
 
@@ -48,8 +48,8 @@ def test_univariate_cheb():
     coeff[0], coeff[1], coeff[2], coeff[3] = 0, 1, 2, 3
     f = yr.MultiCheb(coeff)
 
-    roots = yr.solve(f, -0.5, 1)
-    assert len(roots) == 2
+    roots = yr.solve(f, -1, 1)
+    assert len(roots) == 3
     assert np.max(np.abs(f(roots))) < tol1
 
 # Test Multidimensional Examples
@@ -103,6 +103,28 @@ def test_multiCheb_multiPower():
     assert np.max(np.abs(f(roots))) < tol2
     assert np.max(np.abs(g(roots))) < tol2
 
+# Test MultiCheb and MultiPower
+def test_multiCheb_multiPower_non_unit_box():
+    """
+    f(x,y) = 5x^3 + 4 xy^2 + 3x^2 + 2y^2 + 1
+    g(x,y) = 5 T_2(x) + 3T_1(x)T_2(y) + 2
+
+    """
+
+    coeff = np.zeros((4,4))
+    coeff[3,0], coeff[1,2], coeff[2,0], coeff[0,2], coeff[0,0] = 5, 4, 3, 2, 1
+    f = yr.MultiPower(coeff)
+
+    coeff = np.zeros((3,3))
+    coeff[2,0], coeff[1,2], coeff[0,0] = 5, 3, 2
+    g = yr.MultiCheb(coeff)
+
+    roots = yr.solve([f,g],[-2,-2],[2,2])
+
+    assert len(roots) == 2
+    assert np.max(np.abs(f(roots))) < tol2
+    assert np.max(np.abs(g(roots))) < tol2
+
 def test_multiPower():
     """
     f(x,y) = 5x^3 + 4 xy^2 + 3x^2 + 2y^2 - 5
@@ -117,9 +139,9 @@ def test_multiPower():
     coeff[2,1], coeff[1,2], coeff[2,0], coeff[0,2], coeff[0,0] = 3, -4, 3, 2, -1
     g = yr.MultiPower(coeff)
 
-    roots = yr.solve([f,g],[-2,-2],[2,2])
+    roots = yr.solve([f,g],[-1,-1],[1,1])
 
-    assert len(roots) == 2
+    assert len(roots) == 1
     assert np.max(np.abs(f(roots))) < tol2
     assert np.max(np.abs(g(roots))) < tol2
 
