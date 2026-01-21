@@ -2,6 +2,7 @@ import numpy as np
 import yroots as yr
 import yroots.ChebyshevSubdivisionSolver as ChebyshevSubdivisionSolver
 import pytest
+from pathlib import Path
 
 # These are tests from Combined
 
@@ -222,6 +223,12 @@ def test_exact_option():
     We find the roots using the exact method and non-exact method.
     Then we make sure we got the same roots between the two, and that those roots are correct.
     """
+
+    THIS_DIR = Path(__file__).resolve().parent          # .../tests
+    ROOT_DIR = THIS_DIR.parent                          # repo root (if tests/ is at root)
+    actual_roots_path = ROOT_DIR / "Polished_results" / "polished_2.3.npy"
+    chebfun_roots_path = ROOT_DIR / "Chebfun_results" / "test_roots_2.3.csv"
+
     f = lambda x,y: np.sin(4*(x + y/10 + np.pi/10))
     g = lambda x,y: np.cos(2*(x-2*y+ np.pi/7))
     a,b = np.array([-1,-1]),np.array([1,1])
@@ -230,8 +237,8 @@ def test_exact_option():
     yroots_non_exact = yr.solve(funcs,a,b,exact=False)
     yroots_exact = yr.solve(funcs,a,b,exact=True)
 
-    actual_roots = np.load('../Polished_results/polished_2.3.npy')
-    chebfun_roots = np.loadtxt('../Chebfun_results/test_roots_2.3.csv', delimiter=',')
+    actual_roots = np.load(actual_roots_path)
+    chebfun_roots = np.loadtxt(chebfun_roots_path, delimiter=',')
 
     assert len(yroots_non_exact) == len(actual_roots)
     assert len(yroots_exact) == len(actual_roots)
