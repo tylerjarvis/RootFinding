@@ -4,7 +4,7 @@ from numba.types import UniTuple
 from itertools import product
 from scipy.spatial import HalfspaceIntersection, QhullError
 from scipy.optimize import linprog
-from QuadraticCheck import quadratic_check
+from yroots.QuadraticCheck import quadratic_check
 from time import time
 import copy
 import warnings
