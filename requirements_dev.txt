@@ -2,4 +2,4 @@ pip==26.1.2
 wheel==0.46.2
 pytest==9.0.3
 pytest-cov==2.7.1
-codecov==2.0.15
+codecov==2.1.13
