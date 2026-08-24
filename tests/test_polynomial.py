@@ -1,4 +1,6 @@
 """Unit tests for yroots.polynomial (MultiCheb / MultiPower and their helpers)."""
+import operator
+
 import numpy as np
 import pytest
 from numpy.polynomial import chebyshev as C
@@ -394,3 +396,100 @@ def test_chebvalnd_uses_chebyshev_basis():
     coeff = np.array([0.0, 0.0, 1.0])
     for x in (-1.0, -0.3, 0.0, 0.7, 1.0):
         assert np.isclose(chebvalnd([x], coeff), 2 * x ** 2 - 1)
+
+
+############################### operands of another basis ####################
+# Regression tests: the coefficient tensors of a MultiCheb and a MultiPower used to be
+# combined elementwise, as if they shared a basis. With both tensors [0, 0, 4, 1] --
+# 4*T_2 + T_3 and 4x^2 + x^3 -- the true sum at x = 0.5 is -1.875, but c + p returned a
+# MultiCheb evaluating to -6.0 and p + c a MultiPower evaluating to 2.25: the result was
+# labeled with whichever basis happened to be on the left.
+
+CHEB = MultiCheb(np.array([0.0, 0.0, 4.0, 1.0]))
+POWER = MultiPower(np.array([0.0, 0.0, 4.0, 1.0]))
+
+
+@pytest.mark.parametrize("op", [operator.add, operator.sub, operator.mul])
+def test_arithmetic_across_bases_is_rejected(op):
+    """Mixing bases raises TypeError instead of returning a wrong polynomial.
+
+    Exercised through the operators rather than the dunders: the methods signal refusal
+    by returning NotImplemented, and it is the operator protocol that turns that into
+    the TypeError a caller sees.
+    """
+    for left, right in [(CHEB, POWER), (POWER, CHEB)]:
+        with pytest.raises(TypeError):
+            op(left, right)
+
+
+def test_arithmetic_across_dimensions_is_rejected():
+    """A polynomial in one variable is not an operand for a polynomial in two.
+
+    match_size broadcasts the lower dimensional tensor across the missing axis, which
+    silently turns 1 + 2x into 1 + 2y + x + 2xy.
+    """
+    two_vars = MultiPower(np.array([[1.0, 2.0], [1.0, 2.0]]))
+    one_var = MultiPower(np.array([1.0, 2.0]))
+    with pytest.raises(TypeError):
+        (two_vars + one_var).coeff
+
+
+def test_arithmetic_with_a_non_polynomial_is_rejected():
+    """Scalars and arrays are not operands; the error names the types."""
+    for other in [2, None, np.array([1.0, 2.0])]:
+        with pytest.raises(TypeError):
+            (POWER + other).coeff
+
+
+############################### equality across types ########################
+
+def test_polynomials_in_different_bases_are_not_equal():
+    """Equal coefficient tensors in different bases are different polynomials."""
+    assert not np.isclose(CHEB(np.array([0.5])), POWER(np.array([0.5])))
+    assert CHEB != POWER and not (CHEB == POWER)
+
+
+def test_polynomials_in_different_dimensions_are_not_equal():
+    """1 + 2x and 1 + 2y + x + 2xy have tensors that match_size makes look alike."""
+    two_vars = MultiPower(np.array([[1.0, 2.0], [1.0, 2.0]]))
+    one_var = MultiPower(np.array([1.0, 2.0]))
+    assert two_vars != one_var and not (two_vars == one_var)
+
+
+@pytest.mark.parametrize("other", [5, None, "x", np.array([0.0, 0.0, 4.0, 1.0])])
+def test_comparing_a_polynomial_to_a_non_polynomial_returns_false(other):
+    """== with an unrelated type returns False rather than raising AttributeError.
+
+    __eq__ used to go straight for other.shape and other.coeff, so `poly in some_list`,
+    `poly == None`, and comparisons against a plain array all raised.
+    """
+    # numpy is the one operand that answers for itself: handing back NotImplemented lets
+    # it compare elementwise, which is its documented behavior and still reports unequal.
+    assert np.all(np.logical_not(CHEB == other))
+    assert np.all(CHEB != other)
+
+
+############################### gradient dtype ###############################
+
+def test_the_gradient_of_a_real_polynomial_is_real():
+    """grad used to allocate its output as complex128, turning callers' arithmetic complex.
+
+    The constructor rejects complex coefficients, so a complex gradient is unreachable.
+    """
+    for cls in (MultiPower, MultiCheb):
+        grad = cls(np.array([[1.0, 2.0], [3.0, 4.0]])).grad([0.5, 0.5])
+        assert not np.iscomplexobj(grad)
+
+
+############################### degenerate coefficient arrays ################
+
+def test_a_scalar_coefficient_array_is_rejected():
+    """A 0-d array used to build a polynomial of dimension 0 that nothing could evaluate."""
+    with pytest.raises(ValueError, match="at least one dimension"):
+        MultiCheb(np.array(5.0))
+
+
+def test_an_empty_coefficient_array_is_rejected():
+    """An empty array used to raise IndexError from inside clean_coeff."""
+    with pytest.raises(ValueError, match="at least one entry"):
+        MultiCheb(np.array([]))

@@ -134,8 +134,16 @@ class Polynomial(object):
                             "must be a list or numpy array of real numbers, but a "
                             f"{type(coeff).__name__} was given")
         if not np.issubdtype(coeff.dtype, np.number) or np.issubdtype(coeff.dtype, np.complexfloating):
-            raise ValueError("Invalid input for Polynomial class object: the coefficients "
-                            f"must be real numbers, but an array of dtype '{coeff.dtype}' was given")
+            raise ValueError("Invalid input for Polynomial class object: the coefficients must "
+                             f"be real numbers, but an array of dtype '{coeff.dtype}' was given")
+        if coeff.ndim == 0:
+            raise ValueError("Invalid input for Polynomial class object: the coefficients must "
+                             "have at least one dimension, but a 0-dimensional array was given. "
+                             "Use np.array([c]) for the constant polynomial c")
+        if coeff.size == 0:
+            raise ValueError("Invalid input for Polynomial class object: the coefficients must "
+                             f"contain at least one entry, but an empty array of shape {coeff.shape} "
+                             "was given")
         if coeff.dtype != np.float64:
             coeff = coeff.astype(np.float64)
         self.coeff = coeff
@@ -217,17 +225,54 @@ class Polynomial(object):
             raise ValueError('Cannot evaluate polynomial in {} variables at point {}'\
             .format(self.dim, point))
 
-    def __eq__(self,other):
-        """Check if coeff matrix is the same."""
+    def matched_coeffs(self, other):
+        """Line up this polynomial's coefficients with another's for a binary operation.
+
+        Two polynomials can be combined coefficient by coefficient only when they are in
+        the same basis and have the same number of variables. Shapes may still differ --
+        one polynomial may carry higher degree terms than the other -- so the smaller
+        tensor is zero padded up to the larger.
+
+        Parameters
+        ----------
+        other : object
+            The right hand operand. Anything that is not a polynomial of this same class
+            and dimension is rejected.
+
+        Returns
+        -------
+        tuple of numpy array, or None
+            The two coefficient tensors, padded to a common shape, or None when ``other``
+            is not a compatible operand. Callers return ``NotImplemented`` on None so
+            python raises its own TypeError for the operator.
+        """
+        # A different class means a different basis: adding the tensors of a MultiCheb and
+        # a MultiPower gives a polynomial that is neither of them.
+        if type(other) is not type(self):
+            return None
+        # match_size broadcasts a lower dimensional tensor across the missing axes, which
+        # silently turns a polynomial in one variable into a different one in two.
+        if self.dim != other.dim:
+            return None
         if self.shape != other.shape:
-            new_self, new_other = match_size(self.coeff,other.coeff)
-        else:
-            new_self, new_other = self.coeff, other.coeff
-        return np.allclose(new_self, new_other)
+            return match_size(self.coeff, other.coeff)
+        return self.coeff, other.coeff
+
+    def __eq__(self,other):
+        """Check if the polynomials are the same, in basis, dimension and coefficients."""
+        if not isinstance(other, Polynomial):
+            return NotImplemented
+        matched = self.matched_coeffs(other)
+        if matched is None:      # different basis or different number of variables
+            return False
+        return np.allclose(*matched)
 
     def __ne__(self,other):
         """Check if coeff matrix is not the same."""
-        return not (self == other)
+        result = self.__eq__(other)
+        if result is NotImplemented:
+            return result
+        return not result
 
     def __repr__(self):
         return str(self.coeff)
@@ -279,10 +324,10 @@ class MultiCheb(Polynomial):
             The sum of the coeff of self and coeff of other.
 
         """
-        if self.shape != other.shape:
-            new_self, new_other = match_size(self.coeff,other.coeff)
-        else:
-            new_self, new_other = self.coeff, other.coeff
+        matched = self.matched_coeffs(other)
+        if matched is None:
+            return NotImplemented
+        new_self, new_other = matched
 
         return MultiCheb(new_self + new_other)
 
@@ -299,10 +344,10 @@ class MultiCheb(Polynomial):
         MultiCheb
             The coeff values are the result of self.coeff - other.coeff.
         """
-        if self.shape != other.shape:
-            new_self, new_other = match_size(self.coeff,other.coeff)
-        else:
-            new_self, new_other = self.coeff, other.coeff
+        matched = self.matched_coeffs(other)
+        if matched is None:
+            return NotImplemented
+        new_self, new_other = matched
         return MultiCheb((new_self - (new_other)))
     
     def __call__(self, points):
@@ -377,7 +422,7 @@ class MultiCheb(Polynomial):
         """
         super(MultiCheb, self).__call__(point)
 
-        out = np.empty(self.dim,dtype=complex)
+        out = np.empty(self.dim,dtype=np.float64)
         if self.jac is None:
             jac = list()
             for i in range(self.dim):
@@ -444,10 +489,10 @@ class MultiPower(Polynomial):
             The sum of the coeff of self and coeff of other.
 
         """
-        if self.shape != other.shape:
-            new_self, new_other = match_size(self.coeff,other.coeff)
-        else:
-            new_self, new_other = self.coeff, other.coeff
+        matched = self.matched_coeffs(other)
+        if matched is None:
+            return NotImplemented
+        new_self, new_other = matched
         return MultiPower((new_self + new_other))
 
     def __sub__(self,other):
@@ -464,10 +509,10 @@ class MultiPower(Polynomial):
             The coeff values are the result of self.coeff - other.coeff.
 
         """
-        if self.shape != other.shape:
-            new_self, new_other = match_size(self.coeff,other.coeff)
-        else:
-            new_self, new_other = self.coeff, other.coeff
+        matched = self.matched_coeffs(other)
+        if matched is None:
+            return NotImplemented
+        new_self, new_other = matched
         return MultiPower((new_self - (new_other)))
 
     def __mul__(self,other):
@@ -484,10 +529,10 @@ class MultiPower(Polynomial):
             The result of self*other.
 
         """
-        if self.shape != other.shape:
-            new_self, new_other = match_size(self.coeff,other.coeff)
-        else:
-            new_self, new_other = self.coeff, other.coeff
+        matched = self.matched_coeffs(other)
+        if matched is None:
+            return NotImplemented
+        new_self, new_other = matched
 
         return MultiPower(convolve(new_self, new_other))
     
@@ -563,7 +608,7 @@ class MultiPower(Polynomial):
         """
         super(MultiPower, self).__call__(point)
 
-        out = np.empty(self.dim,dtype=complex)
+        out = np.empty(self.dim,dtype=np.float64)
         if self.jac is None:
             jac = list()
             for i in range(self.dim):

@@ -1,4 +1,6 @@
 """Unit tests for yroots.ChebyshevApproximator."""
+import math
+
 import numpy as np
 import pytest
 from numpy.polynomial import chebyshev as C
@@ -6,7 +8,8 @@ from numpy.polynomial import chebyshev as C
 import yroots.ChebyshevApproximator as CA
 from yroots.ChebyshevApproximator import (transform, interval_approximate_nd, startedConverging,
                                           hasConverged, getFinalDegree, checkConstantInDimension,
-                                          getChebyshevDegrees, getApproxError, chebApproximate)
+                                          getChebyshevDegrees, getApproxError, chebApproximate,
+                                          evaluateGrid)
 from yroots.polynomial import MultiCheb, MultiPower
 
 
@@ -97,6 +100,60 @@ def test_polynomial_objects_are_evaluated_the_same_as_callables():
     from_object = interval_approximate_nd(MultiCheb(coeff), degs, -np.ones(2), np.ones(2))
     from_callable = interval_approximate_nd(cheb_poly_func(coeff), degs, -np.ones(2), np.ones(2))
     assert np.allclose(from_object, from_callable)
+
+
+############################### evaluateGrid #################################
+
+# evaluateGrid hands the whole grid to f in one call and only falls back to evaluating point by
+# point when that does not work. These check that the fallback is reached whenever it needs to be
+# and that the two paths agree, since which one runs is invisible from the outside.
+
+def grid_of(shape, a, b):
+    """The Chebyshev grid of the given shape on [a,b], as meshgrid arrays."""
+    axes = [transform(np.cos(np.arange(n) * np.pi / (n - 1)), a[i], b[i]) for i, n in enumerate(shape)]
+    return np.meshgrid(*axes, indexing="ij")
+
+
+def point_by_point(f, cheb_grid, shape):
+    """What evaluateGrid's fallback path produces."""
+    pts = np.column_stack(tuple(g.flatten() for g in cheb_grid))
+    return np.array([f(*pt) for pt in pts]).reshape(shape)
+
+
+@pytest.mark.parametrize("f", [
+    lambda x, y: np.sin(3 * x * y) + x - 0.5,          # vectorized
+    lambda x, y: math.sin(3 * x * y) + x - 0.5,        # scalar only: raises on arrays
+    lambda x, y: x * y if x > 0 else -x * y,           # scalar only: ambiguous truth value
+    lambda x, y: 2.5,                                  # constant: one value for the whole grid
+    lambda x, y: x ** 2 - 0.25,                        # ignores an input
+])
+def test_evaluateGrid_agrees_with_evaluating_point_by_point(f):
+    shape = (7, 5)
+    cheb_grid = grid_of(shape, [-1.0, -1.0], [1.0, 1.0])
+    values = evaluateGrid(f, cheb_grid, shape)
+    assert values.shape == shape
+    assert np.array_equal(values, point_by_point(f, cheb_grid, shape))
+
+
+def test_evaluateGrid_calls_a_vectorized_function_once():
+    calls = []
+    def f(x, y):
+        calls.append(np.shape(x))
+        return x + y
+    shape = (4, 3)
+    evaluateGrid(f, grid_of(shape, [-1.0, -1.0], [1.0, 1.0]), shape)
+    assert calls == [shape]
+
+
+def test_approximation_of_a_scalar_only_function():
+    """A function that cannot take arrays is still approximated, through the fallback path."""
+    f = lambda x, y: math.exp(x) + math.sin(2 * y)
+    vectorized = lambda x, y: np.exp(x) + np.sin(2 * y)
+    a, b = np.array([-1.0, -1.0]), np.array([1.0, 1.0])
+    approx, error = chebApproximate(f, a, b)
+    x = np.linspace(-1, 1, 9)
+    grid_x, grid_y = np.meshgrid(x, x, indexing="ij")
+    assert np.max(np.abs(C.chebgrid2d(x, x, approx) - vectorized(grid_x, grid_y))) <= error + 1e-14
 
 
 ############################### convergence checks ###########################

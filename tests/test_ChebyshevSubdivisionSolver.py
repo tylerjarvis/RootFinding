@@ -14,7 +14,9 @@ from yroots.ChebyshevSubdivisionSolver import (SolverOptions, TrackedInterval, T
                                                solveChebyshevSubdivision, solvePolyRecursive, transformCheb,
                                                transformChebToInterval, trimMs, zoomInOnIntervalIter,
                                                Split, TwoSum, TwoProd, Split_NoNumba, TwoSum_NoNumba,
-                                               TwoProd_NoNumba, getRootsInInterval)
+                                               TwoProd_NoNumba, getRootsInInterval, absSum,
+                                               getTransposeOrders, getTrimSlices, applyTransforms,
+                                               applySubInterval)
 
 UNIT_BOX_2D = np.array([[-1., 1.], [-1., 1.]])
 
@@ -36,6 +38,66 @@ def roots_from(boundingIntervals):
     for interval in boundingIntervals:
         roots += getRootsInInterval(interval)
     return np.array(roots)
+
+
+############################### small helpers ################################
+
+@pytest.mark.parametrize("shape", [(7,), (4, 5), (3, 4, 5), (2, 3, 2, 3)])
+def test_absSum_matches_numpy(shape):
+    M = np.random.default_rng(0).standard_normal(shape)
+    assert absSum(M) == np.sum(np.abs(M))
+    # Non contiguous input, which is what a transformed coefficient tensor is.
+    assert absSum(M.T) == np.sum(np.abs(M.T))
+
+
+@pytest.mark.parametrize("ndim", [1, 2, 3, 4])
+def test_getTransposeOrders_moves_the_dimension_to_the_front_and_back(ndim):
+    M = np.random.default_rng(1).standard_normal([i + 2 for i in range(ndim)])
+    for dim in range(ndim):
+        order, backOrder = getTransposeOrders(ndim, dim)
+        moved = M.transpose(order)
+        assert moved.shape[0] == M.shape[dim]
+        assert np.array_equal(moved.transpose(backOrder), M)
+
+
+@pytest.mark.parametrize("ndim", [1, 2, 3])
+def test_getTrimSlices_selects_and_drops_the_last_row(ndim):
+    M = np.random.default_rng(2).standard_normal([4] * ndim)
+    for dim in range(ndim):
+        lastRow, dropLastRow = getTrimSlices(ndim, dim)
+        assert np.array_equal(M[lastRow], np.take(M, -1, axis=dim))
+        assert np.array_equal(M[dropLastRow], np.take(M, range(3), axis=dim))
+
+
+def test_applySubInterval_shrinks_the_interval_and_reports_the_transform():
+    interval = np.array([[0., 4.], [-1., 1.]])
+    #The left half of the first dimension, the right quarter of the second.
+    transform = applySubInterval(interval, np.array([[-1., 0.], [0.5, 1.]]))
+    assert np.array_equal(interval, np.array([[0., 2.], [0.5, 1.]]))
+    assert np.allclose(transform, np.array([[0.5, 0.25], [-0.5, 0.75]]))
+
+
+def test_applySubInterval_keeps_the_endpoints_exact():
+    """A subinterval of exactly [-1,1] must leave the interval untouched, bit for bit."""
+    interval = np.array([[0.1, 0.30000000000000004], [-1/3, 1/7]])
+    original = interval.copy()
+    applySubInterval(interval, np.array([[-1., 1.], [-1., 1.]]))
+    assert np.array_equal(interval, original)
+
+
+def test_applyTransforms_composes_the_transformations_newest_first():
+    topIntervalT = np.array([[-1., -1.], [1., 1.]])
+    #Halve the first dimension about 0, then take the right half of what is left.
+    transforms = np.array([[[0.5, 1.], [0., 0.]], [[0.5, 1.], [0.5, 0.]]])
+    interval, error = applyTransforms(topIntervalT, transforms)
+    assert np.allclose(interval + error, np.array([[0., -1.], [0.5, 1.]]))
+
+
+def test_applyTransforms_of_nothing_is_the_original_interval():
+    topIntervalT = np.array([[-1., -2.], [1., 3.]])
+    interval, error = applyTransforms(topIntervalT, np.zeros((0, 2, 2)))
+    assert np.array_equal(interval, topIntervalT)
+    assert not error.any()
 
 
 ############################### error free arithmetic ########################

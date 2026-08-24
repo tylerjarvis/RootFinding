@@ -101,7 +101,7 @@ def quadratic_check_2D(test_coeff, tol):
     # The sum of the absolute values of the other coefs
     # Note: Overhead for instantiating a NumPy array is too costly for
     #  small arrays, so the second sum here is faster than using numpy
-    other_sum = np.sum(np.abs(test_coeff)) - sum([fabs(coeff) for coeff in c]) + tol
+    other_sum = np.abs(test_coeff).sum() - sum([fabs(coeff) for coeff in c]) + tol
 
     # Function for evaluating c0 + c1 T_1(x) + c2 T_1(y) +c3 T_2(x) + c4 T_1(x)T_1(y) + c5 T_2(y)
     # Use the Horner form because it is much faster, also do any repeated computations in advance
@@ -253,7 +253,7 @@ def quadratic_check_3D(test_coeff, tol):
         c[9] = test_coeff[0,0,2]
 
     #The sum of the absolute values of everything else
-    other_sum = np.sum(np.abs(test_coeff)) - sum([fabs(coeff) for coeff in c]) + tol
+    other_sum = np.abs(test_coeff).sum() - sum([fabs(coeff) for coeff in c]) + tol
 
     #function for evaluating c0 + c1x + c2y +c3z + c4xy + c5xz + c6yz + c7T_2(x) + c8T_2(y) + c9T_2(z)
     # Use the Horner form because it is much faster, also do any repeated computatons in advance
@@ -627,7 +627,7 @@ def quadratic_check_nd(test_coeff, tol):
         return _sum
 
     #The sum of the absolute values of everything else
-    other_sum = np.sum(np.abs(test_coeff)) + tol
+    other_sum = np.abs(test_coeff).sum() + tol
 
     #iterator for sides
     fixed_vars = get_fixed_vars(dim)

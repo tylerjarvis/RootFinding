@@ -32,6 +32,47 @@ def transform(x, a, b):
     """
     return ((b-a)*x+(b+a))/2
 
+def evaluateGrid(f, cheb_grid, shape):
+    """Evaluates f at every point of the Chebyshev grid.
+
+    Passes the whole grid through f in a single call, one coordinate array per dimension, which
+    is what the documented contract for an input function asks for ("must be smooth on the domain
+    and vectorized"). The grid holds one point per coefficient of the approximation, so past a low
+    degree in two dimensions it is thousands of points, and calling f once per point spends nearly
+    all of its time on Python call overhead rather than in f.
+
+    A function that turns out not to be vectorized is still evaluated one point at a time, the way
+    it always was. A scalar-only function either raises when handed arrays (a ``math`` function, a
+    Python ``if`` on a value) or hands back something that is not one value per grid point, and
+    both are caught here. The one shape other than the grid's own that is accepted is one that
+    broadcasts to it, which is what a function that ignores some of its inputs returns.
+
+    Parameters
+    ----------
+    f : function from R^n -> R
+        The function to evaluate.
+    cheb_grid : list of numpy arrays
+        The coordinate arrays of the grid, each of shape ``shape``, as returned by
+        :func:`numpy.meshgrid` with ``indexing='ij'``.
+    shape : tuple of ints
+        The shape of the grid.
+
+    Returns
+    -------
+    values : numpy array
+        The value of f at each grid point, of shape ``shape``.
+    """
+    try:
+        values = np.asarray(f(*cheb_grid), dtype=float)
+        if values.shape == shape:
+            return values
+        # A function that does not depend on every input hands back something smaller.
+        return np.broadcast_to(values, shape)
+    except Exception:
+        # f did not take the whole grid at once; evaluate it one point at a time instead.
+        cheb_pts = np.column_stack(tuple(map(lambda x: x.flatten(), cheb_grid)))
+        return np.array([f(*cheb_pt) for cheb_pt in cheb_pts]).reshape(shape)
+
 def interval_approximate_nd(f, degs, a, b, retSupNorm = False):
     """Generates an approximation of f on [a,b] using Chebyshev polynomials of degs degrees.
 
@@ -68,13 +109,13 @@ def interval_approximate_nd(f, degs, a, b, retSupNorm = False):
     # Get the Chebyshev Grid Points
     cheb_grid = np.meshgrid(*([transform(np.cos(np.arange(deg+1)*np.pi/deg), a_,b_) 
                                for deg, a_, b_ in zip(degs, a, b)]),indexing='ij')
-    cheb_pts = np.column_stack(tuple(map(lambda x: x.flatten(), cheb_grid)))
 
     if isinstance(f, MultiCheb) or isinstance(f, MultiPower): # for faster function evaluations
         #TODO: Evaluate Grid???
+        cheb_pts = np.column_stack(tuple(map(lambda x: x.flatten(), cheb_grid)))
         values = f(cheb_pts).reshape(*(degs+1))
     else:
-        values = np.array([f(*cheb_pt) for cheb_pt in cheb_pts]).reshape(*(degs+1))
+        values = evaluateGrid(f, cheb_grid, tuple(degs+1))
     #Get the supNorm if we want it
     if retSupNorm:
         supNorm = np.max(np.abs(values))
