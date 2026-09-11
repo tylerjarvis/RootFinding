@@ -157,7 +157,6 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
         print(f"Searching on interval {[[a[i],b[i]] for i in range(dim)]}")
 
     #Solve the Chebyshev polynomial system
-    #Solve the Chebyshev polynomial system
     boundingBoxes = ChebyshevSubdivisionSolver.solveChebyshevSubdivision(polys,errs,verbose,exact, constant_check=True,
                 low_dim_quadratic_check=True, all_dim_quadratic_check=False, max_cpu=max_cpu, parallel_depth=parallel_depth)
     
