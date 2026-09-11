@@ -38,7 +38,7 @@ jobs:
         run: uv sync --frozen --group docs
 
       - name: Build documentation
-        run: uv run sphinx-build -W docs/source docs/_build/html
+        run: uv run sphinx-build -W docs/source docs/_build/html/documentation
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
