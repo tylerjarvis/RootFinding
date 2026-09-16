@@ -246,6 +246,23 @@
     border:1px solid var(--hair); border-radius:99px; padding:5px 12px;
   }
 
+  /* ---------- about / thanks ---------- */
+  .thanks{
+    margin-top:32px; border:1px solid var(--hair); border-radius:10px;
+    background:var(--panel); padding:26px 28px;
+  }
+  .thanks .eyebrow{margin-top:22px;}
+  .thanks .eyebrow:first-child{margin-top:0;}
+  .names{
+    font-family:var(--mono); font-size:12.5px; line-height:2; color:var(--paper-dim);
+    margin:8px 0 0;
+  }
+  .names .sep{color:var(--muted); padding:0 6px;}
+  .thanks-note{
+    font-family:var(--mono); font-size:12px; color:var(--muted);
+    margin-top:24px; padding-top:18px; border-top:1px solid var(--hair);
+  }
+
   footer{border-top:1px solid var(--hair); padding:44px 0 60px;}
   footer .wrap{display:flex; justify-content:space-between; gap:24px; flex-wrap:wrap; align-items:flex-start;}
   footer p{font-family:var(--mono); font-size:12px; color:var(--muted); max-width:460px;}
@@ -271,6 +288,7 @@
       <a href="#method">Method</a>
       <a href="#benchmarks">Benchmark</a>
       <a href="#solvers">Solvers</a>
+      <a href="#about">About</a>
       <div class="gh-dropdown">
         <button class="gh" id="ghToggle" aria-haspopup="true" aria-expanded="false">GitHub ▾</button>
         <div class="gh-menu" id="ghMenu">
@@ -434,6 +452,25 @@
       <span class="chip">Chebfun</span>
       <span class="chip">Croots</span>
       <span class="chip">Lambda variants</span>
+    </div>
+  </div>
+</section>
+
+<section id="about" class="tight">
+  <div class="wrap reveal">
+    <div class="eyebrow">About</div>
+    <h2>Nine years of student work.</h2>
+    <p style="max-width:660px; margin-top:12px;">Yroots began in the mathematics department at Brigham Young University in July 2017, as an attempt to make Chebyshev subdivision practical for systems nobody wanted to hand to a homotopy solver. The method was proven and published seven years later, in the Journal of Symbolic Computation; the code kept going. What exists today — the parallel Python solver, the single-threaded reference it is checked against, and the Julia port — is roughly two thousand commits across three repositories, carried by a succession of student researchers, many of them for a single semester or summer before handing it on.</p>
+    <p style="max-width:660px; margin-top:16px;">Supported in part by the National Science Foundation under grant DMS-1564502.</p>
+
+    <div class="thanks">
+      <div class="eyebrow">Authors of the paper</div>
+      <p class="names">Erik Parkinson<span class="sep">·</span> Kate Wall<span class="sep">·</span> Jane Slagle<span class="sep">·</span> Daniel Treuhaft<span class="sep">·</span> Xander de la Bruere<span class="sep">·</span> Samuel Goldrup<span class="sep">·</span> Timothy Keith<span class="sep">·</span> Peter Call<span class="sep">·</span> Tyler J. Jarvis</p>
+      <div class="eyebrow">Carrying it since</div>
+      <p class="names">Nathan Longhurst<span class="sep">·</span> Rowan Williams<span class="sep">·</span> Alex Hermosilla<span class="sep">·</span> Hyun Lee</p>
+      <div class="eyebrow">Earlier work</div>
+      <p class="names">Zachary Taylor<span class="sep">·</span> Derek Miller<span class="sep">·</span> Hayden Ringer<span class="sep">·</span> Tyler Moncur<span class="sep">·</span> Suzanna Stephenson<span class="sep">·</span> Lukas Erekson<span class="sep">·</span> Natalie Larsen<span class="sep">·</span> David Kartchner<span class="sep">·</span> Catherine Kellar<span class="sep">·</span> Jeremy Magland</p>
+      <p class="thanks-note">Thank you, all of you. This list is assembled from the three repositories' history — if your name belongs here and is missing or wrong, open an issue and we will fix it.</p>
     </div>
   </div>
 </section>
