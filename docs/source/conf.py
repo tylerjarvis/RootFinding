@@ -48,10 +48,16 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 html_theme = 'yroots'
 html_theme_path = ['_theme']
 html_title = 'YRoots documentation'
+# Built by GitHub Actions, GITHUB_REPOSITORY names the repository publishing
+# the site, so the header and footer follow a fork or its upstream on their
+# own. The fallback keeps a local build pointing somewhere real.
+_repository = os.environ.get('GITHUB_REPOSITORY', 'wlgns0330/RootFinding')
+_owner = _repository.split('/')[0]
+
 html_theme_options = {
     'landing_url': '../',
-    'repo_url': 'https://github.com/wlgns0330/RootFinding',
-    'sibling_url': 'https://github.com/wlgns0330/Julia-Rootfinding',
+    'repo_url': f'https://github.com/{_repository}',
+    'sibling_url': f'https://github.com/{_owner}/Julia-Rootfinding',
     'sibling_label': 'jroots repo',
 }
 
