@@ -1,0 +1,5 @@
+[theme]
+inherit = "basic"
+stylesheets = ["yroots.css"]
+sidebars = []
+pygments_style = { default = "native" }
