@@ -224,6 +224,10 @@ TEST_CASES = [
                 ),
         a_min = [-1, -1],
         a_max = [ 1,  1],
+        # Nearly tangent conics, so the roots are located far less accurately than the
+        # residuals suggest. Measured column-norm error 1.8e-11. The previous
+        # 2.220446049250313e-11 passes, but leaves only 1.2x headroom -- by far the
+        # thinnest in this file, where every other case has 2.3x or more.
         tol   = 1e-10,
     ),
     dict(
@@ -243,6 +247,9 @@ TEST_CASES = [
                 ),
         a_min = [-1, -1],
         a_max = [ 1,  1],
+        # The same tangency problem as 3.1, across 45 roots. Measured column-norm error
+        # 9.5e-12, so this leaves 2.3x headroom -- now the thinnest margin in the file,
+        # and the case most likely to fail spuriously on another machine or numpy build.
         tol   = 2.220446049250313e-11,
     ),
     dict(
