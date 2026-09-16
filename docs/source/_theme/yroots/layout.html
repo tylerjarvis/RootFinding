@@ -18,7 +18,7 @@
       <a href="../">Overview</a>
       <a href="../#method">Method</a>
       <a href="../#benchmarks">Benchmark</a>
-      <a href="{{ pathto(root_doc) }}">Modules</a>
+      <a href="{{ pathto(root_doc) }}">Docs</a>
       <a class="gh" href="https://github.com/wlgns0330/RootFinding" target="_blank" rel="noopener">GitHub &#8599;</a>
     </div>
   </nav>
@@ -36,6 +36,10 @@
         <input type="text" name="q" placeholder="Search docs" aria-label="{{ _('Search the documentation') }}">
       </form>
       <div class="eyebrow docs-side-label">Contents</div>
+      {#- the root document does not appear in its own toctree #}
+      <ul class="docs-side-home">
+        <li{% if pagename == root_doc %} class="current"{% endif %}><a href="{{ pathto(root_doc) }}">Home</a></li>
+      </ul>
       {{ toctree(collapse=False, includehidden=True, titles_only=True, maxdepth=2) }}
       <div class="eyebrow docs-side-label">Reference</div>
       <ul class="docs-side-extra">
