@@ -280,3 +280,29 @@ def test_roots_are_not_duplicated():
     distances = np.linalg.norm(roots[:, None, :] - roots[None, :, :], axis=-1)
     np.fill_diagonal(distances, np.inf)
     assert np.min(distances) > 1e-6
+
+
+@pytest.mark.parametrize("scale", [1e8, 1e4, 1e-4, 1e-10, 1e-20, 1e-30])
+def test_scaling_the_system_does_not_change_the_roots(scale):
+    """Multiplying every equation by a constant is a change of units; the roots do not move.
+
+    The approximator used to floor its convergence value at an absolute macheps, so a system
+    scaled below about 1e-16 had its error bound come out negative and every interval holding a
+    root discarded -- the solver returned nothing at all, without a warning.
+    """
+    from scipy.optimize import linear_sum_assignment
+    f = lambda x, y: np.sin(3 * (x + y))
+    g = lambda x, y: np.sin(3 * (x - y))
+    a, b = np.array([-1.0, -1.0]), np.array([1.0, 1.0])
+
+    reference = solve([f, g], a, b)
+    scaled = solve([lambda x, y: scale * f(x, y), lambda x, y: scale * g(x, y)], a, b)
+
+    assert len(scaled) == len(reference), (
+        f"scaling by {scale:.0e} changed the root count from {len(reference)} to {len(scaled)}")
+    # Pair the two sets optimally rather than sorting them: roots whose coordinates differ in the
+    # last bit can otherwise swap places and look as though they moved.
+    distances = np.linalg.norm(scaled[:, None, :] - reference[None, :, :], axis=2)
+    rows, cols = linear_sum_assignment(distances)
+    assert distances[rows, cols].max() < 1e-12
+

@@ -338,6 +338,31 @@ def test_bounding_interval_does_not_modify_the_errors_it_is_given():
 
 ############################### TrackedInterval ##############################
 
+@pytest.mark.parametrize("dtype", [np.int64, np.int32, np.float32])
+def test_tracked_interval_accepts_bounds_that_are_not_float64(dtype):
+    """Every bound the solver computes is real, so the stored interval has to hold reals.
+
+    An integer array truncates each new bound to a whole number -- shrinking onto 0.5 stores 0 --
+    and float32 drops half the digits the solver needs. Both used to reach applySubInterval,
+    which rejects them outright now that it carries a float64 signature.
+    """
+    tracked = TrackedInterval(np.array([[-1, 1]], dtype=dtype))
+    tracked.addTransform(np.array([[-1.0, 0.5]]))
+    assert tracked.interval.dtype == np.float64
+    assert np.allclose(tracked.interval, [[-1.0, 0.5]])
+
+
+def test_tracked_interval_accepts_integer_subintervals_and_lists():
+    """The bounds and the subinterval are converted wherever they come from."""
+    tracked = TrackedInterval(np.array([[-1, 1]]))          # integer bounds
+    tracked.addTransform(np.array([[-1, 0]]))               # integer subinterval
+    assert np.allclose(tracked.interval, [[-1.0, 0.0]])
+
+    tracked = TrackedInterval([[-1, 1]])                    # a plain list
+    tracked.addTransform(np.array([[-1.0, 0.5]]))
+    assert np.allclose(tracked.interval, [[-1.0, 0.5]])
+
+
 def test_tracked_interval_does_not_alias_the_array_it_is_given():
     """Regression test: interval, topInterval and the caller's array were all the same object."""
     original = UNIT_BOX_2D.copy()

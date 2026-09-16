@@ -145,6 +145,30 @@ def test_evaluateGrid_calls_a_vectorized_function_once():
     assert calls == [shape]
 
 
+def test_evaluateGrid_does_not_guess_an_ambiguous_shape():
+    """A result matching one axis of a square grid must not be spread along the other.
+
+    numpy right aligns when broadcasting, so a result of shape (n,) placed on an (n, n) grid
+    lands along the last axis whether or not that is what f meant. On a non-square grid the
+    shapes simply do not broadcast and the fallback catches it, which is why this has to be
+    checked on a square one: it decides the answer by whether the two degrees happen to differ.
+    """
+    f = lambda x, y: (x[:, 0] ** 2 if np.ndim(x) == 2 else x ** 2)
+    for shape in [(5, 5), (6, 6), (7, 5)]:
+        cheb_grid = grid_of(shape, [-1.0, -1.0], [1.0, 1.0])
+        values = evaluateGrid(f, cheb_grid, shape)
+        assert values.shape == shape
+        assert np.allclose(values, cheb_grid[0] ** 2), f"wrong values on a {shape} grid"
+
+
+def test_evaluateGrid_of_a_constant_is_writable():
+    """The caller may write through the result, so it must not be a read-only broadcast view."""
+    shape = (4, 3)
+    values = evaluateGrid(lambda x, y: 2.5, grid_of(shape, [-1.0, -1.0], [1.0, 1.0]), shape)
+    values[0, 0] = 1.0        # must not raise
+    assert np.all(values[1:] == 2.5)
+
+
 def test_approximation_of_a_scalar_only_function():
     """A function that cannot take arrays is still approximated, through the fallback path."""
     f = lambda x, y: math.exp(x) + math.sin(2 * y)
@@ -230,6 +254,42 @@ def test_getFinalDegree_is_at_least_one_for_non_constants():
     coeff = np.array([1.0, 1e-13, 1e-14, 1e-15, 1e-16, 1e-16, 1e-16, 1e-16])
     degree, _, _ = getFinalDegree(coeff, 1e-16)
     assert degree >= 1
+
+
+def test_getFinalDegree_never_reports_a_rate_that_makes_the_error_negative():
+    """getApproxError sums the tail past the degree as 1/(rho - 1).
+
+    A rho of 1 or less turns that negative, so the approximation would claim an error smaller
+    than zero -- understating it, which is the unsafe direction. No coefficient array may
+    produce one.
+    """
+    cases = {
+        "no decay at all":            np.array([1e-3] * 8),
+        "everything under the floor": np.array([1e-18] + [1e-19] * 7),
+        "peak past the degree":       np.array([1e-16] * 5 + [1.0, 1e-16, 1e-16]),
+        "single spike":               np.array([0.0, 0.0, 5.0, 0.0, 0.0, 0.0]),
+    }
+    for name, coeff in cases.items():
+        degree, epsVal, rho = getFinalDegree(coeff, 1e-10)
+        assert rho > 1, f"{name}: rho={rho} would make the error bound negative"
+        error = getApproxError(np.array([degree]), np.array([epsVal]), np.array([rho]))
+        assert error >= 0, f"{name}: approximation error came out as {error}"
+        assert np.isfinite(error), f"{name}: approximation error came out as {error}"
+
+
+def test_getFinalDegree_floor_follows_the_coefficient_scale():
+    """The convergence value is set by rounding, which is relative to the largest coefficient.
+
+    Floored at an absolute macheps instead, it swamps the coefficients of any function scaled
+    well below one: the degree collapses and the reported rate drops under 1.
+    """
+    coeff = np.array([1.0, .5, .2, .05, 1e-9, 1e-12, 1e-15, 1e-16, 0.0, 0.0])
+    degree, epsVal, rho = getFinalDegree(coeff, 1e-10)
+    for scale in (1e8, 1e-8, 1e-20, 1e-40):
+        s_degree, s_epsVal, s_rho = getFinalDegree(coeff * scale, 1e-10 * scale)
+        assert s_degree == degree, f"degree changed at scale {scale:.0e}"
+        assert np.isclose(s_epsVal, epsVal * scale, rtol=1e-12), f"epsVal did not scale at {scale:.0e}"
+        assert s_rho > 1
 
 
 ######################### checkConstantInDimension ###########################
@@ -387,3 +447,39 @@ def test_chebApproximate_rejects_inverted_bounds():
 def test_chebApproximate_rejects_bounds_of_the_wrong_dimension():
     with pytest.raises(ValueError, match="must match the dimension"):
         chebApproximate(lambda x, y: x + y, np.array([-1.0]), np.array([1.0]))
+
+
+def test_chebApproximate_error_scales_with_the_function():
+    """Scaling f by s scales its approximation error by s, so the reported bound must follow.
+
+    It used to flatten out below about 1e-3, where an absolute floor dominated, and then go
+    negative below 1e-16.
+    """
+    f = lambda x, y: np.sin(3 * x * y) + x - 0.5
+    a, b = np.array([-1.0, -1.0]), np.array([1.0, 1.0])
+    _, reference = chebApproximate(f, a, b)
+    for scale in (1e8, 1e4, 1e-4, 1e-10, 1e-20, 1e-30):
+        _, error = chebApproximate(lambda x, y, s=scale: s * f(x, y), a, b)
+        assert error >= 0, f"negative error bound at scale {scale:.0e}"
+        assert np.isclose(error, reference * scale, rtol=1e-9), f"bound did not scale at {scale:.0e}"
+
+
+@pytest.mark.parametrize("scale", [1e-4, 1e-10, 1e-20, 1e-30])
+def test_chebApproximate_of_a_tiny_function_is_still_accurate(scale):
+    """A function scaled far below one is approximated as well as the same function at scale 1.
+
+    The degree used to collapse for these, leaving an approximation with several percent
+    relative error while the reported bound claimed otherwise.
+    """
+    base = lambda x, y: np.sin(x) * np.cos(y)
+    f = lambda x, y: scale * base(x, y)
+    a, b = np.array([-1.0, -1.0]), np.array([1.0, 1.0])
+    coeff, error = chebApproximate(f, a, b)
+    rng = np.random.default_rng(0)
+    pts = rng.uniform(-1, 1, (40, 2))
+    approx = np.array([MultiCheb(coeff, clean_zeros=False)(np.array([p]))[0] for p in pts])
+    truth = np.array([f(*transform(p, a, b)) for p in pts])
+    # Judge the error against the size of the function, not against an absolute threshold.
+    assert np.max(np.abs(approx - truth)) < 1e-12 * scale
+    assert error >= 0
+
