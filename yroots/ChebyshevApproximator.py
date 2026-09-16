@@ -44,8 +44,9 @@ def evaluateGrid(f, cheb_grid, shape):
     A function that turns out not to be vectorized is still evaluated one point at a time, the way
     it always was. A scalar-only function either raises when handed arrays (a ``math`` function, a
     Python ``if`` on a value) or hands back something that is not one value per grid point, and
-    both are caught here. The one shape other than the grid's own that is accepted is one that
-    broadcasts to it, which is what a function that ignores some of its inputs returns.
+    both are caught here, as is a result that is neither one value per grid point nor a single
+    value for the whole grid -- numpy would right align such a result against the grid, which when
+    the grid is square silently orients the values along the wrong axis.
 
     Parameters
     ----------
@@ -62,16 +63,27 @@ def evaluateGrid(f, cheb_grid, shape):
     values : numpy array
         The value of f at each grid point, of shape ``shape``.
     """
-    try:
-        values = np.asarray(f(*cheb_grid), dtype=float)
-        if values.shape == shape:
-            return values
-        # A function that does not depend on every input hands back something smaller.
-        return np.broadcast_to(values, shape)
-    except Exception:
-        # f did not take the whole grid at once; evaluate it one point at a time instead.
+    def pointByPoint():
+        """Evaluate f once per grid point, the way this was always done."""
         cheb_pts = np.column_stack(tuple(map(lambda x: x.flatten(), cheb_grid)))
         return np.array([f(*cheb_pt) for cheb_pt in cheb_pts]).reshape(shape)
+
+    try:
+        values = np.asarray(f(*cheb_grid), dtype=float)
+    except Exception:
+        # f did not take the whole grid at once; evaluate it one point at a time instead.
+        return pointByPoint()
+
+    if values.shape == shape:
+        return values
+    if values.size == 1:
+        # A function that ignores its inputs hands back a single value for the whole grid. That is
+        # the only shape other than the grid's own that lands on it unambiguously.
+        return np.full(shape, values.reshape(-1)[0])
+    # Anything else cannot be placed on the grid without guessing. numpy would right align it,
+    # which on a square grid spreads the values along the wrong axis and returns them as though
+    # they were correct, so take the slow path instead: it cannot get the orientation wrong.
+    return pointByPoint()
 
 def interval_approximate_nd(f, degs, a, b, retSupNorm = False):
     """Generates an approximation of f on [a,b] using Chebyshev polynomials of degs degrees.
