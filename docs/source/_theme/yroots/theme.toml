@@ -3,3 +3,12 @@ inherit = "basic"
 stylesheets = ["yroots.css"]
 sidebars = []
 pygments_style = { default = "native" }
+
+[options]
+# The site these docs belong to: the landing page and the section anchors the
+# header links back to. Relative when the landing page sits above the docs.
+landing_url = "../"
+repo_url = "https://github.com/wlgns0330/RootFinding"
+# Optional companion project, linked in the footer when set.
+sibling_url = ""
+sibling_label = ""

@@ -15,11 +15,11 @@
       <b>yroots</b><span>docs</span>
     </div>
     <div class="navlinks">
-      <a href="../">Overview</a>
-      <a href="../#method">Method</a>
-      <a href="../#benchmarks">Benchmark</a>
+      <a href="{{ theme_landing_url }}">Overview</a>
+      <a href="{{ theme_landing_url }}#method">Method</a>
+      <a href="{{ theme_landing_url }}#benchmarks">Benchmark</a>
       <a href="{{ pathto(root_doc) }}">Docs</a>
-      <a class="gh" href="https://github.com/wlgns0330/RootFinding" target="_blank" rel="noopener">GitHub &#8599;</a>
+      <a class="gh" href="{{ theme_repo_url }}" target="_blank" rel="noopener">GitHub &#8599;</a>
     </div>
   </nav>
 </header>
@@ -63,12 +63,14 @@
         <svg width="18" height="18" viewBox="0 0 20 20"><path d="M1 14 Q6 2 10 10 T19 6" fill="none" stroke="#E8A33D" stroke-width="2" stroke-linecap="round"/><circle cx="7.4" cy="9.9" r="2" fill="#EDEAE0"/></svg>
         <b>yroots</b>
       </div>
-      <p>API reference for the wlgns0330/RootFinding fork, built from the package docstrings with Sphinx.{% if last_updated %} Last built {{ last_updated }}.{% endif %}</p>
+      <p>API reference for {{ project }}, built from the package docstrings with Sphinx.{% if last_updated %} Last built {{ last_updated }}.{% endif %}</p>
     </div>
     <div class="fcol">
-      <a href="../">Overview</a>
-      <a href="https://github.com/wlgns0330/RootFinding" target="_blank" rel="noopener">yroots repo &#8599;</a>
-      <a href="https://github.com/wlgns0330/Julia-Rootfinding" target="_blank" rel="noopener">jroots repo &#8599;</a>
+      <a href="{{ theme_landing_url }}">Overview</a>
+      <a href="{{ theme_repo_url }}" target="_blank" rel="noopener">Source &#8599;</a>
+      {%- if theme_sibling_url %}
+      <a href="{{ theme_sibling_url }}" target="_blank" rel="noopener">{{ theme_sibling_label }} &#8599;</a>
+      {%- endif %}
       <a href="https://arxiv.org/abs/2401.02114" target="_blank" rel="noopener">Paper (arXiv) &#8599;</a>
     </div>
   </div>

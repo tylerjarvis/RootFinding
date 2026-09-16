@@ -48,6 +48,12 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 html_theme = 'yroots'
 html_theme_path = ['_theme']
 html_title = 'YRoots documentation'
+html_theme_options = {
+    'landing_url': '../',
+    'repo_url': 'https://github.com/wlgns0330/RootFinding',
+    'sibling_url': 'https://github.com/wlgns0330/Julia-Rootfinding',
+    'sibling_label': 'jroots repo',
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
