@@ -10,8 +10,6 @@ Modules
 
    Home <index.rst>
    yroots.solve() <CombinedSolver.rst>
-   yroots.approximate() <ChebyshevApproximator.rst>
+   yroots.chebApproximate() <ChebyshevApproximator.rst>
    yroots.MultiCheb <MultiCheb.rst>
    yroots.MultiPower <MultiPower.rst>
-   ChebyshevSubdivisionSolver <ChebyshevSubdivisionSolver.rst>
-   QuadraticCheck <QuadraticCheck.rst>

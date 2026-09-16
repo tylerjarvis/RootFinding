@@ -19,5 +19,6 @@ if "numba" in _sys.modules:  # numba imported first; make it re-read the env
     _numba_config.reload_config()
 
 from .Combined_Solver import solve
+from .ChebyshevApproximator import chebApproximate
 from .polynomial import MultiPower
 from .polynomial import MultiCheb
