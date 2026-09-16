@@ -51,7 +51,7 @@ html_title = 'YRoots documentation'
 # Built by GitHub Actions, GITHUB_REPOSITORY names the repository publishing
 # the site, so the header and footer follow a fork or its upstream on their
 # own. The fallback keeps a local build pointing somewhere real.
-_repository = os.environ.get('GITHUB_REPOSITORY', 'wlgns0330/RootFinding')
+_repository = os.environ.get('GITHUB_REPOSITORY', 'tylerjarvis/RootFinding')
 _owner = _repository.split('/')[0]
 
 html_theme_options = {
