@@ -70,7 +70,7 @@ If the system includes polynomials, there are specialized `Polynomial` objects w
 
 ## Examples of Applications
 Below is a list of Jupyter notebooks in which YRoots has been used to solve real-world problems:
-- [Solving Equilibrium Points of First Order ODE Systems] (https://github.com/tylerjarvis/RootFinding/blob/main/Applications/Equilibrium Points.ipynb)
+- [Solving Equilibrium Points of First Order ODE Systems](https://github.com/tylerjarvis/RootFinding/blob/main/Applications/Equilibrium%20Points.ipynb)
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
