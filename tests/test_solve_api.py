@@ -306,3 +306,62 @@ def test_scaling_the_system_does_not_change_the_roots(scale):
     rows, cols = linear_sum_assignment(distances)
     assert distances[rows, cols].max() < 1e-12
 
+
+############################### package import ###############################
+
+def _import_yroots_in_subprocess(preamble):
+    """Import yroots in a fresh interpreter, after running `preamble` in it.
+
+    The optimization cap in yroots/__init__.py runs once, at import, so by the time a test
+    function executes it has already happened and cannot be re-triggered in process without
+    tampering with sys.modules. A subprocess is the honest way to exercise it.
+    """
+    import os
+    import subprocess
+    import sys
+    import textwrap
+    import yroots
+    code = textwrap.dedent(preamble) + textwrap.dedent("""
+        import warnings
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            import yroots
+        print("IMPORT-OK")
+        for w in caught:
+            print("WARNING", w.category.__name__, str(w.message)[:200])
+    """)
+    env = dict(os.environ)
+    # Import the same yroots this test session is using, not whatever is installed.
+    package_parent = os.path.dirname(os.path.dirname(os.path.abspath(yroots.__file__)))
+    env["PYTHONPATH"] = package_parent + os.pathsep + env.get("PYTHONPATH", "")
+    env.pop("NUMBA_OPT", None)
+    return subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env)
+
+
+def test_importing_yroots_survives_a_numba_that_cannot_reread_its_config():
+    """The optimization cap is a convenience, so failing to apply it must not break the import.
+
+    yroots asks numba to re-read NUMBA_OPT through reload_config, which is not public numba API.
+    Called unguarded, a numba that renamed it took `import yroots` down with it.
+    """
+    result = _import_yroots_in_subprocess("""
+        import numba
+        from numba.core import config
+        def _raises(*args, **kwargs):
+            raise AttributeError("pretend this numba has no reload_config")
+        config.reload_config = _raises
+    """)
+    assert "IMPORT-OK" in result.stdout, (
+        f"importing yroots failed when numba could not re-read its config:\n{result.stderr}")
+    assert "WARNING RuntimeWarning" in result.stdout, (
+        f"no warning was raised to explain the slow compile that follows:\n{result.stdout}")
+    assert "NUMBA_OPT" in result.stdout, "the warning does not name the variable to set"
+
+
+def test_importing_yroots_after_numba_is_quiet_when_the_cap_applies():
+    """The other side: when the re-read works there is nothing to warn about."""
+    result = _import_yroots_in_subprocess("import numba")
+    assert "IMPORT-OK" in result.stdout, result.stderr
+    assert "RuntimeWarning" not in result.stdout, (
+        f"warned even though the cap applied cleanly:\n{result.stdout}")
+
