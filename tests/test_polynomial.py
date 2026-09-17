@@ -275,6 +275,39 @@ def test_both_classes_agree_on_addition_shape():
         assert np.allclose(subtracted.coeff, [0.0])
 
 
+def test_arithmetic_result_can_be_smaller_than_both_operands():
+    """The documented consequence of cleaning: the result carries its own degree, not theirs.
+
+    test_both_classes_agree_on_addition_shape pins the one dimensional case. This is the part
+    the docstrings promise that it does not reach: in several dimensions every axis is trimmed
+    independently, so a sum can come back smaller than either operand along every one of them.
+    """
+    padded = np.array([[1.0, 2.0, 0.0, 0.0],
+                       [3.0, 4.0, 0.0, 0.0],
+                       [0.0, 0.0, 0.0, 0.0]])
+    for cls in (MultiCheb, MultiPower):
+        a = cls(padded, clean_zeros=False)
+        b = cls(padded, clean_zeros=False)
+        assert a.shape == (3, 4)                    # the operands keep their padding
+        assert (a + b).shape == (2, 2)              # the sum does not
+        assert np.allclose((a + b).coeff, 2 * padded[:2, :2])
+        # Subtracting a polynomial from itself gives the zero polynomial, not a zero filled array.
+        assert (a - b).shape == (1, 1)
+        assert np.allclose((a - b).coeff, [[0.0]])
+
+
+def test_clean_zeros_false_keeps_padding_that_arithmetic_would_trim():
+    """The escape hatch the docstrings point at: rebuild the result to keep its shape."""
+    padded = np.array([[1.0, 0.0], [0.0, 0.0]])
+    for cls in (MultiCheb, MultiPower):
+        trimmed = cls(padded, clean_zeros=False) + cls(np.zeros((2, 2)), clean_zeros=False)
+        assert trimmed.shape == (1, 1)
+        kept = cls(trimmed.coeff, clean_zeros=False)
+        assert kept.shape == trimmed.shape          # already trimmed; nothing to restore
+        # but a polynomial built directly with the flag keeps whatever it was given
+        assert cls(padded, clean_zeros=False).shape == (2, 2)
+
+
 def test_cleaning_does_not_change_the_polynomial():
     """Trimming trailing zeros must not change what the polynomial evaluates to."""
     a = np.array([[1.0, 2.0], [3.0, 0.0]])

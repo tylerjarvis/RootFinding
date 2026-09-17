@@ -323,6 +323,11 @@ class MultiCheb(Polynomial):
         MultiCheb
             The sum of the coeff of self and coeff of other.
 
+        The result is trimmed to its own degree rather than kept at the operands' shape, so it may
+        come back smaller than either of them -- subtracting a polynomial from itself gives the
+        zero polynomial, of shape (1,)*dim, not a zero filled array. That keeps ``shape`` and
+        ``__eq__`` agreeing on which polynomial this is. Pass ``clean_zeros=False`` to the
+        constructor to build one that keeps its padding.
         """
         matched = self.matched_coeffs(other)
         if matched is None:
@@ -343,6 +348,12 @@ class MultiCheb(Polynomial):
         -------
         MultiCheb
             The coeff values are the result of self.coeff - other.coeff.
+
+        The result is trimmed to its own degree rather than kept at the operands' shape, so it may
+        come back smaller than either of them -- subtracting a polynomial from itself gives the
+        zero polynomial, of shape (1,)*dim, not a zero filled array. That keeps ``shape`` and
+        ``__eq__`` agreeing on which polynomial this is. Pass ``clean_zeros=False`` to the
+        constructor to build one that keeps its padding.
         """
         matched = self.matched_coeffs(other)
         if matched is None:
@@ -488,6 +499,11 @@ class MultiPower(Polynomial):
         MultiPower object
             The sum of the coeff of self and coeff of other.
 
+        The result is trimmed to its own degree rather than kept at the operands' shape, so it may
+        come back smaller than either of them -- subtracting a polynomial from itself gives the
+        zero polynomial, of shape (1,)*dim, not a zero filled array. That keeps ``shape`` and
+        ``__eq__`` agreeing on which polynomial this is. Pass ``clean_zeros=False`` to the
+        constructor to build one that keeps its padding.
         """
         matched = self.matched_coeffs(other)
         if matched is None:
@@ -508,6 +524,11 @@ class MultiPower(Polynomial):
         MultiPower
             The coeff values are the result of self.coeff - other.coeff.
 
+        The result is trimmed to its own degree rather than kept at the operands' shape, so it may
+        come back smaller than either of them -- subtracting a polynomial from itself gives the
+        zero polynomial, of shape (1,)*dim, not a zero filled array. That keeps ``shape`` and
+        ``__eq__`` agreeing on which polynomial this is. Pass ``clean_zeros=False`` to the
+        constructor to build one that keeps its padding.
         """
         matched = self.matched_coeffs(other)
         if matched is None:
