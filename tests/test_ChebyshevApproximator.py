@@ -145,6 +145,48 @@ def test_evaluateGrid_calls_a_vectorized_function_once():
     assert calls == [shape]
 
 
+# Each substring below appears in the error the function raises on the whole grid and NOT in the
+# one it raises on a single point, so the assertion fails if the point-by-point error is reported
+# instead. A bug whose two errors read the same -- a NameError, say -- cannot tell the two apart
+# and would pass either way, so there is no point listing one here.
+@pytest.mark.parametrize("f,expected", [
+    (lambda x, y: np.concatenate([x, y], axis=5),   "axis 5 is out of bounds"),
+    (lambda x, y: x.reshape(9, 9) + y,              "size 49"),
+    (lambda x, y: x[99] + y,                        "index 99 is out of bounds"),
+    (lambda x, y: x @ y[:, :1] @ y,                 "core dimension"),
+    (lambda x, y: x.sum(axis=3) + y,                "array of dimension 2"),
+])
+def test_evaluateGrid_reports_a_broken_function_rather_than_hiding_it(f, expected):
+    """A function that is broken, not merely unvectorized, must surface its own error.
+
+    The fallback doubles as the test: a function that genuinely cannot run fails point by point
+    too. What it raises there is an artifact of being handed scalars -- concatenating
+    zero-dimensional arrays, say -- so the grid's own error is the one that names the bug, and
+    that is the one to re-raise.
+    """
+    shape = (7, 7)
+    cheb_grid = grid_of(shape, [-1.0, -1.0], [1.0, 1.0])
+    with pytest.raises(Exception) as excinfo:
+        evaluateGrid(f, cheb_grid, shape)
+    assert expected in str(excinfo.value), f"the reported error does not name the bug: {excinfo.value}"
+
+
+def test_evaluateGrid_still_falls_back_for_a_function_that_only_takes_scalars():
+    """The other side of the same check: a scalar-only function runs point by point, silently.
+
+    Its grid call fails and its point-by-point call succeeds, which is exactly the signature
+    that separates it from a broken function.
+    """
+    shape = (7, 5)
+    cheb_grid = grid_of(shape, [-1.0, -1.0], [1.0, 1.0])
+    for f in (lambda x, y: math.sin(3 * x * y) + x,
+              lambda x, y: x * y if x > 0 else -x * y,
+              lambda x, y: float(x) + float(y),
+              lambda x, y: round(x, 3) + y):
+        values = evaluateGrid(f, cheb_grid, shape)
+        assert np.array_equal(values, point_by_point(f, cheb_grid, shape))
+
+
 def test_evaluateGrid_does_not_guess_an_ambiguous_shape():
     """A result matching one axis of a square grid must not be spread along the other.
 

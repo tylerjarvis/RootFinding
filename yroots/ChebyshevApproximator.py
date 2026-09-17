@@ -70,9 +70,15 @@ def evaluateGrid(f, cheb_grid, shape):
 
     try:
         values = np.asarray(f(*cheb_grid), dtype=float)
-    except Exception:
-        # f did not take the whole grid at once; evaluate it one point at a time instead.
-        return pointByPoint()
+    except Exception as wholeGridFailure:
+        # f did not take the whole grid at once; evaluate it one point at a time instead. If that
+        # fails too then f is broken rather than merely unvectorized, and the failure it raises on
+        # a single point is a confusing artifact of being handed scalars -- report what went wrong
+        # on the grid instead, which is the error that actually describes the bug.
+        try:
+            return pointByPoint()
+        except Exception:
+            raise wholeGridFailure
 
     if values.shape == shape:
         return values
