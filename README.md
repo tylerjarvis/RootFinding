@@ -4,6 +4,14 @@ YRoots is a Python package designed for numerical rootfinding of multivariate sy
 
 For a tutorial on YRoots syntax, set-up, and examples on how to use it with different function systems, see [Combined Notebook](https://github.com/tylerjarvis/RootFinding/blob/main/CombinedNotebook.ipynb). 
 
+To try YRoots without installing anything, open that notebook on Google Colab:
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/wlgns0330/RootFinding/blob/main/CombinedNotebook.ipynb)
+
+Its first code cell installs YRoots into the Colab runtime. Colab runs the standard build of CPython rather than
+the free-threaded 3.14t build below, so the cell waives pip's version check: every example returns the same roots
+to the same precision, but the parallel examples get no speedup out of the extra threads.
+
 Documentation is posted at https://tylerjarvis.github.io/RootFinding/
 
 This project was supported in part by the National Science Foundation, grant number DMS-1564502.
