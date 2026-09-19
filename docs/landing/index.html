@@ -269,6 +269,9 @@
     margin:8px 0 0;
   }
   .names .sep{color:var(--muted); padding:0 6px;}
+  .names .n{white-space:nowrap;}
+  .cite-link{color:var(--accent-y); text-decoration:none;}
+  .cite-link:hover{text-decoration:underline;}
   .thanks-note{
     font-family:var(--mono); font-size:12px; color:var(--muted);
     margin-top:24px; padding-top:18px; border-top:1px solid var(--hair);
@@ -475,19 +478,15 @@
 <section id="about" class="tight">
   <div class="wrap reveal">
     <div class="eyebrow">About</div>
-    <h2>Nine years of student work.</h2>
-    <p style="max-width:660px; margin-top:12px;">Yroots began in the mathematics department at Brigham Young University in July 2017, as an attempt to make Chebyshev subdivision practical for systems nobody wanted to hand to a homotopy solver. The method was proven and published seven years later, in the Journal of Symbolic Computation; the code kept going. What exists today — the parallel Python solver, the single-threaded reference it is checked against, and the Julia port — is roughly two thousand commits across three repositories, carried by a succession of student researchers, many of them for a single semester or summer before handing it on.</p>
-    <p style="max-width:660px; margin-top:16px;">Supported in part by the National Science Foundation under grant DMS-1564502.</p>
+    <p style="max-width:660px; margin-top:12px;">Yroots and its variants are built and maintained by Tyler Jarvis' YRoots group at Brigham Young University. The underlying algorithm is described, and its properties proved, in the paper <a href="https://www.sciencedirect.com/science/article/pii/S0747717124000968" target="_blank" rel="noopener" class="cite-link">E. Parkinson, K. Wall, J. Slagle, D. Treuhaft, X. de la Bruere, S. Goldrup, T. Keith, P. Call, and T.J. Jarvis, <i style="font-family:var(--serif);">Chebyshev subdivision and reduction methods for solving multivariable systems of equations</i>, J. of Symbolic Computation 128 (2025) 102392</a>. Some of the underlying ideas and design choices were influenced by our analysis of rootfinding algorithms in <a href="https://www.sciencedirect.com/science/article/pii/S0377042722000899" target="_blank" rel="noopener" class="cite-link">S. Parkinson, H. Ringer, K. Wall, E. Parkinson, L. Erekson, D. Christensen, and T.J. Jarvis, <i style="font-family:var(--serif);">Analysis of normal-form algorithms for solving systems of polynomial equations</i>, J. of Computational and Applied Mathematics 411 (September 2022), 114235</a>.</p>
 
     <div class="thanks">
-      <div class="eyebrow">Authors of the paper</div>
-      <p class="names">Erik Parkinson<span class="sep">·</span> Kate Wall<span class="sep">·</span> Jane Slagle<span class="sep">·</span> Daniel Treuhaft<span class="sep">·</span> Xander de la Bruere<span class="sep">·</span> Samuel Goldrup<span class="sep">·</span> Timothy Keith<span class="sep">·</span> Peter Call<span class="sep">·</span> Tyler J. Jarvis</p>
-      <div class="eyebrow">Carrying it since</div>
-      <p class="names">Nathan Longhurst<span class="sep">·</span> Rowan Williams<span class="sep">·</span> Alex Hermosilla<span class="sep">·</span> Hyun Lee</p>
-      <div class="eyebrow">Earlier work</div>
-      <p class="names">Zachary Taylor<span class="sep">·</span> Derek Miller<span class="sep">·</span> Hayden Ringer<span class="sep">·</span> Tyler Moncur<span class="sep">·</span> Suzanna Stephenson<span class="sep">·</span> Lukas Erekson<span class="sep">·</span> Natalie Larsen<span class="sep">·</span> David Kartchner<span class="sep">·</span> Catherine Kellar<span class="sep">·</span> Jeremy Magland</p>
-      <p class="thanks-note">Thank you, all of you. This list is assembled from the three repositories' history — if your name belongs here and is missing or wrong, open an issue and we will fix it.</p>
+      <div class="eyebrow">Contributors</div>
+      <p class="names"><span class="n">Peter Call</span><span class="sep">·</span> <span class="n">Xander de la Bruere</span><span class="sep">·</span> <span class="n">Lukas Erekson</span><span class="sep">·</span> <span class="n">Samuel Goldrup</span><span class="sep">·</span> <span class="n">Alex Hermosilla</span><span class="sep">·</span> <span class="n">Tyler J. Jarvis</span><span class="sep">·</span> <span class="n">David Kartchner</span><span class="sep">·</span> <span class="n">Timothy Keith</span><span class="sep">·</span> <span class="n">Catherine Kellar</span><span class="sep">·</span> <span class="n">Natalie Larsen</span><span class="sep">·</span> <span class="n">Hyun Lee</span><span class="sep">·</span> <span class="n">Nathan Longhurst</span><span class="sep">·</span> <span class="n">Jeremy Magland</span><span class="sep">·</span> <span class="n">Derek Miller</span><span class="sep">·</span> <span class="n">Tyler Moncur</span><span class="sep">·</span> <span class="n">Erik Parkinson</span><span class="sep">·</span> <span class="n">Hayden Ringer</span><span class="sep">·</span> <span class="n">Jane Slagle</span><span class="sep">·</span> <span class="n">Suzanna Stephenson</span><span class="sep">·</span> <span class="n">Zachary Taylor</span><span class="sep">·</span> <span class="n">Daniel Treuhaft</span><span class="sep">·</span> <span class="n">Kate Wall</span><span class="sep">·</span> <span class="n">Rowan Williams</span></p>
+      <p class="thanks-note">Thanks also to Simon Telen and Alex Townsend for helpful feedback and suggestions.</p>
     </div>
+
+    <p style="max-width:660px; margin-top:22px;">This work has been supported in part by the College of Computing, Math, and Science at Brigham Young University; by two Mentoring Environment Grants from Brigham Young University; and by the National Science Foundation under grant DMS-1564502.</p>
   </div>
 </section>
 
