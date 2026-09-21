@@ -6,6 +6,11 @@ import yroots.ChebyshevSubdivisionSolver as ChebyshevSubdivisionSolver
 import yroots.ChebyshevApproximator as ChebyshevApproximator
 from yroots.polynomial import MultiCheb,MultiPower
 
+def _printRootCount(numRoots):
+    """Prints how many roots are being returned, closing out the solver's progress marks."""
+    finish_string = '\n' + f"Found {numRoots} roots"
+    print((finish_string if numRoots != 1 else finish_string[:-1]),end='\n\n')
+
 def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=False, minBoundingIntervalSize=1e-5, max_cpu=1,
           parallel_depth=1):
     """Finds and returns the roots of a system of functions on the search interval [a,b].
@@ -19,11 +24,17 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
     NOTE: YRoots uses just-in-time compiling with an on-disk cache. The first time the solver is called at
     a given dimension on any given install, numba compiles the required specializations (which takes several
     seconds or minutes) and writes them to ``yroots/__pycache__/`` as ``.nbi``/``.nbc`` files. Every later Python
-    process that solves a system of that same dimension loads the compiled code from disk on first call --
-    no recompilation, no warmup. The cache is invalidated automatically when the source file or the numba
+    process that solves a system of that same dimension loads the compiled code from disk on first call
+    instead of recompiling. The cache is invalidated automatically when the source file or the numba
     version changes, and it is rebuilt lazily on the next call. Because the cache is keyed by the dimension
     of the system (a new type signature per dimension), the very first solve at each new dimension on a
     fresh install still pays a one-time compile cost.
+
+    After the cache is keyed for a certain dimension, a fresh Python process still pays roughly one second or less of
+    import overhead the first time it does ``import yroots`` (for numpy, numba, and the yroots modules
+    themselves), and each new dimension adds roughly 30-50 ms to its first solve call for reading the
+    cached binaries from disk, linking them, and populating numba's dispatch table. However, both costs are
+    per-process rather than per-call, essentially replacing a multi-second/minute warmup with a couple seconds of warmup.
 
     NOTE: The solve function is only guaranteed to work well on systems of equations where each function
     is continuous and smooth and each root in the interval is a simple root. If a function is not
@@ -146,8 +157,8 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
         print(f"Searching on interval {[[a[i],b[i]] for i in range(dim)]}")
 
     #Solve the Chebyshev polynomial system
-    yroots, boundingBoxes = ChebyshevSubdivisionSolver.solveChebyshevSubdivision(polys,errs,verbose,True,exact,
-                constant_check=True, low_dim_quadratic_check=True, all_dim_quadratic_check=False, max_cpu=max_cpu, parallel_depth=parallel_depth)
+    boundingBoxes = ChebyshevSubdivisionSolver.solveChebyshevSubdivision(polys,errs,verbose,exact, constant_check=True,
+                low_dim_quadratic_check=True, all_dim_quadratic_check=False, max_cpu=max_cpu, parallel_depth=parallel_depth)
     
     #If the bounding box is the entire interval, subdivide it!
     usingSubdivision = np.all(b-a > minBoundingIntervalSize)
@@ -158,7 +169,7 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
             #Split almost in half
             #TODO: Do we need to combine bounding boxes in this step of the recursion as well?
             #      For now it seems safe enough to assume we won't have any roots on the midpoints.
-            midPoint = (a + b) * 0.51234912839471234
+            midPoint = a + (b - a) * 0.51234912839471234
             newA = np.where(val, midPoint, a)
             newB = np.where(val, b, midPoint)
             #Solve recursively
@@ -172,6 +183,12 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
         if len(yroots) > 0:
             yroots = np.vstack(yroots)
             boundingBoxes = np.vstack(boundingBoxes)
+        else:
+            #Always hand back arrays of the documented shape, even when nothing was found
+            yroots = np.empty((0,dim))
+            boundingBoxes = np.empty((0,dim,2))
+        if verbose:
+            _printRootCount(len(yroots))
         if returnBoundingBoxes:
             return yroots, boundingBoxes
         else:
@@ -199,18 +216,25 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
                 finalBoxes.append(boxes)
         else:
             #Transform back
-            finalBoxes.append([ChebyshevApproximator.transform(box.finalInterval.T,a,b).T])
-            #Get the roots from this box
-            if len(box.possibleDuplicateRoots) > 0:
-                finalRoots.append(ChebyshevApproximator.transform(np.array(box.possibleDuplicateRoots),a,b))
-            else:
-                finalRoots.append(ChebyshevApproximator.transform(box.getFinalPoint(),a,b))
+            transformedBox = ChebyshevApproximator.transform(box.finalInterval.T,a,b).T
+            #Get the roots from this box, and repeat the box once per root it reports, so
+            #finalRoots and finalBoxes stay index-aligned. A box that could not separate the
+            #roots inside it reports more than one, and each of them gets that same box.
+            boxRoots = ChebyshevSubdivisionSolver.getRootsInInterval(box)
+            finalRoots.append(ChebyshevApproximator.transform(np.array(boxRoots),a,b))
+            finalBoxes.append(np.repeat(transformedBox[np.newaxis], len(boxRoots), axis=0))
     if len(finalBoxes) != 0:
         finalBoxes = np.vstack(finalBoxes)
+    else:
+        finalBoxes = np.empty((0,dim,2))
     if len(finalRoots) != 0:
         finalRoots = np.vstack(finalRoots)
+    else:
+        finalRoots = np.empty((0,dim))
     
     # Find and return the roots (and, optionally, the bounding boxes)
+    if verbose:
+        _printRootCount(len(finalRoots))
     if returnBoundingBoxes:
         return finalRoots, finalBoxes
     else:

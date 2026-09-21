@@ -1,8 +1,8 @@
 .. _ChebyshevApproximator:
 
-==================
-yroots.approximate
-==================
+========================
+yroots.chebApproximate()
+========================
 
 Approximator
 ------------

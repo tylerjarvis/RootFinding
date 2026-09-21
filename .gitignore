@@ -1,0 +1,20 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Numba's on-disk cache of compiled functions, written next to the source it
+# was compiled from. Machine and numba-version specific; rebuilt on demand.
+*.nbc
+*.nbi
+
+# Virtual environments
+.venv/
+venv/
+
+# Packaging and test tooling
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.coverage
+htmlcov/

@@ -32,6 +32,65 @@ def transform(x, a, b):
     """
     return ((b-a)*x+(b+a))/2
 
+def evaluateGrid(f, cheb_grid, shape):
+    """Evaluates f at every point of the Chebyshev grid.
+
+    Passes the whole grid through f in a single call, one coordinate array per dimension, which
+    is what the documented contract for an input function asks for ("must be smooth on the domain
+    and vectorized"). The grid holds one point per coefficient of the approximation, so past a low
+    degree in two dimensions it is thousands of points, and calling f once per point spends nearly
+    all of its time on Python call overhead rather than in f.
+
+    A function that turns out not to be vectorized is still evaluated one point at a time, the way
+    it always was. A scalar-only function either raises when handed arrays (a ``math`` function, a
+    Python ``if`` on a value) or hands back something that is not one value per grid point, and
+    both are caught here, as is a result that is neither one value per grid point nor a single
+    value for the whole grid -- numpy would right align such a result against the grid, which when
+    the grid is square silently orients the values along the wrong axis.
+
+    Parameters
+    ----------
+    f : function from R^n -> R
+        The function to evaluate.
+    cheb_grid : list of numpy arrays
+        The coordinate arrays of the grid, each of shape ``shape``, as returned by
+        :func:`numpy.meshgrid` with ``indexing='ij'``.
+    shape : tuple of ints
+        The shape of the grid.
+
+    Returns
+    -------
+    values : numpy array
+        The value of f at each grid point, of shape ``shape``.
+    """
+    def pointByPoint():
+        """Evaluate f once per grid point, the way this was always done."""
+        cheb_pts = np.column_stack(tuple(map(lambda x: x.flatten(), cheb_grid)))
+        return np.array([f(*cheb_pt) for cheb_pt in cheb_pts]).reshape(shape)
+
+    try:
+        values = np.asarray(f(*cheb_grid), dtype=float)
+    except Exception as wholeGridFailure:
+        # f did not take the whole grid at once; evaluate it one point at a time instead. If that
+        # fails too then f is broken rather than merely unvectorized, and the failure it raises on
+        # a single point is a confusing artifact of being handed scalars -- report what went wrong
+        # on the grid instead, which is the error that actually describes the bug.
+        try:
+            return pointByPoint()
+        except Exception:
+            raise wholeGridFailure
+
+    if values.shape == shape:
+        return values
+    if values.size == 1:
+        # A function that ignores its inputs hands back a single value for the whole grid. That is
+        # the only shape other than the grid's own that lands on it unambiguously.
+        return np.full(shape, values.reshape(-1)[0])
+    # Anything else cannot be placed on the grid without guessing. numpy would right align it,
+    # which on a square grid spreads the values along the wrong axis and returns them as though
+    # they were correct, so take the slow path instead: it cannot get the orientation wrong.
+    return pointByPoint()
+
 def interval_approximate_nd(f, degs, a, b, retSupNorm = False):
     """Generates an approximation of f on [a,b] using Chebyshev polynomials of degs degrees.
 
@@ -59,20 +118,22 @@ def interval_approximate_nd(f, degs, a, b, retSupNorm = False):
         The sup norm of the function, approximated as the maximum function evaluation.
     """
     dim = len(degs)
-    # If any dimension has degree 0, turn it to degree 1 (will be sliced out at the end)
-    originalDegs = degs.copy()
-    degs[degs == 0] = 1 
+    # If any dimension has degree 0, turn it to degree 1 (will be sliced out at the end).
+    # Work on a copy so the degrees passed in by the caller are left untouched.
+    originalDegs = degs
+    degs = np.array(degs)
+    degs[degs == 0] = 1
 
     # Get the Chebyshev Grid Points
     cheb_grid = np.meshgrid(*([transform(np.cos(np.arange(deg+1)*np.pi/deg), a_,b_) 
                                for deg, a_, b_ in zip(degs, a, b)]),indexing='ij')
-    cheb_pts = np.column_stack(tuple(map(lambda x: x.flatten(), cheb_grid)))
 
     if isinstance(f, MultiCheb) or isinstance(f, MultiPower): # for faster function evaluations
         #TODO: Evaluate Grid???
+        cheb_pts = np.column_stack(tuple(map(lambda x: x.flatten(), cheb_grid)))
         values = f(cheb_pts).reshape(*(degs+1))
     else:
-        values = np.array([f(*cheb_pt) for cheb_pt in cheb_pts]).reshape(*(degs+1))
+        values = evaluateGrid(f, cheb_grid, tuple(degs+1))
     #Get the supNorm if we want it
     if retSupNorm:
         supNorm = np.max(np.abs(values))
@@ -109,7 +170,7 @@ def startedConverging(coeffList, tol):
     startedConverging : bool
         True if the last 5 coefficients of coeffList are less than tol; False otherwise
     """
-    return np.all(coeffList[-5:] < tol)
+    return np.all(coeffList[-5:] <= tol)
     
 def hasConverged(coeff, coeff2, tol):
     """Determine whether the high-degree coefficients of a Chebyshev approximation have converged
@@ -132,7 +193,7 @@ def hasConverged(coeff, coeff2, tol):
     coeff3 = coeff2.copy()
     # Subtract off coeff from coeff2 elementwise and ensure all elements are then less than tol
     coeff3[tuple([slice(0, d) for d in coeff.shape])] -= coeff 
-    return np.max(np.abs(coeff3)) < tol
+    return np.max(np.abs(coeff3)) <= tol
     
 def getFinalDegree(coeff,tol,macheps = 2**-52):
     """Finalize the degree of Chebyshev approximation to use along one particular dimension.
@@ -167,19 +228,35 @@ def getFinalDegree(coeff,tol,macheps = 2**-52):
     """
     # Set the final degree to the position of the last coefficient greater than convergence value
     convergedDeg = int(3 * (len(coeff) - 1) / 4) # Assume convergence at degree 3n/2.
-    epsVal = 2*max(macheps,np.max(coeff[convergedDeg:])) # Set epsVal to 2x the largest coefficient past degree 3n/2
+    maxSpot = np.argmax(coeff)
+    peak = coeff[maxSpot]
+    #Floor the convergence value relative to the largest coefficient rather than at an absolute
+    #macheps. Rounding puts the noise floor at macheps times the largest coefficient, so an
+    #absolute floor is only right for a function that happens to be of order 1. Scale a system
+    #down and the floor swamps the coefficients it is meant to sit under: the measured decay rate
+    #comes out below 1, getApproxError sums the tail as 1/(rho-1) and returns a NEGATIVE error
+    #bound, and the solver discards the intervals its roots are in. The relative floor also makes
+    #the reported error scale with the function, as an error bound should.
+    epsVal = 2*max(macheps*peak,np.max(coeff[convergedDeg:])) # 2x the largest coefficient past degree 3n/2
     nonZeroCoeffs = np.where(coeff > epsVal)[0]
     degree = 1 if len(nonZeroCoeffs) == 0 else max(1, nonZeroCoeffs[-1])
 
     # Set degree to 0 for constant functions (all coefficients but first are less than tol)
-    if np.all(coeff[1:] < tol):
+    if np.all(coeff[1:] <= tol):
         degree = 0
     
     # Calculate the rate of convergence
-    maxSpot = np.argmax(coeff)
-    if epsVal == 0: #Avoid divide by 0. epsVal shouldn't be able to shrink by more than 1e-24 cause floating point.
-         epsVal = coeff[maxSpot] * 1e-24
-    rho = (coeff[maxSpot]/epsVal)**(1/((degree - maxSpot) + 1)) 
+    if peak == 0:
+        #Every coefficient is 0, so the approximation is exact. Report perfect convergence
+        #instead of dividing 0 by epsVal, which would give a rate of 0 (and a negative error bound).
+        return degree, 0, np.inf
+    #A rho of 1 or less makes getApproxError's 1/(rho-1) negative, so hold the exponent at 1 or
+    #more, which the ratio above being greater than 1 then carries into rho itself.
+    rho = (peak/epsVal)**(1/max(1, (degree - maxSpot) + 1))
+    if not rho > 1:
+        #The coefficients show no measurable decay, so there is no geometric tail to sum. Report
+        #the slowest rate that still gives a finite, non-negative bound rather than a negative one.
+        rho = 1 + macheps
     return degree, epsVal, rho
 
 def checkConstantInDimension(f,a,b,currDim, relApproxTol, absApproxTol = 0):

@@ -38,7 +38,19 @@ jobs:
         run: uv sync --frozen --group docs
 
       - name: Build documentation
-        run: uv run sphinx-build -W docs/source docs/_build/html
+        run: uv run sphinx-build -W docs/source docs/_build/html/documentation
+
+      - name: Add landing page at the site root
+        run: |
+          cp -R docs/landing/. docs/_build/html/
+          # The page links this project's three repositories, their clone URLs
+          # and the siblings' documentation sites, all under one owner. Point
+          # them at whoever is publishing this build, so the same page serves
+          # a fork and its upstream without being edited. The repository names
+          # are the same in both places; only the owner differs.
+          owner='${{ github.repository_owner }}'
+          sed -i "s|wlgns0330|${owner}|g" docs/_build/html/index.html
+          echo "landing page owner set to ${owner}"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4

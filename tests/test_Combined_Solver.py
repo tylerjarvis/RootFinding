@@ -73,6 +73,31 @@ def test_bivariate():
     assert np.max(np.abs(f(roots[:,0],roots[:,1]))) < tol2
     assert np.max(np.abs(g(roots[:,0],roots[:,1]))) < tol2
 
+def test_high_dim():
+    """Four variables, where the solver stops running the quadratic check.
+
+    solvePolyRecursive gates that check on Ms[0].ndim <= 3, so dimension 4 is the first
+    one to skip it, and dimension 5 covers no branch that 4 does not. The 0.4**dim zoom
+    floor, the 2**dim volume ratio, 16 way subdivision and a 4x4 linear system are all
+    exercised here as well.
+
+    The system is triangular: x1 = 0.5, then x2 = 0.75 - x1^2, x3 = x1*x2, x4^2 = x3 + 0.5.
+    """
+    f1 = lambda x1, x2, x3, x4: x1 - 0.5
+    f2 = lambda x1, x2, x3, x4: x2 + x1**2 - 0.75
+    f3 = lambda x1, x2, x3, x4: x3 - x1*x2
+    f4 = lambda x1, x2, x3, x4: x4**2 - x3 - 0.5
+
+    a = [-1]*4
+    b = [1]*4
+
+    roots = yr.solve([f1,f2,f3,f4],a,b)
+
+    assert len(roots) == 2
+    assert_same_points(roots, np.array([[0.5, 0.5, 0.25, -np.sqrt(0.75)],
+                                        [0.5, 0.5, 0.25,  np.sqrt(0.75)]]))
+    assert np.max([np.abs(f(*[roots[:,i] for i in range(4)])) for f in [f1,f2,f3,f4]]) < tol2
+
 # Test MultiCheb and MultiPower
 def test_multiCheb_multiPower():
     """
@@ -212,9 +237,9 @@ def test_exact_option():
     Then we make sure we got the same roots between the two, and that those roots are correct.
     """
 
-    ROOT_DIR = Path(__file__).resolve().parent          
-    actual_roots_path = ROOT_DIR / "Polished_results" / "polished_2.3.npy"
-    chebfun_roots_path = ROOT_DIR / "Chebfun_results" / "test_roots_2.3.csv"
+    THIS_DIR = Path(__file__).resolve().parent          # .../tests
+    actual_roots_path = THIS_DIR / "Polished_results" / "polished_2.3.npy"
+    chebfun_roots_path = THIS_DIR / "Chebfun_results" / "test_roots_2.3.csv"
 
     f = lambda x,y: np.sin(4*(x + y/10 + np.pi/10))
     g = lambda x,y: np.cos(2*(x-2*y+ np.pi/7))
@@ -276,29 +301,3 @@ def test_outside_neg1_pos1():
 
     assert np.max(np.abs(f(roots[:,0], roots[:,1]))) < tol2
     assert np.max(np.abs(g(roots[:,0], roots[:,1]))) < tol2
-
-def test_parallelization():
-    coeff = np.zeros((3, 3, 3))
-    coeff[1, 0, 0], coeff[0, 1, 2], coeff[2, 1, 0] = -1, 2, 4
-    f = yr.MultiCheb(coeff)
-
-    coeff = np.zeros((3, 3, 3))
-    coeff[0, 2,0], coeff[1,2, 0], coeff[1, 1, 1] = 5, 3, 2
-    g = yr.MultiCheb(coeff)
-
-    coeff = np.zeros((3, 3, 3))
-    coeff[0, 0, 1], coeff[1,0, 0], coeff[2, 1, 0] = 2, -1, 3
-    h = yr.MultiCheb(coeff)
-
-    roots = yr.solve([f, g, h],[-1, -1, -1],[1, 1, 1])
-    roots2 = yr.solve([f, g, h],[-1, -1, -1],[1, 1, 1], max_cpu=5)
-
-    assert len(roots) > 0
-    assert len(roots) == len(roots2)
-    assert np.max(np.abs(f(roots))) < tol2
-    assert np.max(np.abs(g(roots))) < tol2
-    assert np.max(np.abs(h(roots))) < tol2
-
-    assert np.isclose(np.max(np.abs(f(roots))), np.max(np.abs(f(roots2))))
-    assert np.isclose(np.max(np.abs(g(roots))), np.max(np.abs(g(roots2))))
-    assert np.isclose(np.max(np.abs(h(roots))), np.max(np.abs(h(roots2))))

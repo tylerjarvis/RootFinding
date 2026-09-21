@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.abspath('../..'))  # points at repo root
 project = 'YRoots'
 copyright = '2023-2026, BYU Math'
 author = 'BYU Math'
-root_doc = "modules"
+root_doc = "index"
 
 
 # -- General configuration ---------------------------------------------------
@@ -45,7 +45,21 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'alabaster'
+html_theme = 'yroots'
+html_theme_path = ['_theme']
+html_title = 'YRoots documentation'
+# Built by GitHub Actions, GITHUB_REPOSITORY names the repository publishing
+# the site, so the header and footer follow a fork or its upstream on their
+# own. The fallback keeps a local build pointing somewhere real.
+_repository = os.environ.get('GITHUB_REPOSITORY', 'tylerjarvis/RootFinding')
+_owner = _repository.split('/')[0]
+
+html_theme_options = {
+    'landing_url': '../',
+    'repo_url': f'https://github.com/{_repository}',
+    'sibling_url': f'https://github.com/{_owner}/Julia-Rootfinding',
+    'sibling_label': 'jroots repo',
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
