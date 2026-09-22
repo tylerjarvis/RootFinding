@@ -258,6 +258,10 @@
     font-family:var(--mono); font-size:11.5px; color:var(--muted);
     border:1px solid var(--hair); border-radius:99px; padding:5px 12px;
   }
+  a.chip{text-decoration:none; transition:color .2s, border-color .2s;}
+  a.chip:hover{color:var(--accent-y); border-color:var(--accent-y);}
+  .solver-link{color:inherit; text-decoration:underline; text-decoration-color:var(--hair); text-underline-offset:3px; transition:color .2s, text-decoration-color .2s;}
+  .solver-link:hover{color:var(--accent-y); text-decoration-color:var(--accent-y);}
 
   /* ---------- about / thanks ---------- */
   .thanks{
@@ -308,9 +312,9 @@
       <div class="gh-dropdown">
         <button class="gh" id="ghToggle" aria-haspopup="true" aria-expanded="false">GitHub ▾</button>
         <div class="gh-menu" id="ghMenu">
-          <a href="https://github.com/wlgns0330/RootFinding" target="_blank" rel="noopener">yroots <span class="gh-sub">Python · parallel</span></a>
-          <a href="https://github.com/wlgns0330/Rootfinding-serial" target="_blank" rel="noopener">yroots-serial <span class="gh-sub">Python · serial</span></a>
-          <a href="https://github.com/wlgns0330/Julia-Rootfinding" target="_blank" rel="noopener">jroots <span class="gh-sub">Julia</span></a>
+          <a href="https://github.com/tylerjarvis/RootFinding" target="_blank" rel="noopener">yroots <span class="gh-sub">Python · parallel</span></a>
+          <a href="https://github.com/tylerjarvis/Rootfinding-serial" target="_blank" rel="noopener">yroots-serial <span class="gh-sub">Python · serial</span></a>
+          <a href="https://github.com/tylerjarvis/Julia-Rootfinding" target="_blank" rel="noopener">jroots <span class="gh-sub">Julia</span></a>
           <a href="https://github.com/tylerjarvis/rootfinding_testing" target="_blank" rel="noopener">Benchmark data <span class="gh-sub">tylerjarvis</span></a>
         </div>
       </div>
@@ -321,11 +325,11 @@
 <section class="hero" id="intro">
   <div class="wrap">
     <div class="hero-top">
-      <div class="eyebrow">Numerical rootfinding suite · R<sup>n</sup> → {0}</div>
-      <h1>Find every root in the box.<br><i>Prove</i> there's nothing left out.</h1>
-      <p class="lede">Yroots locates all real roots of smooth multivariate systems inside a compact search interval — no initial guess, no missed solutions, just the box and the functions. The same algorithm ships three ways: two Python editions and <span class="mono">jroots</span>, the Julia port.</p>
+      <div class="eyebrow">Numerical rootfinding suite · R<sup>n</sup> → R</div>
+      <h1>Find <strong>every</strong> real root of a system of equations.</h1>
+      <p class="lede">Yroots locates all real roots inside a compact search interval of a multivariate system of smooth equations.  No need for initial guesses, no missed solutions.  It only requires the interval and the functions. The same algorithm is implemented three ways: two Python editions (parallel and serial) and a Julia port <span class="mono">jroots</span>.</p>
       <div class="cta-row">
-        <a class="cta" href="https://colab.research.google.com/github/wlgns0330/Rootfinding-serial/blob/main/CombinedNotebook.ipynb" target="_blank" rel="noopener">Try yroots in your browser ↗</a>
+        <a class="cta" href="https://colab.research.google.com/github/tylerjarvis/Rootfinding-serial/blob/main/CombinedNotebook.ipynb" target="_blank" rel="noopener">Try yroots in your browser ↗</a>
         <span class="cta-note">Opens the tutorial notebook on Google Colab. Single-threaded edition, nothing to install.</span>
       </div>
     </div>
@@ -345,15 +349,15 @@
 <section id="method" class="tight">
   <div class="wrap reveal">
     <div class="eyebrow">Algorithm</div>
-    <h2>Chebyshev subdivision, not homotopy or elimination.</h2>
-    <p style="max-width:640px; margin-top:12px;">Rootfinders for this problem tend to fall into one of three families: homotopy continuation methods that track paths from a related system with known solutions, eigenvalue methods built on Möller–Stetter matrices, and resultant-based methods that eliminate variables one pair at a time. Yroots takes a fourth route — it builds a Chebyshev interpolant of each function, then repeatedly subdivides and shrinks the search box using properties specific to the Chebyshev basis. Near a simple zero, the interval is proven to shrink quadratically.</p>
+    <h2>Chebyshev subdivision.</h2>
+    <p style="max-width:640px; margin-top:12px;">Rootfinders for this problem commonly fall into several broad families, including homotopy continuation methods that track paths from a related system with known solutions, eigenvalue methods based on Möller–Stetter multiplication matrices, and methods that eliminate variables to reduce the system to lower-dimensional problems. Yroots uses a branch-and-bound approach: it builds a Chebyshev interpolant of each function, then repeatedly subdivides and shrinks the search interval using properties specific to the Chebyshev basis. Near a simple zero, the interval is proven to shrink quadratically.</p>
     <table class="method-table">
       <thead><tr><th>Method class</th><th>Representative solver</th><th>Approach</th></tr></thead>
       <tbody>
-        <tr><td>Homotopy continuation</td><td class="mono">Bertini</td><td>Track paths from a related system with known roots</td></tr>
-        <tr><td>Eigenvalue-based</td><td class="mono">Möller–Stetter</td><td>Recast rootfinding as an eigenvalue problem</td></tr>
-        <tr><td>Resultant-based</td><td class="mono">Chebfun2</td><td>Eliminate variables one pair at a time</td></tr>
-        <tr class="hl"><td>Chebyshev subdivision</td><td class="mono">yroots / jroots</td><td>Subdivide and shrink the box using Chebyshev basis properties</td></tr>
+        <tr><td>Homotopy continuation</td><td class="mono"><a class="solver-link" href="https://bertini.nd.edu/" target="_blank" rel="noopener">Bertini</a>, PHCpack</td><td>Track paths from a related system with known roots</td></tr>
+        <tr><td>Eigenvalue-based</td><td class="mono"><a class="solver-link" href="https://github.com/simontelen/NormalForms" target="_blank" rel="noopener">Mourrain-Telen-vanBarel (MTV)</a></td><td>Recast rootfinding as an eigenvalue problem</td></tr>
+        <tr><td>Dimension Reduction</td><td class="mono"><a class="solver-link" href="https://www.chebfun.org/docs/guide/guide12.html" target="_blank" rel="noopener">Chebfun2</a>, Reduce</td><td>Eliminate variables to reduce dimension</td></tr>
+        <tr class="hl"><td>Chebyshev subdivision</td><td class="mono">yroots / jroots</td><td>Subdivide and shrink an interval using Chebyshev basis properties</td></tr>
       </tbody>
     </table>
   </div>
@@ -367,7 +371,10 @@
         <h2>Benchmark.</h2>
       </div>
     </div>
-    <p class="reveal" style="max-width:640px; margin-top:8px;">Every solver runs on the same three families of systems. <b style="color:var(--paper); font-weight:500;">Dense</b> systems are randomly generated with every coefficient populated up to a given degree, across dimensions 2–5. <b style="color:var(--paper); font-weight:500;">Sparse</b> systems keep only a small, fixed number of nonzero terms per polynomial — that sparsity is what makes dimensions up to 8 tractable at all. <b style="color:var(--paper); font-weight:500;">Chebfun</b> isn't randomly generated — it's a fixed set of hand-picked, harder bivariate systems (curves with cusps, near-tangencies, clustered roots), run specifically to compare against Chebfun2, which only handles two dimensions. Data pulled live from <span class="mono">tylerjarvis/rootfinding_testing</span>.</p>
+    <p class="reveal" style="max-width:640px; margin-top:8px;">
+      We benchmarked our solvers (YRoots and JRoots) against the Mourrain–Telen–vanBarel truncated normal form solver (MTV); Bertini; Mathematica's NSolveValues (a hybrid solver, which uses a combination of different methods; Mathematica's Reduce, which uses cylindrical algebraic decomposition to reduce the dimension of the problem; and ChebFun2, which uses a combination of Chebyshev approximation, interval subdivision, and resultants.  Of these, MTV and Bertini work only with polynomial systems, and ChebFun2 only works in two dimensions.</p>
+
+    <p class="reveal" style="max-width:640px; margin-top:8px;">      Each solver is benchmarked on the same three families of systems. <b style="color:var(--paper); font-weight:500;">Dense</b> systems are randomly generated systems of polynomials with every coefficient populated up to a given degree, across dimensions 2 through 5. <b style="color:var(--paper); font-weight:500;">Sparse</b> systems are also polynomial and keep only a small, fixed number of nonzero terms per polynomial.  That sparsity makes higher dimensions tractable.  Our tests go up to dimension 8. <b style="color:var(--paper); font-weight:500;">Chebfun test suite</b> is a fixed set of harder bivariate systems (curves with cusps, near-tangencies, clustered roots), hand picked by the ChebFun2 development team. The results here are pulled live from <span class="mono">tylerjarvis/rootfinding_testing</span>.</p>
 
     <div class="toggle reveal" id="suiteTabs" style="margin-top:22px;">
       <button class="active" data-suite="dense">Dense</button>
@@ -391,11 +398,11 @@
     <div class="solver-strip reveal">
       <span class="chip">yroots</span>
       <span class="chip">jroots</span>
-      <span class="chip">MTV</span>
-      <span class="chip">Bertini</span>
+      <a class="chip" href="https://github.com/simontelen/NormalForms" target="_blank" rel="noopener">MTV</a>
+      <a class="chip" href="https://bertini.nd.edu/" target="_blank" rel="noopener">Bertini</a>
       <span class="chip">NSolveValues</span>
       <span class="chip">Reduce</span>
-      <span class="chip">Chebfun</span>
+      <a class="chip" href="https://www.chebfun.org/docs/guide/guide12.html" target="_blank" rel="noopener">Chebfun</a>
       <span class="chip">Croots</span>
       <span class="chip">Lambda variants</span>
     </div>
@@ -407,7 +414,7 @@
     <div class="reveal">
       <div class="eyebrow">Three implementations, one algorithm</div>
       <h2>Pick the engine that fits your system.</h2>
-      <p style="max-width:660px; margin-top:12px;">All three solve the same problem — zeros of <span class="mono">n</span> smooth functions in <span class="mono">n</span> variables over a compact box. The two Python editions differ only in whether the subdivision runs across threads; <span class="mono">jroots</span> is the Julia port. The benchmark above is where <span class="mono">yroots</span> and <span class="mono">jroots</span> are run side by side against solvers like Bertini, Chebfun and NSolve.</p>
+      <p style="max-width:660px; margin-top:12px;">All three implementations use the same basic algorithm to solve the same problem (zeros of <span class="mono">n</span> smooth functions in <span class="mono">n</span> variables over a compact interval. The two Python editions differ only in whether the subdivision runs in parallel across threads; and <span class="mono">jroots</span> is the Julia port.</p>
     </div>
 
     <div class="lab-row">
@@ -415,20 +422,21 @@
         <div class="card-body">
         <span class="tag">Python · parallel</span>
         <h3>yroots</h3>
-        <p>Uses Chebyshev polynomial approximation to subdivide the search box and isolate roots to machine precision. Guaranteed to find every root as long as the system is smooth, continuous, and has finitely many simple zeros in the interval. Subdivided regions are handed to a worker pool, which is why it wants the free-threaded build.</p>
+        <p>Uses Chebyshev polynomial approximation to subdivide the search interval and isolate roots to machine precision. Finds every root as long as the system is smooth, continuous, has finitely many roots in the interval, and each root is simple. If the roots are not simple (the Jacobian is singular) then the rootfinding problem is ill-conditioned and no algorithm can be expected to accurately find the root nor distinguish it from a cluster of several closely spaced simple roots.</p>
+
+	  <p> Subdivided regions are handed to a worker pool, which is why it wants the free-threaded build.</p>
         <ul class="meta-list">
           <li><b>Requires</b> Python 3.14t (free-threaded build), NumPy ≥2.4.4, Numba ≥0.65.1, SciPy ≥1.17.1, SymPy ≥1.12</li>
           <li><b>Returns</b> a NumPy array of root coordinates, one row per root</li>
           <li><b>Parallelism</b> <span class="mono">max_cpu</span> and <span class="mono">parallel_depth</span> on <span class="mono">solve()</span></li>
-          <li><b>Funding</b> NSF grant DMS-1564502</li>
-        </ul>
+               </ul>
         </div>
         <div class="card-code">
-        <div class="codeblock"><span class="c1"># install (with uv, recommended)</span><br>uv python install 3.14t<br>uv pip install git+https://github.com/wlgns0330/RootFinding.git<br><br><span class="c1"># usage</span><br><span class="c2">import</span> yroots <span class="c2">as</span> yr<br>f = <span class="c2">lambda</span> x, y: np.sin(x*y) + x*np.log(y + 3) - x**2<br>g = <span class="c2">lambda</span> x, y: np.cos(3*x*y) + np.exp(3*y/(x - 2)) - x<br>a, b = [-1, -2], [0, 1]<br>roots = yr.<span class="c3">solve</span>([f, g], a, b)</div>
+        <div class="codeblock"><span class="c1"># install (with uv, recommended)</span><br>uv python install 3.14t<br>uv pip install git+https://github.com/tylerjarvis/RootFinding.git<br><br><span class="c1"># usage</span><br><span class="c2">import</span> yroots <span class="c2">as</span> yr<br>f = <span class="c2">lambda</span> x, y: np.sin(x*y) + x*np.log(y + 3) - x**2<br>g = <span class="c2">lambda</span> x, y: np.cos(3*x*y) + np.exp(3*y/(x - 2)) - x<br>a, b = [-1, -2], [0, 1]<br>roots = yr.<span class="c3">solve</span>([f, g], a, b)</div>
         <div class="links-row">
-          <a href="https://github.com/wlgns0330/RootFinding" target="_blank" rel="noopener">Source →</a>
+          <a href="https://github.com/tylerjarvis/RootFinding" target="_blank" rel="noopener">Source →</a>
           <a href="documentation/">Documentation →</a>
-          <a href="https://colab.research.google.com/github/wlgns0330/RootFinding/blob/main/parallel_solve_time_data.ipynb" target="_blank" rel="noopener">Parallel timings in Colab →</a>
+          <a href="https://colab.research.google.com/github/tylerjarvis/RootFinding/blob/main/parallel_solve_time_data.ipynb" target="_blank" rel="noopener">Parallel timings in Colab →</a>
         </div>
         </div>
       </div>
@@ -437,7 +445,7 @@
         <div class="card-body">
         <span class="tag">Python · serial</span>
         <h3>yroots-serial</h3>
-        <p>The same subdivision solver with the parallel driver taken out: one thread, stock CPython. It is the reference the parallel fork is checked against, and the edition to reach for where a free-threaded interpreter isn't available. Same import, same call — without the two parallel arguments.</p>
+        <p>The same subdivision solver with the parallel driver taken out: one thread, stock CPython. It is the reference the parallel fork is checked against, and the edition to reach for where a free-threaded interpreter isn't available. Same import, same call, but without the two parallel arguments.</p>
         <ul class="meta-list">
           <li><b>Requires</b> Python ≥3.9, NumPy ≥1.21, Numba ≥0.57, SciPy ≥1.10, Matplotlib ≥3.7</li>
           <li><b>Returns</b> a NumPy array of root coordinates, one row per root</li>
@@ -445,11 +453,11 @@
         </ul>
         </div>
         <div class="card-code">
-        <div class="codeblock"><span class="c1"># install (stock CPython, 3.9 or newer)</span><br>pip install git+https://github.com/wlgns0330/Rootfinding-serial.git<br><br><span class="c1"># usage -- same f, g and box as above</span><br><span class="c2">import</span> yroots <span class="c2">as</span> yr<br>roots = yr.<span class="c3">solve</span>([f, g], a, b)<br><br><span class="c1"># the parallel edition adds, on top of this:</span><br><span class="c1">#   roots = yr.solve([f, g], a, b, max_cpu=8)</span></div>
+        <div class="codeblock"><span class="c1"># install (stock CPython, 3.9 or newer)</span><br>pip install git+https://github.com/tylerjarvis/Rootfinding-serial.git<br><br><span class="c1"># usage -- same f, g and interval as above</span><br><span class="c2">import</span> yroots <span class="c2">as</span> yr<br>roots = yr.<span class="c3">solve</span>([f, g], a, b)<br><br><span class="c1"># the parallel edition adds, on top of this:</span><br><span class="c1">#   roots = yr.solve([f, g], a, b, max_cpu=8)</span></div>
         <div class="links-row">
-          <a href="https://github.com/wlgns0330/Rootfinding-serial" target="_blank" rel="noopener">Source →</a>
-          <a href="https://wlgns0330.github.io/Rootfinding-serial/" target="_blank" rel="noopener">Documentation →</a>
-          <a href="https://colab.research.google.com/github/wlgns0330/Rootfinding-serial/blob/main/CombinedNotebook.ipynb" target="_blank" rel="noopener">Tutorial in Colab →</a>
+          <a href="https://github.com/tylerjarvis/Rootfinding-serial" target="_blank" rel="noopener">Source →</a>
+          <a href="https://tylerjarvis.github.io/Rootfinding-serial/" target="_blank" rel="noopener">Documentation →</a>
+          <a href="https://colab.research.google.com/github/tylerjarvis/Rootfinding-serial/blob/main/CombinedNotebook.ipynb" target="_blank" rel="noopener">Tutorial in Colab →</a>
         </div>
         </div>
       </div>
@@ -466,11 +474,11 @@
         </ul>
         </div>
         <div class="card-code">
-        <div class="codeblock"><span class="c1"># install (not yet registered — clone and include directly)</span><br>git clone https://github.com/wlgns0330/Julia-Rootfinding.git<br>cd Julia-Rootfinding<span class="c1">  # then ] activate . &amp;&amp; ] instantiate in Julia</span><br><br><span class="c1"># usage</span><br>include(<span class="c3">"src/CombinedSolver.jl"</span>)<br>f = (x,y) -&gt; sin(30*x - y/30) + y<br>g = (x,y) -&gt; cos(x/30 - 30*y) - x<br>a, b = [-1,-1], [1,1]<br>roots = <span class="c3">solve</span>([f, g], a, b; verbose=<span class="c2">true</span>)</div>
+        <div class="codeblock"><span class="c1"># install (not yet registered — clone and include directly)</span><br>git clone https://github.com/tylerjarvis/Julia-Rootfinding.git<br>cd Julia-Rootfinding<span class="c1">  # then ] activate . &amp;&amp; ] instantiate in Julia</span><br><br><span class="c1"># usage</span><br>include(<span class="c3">"src/CombinedSolver.jl"</span>)<br>f = (x,y) -&gt; sin(30*x - y/30) + y<br>g = (x,y) -&gt; cos(x/30 - 30*y) - x<br>a, b = [-1,-1], [1,1]<br>roots = <span class="c3">solve</span>([f, g], a, b; verbose=<span class="c2">true</span>)</div>
         <div class="links-row">
-          <a href="https://github.com/wlgns0330/Julia-Rootfinding" target="_blank" rel="noopener">Source →</a>
-          <a href="https://wlgns0330.github.io/Julia-Rootfinding/" target="_blank" rel="noopener">Documentation →</a>
-          <a href="https://colab.research.google.com/github/wlgns0330/Julia-Rootfinding/blob/main/CombinedNotebook.ipynb" target="_blank" rel="noopener">Tutorial in Colab →</a>
+          <a href="https://github.com/tylerjarvis/Julia-Rootfinding" target="_blank" rel="noopener">Source →</a>
+          <a href="https://tylerjarvis.github.io/Julia-Rootfinding/" target="_blank" rel="noopener">Documentation →</a>
+          <a href="https://colab.research.google.com/github/tylerjarvis/Julia-Rootfinding/blob/main/CombinedNotebook.ipynb" target="_blank" rel="noopener">Tutorial in Colab →</a>
         </div>
         </div>
       </div>
@@ -497,7 +505,12 @@
   <div class="wrap reveal">
     <div class="eyebrow">Reference</div>
     <h2>Cite this work.</h2>
-    <p style="max-width:640px; margin-top:12px;">The algorithm behind yroots is described and proven in Parkinson, Wall, Slagle, Treuhaft, de la Bruere, Goldrup, Keith, Call &amp; Jarvis, <i style="font-family:var(--serif);">Chebyshev Subdivision and Reduction Methods for Solving Multivariable Systems of Equations</i>, Journal of Symbolic Computation (2024).</p>
+    <p style="max-width:640px; margin-top:12px;">If yroots, yroots-serial, or jroots contributed to your research, cite the software you used directly:</p>
+    <div class="codeblock" style="max-width:640px; margin-top:20px;">@software{yroots2025,<br>&nbsp;&nbsp;title = {yroots: Numerical rootfinding for multivariate<br>&nbsp;&nbsp;&nbsp;&nbsp;systems of equations},<br>&nbsp;&nbsp;author = {Jarvis, Tyler J. and Call, Peter and de la Bruere, Xander<br>&nbsp;&nbsp;&nbsp;&nbsp;and Erekson, Lukas and Goldrup, Samuel and Hermosilla, Alex<br>&nbsp;&nbsp;&nbsp;&nbsp;and Kartchner, David and Keith, Timothy and Kellar, Catherine<br>&nbsp;&nbsp;&nbsp;&nbsp;and Larsen, Natalie and Lee, Hyun and Longhurst, Nathan<br>&nbsp;&nbsp;&nbsp;&nbsp;and Magland, Jeremy and Miller, Derek and Moncur, Tyler<br>&nbsp;&nbsp;&nbsp;&nbsp;and Parkinson, Erik and Ringer, Hayden and Slagle, Jane<br>&nbsp;&nbsp;&nbsp;&nbsp;and Stephenson, Suzanna and Taylor, Zachary and Treuhaft, Daniel<br>&nbsp;&nbsp;&nbsp;&nbsp;and Wall, Kate and Williams, Rowan},<br>&nbsp;&nbsp;year = {2025},<br>&nbsp;&nbsp;url = {https://github.com/tylerjarvis/RootFinding},<br>&nbsp;&nbsp;version = {0.1.0}<br>}</div>
+    <p class="thanks-note" style="max-width:640px; border-top:0; padding-top:0; margin-top:14px;">yroots-serial and jroots share the same author list — cite them the same way, with <span class="mono">url</span> set to <a class="cite-link" href="https://github.com/tylerjarvis/Rootfinding-serial" target="_blank" rel="noopener">tylerjarvis/Rootfinding-serial</a> or <a class="cite-link" href="https://github.com/tylerjarvis/Julia-Rootfinding" target="_blank" rel="noopener">tylerjarvis/Julia-Rootfinding</a> respectively.</p>
+
+    <div class="eyebrow" style="margin-top:36px;">Algorithm</div>
+    <p style="max-width:640px; margin-top:12px;">The Chebyshev subdivision algorithm all three implementations are built on is described and proven in Parkinson, Wall, Slagle, Treuhaft, de la Bruere, Goldrup, Keith, Call &amp; Jarvis, <i style="font-family:var(--serif);">Chebyshev Subdivision and Reduction Methods for Solving Multivariable Systems of Equations</i>, Journal of Symbolic Computation (2024).</p>
     <div class="codeblock" style="max-width:640px; margin-top:20px;">@article{parkinson2024chebyshev,<br>&nbsp;&nbsp;title = {Chebyshev Subdivision and Reduction Methods for<br>&nbsp;&nbsp;&nbsp;&nbsp;Solving Multivariable Systems of Equations},<br>&nbsp;&nbsp;author = {Parkinson, Erik and Wall, Kate and Slagle, Jane<br>&nbsp;&nbsp;&nbsp;&nbsp;and Treuhaft, Daniel and de la Bruere, Xander<br>&nbsp;&nbsp;&nbsp;&nbsp;and Goldrup, Samuel and Keith, Timothy and Call, Peter<br>&nbsp;&nbsp;&nbsp;&nbsp;and Jarvis, Tyler J.},<br>&nbsp;&nbsp;journal = {Journal of Symbolic Computation},<br>&nbsp;&nbsp;year = {2024},<br>&nbsp;&nbsp;eprint = {2401.02114},<br>&nbsp;&nbsp;archivePrefix = {arXiv}<br>}</div>
     <div class="links-row">
       <a href="https://arxiv.org/abs/2401.02114" target="_blank" rel="noopener" style="color:var(--accent-y); border-bottom:1px solid var(--hair);">arXiv:2401.02114 →</a>
@@ -513,13 +526,13 @@
         <svg width="18" height="18" viewBox="0 0 20 20"><path d="M1 14 Q6 2 10 10 T19 6" fill="none" stroke="#E8A33D" stroke-width="2" stroke-linecap="round"/><circle cx="7.4" cy="9.9" r="2" fill="#EDEAE0"/></svg>
         <b>yroots</b>
       </div>
-      <p>Yroots content follows wlgns0330/RootFinding, with the single-threaded edition at wlgns0330/Rootfinding-serial; jroots follows wlgns0330/Julia-Rootfinding. Benchmark graphs are pulled live from tylerjarvis/rootfinding_testing.</p>
+      <p>Yroots content follows tylerjarvis/RootFinding, with the single-threaded edition at tylerjarvis/Rootfinding-serial; jroots follows tylerjarvis/Julia-Rootfinding. Benchmark graphs are pulled live from tylerjarvis/rootfinding_testing.</p>
     </div>
     <div class="fcol">
-      <a href="https://github.com/wlgns0330/RootFinding" target="_blank" rel="noopener">yroots repo ↗</a>
-      <a href="https://github.com/wlgns0330/Rootfinding-serial" target="_blank" rel="noopener">yroots-serial repo ↗</a>
-      <a href="https://github.com/wlgns0330/Julia-Rootfinding" target="_blank" rel="noopener">jroots repo ↗</a>
-      <a href="https://colab.research.google.com/github/wlgns0330/Rootfinding-serial/blob/main/CombinedNotebook.ipynb" target="_blank" rel="noopener">Tutorial notebook in Colab ↗</a>
+      <a href="https://github.com/tylerjarvis/RootFinding" target="_blank" rel="noopener">yroots repo ↗</a>
+      <a href="https://github.com/tylerjarvis/Rootfinding-serial" target="_blank" rel="noopener">yroots-serial repo ↗</a>
+      <a href="https://github.com/tylerjarvis/Julia-Rootfinding" target="_blank" rel="noopener">jroots repo ↗</a>
+      <a href="https://colab.research.google.com/github/tylerjarvis/Rootfinding-serial/blob/main/CombinedNotebook.ipynb" target="_blank" rel="noopener">Tutorial notebook in Colab ↗</a>
       <a href="https://arxiv.org/abs/2401.02114" target="_blank" rel="noopener">Paper (arXiv) ↗</a>
       <a href="#benchmarks">Benchmark</a>
     </div>
