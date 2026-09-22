@@ -60,12 +60,7 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-
-    # Deploy pushes, manual runs, and PRs created from branches in this repository.
-    # Do not deploy untrusted pull requests from forks.
-    if: >
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     permissions:
       pages: write
