@@ -25,3 +25,14 @@ Getting started with YRoots is quick and simple. To learn how to use the solver,
 Some users may wish to use two special YRoots class objects, :ref:`MultiCheb <MultiCheb>` and
 :ref:`MultiPower <MultiPower>`, built for faster function evaluations of Chebyshev-based or power-based
 polynomials. To learn how to use these, see the corresponding documentation.
+
+Documentation
+-------------
+
+.. toctree::
+   :maxdepth: 1
+
+   yroots.solve() <CombinedSolver.rst>
+   yroots.chebApproximate() <ChebyshevApproximator.rst>
+   yroots.MultiCheb <MultiCheb.rst>
+   yroots.MultiPower <MultiPower.rst>

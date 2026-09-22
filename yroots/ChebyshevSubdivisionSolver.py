@@ -96,6 +96,7 @@ class SolverOptions():
         self.all_dim_quadratic_check = False
         self.maxZoomCount = 25
         self.level = 0
+        self.useFinalStep = True
 
         self.max_cpu = 1
         self.allowParallel = True
@@ -396,6 +397,42 @@ def TransformChebInPlace1DErrorFreeSplit(coeffs, betaSign):
         arr3E = arr
     return transformedCoeffs[:maxRow]
 
+#Transpose orders used by TransformChebInPlaceND, keyed by (ndim, dim). See getTransposeOrders.
+_transposeOrders = {}
+
+def getTransposeOrders(ndim, dim):
+    """Gets the axis orders that move dimension dim to the front and then put it back.
+
+    The orders depend only on ``ndim`` and ``dim``, not on the coefficients, so they are built
+    once per pair and reused. Rebuilding them per transformation costs several array
+    allocations, which at these tensor sizes is comparable to the transformation itself.
+
+    Parameters
+    ----------
+    ndim : int
+        The number of dimensions of the tensor being transformed.
+    dim : int
+        The dimension to move to the front.
+
+    Returns
+    -------
+    order : tuple of ints
+        The axis order that moves dimension dim to the front.
+    backOrder : tuple of ints
+        The axis order that undoes it.
+    """
+    orders = _transposeOrders.get((ndim, dim))
+    if orders is None:
+        # Move the current dimension to the dim 0 spot in the np array.
+        order = [dim] + [i for i in range(dim)] + [i for i in range(dim+1, ndim)]
+        # Then transpose with the inverted order after the transformation occurs.
+        backOrder = [0]*ndim
+        for i, d in enumerate(order):
+            backOrder[d] = i
+        orders = (tuple(order), tuple(backOrder))
+        _transposeOrders[(ndim, dim)] = orders
+    return orders
+
 def TransformChebInPlaceND(coeffs, dim, alpha, beta, exact):
     """Transforms a single dimension of a Chebyshev approximation for a polynomial.
 
@@ -426,12 +463,100 @@ def TransformChebInPlaceND(coeffs, dim, alpha, beta, exact):
     if dim == 0:
         return TransformFunc(coeffs, alpha, beta)
     else: # Need to transpose the matrix to line up the multiplication for the current dim
-        # Move the current dimension to the dim 0 spot in the np array.
-        order = np.array([dim] + [i for i in range(dim)] + [i for i in range(dim+1, coeffs.ndim)])
-        # Then transpose with the inverted order after the transformation occurs.
-        backOrder = np.zeros(coeffs.ndim, dtype = int)
-        backOrder[order] = np.arange(coeffs.ndim)
+        order, backOrder = getTransposeOrders(coeffs.ndim, dim)
         return TransformFunc(coeffs.transpose(order), alpha, beta).transpose(backOrder)
+
+@njit(float64[:,:](float64[:,:], float64[:,:]), cache=True)
+def applySubInterval(interval, subInterval):
+    """Shrinks interval down to subInterval in place and returns the transformation that did it.
+
+    subInterval is given in the coordinates of interval, where -1 and 1 are its endpoints. Each
+    endpoint of the result is ``alpha*x + beta`` for the alpha and beta of that dimension, except
+    that an x of exactly +-1 is snapped to the matching endpoint of interval rather than being
+    put through the arithmetic, so that a subinterval that reaches the edge stays exactly on it.
+
+    Compiled because it runs once per zoom and once per subdivision on arrays of only a few
+    entries, where numpy's per-operation overhead is what dominates.
+
+    Parameters
+    ----------
+    interval : numpy array
+        The interval to shrink, shape ``(ndim, 2)``. Modified in place.
+    subInterval : numpy array
+        The subinterval to shrink it to, shape ``(ndim, 2)``, in ``[-1,1]`` coordinates.
+
+    Returns
+    -------
+    transform : numpy array
+        Shape ``(2, ndim)``: the alpha of each dimension followed by the beta of each dimension.
+    """
+    ndim = interval.shape[0]
+    transform = np.empty((2, ndim))
+    for d in range(ndim):
+        a1 = subInterval[d,0]
+        b1 = subInterval[d,1]
+        a2 = interval[d,0]
+        b2 = interval[d,1]
+        transform[0,d] = (b1-a1)/2
+        transform[1,d] = (b1+a1)/2
+        alpha2 = (b2-a2)/2
+        beta2 = (b2+a2)/2
+        #Be exact if the endpoint is +-1
+        if a1 == -1.0:
+            newLower = a2
+        elif a1 == 1.0:
+            newLower = b2
+        else:
+            newLower = alpha2*a1 + beta2
+        #An upper bound of -1 collapses onto the lower bound we just computed, not the old one.
+        if b1 == -1.0:
+            newUpper = newLower
+        elif b1 == 1.0:
+            newUpper = b2
+        else:
+            newUpper = alpha2*b1 + beta2
+        interval[d,0] = newLower
+        interval[d,1] = newUpper
+    return transform
+
+@njit(cache=True)
+def applyTransforms(topIntervalT, transforms):
+    """Applies a chain of transformations back onto the original interval, tracking the error.
+
+    Each transformation is applied with a two-product and a two-sum so that the rounding error
+    it introduces is carried along separately instead of being lost, exactly as the original
+    numpy version did -- but as one compiled pass over the chain rather than a dozen array
+    temporaries per link.
+
+    Parameters
+    ----------
+    topIntervalT : numpy array
+        The original interval transposed, shape ``(2, ndim)``.
+    transforms : numpy array
+        Shape ``(n, 2, ndim)``: the alphas and betas of each transformation, oldest first.
+        They are applied newest first.
+
+    Returns
+    -------
+    finalInterval : numpy array
+        The transformed interval, shape ``(2, ndim)``, before the error is added back.
+    finalIntervalError : numpy array
+        The accumulated rounding error of each entry, same shape.
+    """
+    finalInterval = topIntervalT.copy()
+    finalIntervalError = np.zeros_like(finalInterval)
+    ndim = finalInterval.shape[1]
+    for k in range(transforms.shape[0]-1, -1, -1): # Iteratively apply each saved transform
+        for j in range(ndim):
+            alpha = transforms[k,0,j]
+            beta = transforms[k,1,j]
+            for i in range(2):
+                val, temp = TwoProd(finalInterval[i,j], alpha)
+                finalIntervalError[i,j] = alpha * finalIntervalError[i,j] + temp
+                val, temp2 = TwoSum(val, beta)
+                finalIntervalError[i,j] += temp2
+                finalInterval[i,j] = val
+    return finalInterval, finalIntervalError
 
 class TrackedInterval:
     """Tracks the properties of and changes to each interval as it passes through the solver.
@@ -469,8 +594,13 @@ class TrackedInterval:
         Where the midpoint of the next subdivision should be for each dimension.
     """
     def __init__(self, interval):
-        self.topInterval = interval
-        self.interval = interval
+        #Every computation on an interval produces reals, so the stored arrays are float64 whatever
+        #the caller handed in. An integer array would silently truncate each new bound to a whole
+        #number -- shrinking onto 0.5 would store 0 -- and a float32 one would drop half the digits
+        #the solver relies on. asarray keeps the caller's array when it is already float64, so the
+        #normal path is unchanged.
+        self.topInterval = np.asarray(interval, dtype=np.float64)
+        self.interval = np.array(interval, dtype=np.float64)
         self.transforms = []
         self.ndim = len(self.interval)
         self.empty = False
@@ -492,37 +622,33 @@ class TrackedInterval:
         subInterval : numpy array
             The subinterval to which the current interval is being reduced
         """
+        #Match the stored interval's dtype. Only a caller passing something other than float64 takes
+        #a copy here, so the clamping below still writes through to the caller's array on the path
+        #the solver itself uses, where the same subInterval is reused across calls.
+        if subInterval.dtype != np.float64:
+            subInterval = subInterval.astype(np.float64)
         #Ensure the interval has non zero size; mark it empty if it doesn't
-        if np.any(subInterval[:,0] > subInterval[:,1]) and self.canThrowOut():
+        isEmpty = (subInterval[:,0] > subInterval[:,1]).any()
+        if isEmpty and self.canThrowOut():
             self.empty = True
             return
-        elif np.any(subInterval[:,0] > subInterval[:,1]):
+        elif isEmpty:
             #If we can't throw the interval out, it should be bounded by [-1,1].
             subInterval[:,0] = np.minimum(subInterval[:,0], np.ones_like(subInterval[:,0]))
             subInterval[:,0] = np.maximum(subInterval[:,0], -np.ones_like(subInterval[:,0]))
             subInterval[:,1] = np.minimum(subInterval[:,1], np.ones_like(subInterval[:,0]))
             subInterval[:,1] = np.maximum(subInterval[:,1], subInterval[:,0])
-        # Get the alpha and beta associated with the transformation in each dimension
-        a1,b1 = subInterval.T # all the lower bounds and upper bounds of the new interval, respectively
-        a2,b2 = self.interval.T # all the lower bounds and upper bounds of the original interval
-        alpha1, beta1 = (b1-a1)/2, (b1+a1)/2
-        alpha2, beta2 = (b2-a2)/2, (b2+a2)/2
-        self.transforms.append(np.array([alpha1, beta1]))
-        #Update the lower and upper bounds of the current interval
-        for dim in range(self.ndim):
-            for i in range(2):
-                x = subInterval[dim][i]
-                #Be exact if x = +-1
-                if x == -1.0:
-                    self.interval[dim][i] = self.interval[dim][0]
-                elif x == 1.0:
-                    self.interval[dim][i] = self.interval[dim][1]
-                else:
-                    self.interval[dim][i] = alpha2[dim]*x+beta2[dim]
+        # Get the alpha and beta of the transformation and apply it to the current interval.
+        self.transforms.append(applySubInterval(self.interval, subInterval))
 
     def getLastTransform(self):
         """Gets the alpha and beta values of the last transformation the interval underwent."""
         return self.transforms[-1]
+
+    def stackTransforms(self, transforms):
+        """Packs a list of (2, ndim) transformations into one (n, 2, ndim) array for applyTransforms."""
+        #reshape rather than vstack so that an empty list still comes back with the right shape.
+        return np.array(transforms, dtype=float).reshape(-1, 2, self.ndim)
 
     def getFinalInterval(self):
         """Finds the interval that should be reported as containing a root.
@@ -535,17 +661,8 @@ class TrackedInterval:
         finalInterval: numpy array
             The final interval to be reported as containing a root
         """
-        # TODO: Make this a seperate function so it can use njit.
-        # Make these _NoNumba calls use floats so they call call the numba functions without a seperate compile
-        finalInterval = self.topInterval.T
-        finalIntervalError = np.zeros_like(finalInterval)
         transformsToUse = self.transforms if not self.finalStep else self.preFinalTransforms
-        for alpha,beta in transformsToUse[::-1]: # Iteratively apply each saved transform
-            finalInterval, temp = TwoProd_NoNumba(finalInterval, alpha)
-            finalIntervalError = alpha * finalIntervalError + temp
-            finalInterval, temp = TwoSum_NoNumba(finalInterval,beta)
-            finalIntervalError += temp
-
+        finalInterval, finalIntervalError = applyTransforms(self.topInterval.T, self.stackTransforms(transformsToUse))
         finalInterval = finalInterval.T
         finalIntervalError = finalIntervalError.T
         self.finalInterval = finalInterval + finalIntervalError # Add the error and save the result.
@@ -563,19 +680,10 @@ class TrackedInterval:
         root: numpy array
             The final point to be reported as the root of the interval
         """
-        #TODO: Make this a seperate function so it can use njit.
-        #Make these _NoNumba calls use floats so they call call the numba functions without a seperate compile
         if not self.finalStep: #If no final step, use the midpoint of the calculated final interval.
             self.root = (self.finalInterval[:,0] + self.finalInterval[:,1]) / 2
         else: #If using the final step, recalculate the final interval using post-final transforms.
-            finalInterval = self.topInterval.T
-            finalIntervalError = np.zeros_like(finalInterval)
-            transformsToUse = self.transforms
-            for alpha,beta in transformsToUse[::-1]:
-                finalInterval, temp = TwoProd_NoNumba(finalInterval, alpha)
-                finalIntervalError = alpha * finalIntervalError + temp
-                finalInterval, temp = TwoSum_NoNumba(finalInterval,beta)
-                finalIntervalError += temp
+            finalInterval, finalIntervalError = applyTransforms(self.topInterval.T, self.stackTransforms(self.transforms))
             finalInterval = finalInterval.T + finalIntervalError.T
             self.root = (finalInterval[:,0] + finalInterval[:,1]) / 2 # Return the midpoint
         return self.root
@@ -610,7 +718,7 @@ class TrackedInterval:
 
     def __contains__(self, point):
         """Determines if point is contained in the current interval."""
-        return np.all(point >= self.interval[:,0]) and np.all(point <= self.interval[:,1])
+        return (point >= self.interval[:,0]).all() and (point <= self.interval[:,1]).all()
 
     def overlapsWith(self, otherInterval):
         """Determines if the otherInterval overlaps with the current interval.
@@ -624,7 +732,7 @@ class TrackedInterval:
 
     def isPoint(self):
         """Determines if the current interval has essentially length 0 in each dimension."""
-        return np.all(np.abs(self.interval[:,0] - self.interval[:,1]) < 1e-32)
+        return (np.abs(self.interval[:,0] - self.interval[:,1]) < 1e-32).all()
 
     def startFinalStep(self):
         """Prepares for the final step by saving the current interval and its transform list."""
@@ -642,6 +750,28 @@ class TrackedInterval:
     def __str__(self):
         return str(self.interval)
 
+def absSum(M):
+    """Returns the sum of the absolute values of every entry of M.
+
+    Same value as ``np.sum(np.abs(M))`` bit for bit -- both reduce the same temporary with the
+    same pairwise summation -- but it skips numpy's reduction dispatch wrapper, which at the
+    size of these coefficient tensors costs more than the arithmetic it is dispatching.
+
+    Parameters
+    ----------
+    M : numpy array
+        The array to sum. Any number of dimensions, contiguous or not.
+
+    Returns
+    -------
+    total : float
+        The sum of ``abs(M)`` over every entry.
+    """
+    return np.abs(M).sum()
+
+#Index tuples of the linear terms of a tensor, keyed by dimension. See getLinearTerms.
+_linearTermIndices = {}
+
 def getLinearTerms(M):
     """Gets the linear terms of the Chebyshev coefficient tensor M.
 
@@ -651,8 +781,11 @@ def getLinearTerms(M):
     ...
     M[(0,1, ... ,0,0)]
     M[(1,0, ... ,0,0)]
-    which are indexes
-    1, M.shape[-1], M.shape[-1]*M.shape[-2], ... when looking at M.ravel().
+
+    The index tuples depend only on the number of dimensions, so they are built once per
+    dimension and reused. Indexing M directly also avoids M.ravel(), which copies the whole
+    tensor whenever M is not contiguous -- which it is not after a transformation of any
+    dimension other than the first.
 
     Parameters
     ----------
@@ -664,12 +797,16 @@ def getLinearTerms(M):
     A: numpy array
         An array with the linear terms of M
     """
-    A = []
-    spot = 1
-    for i in M.shape[::-1]:
-        A.append(0 if i == 1 else M.ravel()[spot])
-        spot *= i
-    return A[::-1] # Return linear terms in dimension order.
+    #A degree 0 dimension has no linear term.
+    return [0 if M.shape[i] == 1 else M[idx] for i, idx in enumerate(getLinearTermIndices(M.ndim))]
+
+def getLinearTermIndices(ndim):
+    """Gets the index tuple of the linear term of each dimension of an ndim tensor."""
+    idxs = _linearTermIndices.get(ndim)
+    if idxs is None:
+        idxs = tuple(tuple(1 if j == i else 0 for j in range(ndim)) for i in range(ndim))
+        _linearTermIndices[ndim] = idxs
+    return idxs
 
 
 @njit(cache=True)
@@ -692,8 +829,192 @@ def linearCheck1(totalErrs, A, consts):
                 b[col] = min(b[col], b_)
     return a, b
 
+@njit(cache=True)
+def stackInterval(a, b):
+    """Pairs up lower bounds a and upper bounds b into one (dim, 2) interval array."""
+    dim = len(a)
+    interval = np.empty((dim, 2))
+    for i in range(dim):
+        interval[i,0] = a[i]
+        interval[i,1] = b[i]
+    return interval
+
+@njit(cache=True)
+def boundingIntervalCore(A, consts, totalErrs, err, errors, finalStep, macheps):
+    """The numeric core of BoundingIntervalLinearSystem, compiled.
+
+    Takes the linear system already extracted from the coefficient tensors and does the
+    preconditioning, the SVD, and the two shrinking passes. Everything here works on ``dim`` by
+    ``dim`` (or length ``dim``) arrays, so in pure numpy the per-call dispatch overhead of the
+    couple hundred tiny operations dwarfs the arithmetic; compiling the whole block removes it.
+    It is written as explicit loops rather than whole-array expressions, which at these sizes are
+    no faster and cost several seconds of compile time.
+
+    A, consts, totalErrs, err and errors are all modified in place; they are scratch copies
+    owned by the caller.
+
+    Parameters
+    ----------
+    A : numpy array
+        The (dim, dim) matrix of linear terms, one row per polynomial. Must be C contiguous.
+    consts : numpy array
+        The constant term of each polynomial.
+    totalErrs : numpy array
+        Sum of the absolute values of all the coefficients of each polynomial, plus its error.
+    err : numpy array
+        The part of totalErrs coming from neither the constant nor the linear terms.
+    errors : numpy array
+        The approximation error of each polynomial.
+    finalStep : bool
+        Whether we are in the final step of the algorithm.
+    macheps : float
+        Machine epsilon.
+
+    Returns
+    -------
+    newInterval : numpy array
+        The smaller interval where any root must be, shape ``(dim, 2)``.
+    changed : bool
+        Whether the interval has shrunk at all.
+    should_stop : bool
+        Whether we should stop subdividing.
+    throwout : bool
+        Whether the interval can be discarded entirely.
+    """
+    dim = A.shape[0]
+    #Some constants we use here
+    minZoomForChange = 0.99 #If the volume doesn't shrink by this amount say that it hasn't changed
+    minZoomForBaseCaseEnd = 0.4**dim #If the volume doesn't change by at least this amount when running with no error, stop
+
+    #Scale all the polynomials relative to one another
+    for i in range(dim):
+        scaleVal = 0.
+        for j in range(dim):
+            if abs(A[i,j]) > scaleVal:
+                scaleVal = abs(A[i,j])
+        if scaleVal > 0:
+            s = 2.**int(np.floor(np.log2(scaleVal)))
+            for j in range(dim):
+                A[i,j] /= s
+            consts[i] /= s
+            totalErrs[i] /= s
+            err[i] /= s
+            errors[i] /= s
+    #Precondition the columns. (AP)X = B -> A(PX) = B. So scale columns, solve, then scale the solution.
+    colScaler = np.ones(dim)
+    for i in range(dim):
+        scaleVal = 0.
+        for j in range(dim):
+            if abs(A[j,i]) > scaleVal:
+                scaleVal = abs(A[j,i])
+        if scaleVal > 0:
+            s = 2.**(-np.floor(np.log2(scaleVal)))
+            colScaler[i] = s
+            for j in range(dim):
+                totalErrs[j] += abs(A[j,i]) * (s - 1)
+            for j in range(dim):
+                A[j,i] *= s
+
+    #Run linear algorithm for shrinking or deciding whether to subdivide.
+    #Calculate the SVD outside of the loop below because it doesn't change
+    U, S, Vh = np.linalg.svd(A)
+    #Test the reciprocal condition number rather than the condition number itself, so that
+    #a singular A gives 0 instead of a divide by zero. S[0] == 0 means A is all zeros.
+    invCondNum = S[dim-1]/S[0] if S[0] > 0 else 0.
+    wellConditioned = S[0] > 0 and invCondNum > 1e-10
+    condNum = 1/invCondNum if wellConditioned else 1.
+    widthToAdd = max(condNum,2.)*macheps
+    Ainv = np.zeros((dim,dim))
+    center = np.zeros(dim)
+    if wellConditioned:
+        #Only invert A when it is safe to do so. Otherwise S has (nearly) zero entries and the
+        #inverse is meaningless anyway, so computing it just raises divide by zero warnings.
+        Ainv = (Vh.T * (1/S)) @ U.T
+        center = -Ainv@consts
+    #Use the first interval shrinking method
+    a_init, b_init = linearCheck1(totalErrs, A, consts)
+    a_orig = a_init
+    b_orig = b_init
+    #This loop only runs a second time if the interval did not change on the first pass and so
+    #needs to run again with tighter errors.
+    for i in range(2):
+        if wellConditioned: #Make sure conditioning is ok.
+            a = np.empty(dim)
+            b = np.empty(dim)
+            for j in range(dim):
+                #Ainv transforms the hyperrectangle of side lengths err into a parallelogram with
+                #these as the principal direction, so summing over them gets the farthest the
+                #parallelogram can reach in each dimension.
+                width = 0.
+                for k in range(dim):
+                    width += abs(Ainv[j,k]*err[k])
+                #Bound with previous result
+                low = center[j] - width
+                high = center[j] + width
+                a[j] = low if low > a_init[j] else a_init[j]
+                b[j] = high if high < b_init[j] else b_init[j]
+        else:
+            #Deliberately not copies. The numpy version bound a to a_init here and then scaled it
+            #in place, so a second pass starts from the values the first pass left behind, and the
+            #interval it hands back carries them too. Copying here would change what is returned.
+            a = a_init
+            b = b_init
+        #Undo the column preconditioning, then add the error and bound
+        for j in range(dim):
+            a[j] = a[j]*colScaler[j] - widthToAdd
+            b[j] = b[j]*colScaler[j] + widthToAdd
+        throwOut = False
+        for j in range(dim):
+            if a[j] > b[j] or a[j] > 1 or b[j] < -1:
+                throwOut = True
+        for j in range(dim):
+            if a[j] < -1:
+                a[j] = -1
+            if b[j] < -1:
+                b[j] = -1
+            if a[j] > 1:
+                a[j] = 1
+            if b[j] > 1:
+                b[j] = 1
+
+        forceShouldStop = finalStep and not wellConditioned
+        # Calculate the "changed" variable
+        newRatio = 1.
+        for j in range(dim):
+            newRatio *= b[j] - a[j]
+        newRatio /= 2**dim
+        if throwOut:
+            changed = True
+        elif i == 0:
+            changed = newRatio < minZoomForChange
+        else:
+            changed = newRatio < minZoomForBaseCaseEnd
+
+        if i == 0 and changed:
+            #First time through and there was a change: return what it shrunk down to, not done.
+            return stackInterval(a, b), changed, forceShouldStop, throwOut
+        elif i == 0 and not changed:
+            #First time through and there was no change: save a and b as the values to return, then
+            #run the loop again with a tighter error to see if it shrinks then.
+            a_orig = a
+            b_orig = b
+            err = errors
+        elif changed:
+            #Second time through and it did change: it didn't change the first time, but the
+            #interval did shrink with tighter errors. Return the original interval, not done.
+            return stackInterval(a_orig, b_orig), False, forceShouldStop, False
+        else:
+            #Second time through and it did NOT change: the interval will not shrink even if we
+            #subdivide, so return the original interval and stop if the system is well conditioned.
+            return stackInterval(a_orig, b_orig), False, wellConditioned or forceShouldStop, False
+    #Unreachable: the loop always returns. Here so numba sees a single return type.
+    return stackInterval(a_orig, b_orig), False, False, False
+
 def BoundingIntervalLinearSystem(Ms, errors, finalStep, macheps = 2**-52):
     """Finds a smaller region in which any root must be.
+
+    Pulls the linear system out of the coefficient tensors and hands it to
+    :func:`boundingIntervalCore`, which does the numeric work.
 
     Parameters
     ----------
@@ -713,113 +1034,27 @@ def BoundingIntervalLinearSystem(Ms, errors, finalStep, macheps = 2**-52):
     changed : bool
         Whether the interval has shrunk at all.
     should_stop : bool
-                Whether we should stop subdividing.
+        Whether we should stop subdividing.
     throwout : bool
         Whether the interval can be discarded entirely (no root is possible inside it).
     """
-    if finalStep:
-        errors = np.zeros_like(errors)
-
     dim = Ms[0].ndim
-    #Some constants we use here
-    minZoomForChange = 0.99 #If the volume doesn't shrink by this amount say that it hasn't changed
-    minZoomForBaseCaseEnd = 0.4**dim #If the volume doesn't change by at least this amount when running with no error, stop
     #Get the matrix of the linear terms
-    A = np.array([getLinearTerms(M) for M in Ms])
+    A = np.empty((dim,dim))
     #Get the Vector of the constant terms
-    consts = np.array([M.ravel()[0] for M in Ms])
+    consts = np.empty(dim)
     #Get the Error of everything else combined.
-    totalErrs = np.array([np.sum(np.abs(M)) + e for M,e in zip(Ms, errors)])
+    totalErrs = np.empty(dim)
+    zeroIdx = (0,)*dim
+    for i, M in enumerate(Ms):
+        A[i] = getLinearTerms(M)
+        consts[i] = M[zeroIdx]
+        totalErrs[i] = absSum(M) + (0. if finalStep else errors[i])
     linear_sums = np.sum(np.abs(A),axis=1)
-    err = np.array([tE-abs(c)-l for tE,c,l in zip(totalErrs,consts,linear_sums)])
-
-    #Scale all the polynomials relative to one another
-    errors = errors.copy()
-    for i in range(dim):
-        scaleVal = np.max(np.abs(A[i]))
-        if scaleVal > 0:
-            s = 2.**int(np.floor(np.log2(abs(scaleVal))))
-            A[i] /= s
-            consts[i] /= s
-            totalErrs[i] /= s
-            linear_sums[i] /= s
-            err[i] /= s
-            errors[i] /= s
-    #Precondition the columns. (AP)X = B -> A(PX) = B. So scale columns, solve, then scale the solution.
-    colScaler = np.ones(dim)
-    for i in range(dim):
-        scaleVal = np.max(np.abs(A[:,i]))
-        if scaleVal > 0:
-            s = 2**(-np.floor(np.log2(abs(scaleVal))))
-            colScaler[i] = s
-            totalErrs += np.abs(A[:,i]) * (s - 1)
-            A[:,i] *= s
-
-    #Run linear algorithm for shrinking or deciding whether to subdivide.
-    #This loop will only execute the second time if the interval was not changed on the first iteration and it needs to run again with tighter errors
-    #Calculate the SVD outside of the for loop because it doesn't change
-    U, S, Vh = np.linalg.svd(A)
-    condNum = S[-1]/S[0]
-    wellConditioned = S[0] > 0 and condNum > 1e-10
-    #Add this width to the new intervals we find to avoid rounding error throwing out roots
-    widthToAdd = max(condNum,2)*macheps
-    Ainv = (1/S * Vh.T) @ U.T
-    center = -Ainv@consts
-    #Use the first interval shrinking method
-    a_init, b_init = linearCheck1(totalErrs, A, consts)
-    for i in range(2):
-        a = a_init
-        b = b_init
-        #We use the matrix inverse to find the width, so might as well use it both spots. Should be fine as dim is small.
-        if wellConditioned: #Make sure conditioning is ok.
-            #Ainv transforms the hyperrectangle of side lengths err into a parallelogram with these as the principal direction
-            #So summing over them gets the farthest the parallelogram can reach in each dimension.
-            width = np.sum(np.abs(Ainv*err),axis=1)
-            #Bound with previous result
-            a = np.maximum(center - width, a)
-            b = np.minimum(center + width, b)
-        #Undo the column preconditioning
-        a *= colScaler
-        b *= colScaler
-        #Add error and bound
-        a -= widthToAdd
-        b += widthToAdd
-        if np.any(a > b):
-            with open("num_of_times","a") as file:
-                file.write("1\n")
-        throwOut = np.any(a > b) or np.any(a > 1) or np.any(b < -1)
-        a[a < -1] = -1
-        b[b < -1] = -1
-        a[a > 1] = 1
-        b[b > 1] = 1
-
-        forceShouldStop = finalStep and not wellConditioned
-        # Calculate the "changed" variable
-        newRatio = np.prod(b - a) / 2**dim
-        if throwOut:
-            changed = True
-        elif i == 0:
-            changed = newRatio < minZoomForChange
-        else:
-            changed = newRatio < minZoomForBaseCaseEnd
-
-        if i == 0 and changed:
-            #If it is the first time through the loop and there was a change, return the interval it shrunk down to and set "is_done" to false
-            return np.vstack([a,b]).T, changed, forceShouldStop, throwOut
-        elif i == 0 and not changed:
-            #If it is the first time through the loop and there was not a change, save the a and b as the original values to return,
-            #and then try running through the loop again with a tighter error to see if we shrink then
-            a_orig = a
-            b_orig = b
-            err = errors
-        elif changed:
-            #If it is the second time through the loop and it did change, it means we didn't change on the first time,
-            #but that the interval did shrink with tighter errors. So return the original interval with changed = False and is_done = False
-            return np.vstack([a_orig, b_orig]).T, False, forceShouldStop, False
-        else:
-            #If it is the second time through the loop and it did NOT change, it means we will not shrink the interval even if we subdivide,
-            #so return the original interval with changed = False and is_done = wellConditioned
-            return np.vstack([a_orig,b_orig]).T, False, wellConditioned or forceShouldStop, False
+    err = totalErrs - np.abs(consts) - linear_sums
+    #On the final step the approximations are treated as exact.
+    errors = np.zeros(dim) if finalStep else np.array(errors, dtype=float)
+    return boundingIntervalCore(A, consts, totalErrs, err, errors, finalStep, macheps)
 
 @njit(UniTuple(float64,2)(float64, float64), cache=True)
 def TwoSum(a,b):
@@ -898,7 +1133,7 @@ def getTransformationError(M, dim):
         The upper bound for the error associated with the transformation of dimension dim in M
     """
     machEps = 2**-52
-    error = M.shape[dim] * machEps * np.sum(np.abs(M))
+    error = M.shape[dim] * machEps * absSum(M)
     return error #TODO: Figure out a more rigurous bound!
 
 def transformCheb(M, alphas, betas, error, exact):
@@ -1197,6 +1432,34 @@ def getSubdivisionIntervals(Ms, errors, trackedInterval, exact, level):
         allIntervals = newIntervals
     return allMs, allErrors, allIntervals
 
+#Slices used by trimMs, keyed by (ndim, dim). See getTrimSlices.
+_trimSlices = {}
+
+def getTrimSlices(ndim, dim):
+    """Gets the index tuples that select, and that drop, the highest degree row of a dimension.
+
+    Parameters
+    ----------
+    ndim : int
+        The number of dimensions of the tensor being trimmed.
+    dim : int
+        The dimension whose last row is in question.
+
+    Returns
+    -------
+    lastRow : tuple
+        Indexes the highest degree row of dimension dim.
+    dropLastRow : tuple
+        Indexes everything but that row.
+    """
+    slices = _trimSlices.get((ndim, dim))
+    if slices is None:
+        lastRow = tuple(-1 if i == dim else slice(None) for i in range(ndim))
+        dropLastRow = tuple(slice(None,-1) if i == dim else slice(None) for i in range(ndim))
+        slices = (lastRow, dropLastRow)
+        _trimSlices[(ndim, dim)] = slices
+    return slices
+
 def trimMs(Ms, errors, relApproxTol=1e-3, absApproxTol=0):
     """Reduces the degree of each chebyshev approximation M when doing so has negligible error.
 
@@ -1218,30 +1481,34 @@ def trimMs(Ms, errors, relApproxTol=1e-3, absApproxTol=0):
     dim = Ms[0].ndim
     for polyNum in range(len(Ms)): #Loop through the polynomials
         allowedErrorIncrease = absApproxTol + errors[polyNum] * relApproxTol
-        #Use slicing to look at a slice of the highest degree in the dimension we want to trim
-        slices = [slice(None) for i in range(dim)] # equivalent to selecting everything
+        M = Ms[polyNum]
         for currDim in range(dim):
-            slices[currDim] = -1 # Now look at just the last row of the current dimension's approximation
-            lastSum = np.sum(np.abs(Ms[polyNum][tuple(slices)]))
+            #Slicing to look at a slice of the highest degree in the dimension we want to trim,
+            #and to drop it. Both depend only on the dimension, so they are built once and reused.
+            lastRow, dropLastRow = getTrimSlices(dim, currDim)
+            lastSum = absSum(M[lastRow])
 
             # Iteratively eliminate the highest degree row of the current dimension if
             # the sum of its approximation coefficients is of low error, but keep deg at least 2
-            while lastSum < allowedErrorIncrease and Ms[polyNum].shape[currDim] > 3:
+            while lastSum < allowedErrorIncrease and M.shape[currDim] > 3:
                 # Trim the polynomial
-                slices[currDim] = slice(None,-1)
-                Ms[polyNum] = Ms[polyNum][tuple(slices)]
+                M = M[dropLastRow]
                 # Update the remaining error increase allowed an the error of the approximation.
                 allowedErrorIncrease -= lastSum
                 errors[polyNum] += lastSum
                 # Reset for the next iteration with the next highest degree of the current dimension.
-                slices[currDim] = -1
-                lastSum = np.sum(np.abs(Ms[polyNum][tuple(slices)]))
-            # Reset to select all of the current dimension when looking at the next dimension.
-            slices[currDim] = slice(None)
+                lastSum = absSum(M[lastRow])
+        Ms[polyNum] = M
 
 def isExteriorInterval(originalInterval, trackedInterval):
     """Determines if the current interval is exterior to its original interval."""
-    return np.any(trackedInterval.getIntervalForCombining() == originalInterval.getIntervalForCombining())
+    return (trackedInterval.getIntervalForCombining() == originalInterval.getIntervalForCombining()).any()
+
+def getRootsInInterval(interval):
+        """Gets the roots that a final bounding interval reports."""
+        if len(interval.possibleDuplicateRoots) > 0:
+            return list(interval.possibleDuplicateRoots)
+        return [interval.getFinalPoint()]
 
 def make_child_tasks(allMs, allErrors, allIntervals, parent_id=None, level=0):
     """Bundle subdivided children into :class:`SolveTask` records for the parallel driver.
@@ -1333,13 +1600,14 @@ def finish_subdivision_state(state, childInterior, childExterior):
             else:
                 return [trackedInterval], []
 
-        # Combine all roots that converged to the same point. Use interval overlap
-        # (not exact lower-bound match) so singular roots whose sub-intervals differ
-        # by floating-point noise still collapse to one.
+        # Combine all roots that converged to the same point.
+        allFoundRoots = set()
         tempResults = []
         for result in resultsAll:
-            if any(result.overlapsWith(kept) for kept in tempResults):
+            point = tuple(result.interval[:,0])
+            if point in allFoundRoots:
                 continue
+            allFoundRoots.add(point)
             tempResults.append(result)
 
         for result in tempResults:
@@ -1432,7 +1700,7 @@ def finish_subdivision_state(state, childInterior, childExterior):
 
     for tempInterval in resultExterior:
         if tempInterval.reRun:
-            if np.all(tempInterval.interval == originalInterval.interval):
+            if (tempInterval.interval == originalInterval.interval).all():
                 newResultExterior.append(tempInterval)
             else:
                 tempMs, tempErrors = transformChebToInterval(
@@ -1637,13 +1905,14 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions, returnChildre
 
     # Constant term check.
     if solverOptions.constant_check:
-        consts = np.array([M.ravel()[0] for M in Ms])
-        err = np.array([np.sum(np.abs(M)) - abs(c) + e for M, e, c in zip(Ms, errors, consts)])
-
-        if np.any(np.abs(consts) > err):
-            if returnChildren:
-                return TaskResult([], [], [])
-            return [], []
+        zeroIdx = (0,)*Ms[0].ndim
+        #Bail out on the first polynomial whose constant term dominates, so the rest need not be summed.
+        for M, e in zip(Ms, errors):
+            c = M[zeroIdx]
+            if abs(c) > absSum(M) - abs(c) + e:
+                if returnChildren:
+                    return TaskResult([], [], [])
+                return [], []
 
     # Quadratic check.
     if (solverOptions.low_dim_quadratic_check and Ms[0].ndim <= 3) or solverOptions.all_dim_quadratic_check:
@@ -1659,15 +1928,12 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions, returnChildre
     trackedInterval = trackedInterval.copy()
     errors = errors.copy()
 
-    tolerable_error = max(errors) * 1e-3
     trimMs(Ms, errors)
 
-    dim = Ms[0].ndim
     changed = True
     zoomCount = 0
 
     originalInterval = trackedInterval.copy()
-    originalIntervalSize = trackedInterval.size()
 
     lastSizes = trackedInterval.dimSize()
 
@@ -1681,7 +1947,7 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions, returnChildre
 
         newSizes = trackedInterval.dimSize()
 
-        if np.all(newSizes >= lastSizes / 2):
+        if (newSizes >= lastSizes / 2).all(): #Check all dims and use >= to account for a dimension being 0.
             zoomCount += 1
 
         lastSizes = newSizes
@@ -1884,8 +2150,8 @@ def solvePoly(Ms, trackedInterval, errors, solverOptions):
         returnChildren=False
     )
 
-def solveChebyshevSubdivision(Ms, errors, verbose = False, returnBoundingBoxes = False, exact = False, constant_check = True,
-                              low_dim_quadratic_check = True,all_dim_quadratic_check = False, max_cpu=1, parallel_depth=0):
+def solveChebyshevSubdivision(Ms, errors, verbose = False, exact = False, constant_check = True, low_dim_quadratic_check = True,
+                              all_dim_quadratic_check = False, max_cpu=1, parallel_depth=0):
     """Initiates shrinking and subdivision recursion and returns the roots and bounding boxes.
 
     Parameters
@@ -1896,8 +2162,6 @@ def solveChebyshevSubdivision(Ms, errors, verbose = False, returnBoundingBoxes =
         The max error of the chebyshev approximation from the function on the interval
     verbose : bool
         Defaults to False. Whether or not to output progress of solving to the terminal.
-    returnBoundingBoxes : bool
-        Defaults to False. If True, returns the bounding boxes around each root as well as the roots.
     exact : bool
         Defaults to False. Whether transformations should be done with higher precision to minimize error.
     constant_check : bool
@@ -1916,14 +2180,13 @@ def solveChebyshevSubdivision(Ms, errors, verbose = False, returnBoundingBoxes =
 
     Returns
     -------
-    roots : list
-        The roots of the system of functions on the interval given to Combined Solver. Returned
-        alone when ``returnBoundingBoxes`` is False.
-    boundingBoxes : list of TrackedInterval
-        Only returned when ``returnBoundingBoxes`` is True. Bounding intervals for each root.
+    boundingIntervals : list of TrackedInterval
+        A finalized bounding interval for each root found on the interval given to Combined Solver.
+        The roots themselves are not returned; call :func:`getRootsInInterval` on an interval to get
+        the root or roots it reports.
     """
     #Assert that we have n nD polys
-    if np.any([M.ndim != len(Ms) for M in Ms]):
+    if any(M.ndim != len(Ms) for M in Ms):
         raise ValueError("Solver Takes in N polynomials of dimension N!")
     if len(Ms) != len(errors):
         raise ValueError("Ms and errors must be same length!")
@@ -1945,41 +2208,19 @@ def solveChebyshevSubdivision(Ms, errors, verbose = False, returnBoundingBoxes =
     b1, b2 = solvePoly(Ms, originalInterval, errors, solverOptions)
 
     boundingIntervals = b1 + b2
-    # Dedup overlapping final bounding intervals. The in-recursion merge only compares
-    # siblings on resultExterior, so singular roots reached from multiple recursion
-    # branches survive as separate interior intervals. Overlapping final boxes cannot
-    # enclose distinct roots, so collapse them here.
-    dedupedIntervals = []
-    for interval in boundingIntervals:
-        if not any(interval.overlapsWith(kept) for kept in dedupedIntervals):
-            dedupedIntervals.append(interval)
-    boundingIntervals = dedupedIntervals
-    
-    roots = []
     hasDupRoots = False
     hasExtraRoots = False
+
     for interval in boundingIntervals:
-        #TODO: Figure out the best way to return the bounding intervals.
-        #Right now interval.finalInterval is the interval where we say the root is.
         interval.getFinalInterval()
         if interval.possibleExtraRoot:
             hasExtraRoots = True
         if len(interval.possibleDuplicateRoots) > 0:
-            roots += interval.possibleDuplicateRoots
             hasDupRoots = True
-        else:
-            roots.append(interval.getFinalPoint())
+
     #Warn if extra or duplicate roots
     if hasExtraRoots:
         warnings.warn(f"Might Have Extra Roots! See Bounding Boxes for details!")
     if hasDupRoots:
         warnings.warn(f"Might Have Duplicate Roots! See Bounding Boxes for details!")
-    #Return
-    roots = np.array(roots)
-    if verbose:
-        finish_string = '\n' + f"Found {len(roots)} roots"
-        print((finish_string if len(roots) != 1 else finish_string[:-1]),end='\n\n')
-    if returnBoundingBoxes:
-        return roots, boundingIntervals
-    else:
-        return roots
+    return boundingIntervals
