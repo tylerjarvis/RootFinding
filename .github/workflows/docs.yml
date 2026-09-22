@@ -19,6 +19,7 @@ concurrency:
 
 jobs:
   build:
+    name: docs-build
     runs-on: ubuntu-latest
 
     steps:
