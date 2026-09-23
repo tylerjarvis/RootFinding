@@ -11,6 +11,7 @@ from numba import njit, float64
 from numba.types import UniTuple
 from itertools import product
 from yroots.QuadraticCheck import quadratic_check
+from yroots import FastTransform
 import copy
 import warnings
 
@@ -433,6 +434,22 @@ def getTransposeOrders(ndim, dim):
         _transposeOrders[(ndim, dim)] = orders
     return orders
 
+#Experimental switch for the NUFFT-based transform (see FastTransform.py).
+#TRANSFORM_METHOD is 'dense' (default), 'fast', or 'auto'. 'fast' uses the NUFFT transform whenever
+#it applies; 'auto' uses it only when the ndim is in FAST_TRANSFORM_NDIMS and the degree along the
+#transformed dimension is at least FAST_TRANSFORM_MIN_DEGREE. Neither applies when exact is True.
+TRANSFORM_METHOD = 'dense'
+FAST_TRANSFORM_MIN_DEGREE = 256
+FAST_TRANSFORM_NDIMS = (1,)
+
+def useFastTransform(coeffs, dim, alpha, beta, exact):
+    """Whether TransformChebInPlaceND should use the NUFFT-based transform for this call."""
+    if exact or TRANSFORM_METHOD == 'dense' or not FastTransform.canUseFast(alpha, beta):
+        return False
+    if TRANSFORM_METHOD == 'fast':
+        return True
+    return coeffs.ndim in FAST_TRANSFORM_NDIMS and coeffs.shape[dim] - 1 >= FAST_TRANSFORM_MIN_DEGREE
+
 def TransformChebInPlaceND(coeffs, dim, alpha, beta, exact):
     """Transforms a single dimension of a Chebyshev approximation for a polynomial.
 
@@ -459,6 +476,11 @@ def TransformChebInPlaceND(coeffs, dim, alpha, beta, exact):
     #TODO: Make this work for the power basis polynomials
     if (alpha == 1.0 and beta == 0.0) or coeffs.shape[dim] == 1:
         return coeffs # No need to transform if the degree of dim is 0 or transformation is the identity.
+    if useFastTransform(coeffs, dim, alpha, beta, exact):
+        if dim == 0:
+            return FastTransform.cheb_affine_fast_axis0(coeffs, alpha, beta)
+        order, backOrder = getTransposeOrders(coeffs.ndim, dim)
+        return FastTransform.cheb_affine_fast_axis0(coeffs.transpose(order), alpha, beta).transpose(backOrder)
     TransformFunc = TransformChebInPlace1DErrorFree if exact else TransformChebInPlace1D
     if dim == 0:
         return TransformFunc(coeffs, alpha, beta)
