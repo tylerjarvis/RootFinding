@@ -433,6 +433,13 @@ def getTransposeOrders(ndim, dim):
         _transposeOrders[(ndim, dim)] = orders
     return orders
 
+#TransformChebInPlaceND makes a C-contiguous copy of a coefficient tensor before transforming it when
+#the tensor has at most CONTIGUOUS_COPY_MAX_NDIM dimensions and at least CONTIGUOUS_COPY_MIN_SIZE
+#entries (2^14 doubles = 128 KB). Smaller tensors lose more to the copy than they gain. In 4D the copy
+#only helped at about 48^4 entries, and in 5D it cost 4-6% at every size measured.
+CONTIGUOUS_COPY_MIN_SIZE = 2**14
+CONTIGUOUS_COPY_MAX_NDIM = 3
+
 def TransformChebInPlaceND(coeffs, dim, alpha, beta, exact):
     """Transforms a single dimension of a Chebyshev approximation for a polynomial.
 
@@ -460,11 +467,16 @@ def TransformChebInPlaceND(coeffs, dim, alpha, beta, exact):
     if (alpha == 1.0 and beta == 0.0) or coeffs.shape[dim] == 1:
         return coeffs # No need to transform if the degree of dim is 0 or transformation is the identity.
     TransformFunc = TransformChebInPlace1DErrorFree if exact else TransformChebInPlace1D
-    if dim == 0:
-        return TransformFunc(coeffs, alpha, beta)
-    else: # Need to transpose the matrix to line up the multiplication for the current dim
+    if dim != 0: # Need to transpose the matrix to line up the multiplication for the current dim
         order, backOrder = getTransposeOrders(coeffs.ndim, dim)
-        return TransformFunc(coeffs.transpose(order), alpha, beta).transpose(backOrder)
+        coeffs = coeffs.transpose(order)
+    # The transform walks coeffs one slice coeffs[col] at a time. On a large 2D or 3D transposed view
+    # those slices are strided, and one contiguous copy up front is much cheaper (4-7x faster for a
+    # 256^2 to 1024^2 array along dim 1). ascontiguousarray is a no-op on a C-contiguous array.
+    if coeffs.ndim <= CONTIGUOUS_COPY_MAX_NDIM and coeffs.size >= CONTIGUOUS_COPY_MIN_SIZE:
+        coeffs = np.ascontiguousarray(coeffs)
+    transformedCoeffs = TransformFunc(coeffs, alpha, beta)
+    return transformedCoeffs if dim == 0 else transformedCoeffs.transpose(backOrder)
 
 @njit(float64[:,:](float64[:,:], float64[:,:]), cache=True)
 def applySubInterval(interval, subInterval):
