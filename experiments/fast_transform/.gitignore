@@ -1,0 +1,6 @@
+# Raw experiment output; regenerate with the scripts in each subdirectory.
+*.csv
+*.npz
+*.log
+*.txt
+__pycache__/
