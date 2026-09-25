@@ -16,7 +16,8 @@ from yroots.ChebyshevSubdivisionSolver import (SolverOptions, TrackedInterval, T
                                                Split, TwoSum, TwoProd, Split_NoNumba, TwoSum_NoNumba,
                                                TwoProd_NoNumba, getRootsInInterval, absSum,
                                                getTransposeOrders, getTrimSlices, applyTransforms,
-                                               applySubInterval)
+                                               applySubInterval, StallCounter, hasStalled,
+                                               stalledIntervalResult)
 
 UNIT_BOX_2D = np.array([[-1., 1.], [-1., 1.]])
 
@@ -718,3 +719,55 @@ def test_solve_does_not_modify_the_polynomials_it_is_given():
     for M, original in zip(Ms, originals):
         assert np.array_equal(M, original)
     assert np.array_equal(errors, [0., 0.])
+
+
+############################### stalled intervals ############################
+
+def test_hasStalled_is_false_when_subdivision_shrinks_the_interval():
+    interval = TrackedInterval(np.array([[-1., 1.], [-1., 1.]]))
+    _, _, subIntervals = getSubdivisionIntervals([np.ones((2, 2))]*2, np.zeros(2), interval, False, 0)
+    assert not hasStalled(interval, subIntervals)
+
+
+def test_hasStalled_is_true_when_a_half_is_the_whole_interval():
+    interval = TrackedInterval(np.array([[0.3, np.nextafter(0.3, 1)]]))
+    half = interval.copy()
+    point = interval.copy()
+    point.interval = np.array([[0.3, 0.3]])
+    assert hasStalled(interval, [point, half])
+
+
+def test_the_stall_counter_is_shared_by_copies_of_the_options():
+    options = SolverOptions()
+    options.copy().stallCounter.increment()
+    options.copy().copy().stallCounter.increment()
+    assert options.stallCounter.count == 2
+    assert SolverOptions().stallCounter.count == 0
+
+
+def test_a_stalled_interval_is_returned_with_a_warning():
+    original = TrackedInterval(np.array([[-1., 1.]]))
+    interior = original.copy()
+    interior.interval = np.array([[0.3, np.nextafter(0.3, 1)]])
+    exterior = original.copy()
+    exterior.interval = np.array([[-1., np.nextafter(-1., 1)]])
+    options = SolverOptions()
+    with pytest.warns(UserWarning, match="could not shrink"):
+        assert stalledIntervalResult(original, interior, options) == ([interior], [])
+    with pytest.warns(UserWarning, match="could not shrink"):
+        assert stalledIntervalResult(original, exterior, options) == ([], [exterior])
+    assert options.stallCounter.count == 2
+
+
+def test_stalling_more_than_maxStalledIntervals_raises():
+    original = TrackedInterval(np.array([[-1., 1.]]))
+    stalled = original.copy()
+    stalled.interval = np.array([[0.3, np.nextafter(0.3, 1)]])
+    options = SolverOptions()
+    options.maxStalledIntervals = 3
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for _ in range(3):
+            stalledIntervalResult(original, stalled, options)
+    with pytest.raises(ValueError, match="More than 3 intervals"):
+        stalledIntervalResult(original, stalled, options)

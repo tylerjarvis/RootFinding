@@ -6,9 +6,10 @@ green while the defect stands and turns red the moment one is fixed without the 
 being updated. The reason string on each mark records what actually happens today.
 
 The polynomial defects found in the same sweep have since been fixed; their regression
-tests live in ``test_polynomial.py``. Most of what is left has one root cause:
-``solvePolyRecursive`` has no depth cap, so a system it cannot separate recurses until
-python's stack limit instead of returning a result or reporting the problem.
+tests live in ``test_polynomial.py``. So have the degenerate systems that used to recurse
+until python's stack limit (a curve of roots, the zero polynomial, two equations that agree
+to rounding error). ``solve`` now raises a ValueError for them, and their regression tests
+live in ``test_solve_api.py``.
 
 Two further inputs are left unguarded by choice rather than by oversight, and have no
 test here because a test for them would have to hang to prove the point: non-finite
@@ -19,66 +20,12 @@ Note on what is *not* here: randomized sweeps over well-posed systems (random Ch
 systems in 1-3 dimensions, on unit and non-unit boxes, against multi-start Newton ground
 truth) found no missed, spurious, duplicated, or out-of-box roots, and no disagreement
 between the ``exact``, ``returnBoundingBoxes``, and ``minBoundingIntervalSize`` code
-paths. The failures below are all at the degenerate edge.
+paths.
 """
 import numpy as np
 import pytest
 
-import yroots as yr
 from yroots.polynomial import MultiCheb
-
-
-############################### solver: degenerate systems ###################
-
-@pytest.mark.xfail(raises=RecursionError, strict=True,
-                   reason="a system this ill conditioned recurses until python's stack "
-                          "limit instead of returning its root or reporting the problem")
-def test_ill_conditioned_system_keeps_its_root_at_1e_10():
-    """The same two nearly parallel lines as ``test_ill_conditioned_system_keeps_its_root``.
-
-    That test parametrizes eps down to 1e-7. The root at (0.3, 0) survives to 1e-9; from
-    3e-10 down (0 included) the solver never stops subdividing and dies with a
-    RecursionError several seconds in.
-
-    The root is still recoverable in principle: it sits at (0.3, 0) exactly, and
-    machine-precision perturbations of the coefficients only move it by about u/eps, or
-    2e-6 here. Whether to return it or to fail cleanly is a design decision; the stack
-    overflow is neither.
-    """
-    eps = 1e-10
-    f = lambda x, y: x + y - 0.3
-    g = lambda x, y: x + (1 + eps) * y - 0.3
-    roots = yr.solve([f, g], [-1, -1], [1, 1])
-
-    assert len(roots) == 1
-    assert np.allclose(roots[0], [0.3, 0.0], atol=1e-6)
-
-
-@pytest.mark.xfail(raises=RecursionError, strict=True,
-                   reason="a system with a curve of solutions recurses until python's "
-                          "stack limit instead of raising")
-def test_a_system_with_infinitely_many_roots_reports_the_problem():
-    """Two copies of the same equation: every point on a line solves the system.
-
-    ``solve`` documents that an infinite root set may get the solver "stuck in recursion",
-    but a duplicated equation is an easy mistake to make and the result is a bare
-    RecursionError from deep inside the solver, with nothing pointing at the input.
-    """
-    f = lambda x, y: x + y - 0.3
-    with pytest.raises(ValueError):
-        yr.solve([f, f], [-1, -1], [1, 1])
-
-
-@pytest.mark.xfail(raises=RecursionError, strict=True,
-                   reason="the identically zero polynomial recurses until python's stack limit")
-def test_the_zero_polynomial_reports_the_problem():
-    """``MultiCheb(np.zeros(3))`` is zero everywhere, so every point is a root.
-
-    Same stack overflow as above, from an input that is trivially recognizable: the
-    coefficient tensor is all zeros before any approximation work begins.
-    """
-    with pytest.raises(ValueError):
-        yr.solve(MultiCheb(np.zeros(3)), -1, 1)
 
 
 ############################### polynomials ##################################

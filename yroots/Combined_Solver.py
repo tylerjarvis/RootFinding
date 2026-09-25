@@ -155,6 +155,11 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
             print(f"{i}: {polys[i].shape}", end = " " if i != dim-1 else '\n')
     if verbose:
         print(f"Searching on interval {[[a[i],b[i]] for i in range(dim)]}")
+    #Every point is a root of a function that is identically zero, so there is nothing to isolate.
+    for i in range(dim):
+        if not np.any(polys[i]):
+            raise ValueError(f"Invalid input: function {i} is identically zero on the search interval, "
+                             "so every point of the interval solves it.")
 
     #Solve the Chebyshev polynomial system
     boundingBoxes = ChebyshevSubdivisionSolver.solveChebyshevSubdivision(polys,errs,verbose,exact, constant_check=True,

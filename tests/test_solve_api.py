@@ -46,6 +46,20 @@ def test_rejects_a_polynomial_whose_dimension_is_not_the_system_size():
         solve(poly, -1, 1)
 
 
+@pytest.mark.parametrize("funcs, a, b", [
+    (yr.MultiCheb(np.zeros(3)), -1, 1),
+    ([lambda x, y: 0*x, lambda x, y: x - y], [-1, -1], [1, 1]),
+], ids=["zero MultiCheb", "zero callable in a 2D system"])
+def test_rejects_an_identically_zero_function(funcs, a, b):
+    """Every point solves a function that is identically zero, so its roots cannot be isolated.
+
+    The zero polynomial used to recurse until python's stack limit, and the 2D system here, whose
+    solutions are the whole line x = y, used to return no roots at all.
+    """
+    with pytest.raises(ValueError, match="identically zero"):
+        solve(funcs, a, b)
+
+
 ############################### input handling ###############################
 
 def test_a_single_function_does_not_need_to_be_in_a_list():
@@ -167,7 +181,7 @@ def test_an_asymmetric_search_box():
     assert np.allclose(roots[0], [np.pi / 3, np.pi / 3], atol=1e-10)
 
 
-@pytest.mark.parametrize("eps", [1e-3, 1e-5, 1e-7])
+@pytest.mark.parametrize("eps", [1e-3, 1e-5, 1e-7, 1e-9])
 def test_ill_conditioned_system_keeps_its_root(eps):
     """Regression test: ill conditioned systems used to lose their root entirely.
 
@@ -181,6 +195,38 @@ def test_ill_conditioned_system_keeps_its_root(eps):
 
     assert len(roots) == 1, f"root lost for a system with condition number ~{1/eps:.0e}"
     assert np.allclose(roots[0], [0.3, 0.0], atol=1e-6)
+
+
+############################### non-isolated roots ###########################
+
+@pytest.mark.parametrize("f", [
+    lambda x, y: x + y - 0.3,
+    lambda x, y: x**2 + y**2 - 0.5,
+], ids=["line", "circle"])
+@pytest.mark.parametrize("max_cpu", [1, 2], ids=["serial", "parallel"])
+def test_a_system_with_a_curve_of_roots_raises(f, max_cpu):
+    """Two copies of the same equation: every point on a curve solves the system.
+
+    Subdivision cannot separate such roots, so it used to recurse until python's stack limit.
+    It now stops each interval that no longer shrinks and raises once too many have stalled.
+    """
+    with pytest.raises(ValueError, match="could not be shrunk"):
+        solve([f, f], [-1, -1], [1, 1], max_cpu=max_cpu, parallel_depth=2)
+
+
+@pytest.mark.parametrize("eps", [3e-10, 1e-10])
+def test_equations_that_agree_to_rounding_error_raise(eps):
+    """The nearly parallel lines of ``test_ill_conditioned_system_keeps_its_root``, closer still.
+
+    Below about 1e-9 the two lines agree to within the approximation error along a whole segment,
+    so to the solver they look like a curve of roots. The root at (0.3, 0) is recoverable in
+    principle, but the solver cannot tell it apart from its neighbors on the line. It used to
+    recurse until python's stack limit; it now fails cleanly.
+    """
+    f = lambda x, y: x + y - 0.3
+    g = lambda x, y: x + (1 + eps) * y - 0.3
+    with pytest.raises(ValueError, match="could not be shrunk"):
+        solve([f, g], [-1, -1], [1, 1])
 
 
 ############################### empty results ################################

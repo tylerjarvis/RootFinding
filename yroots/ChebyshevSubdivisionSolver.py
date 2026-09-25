@@ -12,6 +12,7 @@ from numba.types import UniTuple
 from itertools import product
 from yroots.QuadraticCheck import quadratic_check
 import copy
+import threading
 import warnings
 
 from dataclasses import dataclass
@@ -57,6 +58,31 @@ class TaskResult:
     childTasks: list
     subdivisionState: SubdivisionState | None = None
 
+class StallCounter():
+    """Counts the intervals a solve returned because subdividing them no longer shrinks them.
+
+    An interval stalls when every dimension it would be split in is too narrow to split: the split
+    point rounds onto an endpoint, so one half is the whole interval. (getSubdivisionDims stops
+    splitting dimensions narrower than about 1e-8 while any other dimension is wider, so an interval
+    can stall with one dimension at that width.) An isolated root that is multiple or badly
+    conditioned stalls at most a few intervals. A curve of roots, an identically zero function or
+    two equations that agree to within rounding error stall an interval all along the solution set,
+    far too many to finish, so stalledIntervalResult raises once the count passes
+    SolverOptions.maxStalledIntervals.
+
+    SolverOptions.copy is shallow, so every copy made during one solve shares one counter. The lock
+    keeps the count right when the parallel driver's threads stall intervals at the same time.
+    """
+    def __init__(self):
+        self.count = 0
+        self.lock = threading.Lock()
+
+    def increment(self):
+        """Adds one stalled interval and returns the new count."""
+        with self.lock:
+            self.count += 1
+            return self.count
+
 class SolverOptions():
     """Settings for running interval checks, transformations, and subdivision in solvePolyRecursive.
 
@@ -85,6 +111,12 @@ class SolverOptions():
         Subdivision depth below which child tasks are pushed to the process pool. Tasks at or beyond
         this depth solve their children serially in the worker, avoiding scheduling overhead on
         tiny tasks. Defaults to 0 (i.e. fully serial).
+    maxStalledIntervals : int
+        Defaults to 50. The most intervals a solve may return because subdividing them no longer
+        shrinks them (see StallCounter). Past this many the roots are not finitely many isolated
+        points the solver can separate, and the solve raises a ValueError.
+    stallCounter : StallCounter
+        Counts stalled intervals. Shared by every copy of the options made during one solve.
     """
     
     def __init__(self):
@@ -101,9 +133,11 @@ class SolverOptions():
         self.max_cpu = 1
         self.allowParallel = True
         self.parallel_depth = 0
+        self.maxStalledIntervals = 50
+        self.stallCounter = StallCounter()
 
     def copy(self):
-        return copy.copy(self) #Return shallow copy, everything should be a basic type
+        return copy.copy(self) #Shallow copy: basic types, plus the stallCounter every copy shares
 
 @njit(cache=True)
 def TransformChebInPlace1D(coeffs, alpha, beta):
@@ -1314,6 +1348,50 @@ def getInverseOrder(order):
     invOrder[newOrder] = np.arange(len(newOrder))
     return tuple(invOrder)
 
+def hasStalled(trackedInterval, subIntervals):
+    """Whether subdividing trackedInterval failed to shrink it.
+
+    Splitting a dimension that is too narrow leaves one half equal to the whole, so trackedInterval
+    has stalled exactly when one of the intervals it was split into is identical to it.
+    """
+    return any(np.array_equal(sub.interval, trackedInterval.interval) for sub in subIntervals)
+
+def stalledIntervalResult(originalInterval, trackedInterval, solverOptions):
+    """Returns a stalled interval as a bounding box for a root, or raises if too many have stalled.
+
+    Parameters
+    ----------
+    originalInterval : TrackedInterval
+        The interval solvePolyRecursive was called on, to tell interior from exterior intervals.
+    trackedInterval : TrackedInterval
+        The interval that no longer shrinks when subdivided.
+    solverOptions : SolverOptions
+        Supplies the stall counter and maxStalledIntervals.
+
+    Returns
+    -------
+    interior, exterior : lists of TrackedInterval
+        trackedInterval in whichever list it belongs to, as solvePolyRecursive reports a root.
+
+    Raises
+    ------
+    ValueError
+        If more than solverOptions.maxStalledIntervals intervals have stalled during this solve.
+    """
+    count = solverOptions.stallCounter.increment()
+    if count > solverOptions.maxStalledIntervals:
+        raise ValueError(f"More than {solverOptions.maxStalledIntervals} intervals could not be "
+                         "shrunk any further by subdivision. The solutions do not appear to be finitely "
+                         "many isolated roots: the system may have a curve or region of solutions, a "
+                         "function that is identically zero, or equations that agree to within "
+                         "rounding error.")
+    warnings.warn("Subdivision could not shrink an interval any further, so it is returned as a "
+                  "bounding box for a root. The root may be multiple or badly conditioned; the "
+                  "bounding box, not the reported point, is what the solver can guarantee.")
+    if isExteriorInterval(originalInterval, trackedInterval):
+        return [], [trackedInterval]
+    return [trackedInterval], []
+
 def getSubdivisionDims(Ms,trackedInterval,level):
     """Decides which dimensions to subdivide in and in what order.
 
@@ -2003,6 +2081,12 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions, returnChildre
             solverOptions.level
         )
 
+        if hasStalled(trackedInterval, allIntervals):
+            stalledInterior, stalledExterior = stalledIntervalResult(originalInterval, trackedInterval, solverOptions)
+            if returnChildren:
+                return TaskResult(stalledInterior, stalledExterior, [])
+            return stalledInterior, stalledExterior
+
         state = SubdivisionState(
             originalMs=originalMs,
             originalInterval=originalInterval,
@@ -2078,6 +2162,12 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions, returnChildre
             solverOptions.exact,
             solverOptions.level
         )
+
+        if hasStalled(trackedInterval, allIntervals):
+            stalledInterior, stalledExterior = stalledIntervalResult(originalInterval, trackedInterval, solverOptions)
+            if returnChildren:
+                return TaskResult(stalledInterior, stalledExterior, [])
+            return stalledInterior, stalledExterior
 
         state = SubdivisionState(
             originalMs=originalMs,
