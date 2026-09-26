@@ -58,6 +58,12 @@ ONE_MULTIPLE_ROOT = {
     "2D fourfold root, both functions touch zero": (
         [lambda x, y: (x - .2)**2, lambda x, y: (y + .1)**2],
         [-1, -1], [1, 1], [(.2, -.1)]),
+    "2D fourfold root, both functions touch zero along diagonals": (
+        [lambda x, y: (x + y - .1)**2, lambda x, y: (x - y - .3)**2],
+        [-1, -1], [1, 1], [(.2, -.1)]),
+    "2D fourfold root, one function touches zero only at the root": (
+        [lambda x, y: (x - .2)**2 + (y + .1)**2, lambda x, y: (x - .2)*(y + .1)],
+        [-1, -1], [1, 1], [(.2, -.1)]),
     "3D double root": (
         [lambda x, y, z: (x - .3)**2, lambda x, y, z: y - .1, lambda x, y, z: z + .2],
         [-1]*3, [1]*3, [(.3, .1, -.2)]),
@@ -84,19 +90,10 @@ ONE_MULTIPLE_ROOT = {
 }
 
 
-# When every function touches zero, zooming shrinks the box to about 1e-7 without reaching the
-# final step. Every dimension then counts as collapsed, and getSubdivisionDims splits only the
-# last one, while the first (where the function is flat) is never split. The solver recurses
-# until python's stack limit. Splitting the widest dimension fixes these two but makes the
-# nearly singular system in test_known_failures.py branch exponentially instead of failing fast.
-_ALL_FUNCTIONS_TOUCH_ZERO = pytest.mark.xfail(
-    raises=RecursionError, strict=True,
-    reason="subdivides only the last of several collapsed dimensions and never stops")
-
-
-@pytest.mark.parametrize("name", [
-    pytest.param(name, marks=_ALL_FUNCTIONS_TOUCH_ZERO) if "fold root" in name else name
-    for name in ONE_MULTIPLE_ROOT])
+# The fourfold and eightfold roots, where every function touches zero, zoom to a box about 1e-7
+# wide whose linear terms are all below the approximation error. They used to recurse until
+# python's stack limit there; isBelowResolution now stops them.
+@pytest.mark.parametrize("name", ONE_MULTIPLE_ROOT)
 def test_a_single_multiple_root_is_found(name):
     funcs, a, b, expected = ONE_MULTIPLE_ROOT[name]
     assert_finds_exactly(funcs, a, b, expected)
