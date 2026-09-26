@@ -146,3 +146,30 @@ def test_boxes_match_roots_outside_unit_box():
 
     assert len(roots) > 0
     assert_boxes_match_roots(roots, boxes, funcs=[f, g], tol=1e-13)
+
+
+def devastating_example(Q, eps):
+    """Noferini and Townsend's p_i(x) = x_i**2 + eps*(Qx)_i, whose origin is a simple root."""
+    d = Q.shape[0]
+    return [lambda *x, i=i: x[i]**2 + eps*sum(Q[i, j]*x[j] for j in range(d)) for i in range(d)]
+
+
+@pytest.mark.parametrize("dim, eps, random_state", [
+    (2, 1e-2, 2), (2, 1e-3, 1), (2, 1e-3, 2), (3, 1e-4, 1), (3, 1e-4, 4)])
+def test_box_of_a_root_at_the_origin_contains_the_origin(dim, eps, random_state):
+    """Regression test: the first zoom on [-1,1]**dim used to cut a bound past 0.
+
+    On [-1,1] each x_i**2 has its T_2 term at its full size of -1/2 at x = 0, so the linear bound
+    through the origin is tight. boundingIntervalCore computed it as center + width from the
+    solve of the linear system, both about 1/eps in size. Their rounding error, relative to those
+    numbers rather than to the bound, left the box of the root at the origin just short of 0 --
+    ending exactly at the reported root.
+    """
+    from scipy.stats import ortho_group
+    Q = ortho_group.rvs(dim, random_state=random_state)
+    roots, boxes = yr.solve(devastating_example(Q, eps), [-1]*dim, [1]*dim, returnBoundingBoxes=True)
+
+    assert_boxes_match_roots(roots, boxes)
+    boxes = np.asarray(boxes)
+    at_origin = [np.all((box[:, 0] <= 0) & (box[:, 1] >= 0)) for box in boxes]
+    assert any(at_origin), f"no bounding box contains the origin:\n{boxes}"
