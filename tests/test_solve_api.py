@@ -307,6 +307,29 @@ def test_scaling_the_system_does_not_change_the_roots(scale):
     assert distances[rows, cols].max() < 1e-12
 
 
+@pytest.mark.parametrize("funcs, root", [
+    ([lambda x, y: (x - .3)**2, lambda x, y: y - .1], (.3, .1)),
+    ([lambda x, y: y - .1, lambda x, y: (x - .3)**2], (.3, .1)),
+    ([lambda x, y: (y - .1)**2, lambda x, y: x - .3], (.3, .1)),
+])
+def test_a_double_root_where_one_function_only_touches_zero_is_reported(funcs, root):
+    """(x-.3)**2 only touches zero, so the root at (.3, .1) is a double root.
+
+    Its Chebyshev approximation is purely quadratic, and the quadratic check computed the sum of
+    the non-quadratic coefficients as |M|.sum() minus the quadratic ones. That cancelled to
+    -2e-16, below the rounded minimum of the quadratic part, so the whole search box was thrown
+    out and solve returned nothing. Once past that, the final step's box had x a few 1e-8 wide
+    and y of width zero; getSubdivisionDims treated both as collapsed, kept only y, and then had
+    no dimension left to subdivide.
+    """
+    with pytest.warns(UserWarning, match="Might Have Duplicate Roots"):
+        roots, boxes = solve(funcs, [-1, -1], [1, 1], returnBoundingBoxes=True)
+    assert len(roots) > 0, "the double root was discarded"
+    assert np.max(np.abs(roots - np.array(root))) < 1e-6
+    assert any(np.all(box[:, 0] <= root) and np.all(root <= box[:, 1]) for box in boxes), (
+        "no bounding box contains the double root")
+
+
 ############################### package import ###############################
 
 def _import_yroots_in_subprocess(preamble):

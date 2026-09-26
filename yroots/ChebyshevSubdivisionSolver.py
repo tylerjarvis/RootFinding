@@ -1333,10 +1333,19 @@ def getSubdivisionDims(Ms,trackedInterval,level):
     """
     dim = len(Ms)
     dims_to_consider = np.arange(dim)
-    for i in range(dim):
-        if np.isclose(trackedInterval.interval[i,0], trackedInterval.interval[i,1]):
-            if len(dims_to_consider) != 1:
-                dims_to_consider = np.delete(dims_to_consider, np.argwhere(dims_to_consider==i))
+    collapsed = np.isclose(trackedInterval.interval[:,0], trackedInterval.interval[:,1])
+    if collapsed.all():
+        #Keep one dimension to subdivide in. In the final step, which isolates a single root, use
+        #the widest one: at a multiple root such as (x-.3)**2 = y-.1 = 0 zooming pins y to a point,
+        #and subdividing a dimension of length zero makes no progress (and at level <= 5 leaves no
+        #dimension at all). Elsewhere keep the last one; using the widest there too makes nearly
+        #singular systems branch exponentially instead of failing fast.
+        if trackedInterval.finalStep:
+            dims_to_consider = np.array([np.argmax(trackedInterval.dimSize())])
+        else:
+            dims_to_consider = np.array([dim-1])
+    else:
+        dims_to_consider = dims_to_consider[~collapsed]
     if level > 5:
         return np.vstack([dims_to_consider[np.argsort(np.array(M.shape)[dims_to_consider])[::-1]] for M in Ms])
     else:
