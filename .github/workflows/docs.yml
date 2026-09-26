@@ -44,14 +44,30 @@ jobs:
       - name: Add landing page at the site root
         run: |
           cp -R docs/landing/. docs/_build/html/
-          # The page links this project's three repositories, their clone URLs
-          # and the siblings' documentation sites, all under one owner. Point
-          # them at whoever is publishing this build, so the same page serves
-          # a fork and its upstream without being edited. The repository names
-          # are the same in both places; only the owner differs.
+          # The page links this project's three implementation repos (RootFinding,
+          # Rootfinding-serial, Julia-Rootfinding), their clone URLs, and the
+          # siblings' documentation sites, all under one owner in the source.
+          # Point them at whoever is publishing this build instead, so the same
+          # page serves a fork and its upstream without being edited. Scoped to
+          # just those repo names (not a blanket "tylerjarvis" replace) so the
+          # benchmark-data links to tylerjarvis/rootfinding_testing -- which
+          # stays tylerjarvis's regardless of who forks this page -- are
+          # untouched, and so is the "Cite this work" section: citations should
+          # always point at the upstream repo, even from a fork's build.
           owner='${{ github.repository_owner }}'
-          sed -i "s|wlgns0330|${owner}|g" docs/_build/html/index.html
-          echo "landing page owner set to ${owner}"
+          awk -v owner="${owner}" '
+            /<section id="cite"/ { in_cite=1 }
+            in_cite == 0 {
+              gsub(/tylerjarvis\/RootFinding/, owner "/RootFinding")
+              gsub(/tylerjarvis\/Rootfinding-serial/, owner "/Rootfinding-serial")
+              gsub(/tylerjarvis\/Julia-Rootfinding/, owner "/Julia-Rootfinding")
+              gsub(/tylerjarvis\.github\.io/, owner ".github.io")
+            }
+            /<\/section>/ { in_cite = 0 }
+            { print }
+          ' docs/_build/html/index.html > docs/_build/html/index.html.tmp
+          mv docs/_build/html/index.html.tmp docs/_build/html/index.html
+          echo "landing page owner set to ${owner} (cite section left pointing at tylerjarvis)"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
