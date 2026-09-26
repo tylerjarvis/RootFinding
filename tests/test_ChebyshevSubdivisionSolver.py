@@ -565,12 +565,14 @@ def test_getSubdivisionDims_keeps_a_dimension_that_can_still_be_split():
     is under np.isclose's 1e-8, so every dimension counted as degenerate and the loop kept
     the last one -- which has width exactly 0 -- while dropping dimension 1, the only one
     with any width left. The width filter then removed the last one too, and
-    getSubdivisionIntervals raised IndexError on the empty order.
+    getSubdivisionIntervals raised IndexError on the empty order. In the final step the
+    widest dimension is now kept instead.
     """
     tracked = TrackedInterval(np.array([[6.59812861e-17, 6.59812871e-17],
                                         [-4.04323769e-09, 5.62986541e-09],
                                         [-4.47213595e-01, -4.47213595e-01],
                                         [-8.94427191e-01, -8.94427191e-01]]))
+    tracked.finalStep = True
     Ms = [np.zeros((2, 3, 1, 1)), np.zeros((2, 3, 1, 1)), np.zeros((1, 1, 2, 2)), np.zeros((1, 1, 2, 2))]
 
     dims = getSubdivisionDims(Ms, tracked, 4)
