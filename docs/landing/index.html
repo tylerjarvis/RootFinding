@@ -308,8 +308,7 @@
       <div class="gh-dropdown">
         <button class="gh" id="ghToggle" aria-haspopup="true" aria-expanded="false">GitHub ▾</button>
         <div class="gh-menu" id="ghMenu">
-          <a href="https://github.com/wlgns0330/RootFinding" target="_blank" rel="noopener">yroots <span class="gh-sub">Python · parallel</span></a>
-          <a href="https://github.com/wlgns0330/Rootfinding-serial" target="_blank" rel="noopener">yroots-serial <span class="gh-sub">Python · serial</span></a>
+          <a href="https://github.com/wlgns0330/RootFinding" target="_blank" rel="noopener">yroots <span class="gh-sub">Python</span></a>
           <a href="https://github.com/wlgns0330/Julia-Rootfinding" target="_blank" rel="noopener">jroots <span class="gh-sub">Julia</span></a>
           <a href="https://github.com/tylerjarvis/rootfinding_testing" target="_blank" rel="noopener">Benchmark data <span class="gh-sub">tylerjarvis</span></a>
         </div>
@@ -323,10 +322,10 @@
     <div class="hero-top">
       <div class="eyebrow">Numerical rootfinding suite · R<sup>n</sup> → {0}</div>
       <h1>Find every root in the box.<br><i>Prove</i> there's nothing left out.</h1>
-      <p class="lede">Yroots locates all real roots of smooth multivariate systems inside a compact search interval — no initial guess, no missed solutions, just the box and the functions. The same algorithm ships three ways: two Python editions and <span class="mono">jroots</span>, the Julia port.</p>
+      <p class="lede">Yroots locates all real roots of smooth multivariate systems inside a compact search interval — no initial guess, no missed solutions, just the box and the functions. The same algorithm ships as <span class="mono">yroots</span> for Python and <span class="mono">jroots</span>, the Julia port.</p>
       <div class="cta-row">
-        <a class="cta" href="https://colab.research.google.com/github/wlgns0330/Rootfinding-serial/blob/main/CombinedNotebook.ipynb" target="_blank" rel="noopener">Try yroots in your browser ↗</a>
-        <span class="cta-note">Opens the tutorial notebook on Google Colab. Single-threaded edition, nothing to install.</span>
+        <a class="cta" href="https://colab.research.google.com/github/wlgns0330/RootFinding/blob/main/CombinedNotebook.ipynb" target="_blank" rel="noopener">Try yroots in your browser ↗</a>
+        <span class="cta-note">Opens the tutorial notebook on Google Colab. Nothing to install.</span>
       </div>
     </div>
 
@@ -405,17 +404,17 @@
 <section id="solvers">
   <div class="wrap">
     <div class="reveal">
-      <div class="eyebrow">Three implementations, one algorithm</div>
+      <div class="eyebrow">Two implementations, one algorithm</div>
       <h2>Pick the engine that fits your system.</h2>
-      <p style="max-width:660px; margin-top:12px;">All three solve the same problem — zeros of <span class="mono">n</span> smooth functions in <span class="mono">n</span> variables over a compact box. The two Python editions differ only in whether the subdivision runs across threads; <span class="mono">jroots</span> is the Julia port. The benchmark above is where <span class="mono">yroots</span> and <span class="mono">jroots</span> are run side by side against solvers like Bertini, Chebfun and NSolve.</p>
+      <p style="max-width:660px; margin-top:12px;">Both solve the same problem — zeros of <span class="mono">n</span> smooth functions in <span class="mono">n</span> variables over a compact box. <span class="mono">yroots</span> is the Python package; <span class="mono">jroots</span> is the Julia port. The benchmark above is where <span class="mono">yroots</span> and <span class="mono">jroots</span> are run side by side against solvers like Bertini, Chebfun and NSolve.</p>
     </div>
 
     <div class="lab-row">
       <div class="card yroots reveal">
         <div class="card-body">
-        <span class="tag">Python · parallel</span>
+        <span class="tag">Python</span>
         <h3>yroots</h3>
-        <p>Uses Chebyshev polynomial approximation to subdivide the search box and isolate roots to machine precision. Guaranteed to find every root as long as the system is smooth, continuous, and has finitely many simple zeros in the interval. Subdivided regions are handed to a worker pool, which is why it wants the free-threaded build.</p>
+        <p>Uses Chebyshev polynomial approximation to subdivide the search box and isolate roots to machine precision. Guaranteed to find every root as long as the system is smooth, continuous, and has finitely many simple zeros in the interval. Subdivided regions can be handed to a worker pool, which is why it targets the free-threaded build of Python — but the same call runs single-threaded on stock CPython, so the tutorial notebook works as-is on Google Colab.</p>
         <ul class="meta-list">
           <li><b>Requires</b> Python 3.14t (free-threaded build), NumPy ≥2.4.4, Numba ≥0.65.1, SciPy ≥1.17.1, SymPy ≥1.12</li>
           <li><b>Returns</b> a NumPy array of root coordinates, one row per root</li>
@@ -428,28 +427,8 @@
         <div class="links-row">
           <a href="https://github.com/wlgns0330/RootFinding" target="_blank" rel="noopener">Source →</a>
           <a href="documentation/">Documentation →</a>
+          <a href="https://colab.research.google.com/github/wlgns0330/RootFinding/blob/main/CombinedNotebook.ipynb" target="_blank" rel="noopener">Tutorial in Colab →</a>
           <a href="https://colab.research.google.com/github/wlgns0330/RootFinding/blob/main/parallel_solve_time_data.ipynb" target="_blank" rel="noopener">Parallel timings in Colab →</a>
-        </div>
-        </div>
-      </div>
-
-      <div class="card yroots reveal">
-        <div class="card-body">
-        <span class="tag">Python · serial</span>
-        <h3>yroots-serial</h3>
-        <p>The same subdivision solver with the parallel driver taken out: one thread, stock CPython. It is the reference the parallel fork is checked against, and the edition to reach for where a free-threaded interpreter isn't available. Same import, same call — without the two parallel arguments.</p>
-        <ul class="meta-list">
-          <li><b>Requires</b> Python ≥3.9, NumPy ≥1.21, Numba ≥0.57, SciPy ≥1.10, Matplotlib ≥3.7</li>
-          <li><b>Returns</b> a NumPy array of root coordinates, one row per root</li>
-          <li><b>Differs</b> <span class="mono">solve()</span> takes no <span class="mono">max_cpu</span> or <span class="mono">parallel_depth</span></li>
-        </ul>
-        </div>
-        <div class="card-code">
-        <div class="codeblock"><span class="c1"># install (stock CPython, 3.9 or newer)</span><br>pip install git+https://github.com/wlgns0330/Rootfinding-serial.git<br><br><span class="c1"># usage -- same f, g and box as above</span><br><span class="c2">import</span> yroots <span class="c2">as</span> yr<br>roots = yr.<span class="c3">solve</span>([f, g], a, b)<br><br><span class="c1"># the parallel edition adds, on top of this:</span><br><span class="c1">#   roots = yr.solve([f, g], a, b, max_cpu=8)</span></div>
-        <div class="links-row">
-          <a href="https://github.com/wlgns0330/Rootfinding-serial" target="_blank" rel="noopener">Source →</a>
-          <a href="https://wlgns0330.github.io/Rootfinding-serial/" target="_blank" rel="noopener">Documentation →</a>
-          <a href="https://colab.research.google.com/github/wlgns0330/Rootfinding-serial/blob/main/CombinedNotebook.ipynb" target="_blank" rel="noopener">Tutorial in Colab →</a>
         </div>
         </div>
       </div>
@@ -513,13 +492,12 @@
         <svg width="18" height="18" viewBox="0 0 20 20"><path d="M1 14 Q6 2 10 10 T19 6" fill="none" stroke="#E8A33D" stroke-width="2" stroke-linecap="round"/><circle cx="7.4" cy="9.9" r="2" fill="#EDEAE0"/></svg>
         <b>yroots</b>
       </div>
-      <p>Yroots content follows wlgns0330/RootFinding, with the single-threaded edition at wlgns0330/Rootfinding-serial; jroots follows wlgns0330/Julia-Rootfinding. Benchmark graphs are pulled live from tylerjarvis/rootfinding_testing.</p>
+      <p>Yroots content follows wlgns0330/RootFinding; jroots follows wlgns0330/Julia-Rootfinding. Benchmark graphs are pulled live from tylerjarvis/rootfinding_testing.</p>
     </div>
     <div class="fcol">
       <a href="https://github.com/wlgns0330/RootFinding" target="_blank" rel="noopener">yroots repo ↗</a>
-      <a href="https://github.com/wlgns0330/Rootfinding-serial" target="_blank" rel="noopener">yroots-serial repo ↗</a>
       <a href="https://github.com/wlgns0330/Julia-Rootfinding" target="_blank" rel="noopener">jroots repo ↗</a>
-      <a href="https://colab.research.google.com/github/wlgns0330/Rootfinding-serial/blob/main/CombinedNotebook.ipynb" target="_blank" rel="noopener">Tutorial notebook in Colab ↗</a>
+      <a href="https://colab.research.google.com/github/wlgns0330/RootFinding/blob/main/CombinedNotebook.ipynb" target="_blank" rel="noopener">Tutorial notebook in Colab ↗</a>
       <a href="https://arxiv.org/abs/2401.02114" target="_blank" rel="noopener">Paper (arXiv) ↗</a>
       <a href="#benchmarks">Benchmark</a>
     </div>
