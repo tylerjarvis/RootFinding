@@ -30,6 +30,36 @@ def get_fixed_vars(dim):
     return list(itertools.chain.from_iterable(itertools.combinations(range(dim), r)\
                                              for r in range(dim-1,0,-1)))
 
+def get_other_sum(other_abs, abs_total, num_terms, tol):
+    """Bound the non-quadratic terms plus the floating point error of the check.
+
+    ``other_abs`` is the absolute sum of the non-quadratic coefficients. When it is computed as
+    ``abs_total`` minus the absolute sum of the quadratic part, the subtraction can cancel to a
+    slightly negative number when (almost) all of the mass is in the quadratic part, so it is
+    clamped at zero. A rounding margin covering the coefficient sums and the evaluation of the
+    quadratic part is added. Without both, a quadratic part that only touches zero (a double root
+    such as ``(x-.3)**2``) can evaluate a few ulps above ``other_sum`` at its minimum, and the box
+    containing the root is thrown out.
+
+    Parameters
+    ----------
+    other_abs : float
+        The (possibly cancelled) sum of the absolute values of the non-quadratic coefficients.
+    abs_total : float
+        The sum of the absolute values of all the coefficients.
+    num_terms : int
+        The number of coefficients summed, which bounds the number of rounded operations.
+    tol : float
+        The bound of the sup norm error of the Chebyshev approximation.
+
+    Returns
+    -------
+    float
+        The bound to compare the extreme values of the quadratic part against.
+    """
+    rounding = (num_terms + 32) * 2.**-52 * abs_total
+    return max(other_abs, 0.) + tol + rounding
+
 def quadratic_check(test_coeff, tol, nd_check=False):
     """Dispatch to the dimension-specialized quadratic check.
 
@@ -101,7 +131,8 @@ def quadratic_check_2D(test_coeff, tol):
     # The sum of the absolute values of the other coefs
     # Note: Overhead for instantiating a NumPy array is too costly for
     #  small arrays, so the second sum here is faster than using numpy
-    other_sum = np.abs(test_coeff).sum() - sum([fabs(coeff) for coeff in c]) + tol
+    abs_total = np.abs(test_coeff).sum()
+    other_sum = get_other_sum(abs_total - sum([fabs(coeff) for coeff in c]), abs_total, test_coeff.size, tol)
 
     # Function for evaluating c0 + c1 T_1(x) + c2 T_1(y) +c3 T_2(x) + c4 T_1(x)T_1(y) + c5 T_2(y)
     # Use the Horner form because it is much faster, also do any repeated computations in advance
@@ -253,7 +284,8 @@ def quadratic_check_3D(test_coeff, tol):
         c[9] = test_coeff[0,0,2]
 
     #The sum of the absolute values of everything else
-    other_sum = np.abs(test_coeff).sum() - sum([fabs(coeff) for coeff in c]) + tol
+    abs_total = np.abs(test_coeff).sum()
+    other_sum = get_other_sum(abs_total - sum([fabs(coeff) for coeff in c]), abs_total, test_coeff.size, tol)
 
     #function for evaluating c0 + c1x + c2y +c3z + c4xy + c5xz + c6yz + c7T_2(x) + c8T_2(y) + c9T_2(z)
     # Use the Horner form because it is much faster, also do any repeated computatons in advance
@@ -627,7 +659,8 @@ def quadratic_check_nd(test_coeff, tol):
         return _sum
 
     #The sum of the absolute values of everything else
-    other_sum = np.abs(test_coeff).sum() + tol
+    other_abs = np.abs(test_coeff).sum()
+    other_sum = get_other_sum(other_abs, other_abs + np.abs(quad_coeff).sum(), test_coeff.size, tol)
 
     #iterator for sides
     fixed_vars = get_fixed_vars(dim)

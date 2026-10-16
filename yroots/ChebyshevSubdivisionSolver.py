@@ -800,6 +800,43 @@ def getLinearTerms(M):
     #A degree 0 dimension has no linear term.
     return [0 if M.shape[i] == 1 else M[idx] for i, idx in enumerate(getLinearTermIndices(M.ndim))]
 
+def isBelowResolution(Ms: list[np.ndarray], errors: np.ndarray, maxVariation: float = 100.) -> bool:
+    """Whether every polynomial is within a few times its error of a constant on the interval.
+
+    The sum of the absolute values of the non-constant coefficients bounds how much a polynomial
+    varies across the interval. Once that is only a small multiple of its approximation error for
+    every polynomial, the approximations cannot tell where in the interval a root is, and
+    subdividing cannot tell either. This happens at a root where every function touches zero,
+    such as (x-.2)**2 = (y+.1)**2 = 0: zooming stalls in a box about 1e-7 wide in which every
+    function stays within rounding of zero, and further subdivision never ends.
+
+    A polynomial that is exactly constant on the interval does not count. If the constant is not
+    zero the constant term check has already thrown the interval out, and if it is zero every
+    point is a root, which is not a root that stopping here could report. Without this, the zero
+    polynomial would stop on the whole search interval, and solve would then re-solve it piece by
+    piece down to minBoundingIntervalSize.
+
+    Parameters
+    ----------
+    Ms : list of numpy arrays
+        The Chebyshev coefficient tensors of each approximation
+    errors : numpy array
+        An upper bound on the error of each Chebyshev approximation
+    maxVariation : float
+        How many times its error each polynomial may vary by and still count as unresolved.
+
+    Returns
+    -------
+    bool
+        True if every polynomial varies, but by no more than maxVariation times its error.
+    """
+    zeroIdx = (0,)*Ms[0].ndim
+    for M, e in zip(Ms, errors):
+        variation = absSum(M) - abs(M[zeroIdx])
+        if variation <= 0 or variation > maxVariation*e:
+            return False
+    return True
+
 def getLinearTermIndices(ndim):
     """Gets the index tuple of the linear term of each dimension of an ndim tensor."""
     idxs = _linearTermIndices.get(ndim)
@@ -810,21 +847,34 @@ def getLinearTermIndices(ndim):
 
 
 @njit(cache=True)
-def linearCheck1(totalErrs, A, consts):
+def linearCheck1(totalErrs, A, consts, macheps=2.**-52):
     """Takes A, the linear terms of each function approximation, and makes any possible reduction
-        in the interval based on the totalErrs."""
+        in the interval based on the totalErrs.
+
+    Each bound is widened by a few ulps of the quantities it was computed from. v1 and v2 can be
+    far larger than the bound they produce -- on [-1,1] a small linear term makes both huge -- and
+    when the bound is tight they cancel almost exactly, as they do for x**2 + eps*x at x = 0, where
+    the rest of the polynomial reaches its full size. The rounding of that cancellation is relative
+    to v1 and v2, not to the bound, so without the widening it can cut the bound past the root.
+    boundingIntervalCore intersects these bounds with the ones from its SVD solve, which are
+    padded for the same reason, so a root survives only if both are widened.
+    """
     dim = len(A)
     a = -np.ones(dim) * np.inf
     b = np.ones(dim) * np.inf
+    #Covers the rounding in v1, v2 and their difference, plus the rounding in totalErrs itself,
+    #which is a long sum of absolute values and so is relatively accurate but can round down.
+    relPad = 16 * macheps
     for row in range(dim):
         for col in range(dim):
             if A[row,col] != 0: #Don't bother running the check if the linear term is too small.
                 v1 = totalErrs[row] / abs(A[row,col]) - 1
                 v2 = 2 * consts[row] / A[row,col]
+                pad = relPad * (abs(v1) + 1 + abs(v2))
                 if v2 >= 0:
-                    a_, b_ = -v1, v1-v2
+                    a_, b_ = -v1 - pad, v1-v2 + pad
                 else:
-                    a_, b_ = -v2-v1, v1
+                    a_, b_ = -v2-v1 - pad, v1 + pad
                 a[col] = max(a[col], a_)
                 b[col] = min(b[col], b_)
     return a, b
@@ -932,7 +982,7 @@ def boundingIntervalCore(A, consts, totalErrs, err, errors, finalStep, macheps):
         Ainv = (Vh.T * (1/S)) @ U.T
         center = -Ainv@consts
     #Use the first interval shrinking method
-    a_init, b_init = linearCheck1(totalErrs, A, consts)
+    a_init, b_init = linearCheck1(totalErrs, A, consts, macheps)
     a_orig = a_init
     b_orig = b_init
     #This loop only runs a second time if the interval did not change on the first pass and so
@@ -946,11 +996,19 @@ def boundingIntervalCore(A, consts, totalErrs, err, errors, finalStep, macheps):
                 #these as the principal direction, so summing over them gets the farthest the
                 #parallelogram can reach in each dimension.
                 width = 0.
+                centerSize = 0.
                 for k in range(dim):
                     width += abs(Ainv[j,k]*err[k])
+                    centerSize += abs(Ainv[j,k]*consts[k])
+                #center and width can each be much larger than the bounds they give, which then
+                #come from cancellation, so pad by their rounding error, not just by widthToAdd.
+                #For x_i**2 + eps*(Qx)_i on [-1,1]**dim both are about 1/eps, and at the root at the
+                #origin center + width is exactly 0 in one dimension; unpadded, its rounding cut
+                #the origin out of the first zoom.
+                pad = max(condNum,2.)*macheps*(centerSize + width)
                 #Bound with previous result
-                low = center[j] - width
-                high = center[j] + width
+                low = center[j] - width - pad
+                high = center[j] + width + pad
                 a[j] = low if low > a_init[j] else a_init[j]
                 b[j] = high if high < b_init[j] else b_init[j]
         else:
@@ -1333,10 +1391,19 @@ def getSubdivisionDims(Ms,trackedInterval,level):
     """
     dim = len(Ms)
     dims_to_consider = np.arange(dim)
-    for i in range(dim):
-        if np.isclose(trackedInterval.interval[i,0], trackedInterval.interval[i,1]):
-            if len(dims_to_consider) != 1:
-                dims_to_consider = np.delete(dims_to_consider, np.argwhere(dims_to_consider==i))
+    collapsed = np.isclose(trackedInterval.interval[:,0], trackedInterval.interval[:,1])
+    if collapsed.all():
+        #Keep one dimension to subdivide in. In the final step, which isolates a single root, use
+        #the widest one: at a multiple root such as (x-.3)**2 = y-.1 = 0 zooming pins y to a point,
+        #and subdividing a dimension of length zero makes no progress (and at level <= 5 leaves no
+        #dimension at all). Elsewhere keep the last one; using the widest there too makes nearly
+        #singular systems branch exponentially instead of failing fast.
+        if trackedInterval.finalStep:
+            dims_to_consider = np.array([np.argmax(trackedInterval.dimSize())])
+        else:
+            dims_to_consider = np.array([dim-1])
+    else:
+        dims_to_consider = dims_to_consider[~collapsed]
     if level > 5:
         return np.vstack([dims_to_consider[np.argsort(np.array(M.shape)[dims_to_consider])[::-1]] for M in Ms])
     else:
@@ -1951,6 +2018,11 @@ def solvePolyRecursive(Ms, trackedInterval, errors, solverOptions, returnChildre
             zoomCount += 1
 
         lastSizes = newSizes
+
+    #Stop rather than subdivide an interval no approximation can resolve. The final step treats
+    #the approximations as exact and still has its own subdivision to separate close roots.
+    if not should_stop and not trackedInterval.finalStep and isBelowResolution(Ms, errors):
+        should_stop = True
 
     if should_stop:
         if trackedInterval.finalStep or not solverOptions.useFinalStep:
