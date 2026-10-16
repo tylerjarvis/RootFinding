@@ -176,14 +176,7 @@ def test_the_devastating_example_with_eps_zero_has_one_root_of_multiplicity_2_to
     assert_finds_exactly(devastating_example(Q, 0.), [-1]*dim, [1]*dim, [(0.,)*dim])
 
 
-# With this Q, the bounding box reported for the (simple) root at the origin misses the origin:
-# its y range is [-5.1e-11, -9.1e-13], ending exactly at the reported point. This also happens on
-# main for other dims, eps and Qs; it is a bounding box bug separate from multiple roots.
-_BOX_MISSES_ORIGIN = pytest.mark.xfail(
-    strict=True, reason="bounding box of the root at the origin excludes the origin")
-
-
-_DEVASTATING_MARKS = {(3, 1e-4): _BOX_MISSES_ORIGIN, (2, 1e-2): _ROUNDING_DEPENDENT_BOX}
+_DEVASTATING_MARKS = {(2, 1e-2): _ROUNDING_DEPENDENT_BOX}
 
 
 @pytest.mark.parametrize("dim, eps", [

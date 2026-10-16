@@ -262,6 +262,19 @@ def test_linearCheck1_intersects_the_bounds_from_every_row():
     assert a[1] == -np.inf and b[1] == np.inf                   # no information about x_1
 
 
+
+@pytest.mark.parametrize("e", [1e-3, -7e-4])
+def test_linearCheck1_keeps_a_root_where_the_bound_is_tight(e):
+    # x**2 + e*x on [-1,1] is 0.5 + e*T_1 + 0.5*T_2. At its root x = 0, T_2 = -1 cancels the
+    # constant, so the bound on that side is exactly 0 -- but it is found as the difference of two
+    # numbers about 1/|e| in size, which for these e rounds to just the wrong side of 0.
+    A = np.array([[e]])
+    consts = np.array([0.5])
+    totalErrs = np.array([1 + abs(e)])
+    a, b = linearCheck1(totalErrs, A, consts)
+    assert a[0] <= 0 <= b[0]
+    assert min(-a[0], b[0]) < 1e-10   # widened by rounding error only, so still tight at 0
+
 ############################ BoundingIntervalLinearSystem ####################
 
 def test_bounding_interval_shrinks_around_a_known_root():
