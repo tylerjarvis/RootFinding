@@ -1417,9 +1417,12 @@ def getSubdivisionDims(Ms,trackedInterval,level):
         #the widest one: at a multiple root such as (x-.3)**2 = y-.1 = 0 zooming pins y to a point,
         #and subdividing a dimension of length zero makes no progress (and at level <= 5 leaves no
         #dimension at all). Elsewhere keep the last one; using the widest there too makes nearly
-        #singular systems branch exponentially instead of failing fast.
-        if trackedInterval.finalStep:
-            dims_to_consider = np.array([np.argmax(trackedInterval.dimSize())])
+        #singular systems branch exponentially instead of failing fast. The last one still gives way to
+        #the widest when its width is exactly 0, since the width filter below would remove it and leave
+        #nothing to subdivide.
+        dimSizes = trackedInterval.dimSize()
+        if trackedInterval.finalStep or dimSizes[dim-1] == 0:
+            dims_to_consider = np.array([np.argmax(dimSizes)])
         else:
             dims_to_consider = np.array([dim-1])
     else:
