@@ -84,10 +84,12 @@ def _refineWideBoxes(funcs, a, b, entries, dupSets, **solveKwargs):
     Returns
     -------
     entries : list
-        The same list with the roots and boxes of each wide box replaced. A box keeps what it had when its
-        neighborhood cannot be solved or turns up no root; a neighborhood this small is at the edge of what
-        the solver handles: y**2 = 0 on one, for one, reports no root at all, and a function that cannot be
-        evaluated accurately there needs a degree above REFINE_MAX_DEGREE.
+        The same list with the roots of each wide box replaced. Each new root's box is the box the neighborhood
+        found for it, widened to contain the wide box, so it still holds a root the neighborhood's box missed
+        (at a multiple root the neighborhood's approximation is less accurate than its error bound says). A box
+        keeps what it had when its neighborhood cannot be solved or turns up no root; a neighborhood this small
+        is at the edge of what the solver handles: y**2 = 0 on one, for one, reports no root at all, and a
+        function that cannot be evaluated accurately there needs a degree above REFINE_MAX_DEGREE.
     """
     scale = functools.reduce(np.maximum, [np.abs(a), np.abs(b), 1])
     #Every box in units of scale, and the entry it came from, to decide which entry a root found on a
@@ -118,7 +120,13 @@ def _refineWideBoxes(funcs, a, b, entries, dupSets, **solveKwargs):
                                       scaledRoots - allBoxes[np.newaxis, :, :, 1]), axis=2)
         own = boxOwner[np.argmin(distances, axis=1)] == k
         if np.any(own):
-            entries[k] = (newRoots[own], newBoxes[own], False, False)
+            #Keep the original box in every refined box. The neighborhood's boxes can be tighter than its
+            #approximation is accurate (its error bound leaves out rounding), which at a multiple root moves
+            #them off the root; the original box still contains it.
+            unionBoxes = newBoxes[own].copy()
+            unionBoxes[:, :, 0] = np.minimum(unionBoxes[:, :, 0], box[:, 0])
+            unionBoxes[:, :, 1] = np.maximum(unionBoxes[:, :, 1], box[:, 1])
+            entries[k] = (newRoots[own], unionBoxes, False, False)
             #Keep only the duplicate sets among the roots this box keeps.
             ownRoots = newRoots[own]
             dupSets.extend(roots_ for roots_ in found
