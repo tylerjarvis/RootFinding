@@ -1,6 +1,7 @@
 """Unit tests for the public yroots.solve API (yroots.Combined_Solver)."""
 import contextlib
 import signal
+import warnings
 
 import numpy as np
 import pytest
@@ -484,10 +485,17 @@ def test_a_double_root_where_one_function_only_touches_zero_is_reported(funcs, r
     out and solve returned nothing. Once past that, the final step's box had x a few 1e-8 wide
     and y of width zero; getSubdivisionDims treated both as collapsed, kept only y, and then had
     no dimension left to subdivide.
+
+    The double root may come back as one point or as a pair. A pair must be listed as a set of
+    possible duplicates; a single point needs no warning.
     """
-    with pytest.warns(UserWarning, match="Might Have Duplicate Roots"):
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
         roots, boxes = solve(funcs, [-1, -1], [1, 1], returnBoundingBoxes=True)
     assert len(roots) > 0, "the double root was discarded"
+    if len(roots) > 1:
+        assert any("might be duplicates of each other" in str(w.message) for w in caught), (
+            "the points reported for the double root were not listed as possible duplicates")
     assert np.max(np.abs(roots - np.array(root))) < 1e-6
     assert any(np.all(box[:, 0] <= root) and np.all(root <= box[:, 1]) for box in boxes), (
         "no bounding box contains the double root")
