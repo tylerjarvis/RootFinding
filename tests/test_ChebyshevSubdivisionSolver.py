@@ -195,6 +195,35 @@ def test_TransformChebInPlaceND_transforms_the_right_dimension(dim):
     assert np.allclose(ev(transformed, pts), ev(coeff, moved))
 
 
+@pytest.mark.parametrize("shape,dim", [((128, 129), 1), ((17, 31, 32), 2)])
+@pytest.mark.parametrize("exact", [False, True])
+def test_TransformChebInPlaceND_large_copy_matches_noncopy_path(shape, dim, exact):
+    coeff = np.random.default_rng(16).standard_normal(shape)
+    assert coeff.size >= S.CONTIGUOUS_COPY_MIN_SIZE
+    transform = TransformChebInPlace1DErrorFree if exact else TransformChebInPlace1D
+    order, backOrder = getTransposeOrders(coeff.ndim, dim)
+    reference = transform(coeff.transpose(order), 0.5, -0.25).transpose(backOrder)
+
+    transformed = TransformChebInPlaceND(coeff, dim, 0.5, -0.25, exact)
+
+    assert np.array_equal(transformed, reference)
+
+
+def test_TransformChebInPlaceND_skips_copy_for_small_transformed_dimension(monkeypatch):
+    coeff = np.random.default_rng(17).standard_normal((8192, 2))
+    copied = []
+    ascontiguousarray = S.np.ascontiguousarray
+
+    def track_copy(array):
+        copied.append(array)
+        return ascontiguousarray(array)
+
+    monkeypatch.setattr(S.np, "ascontiguousarray", track_copy)
+    TransformChebInPlaceND(coeff, 1, 0.5, -0.25, False)
+
+    assert not copied
+
+
 def test_transformCheb_transforms_every_dimension_and_grows_the_error():
     coeff = np.random.default_rng(12).standard_normal((3, 3))
     alphas, betas = np.array([0.5, 0.5]), np.array([-0.5, 0.5])
