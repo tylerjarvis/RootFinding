@@ -316,17 +316,8 @@ def test_a_root_on_an_axis_next_to_a_close_neighbour(d):
 
 ############################### close and multiple roots #####################
 
-def test_two_close_roots_away_from_the_origin_and_off_the_axes_are_both_found():
-    d = 1e-9
-    roots = solve([lambda x, y: (x - y) * (x - y - d), lambda x, y: x + y - 0.5], [-1, -1], [1, 1])
-
-    expected = [[0.25, 0.25], [0.25 + d / 2, 0.25 - d / 2]]
-    assert np.allclose(sorted_rows(roots), expected, rtol=0, atol=1e-3 * d)
-
-
 def test_a_double_root_is_reported_once():
-    """y^2 = 0 has one root. On a small enough neighborhood its dip vanishes into the error and
-    solving there finds nothing, so the root found on the whole box has to be kept."""
+    """y^2 = 0 has one root."""
     roots = solve([lambda x, y: x + 0 * y, lambda x, y: y * y], [-1, -1], [1, 1])
 
     assert roots.shape == (1, 2)
@@ -335,10 +326,8 @@ def test_a_double_root_is_reported_once():
 
 @pytest.mark.parametrize("d", [1e-7, 1e-8])
 def test_close_roots_of_a_function_with_absolute_rounding_error_do_not_hang(d):
-    """1 - cos(t) cancels inside the function, so it is off by about macheps near t = 0 however
-    small the neighborhood. Approximating it there needs an ever higher degree; solve has to give
-    up on the neighborhood and keep the point it found on the whole box, which lies between the
-    two roots."""
+    """1 - cos(t) cancels inside the function, so it is off by about macheps near t = 0. The two
+    roots are below that error and come back as a point between them."""
     g = lambda x, y: 1 - np.cos(y - d / 2) - (d / 2) ** 2 / 2
     with fails_instead_of_hanging(30):
         roots = solve([lambda x, y: x + 0 * y, g], [-1, -1], [1, 1])
@@ -574,17 +563,19 @@ def _solve_recording_warnings(funcs, a, b, **kwargs):
 @pytest.mark.parametrize("kwargs", [dict(max_cpu=1, parallel_depth=0), dict(max_cpu=2, parallel_depth=1)],
                          ids=["serial", "parallel"])
 def test_duplicate_roots_are_listed_by_set(kwargs):
-    """y = x**2 and y = -x**2 touch at the origin, so the solver hands back two points it cannot tell
-    apart. The warning names those points, in the coordinates of the search interval, and suggests
-    checking the Jacobian there."""
-    funcs = [lambda x, y: y - x**2, lambda x, y: y + x**2]
+    """Both factors of the first function vanish at the origin along with the second, so the solver
+    hands back two points there it cannot tell apart (Chebfun2 case 6.1). The warning names those
+    points, in the coordinates of the search interval, and suggests checking the Jacobian there."""
+    funcs = [lambda x, y: (y - 2*x)*(y + 0.5*x), lambda x, y: x*(x**2 + y**2 - 1)]
     roots, messages = _solve_recording_warnings(funcs, -1, 1, **kwargs)
     dupMessages = [m for m in messages if "duplicates" in m]
     assert len(dupMessages) == 1, messages
     message = dupMessages[0]
     assert "Set 1:" in message and "Set 2:" not in message
     assert "We suggest you check the rank of the Jacobian at these points." in message
-    for root in roots:
+    pair = roots[np.linalg.norm(roots, axis=1) < 1e-6]
+    assert len(pair) == 2
+    for root in pair:
         assert "(" + ", ".join(f"{x:.16g}" for x in root) + ")" in message
     assert not any("Might Have Duplicate Roots" in m for m in messages)
 

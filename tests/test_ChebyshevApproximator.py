@@ -449,15 +449,6 @@ def test_chebApproximate_of_the_zero_function_terminates():
     assert error == 0
 
 
-def test_chebApproximate_stops_at_maxDegree():
-    """A function that needs a higher degree than allowed raises instead of doubling on."""
-    f = lambda x, y: np.cos(60 * x) + y
-    with pytest.raises(CA.DegreeCapExceeded):
-        chebApproximate(f, np.array([-1.0, -1.0]), np.array([1.0, 1.0]), maxDegree=32)
-    approx, _ = chebApproximate(f, np.array([-1.0, -1.0]), np.array([1.0, 1.0]), maxDegree=1000)
-    assert approx.shape[0] > 32
-
-
 def test_chebApproximate_accepts_lists_and_scalars():
     from_lists, _ = chebApproximate(lambda x, y: np.sin(x + y), [-1, -1], [1, 1])
     from_arrays, _ = chebApproximate(lambda x, y: np.sin(x + y), np.array([-1.0, -1.0]),

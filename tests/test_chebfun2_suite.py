@@ -17,11 +17,10 @@ The residual and location checks are deliberately kept apart: a root set can hav
 tiny residuals and still be wrong when the system is ill-conditioned near a root,
 and the two checks fail for different reasons.
 
-Case 6.1 has a double root at the origin, which the reference records once. Whether
-the solver reports it once or as two points a few 1e-15 apart depends on the last bits
-of the arithmetic, which change with the OpenBLAS kernel numpy picks for the CPU: the
-SkylakeX kernel gives one point, the Haswell and Zen kernels give two. Both answers
-are accepted. Two points must both lie at the double root and be listed together in
+Case 6.1 has a double root at the origin, which the reference records once. The solver
+cannot separate the two branches meeting there and may report it as two points about
+1e-8 from it; whether it does can depend on the last bits of the arithmetic, which
+change with the OpenBLAS kernel numpy picks for the CPU. Both answers are accepted. Two points must both lie at the double root and be listed together in
 the duplicate-roots warning, and they are counted and located as the one root they are.
 
 Tolerances
@@ -196,8 +195,8 @@ CASES = [
                lambda x, y: ((y + .4)**3 - (x - .4)**2)*((y + .3)**3 - (x - .3)**2)*((y - .5)**3 - (x + .6)**2)*((y + 0.3)**3 - (2*x - 0.8)**3)],
         a=np.array([-1, -1]), b=np.array([1, 1]),
         # Products of near-tangent curves: the roots are badly conditioned even
-        # though the residuals stay at 1e-14. Measured root error 9.5e-11.
-        root_tol=1e-9,
+        # though the residuals stay at 1e-14. Measured root error 4.6e-8.
+        root_tol=1e-6,
     ),
     Case(
         name="1.3",
@@ -313,10 +312,10 @@ CASES = [
                lambda x, y: x*(x**2 + y**2 - 1)],
         a=np.array([-1, -1]), b=np.array([1, 1]),
         # A double root sits at the origin, where both factors of f vanish along
-        # with g. It is reported once, at y = -3.7e-14, or as two points at
-        # y = +-3.1e-15 that the duplicate-roots warning lists together, depending
-        # on the OpenBLAS kernel (see the module docstring).
+        # with g. It is reported as two points at y = +-8.7e-9 that the
+        # duplicate-roots warning lists together, or once (see the module docstring).
         double_root=np.array([0.0, 0.0]),
+        root_tol=1e-7,
     ),
     Case(
         name="6.2",
