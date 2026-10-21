@@ -17,11 +17,11 @@ The residual and location checks are deliberately kept apart: a root set can hav
 tiny residuals and still be wrong when the system is ill-conditioned near a root,
 and the two checks fail for different reasons.
 
-Case 6.1 is the one place where the solver and the reference legitimately disagree
-on the count: a double root sits at the origin, the reference records it once, and
-the solver reports it twice. That is stated outright rather than smoothed over --
-the case declares the duplicate, 6 roots are expected against the reference's 5,
-and the failure message names both numbers.
+Case 6.1 has a double root at the origin, which the reference records once. The solver
+cannot separate the two branches meeting there and may report it as two points about
+1e-8 from it; whether it does can depend on the last bits of the arithmetic, which
+change with the OpenBLAS kernel numpy picks for the CPU. Both answers are accepted. Two points must both lie at the double root and be listed together in
+the duplicate-roots warning, and they are counted and located as the one root they are.
 
 Tolerances
 ----------
@@ -38,6 +38,7 @@ YRoots is more accurate on some of these systems and less on others, so agreemen
 with Chebfun is not a correctness criterion. The files are kept for benchmarking.
 """
 import dataclasses
+import warnings
 
 import numpy as np
 import pytest
@@ -70,10 +71,9 @@ class Case:
         Lower and upper corners of the search box.
     residual_tol, root_tol : float
         Per-case overrides of the module defaults.
-    duplicate_root : numpy array, optional
-        A multiple root that the reference records once but the solver reports twice,
-        because it cannot separate the two branches meeting there. Only 6.1 has one.
-        The reference is expected to come up one root short, and the tests say so.
+    double_root : numpy array, optional
+        A double root the reference records once, which the solver may report once
+        or as a pair of points it lists as possible duplicates. Only 6.1 has one.
     """
 
     name: str
@@ -82,26 +82,12 @@ class Case:
     b: np.ndarray
     residual_tol: float = DEFAULT_RESIDUAL_TOL
     root_tol: float = DEFAULT_ROOT_TOL
-    duplicate_root: np.ndarray | None = None
-
-    @property
-    def polished_roots(self):
-        """The reference roots exactly as stored on disk, as an (n, 2) array."""
-        return np.load(POLISHED_DIR / f"polished_{self.name}.npy").reshape(-1, 2)
+    double_root: np.ndarray | None = None
 
     @property
     def reference_roots(self):
-        """The roots the solver should report, as an (n, 2) array.
-
-        Same as ``polished_roots`` except where the system has a duplicate root: the
-        solver reports that one twice, so it is listed twice here and the ordinary
-        one-to-one matching applies unchanged.
-        """
-        roots = self.polished_roots
-        if self.duplicate_root is None:
-            return roots
-        nearest = np.argmin(np.linalg.norm(roots - self.duplicate_root, axis=1))
-        return np.vstack([roots, roots[nearest]])
+        """The reference roots exactly as stored on disk, as an (n, 2) array."""
+        return np.load(POLISHED_DIR / f"polished_{self.name}.npy").reshape(-1, 2)
 
     @property
     def expected_count(self):
@@ -120,9 +106,47 @@ _solved_cache = {}
 def roots_of(case):
     """Solve ``case`` once, then return the cached (n, 2) result."""
     if case.name not in _solved_cache:
-        found = solve(case.funcs, case.a, case.b)
-        _solved_cache[case.name] = np.asarray(found, dtype=float).reshape(-1, 2)
-    return _solved_cache[case.name]
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            found = solve(case.funcs, case.a, case.b)
+        _solved_cache[case.name] = (np.asarray(found, dtype=float).reshape(-1, 2),
+                                    [str(w.message) for w in caught])
+    return _solved_cache[case.name][0]
+
+
+def warnings_of(case):
+    """The messages of the warnings solving ``case`` raised."""
+    roots_of(case)
+    return _solved_cache[case.name][1]
+
+
+def format_root(root):
+    """A root as the duplicate-roots warning prints it."""
+    return "(" + ", ".join(f"{x:.16g}" for x in root) + ")"
+
+
+def merge_double_root(case, found):
+    """The roots of ``case`` with its double root counted once.
+
+    When the solver reports the double root as two points, both within ``root_tol``
+    of it, they must be listed together in the duplicate-roots warning; they are then
+    replaced by their midpoint. Any other result is returned unchanged, so a wrong
+    count or a misplaced root still fails the tests that compare against the reference.
+    """
+    if case.double_root is None:
+        return found
+    near = np.linalg.norm(found - case.double_root, axis=1) <= case.root_tol
+    if np.count_nonzero(near) != 2:
+        return found
+    pair = found[near]
+    listed = any("duplicates" in message and all(format_root(root) in message for root in pair)
+                 for message in warnings_of(case))
+    assert listed, (
+        f"Test {case.name}: the double root was reported as {format_root(pair[0])} and "
+        f"{format_root(pair[1])}, but no duplicate-roots warning lists them together:\n"
+        + "\n".join(warnings_of(case))
+    )
+    return np.vstack([found[~near], pair.mean(axis=0)])
 
 
 def max_residual(funcs, roots):
@@ -288,10 +312,9 @@ CASES = [
                lambda x, y: x*(x**2 + y**2 - 1)],
         a=np.array([-1, -1]), b=np.array([1, 1]),
         # A double root sits at the origin, where both factors of f vanish along
-        # with g. The reference records it once; the solver cannot separate the two
-        # branches and reports it as a pair straddling the origin at y = +-9.0e-9.
-        # So 6 roots are expected here against the polished reference's 5.
-        duplicate_root=np.array([0.0, 0.0]),
+        # with g. It is reported as two points at y = +-8.7e-9 that the
+        # duplicate-roots warning lists together, or once (see the module docstring).
+        double_root=np.array([0.0, 0.0]),
         root_tol=1e-7,
     ),
     Case(
@@ -382,18 +405,11 @@ CASE_IDS = [case.name for case in CASES]
 
 @pytest.mark.parametrize("case", CASES, ids=CASE_IDS)
 def test_finds_the_expected_number_of_roots(case):
-    found = roots_of(case)
-    if case.duplicate_root is not None:
-        assert len(found) == case.expected_count, (
-            f"Test {case.name}: YRoots found {len(found)} roots, but it should find "
-            f"{case.expected_count}, one of which is a duplicate root. By reference, "
-            f"polished roots has {len(case.polished_roots)}!"
-        )
-    else:
-        assert len(found) == case.expected_count, (
-            f"Test {case.name}: YRoots found {len(found)} roots, but the "
-            f"polished roots reference has {case.expected_count}!"
-        )
+    found = merge_double_root(case, roots_of(case))
+    assert len(found) == case.expected_count, (
+        f"Test {case.name}: YRoots found {len(found)} roots, but the "
+        f"polished roots reference has {case.expected_count}!"
+    )
 
 
 @pytest.mark.parametrize("case", CASES, ids=CASE_IDS)
@@ -410,7 +426,7 @@ def test_every_root_makes_the_system_vanish(case):
 @pytest.mark.parametrize("case", CASES, ids=CASE_IDS)
 def test_roots_match_the_polished_reference(case):
     """The roots are in the right places, not merely places where f is small."""
-    found = roots_of(case)
+    found = merge_double_root(case, roots_of(case))
     reference = case.reference_roots
 
     assert len(found) == len(reference), (

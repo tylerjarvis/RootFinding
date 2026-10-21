@@ -7,6 +7,7 @@ from numpy.polynomial import chebyshev as C
 
 import yroots.ChebyshevSubdivisionSolver as S
 from yroots.ChebyshevSubdivisionSolver import (SolverOptions, TrackedInterval, TransformChebInPlace1D,
+                                               boundingIntervalCore,
                                                TransformChebInPlace1DErrorFree, TransformChebInPlaceND,
                                                BoundingIntervalLinearSystem, getLinearTerms, linearCheck1,
                                                getInverseOrder, getSubdivisionDims, getSubdivisionIntervals,
@@ -291,7 +292,6 @@ def test_linearCheck1_intersects_the_bounds_from_every_row():
     assert a[1] == -np.inf and b[1] == np.inf                   # no information about x_1
 
 
-
 @pytest.mark.parametrize("e", [1e-3, -7e-4])
 def test_linearCheck1_keeps_a_root_where_the_bound_is_tight(e):
     # x**2 + e*x on [-1,1] is 0.5 + e*T_1 + 0.5*T_2. At its root x = 0, T_2 = -1 cancels the
@@ -304,7 +304,30 @@ def test_linearCheck1_keeps_a_root_where_the_bound_is_tight(e):
     assert a[0] <= 0 <= b[0]
     assert min(-a[0], b[0]) < 1e-10   # widened by rounding error only, so still tight at 0
 
+
 ############################ BoundingIntervalLinearSystem ####################
+
+
+def test_boundingIntervalCore_handles_a_subnormal_linear_term():
+    """Regression test: a subnormal linear term made the compiled core divide by zero.
+
+    These are the exact inputs it received in the final step of solving x = 0, y(y - 1e-7) = 0:
+    x had been zoomed down to a near-zero width, leaving a linear term of 3.95e-323. Row scaling
+    divides by the power of two below it, computed as 2.**int(k); numba evaluates that as 0.0 for
+    k < -1022, so the compiled function raised ZeroDivisionError where python gets 2**-1071.
+    """
+    def inputs():
+        return (np.array([[3.9525251667299724e-323, 0.0], [0.0, 1.0878004888974596e-15]]),
+                np.array([0.0, -6.017044613648241e-16]),
+                np.array([3.9525251667299724e-323, 3.4411846738256373e-15]),
+                np.array([0.0, 1.7516797235633535e-15]),
+                np.array([0.0, 0.0]), True, 2.0**-52)
+
+    compiled = boundingIntervalCore(*inputs())
+    python = boundingIntervalCore.py_func(*inputs())
+
+    assert np.allclose(compiled[0], python[0], rtol=0, atol=1e-15)
+    assert compiled[1:] == python[1:]
 
 def test_bounding_interval_shrinks_around_a_known_root():
     Ms = [linear_cheb(2, 0, 0.5), linear_cheb(2, 1, -0.25)]
@@ -545,6 +568,29 @@ def test_getSubdivisionDims_skips_degenerate_dimensions():
     Ms = [np.zeros((3, 3)), np.zeros((3, 3))]
     tracked = TrackedInterval(np.array([[0.5, 0.5], [-1., 1.]]))
     dims = getSubdivisionDims(Ms, tracked, 0)
+    assert set(dims.flatten()) == {1}
+
+
+def test_getSubdivisionDims_keeps_a_dimension_that_can_still_be_split():
+    """Regression test: a nearly converged box came back with nothing to subdivide.
+
+    This is the box the 4D two-double-root system reached in its final step. Every width
+    is under np.isclose's 1e-8, so every dimension counted as degenerate and the loop kept
+    the last one -- which has width exactly 0 -- while dropping dimension 1, the only one
+    with any width left. The width filter then removed the last one too, and
+    getSubdivisionIntervals raised IndexError on the empty order. In the final step the
+    widest dimension is now kept instead.
+    """
+    tracked = TrackedInterval(np.array([[6.59812861e-17, 6.59812871e-17],
+                                        [-4.04323769e-09, 5.62986541e-09],
+                                        [-4.47213595e-01, -4.47213595e-01],
+                                        [-8.94427191e-01, -8.94427191e-01]]))
+    tracked.finalStep = True
+    Ms = [np.zeros((2, 3, 1, 1)), np.zeros((2, 3, 1, 1)), np.zeros((1, 1, 2, 2)), np.zeros((1, 1, 2, 2))]
+
+    dims = getSubdivisionDims(Ms, tracked, 4)
+
+    assert dims.shape == (4, 1)
     assert set(dims.flatten()) == {1}
 
 

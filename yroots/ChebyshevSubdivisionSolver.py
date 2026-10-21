@@ -959,7 +959,11 @@ def boundingIntervalCore(A, consts, totalErrs, err, errors, finalStep, macheps):
             if abs(A[i,j]) > scaleVal:
                 scaleVal = abs(A[i,j])
         if scaleVal > 0:
-            s = 2.**int(np.floor(np.log2(scaleVal)))
+            #A float exponent, not int(...): numba evaluates 2.**k for an integer k < -1022 as 0.0
+            #rather than the subnormal power of two, and the divisions below then raise
+            #ZeroDivisionError. Linear terms that small arise in the final step, once a dimension
+            #has been zoomed down to a near-zero width.
+            s = 2.**np.floor(np.log2(scaleVal))
             for j in range(dim):
                 A[i,j] /= s
             consts[i] /= s
@@ -1413,9 +1417,12 @@ def getSubdivisionDims(Ms,trackedInterval,level):
         #the widest one: at a multiple root such as (x-.3)**2 = y-.1 = 0 zooming pins y to a point,
         #and subdividing a dimension of length zero makes no progress (and at level <= 5 leaves no
         #dimension at all). Elsewhere keep the last one; using the widest there too makes nearly
-        #singular systems branch exponentially instead of failing fast.
-        if trackedInterval.finalStep:
-            dims_to_consider = np.array([np.argmax(trackedInterval.dimSize())])
+        #singular systems branch exponentially instead of failing fast. The last one still gives way to
+        #the widest when its width is exactly 0, since the width filter below would remove it and leave
+        #nothing to subdivide.
+        dimSizes = trackedInterval.dimSize()
+        if trackedInterval.finalStep or dimSizes[dim-1] == 0:
+            dims_to_consider = np.array([np.argmax(dimSizes)])
         else:
             dims_to_consider = np.array([dim-1])
     else:
@@ -2296,19 +2303,14 @@ def solveChebyshevSubdivision(Ms, errors, verbose = False, exact = False, consta
     b1, b2 = solvePoly(Ms, originalInterval, errors, solverOptions)
 
     boundingIntervals = b1 + b2
-    hasDupRoots = False
     hasExtraRoots = False
 
     for interval in boundingIntervals:
         interval.getFinalInterval()
         if interval.possibleExtraRoot:
             hasExtraRoots = True
-        if len(interval.possibleDuplicateRoots) > 0:
-            hasDupRoots = True
 
-    #Warn if extra or duplicate roots
+    #Warn if extra roots. Duplicate roots are reported by solve, in the coordinates of the search interval.
     if hasExtraRoots:
         warnings.warn(f"Might Have Extra Roots! See Bounding Boxes for details!")
-    if hasDupRoots:
-        warnings.warn(f"Might Have Duplicate Roots! See Bounding Boxes for details!")
     return boundingIntervals

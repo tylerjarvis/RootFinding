@@ -27,6 +27,8 @@ import pytest
 import yroots as yr
 from yroots.polynomial import MultiCheb
 
+from tests.test_solve_api import singular_4d_system
+
 
 ############################### solver: degenerate systems ###################
 
@@ -79,6 +81,20 @@ def test_the_zero_polynomial_reports_the_problem():
     """
     with pytest.raises(ValueError):
         yr.solve(MultiCheb(np.zeros(3)), -1, 1)
+
+
+@pytest.mark.xfail(raises=AssertionError, strict=True,
+                   reason="reports 30 roots for a system with 25: the two double roots come "
+                          "back as several nearby roots")
+def test_a_4d_polynomial_system_with_two_double_roots_reports_each_root_once():
+    """Two independent double roots at the origin, given as MultiPower. Julia reports 25.
+
+    Only scale 1 is here; the count moves with scale (34 at 1e8, 35 at 1e-8, 26 at 1e-20).
+    Given as callables the same system reports 36 roots at scale 1 (test_bounding_boxes.py
+    checks their boxes, not their count), so this is not specific to polynomial input.
+    """
+    roots = yr.solve(singular_4d_system(), -np.ones(4), np.ones(4))
+    assert len(roots) == 25
 
 
 ############################### polynomials ##################################

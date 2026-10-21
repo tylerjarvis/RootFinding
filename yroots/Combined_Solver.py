@@ -2,6 +2,7 @@ import numpy as np
 from numba import njit
 import itertools
 import functools
+import warnings
 import yroots.ChebyshevSubdivisionSolver as ChebyshevSubdivisionSolver
 import yroots.ChebyshevApproximator as ChebyshevApproximator
 from yroots.polynomial import MultiCheb,MultiPower
@@ -11,8 +12,40 @@ def _printRootCount(numRoots):
     finish_string = '\n' + f"Found {numRoots} roots"
     print((finish_string if numRoots != 1 else finish_string[:-1]),end='\n\n')
 
+def relativeRoundingError(coeff, macheps=2**-52):
+    """Bound the error of a polynomial given exactly as coefficients: rounding in those coefficients.
+
+    Each coefficient is off by at most macheps times its own size, so the polynomial is off by at most
+    macheps times the sum of their sizes anywhere on [-1,1]^n. A fixed macheps instead is only right
+    when the coefficients are of order 1: scale them down and it becomes a large fraction of them --
+    about 2% at 1e-14, more than all of them from 1e-16 down -- and the solver no longer finishes.
+
+    The identically zero polynomial keeps the fixed macheps. Its relative error is 0, which makes the
+    solver report no roots for a polynomial that vanishes everywhere.
+    """
+    absSum = np.sum(np.abs(coeff))
+    return macheps*absSum if absSum > 0 else macheps
+
+def _warnDuplicateRoots(dupSets):
+    """Warns once about every set of roots that could not be told apart from each other.
+
+    Parameters
+    ----------
+    dupSets : list of numpy array
+        One (k, dim) array per bounding box that reports k > 1 roots, in the original coordinates.
+    """
+    if len(dupSets) == 0:
+        return
+    def formatRoot(root):
+        return "(" + ", ".join(f"{x:.16g}" for x in root) + ")"
+    lines = [f"  Set {i+1}: " + ", ".join(formatRoot(root) for root in roots)
+             for i, roots in enumerate(dupSets)]
+    warnings.warn("The roots in each of the following sets might be duplicates of each other:\n"
+                  + "\n".join(lines)
+                  + "\nWe suggest you check the rank of the Jacobian at these points.")
+
 def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=False, minBoundingIntervalSize=1e-5, max_cpu=1,
-          parallel_depth=1):
+          parallel_depth=1, _dupSets=None):
     """Finds and returns the roots of a system of functions on the search interval [a,b].
 
     Generates an approximation for each function using Chebyshev polynomials on the interval given,
@@ -95,6 +128,9 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
     parallel_depth : int
         Defaults to 1. Subdivision depth at which child tasks start being pushed to the worker
         pool. Higher values keep work serial for longer before parallelizing.
+    _dupSets : list or None
+        Internal. Where the solves this one makes collect the sets of roots that might be duplicates, so
+        the call the user made warns about all of them once. None on that call.
 
     Returns
     -------
@@ -104,6 +140,11 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
         Only returned when ``returnBoundingBoxes`` is True. The exact intervals (boxes) in
         which each root is bound to lie.
     """
+    #Only the call the user made warns; the solves it makes again add their duplicate sets to its list.
+    isTopLevel = _dupSets is None
+    if isTopLevel:
+        _dupSets = []
+
     # Ensure input functions and upper/lower bounds are valid
     if type(funcs) != list and type(funcs) != np.ndarray:
         funcs = [funcs]
@@ -141,12 +182,12 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
     for i in range(dim):
         if isinstance(funcs[i], MultiPower):
             polys[i] = funcs[i].to_cheb()
-            errs[i] = macheps
+            errs[i] = relativeRoundingError(polys[i])
             if not unit_box:
                 polys[i], errs[i] = ChebyshevSubdivisionSolver.transformCheb(polys[i], alphas, betas, errs[i], exact)
         elif isinstance(funcs[i], MultiCheb):
             polys[i] = funcs[i].coeff
-            errs[i] = macheps
+            errs[i] = relativeRoundingError(polys[i])
             if not unit_box:
                 polys[i], errs[i] = ChebyshevSubdivisionSolver.transformCheb(polys[i], alphas, betas, errs[i], exact)
         else:
@@ -176,7 +217,7 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
             if verbose:
                 print("Re-solving on:", newA, newB)
             roots, boxes = solve(funcs, a=newA, b=newB, verbose=verbose, returnBoundingBoxes=True, exact=exact, minBoundingIntervalSize = minBoundingIntervalSize,
-                                 max_cpu=max_cpu, parallel_depth=parallel_depth)
+                                 max_cpu=max_cpu, parallel_depth=parallel_depth, _dupSets=_dupSets)
             if len(roots) != 0:
                 boundingBoxes.append(boxes)
                 yroots.append(roots)
@@ -189,31 +230,32 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
             boundingBoxes = np.empty((0,dim,2))
         if verbose:
             _printRootCount(len(yroots))
+        if isTopLevel:
+            _warnDuplicateRoots(_dupSets)
         if returnBoundingBoxes:
             return yroots, boundingBoxes
         else:
             return yroots
     
-    #TODO: Handle if we have duplicate roots or extra roots at the top level. Easiest if we actually return the bounding boxes!
-    #Maybe return the bounding boxes in the recursive steps?
-    
+    #TODO: Handle if we have extra roots at the top level.
+
     #If any of the bounding boxes is too large, re-solve that box.
-    finalBoxes = []
-    finalRoots = []
+    #Each entry is (roots, boxes, isDupSet), where isDupSet says whether its roots might be duplicates.
+    entries = []
+    #Get the relative max size in each dimension. If a or b > 1 in magnitude, minBoundingIntervalSize is a relative number.
+    #If they are < 1 in magnitude, it is an absolute number.
+    scale = functools.reduce(np.maximum, [np.abs(a),np.abs(b), 1])
+    relMaxSize = minBoundingIntervalSize * scale
     for box in boundingBoxes:
-        #Get the relative max size in each dimension. If a or b > 1 in magnitude, minBoundingIntervalSize is a relative number.
-        #If they are < 1 in magnitude, it is an absolute number.
         newA, newB = ChebyshevApproximator.transform(box.finalInterval.T,a,b)
-        relMaxSize = minBoundingIntervalSize * functools.reduce(np.maximum, [np.abs(a),np.abs(b), 1])
         if np.all(newB - newA > relMaxSize):
             #Re-solve this box
             if verbose:
                 print("Re-solving on:", newA, newB)
             roots, boxes = solve(funcs, a=newA, b=newB, verbose=verbose, returnBoundingBoxes=True, exact=exact, minBoundingIntervalSize=minBoundingIntervalSize,
-                                 max_cpu=max_cpu, parallel_depth=parallel_depth)
+                                 max_cpu=max_cpu, parallel_depth=parallel_depth, _dupSets=_dupSets)
             if len(roots) > 0:
-                finalRoots.append(roots)
-                finalBoxes.append(boxes)
+                entries.append((roots, boxes, False))
         else:
             #Transform back
             transformedBox = ChebyshevApproximator.transform(box.finalInterval.T,a,b).T
@@ -221,8 +263,13 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
             #finalRoots and finalBoxes stay index-aligned. A box that could not separate the
             #roots inside it reports more than one, and each of them gets that same box.
             boxRoots = ChebyshevSubdivisionSolver.getRootsInInterval(box)
-            finalRoots.append(ChebyshevApproximator.transform(np.array(boxRoots),a,b))
-            finalBoxes.append(np.repeat(transformedBox[np.newaxis], len(boxRoots), axis=0))
+            entries.append((ChebyshevApproximator.transform(np.array(boxRoots),a,b),
+                            np.repeat(transformedBox[np.newaxis], len(boxRoots), axis=0), len(boxRoots) > 1))
+
+    #A box that could not separate its roots reports more than one.
+    _dupSets.extend(entry[0] for entry in entries if entry[2])
+    finalRoots = [entry[0] for entry in entries]
+    finalBoxes = [entry[1] for entry in entries]
     if len(finalBoxes) != 0:
         finalBoxes = np.vstack(finalBoxes)
     else:
@@ -235,6 +282,8 @@ def solve(funcs,a=-1,b=1, verbose = False, returnBoundingBoxes = False, exact=Fa
     # Find and return the roots (and, optionally, the bounding boxes)
     if verbose:
         _printRootCount(len(finalRoots))
+    if isTopLevel:
+        _warnDuplicateRoots(_dupSets)
     if returnBoundingBoxes:
         return finalRoots, finalBoxes
     else:
